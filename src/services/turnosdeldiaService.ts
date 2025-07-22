@@ -1,20 +1,47 @@
-export default class TurnosDelDiaService {
+
+interface SiguienteTurnoResponse {
+  siguiente: number;
+}
+
+// Interfaz para un turno (simplificada si solo necesitas ciertos campos)
+interface Turno {
+  id: number;
+  estado: 'activo' | 'inactivo' | 'cancelado' | 'finalizado';
+  horaIngreso: string | null;
+  horaSalida: string | null;
+  fecha: string;
+  // Añade otros campos si los necesitas para cálculos o visualizaciones futuras
+}
+
+class TurnosDelDiaService {
+  // Asegúrate de que esta URL base sea la correcta para tu backend AdonisJS
+  // Por ejemplo, si lo desplegaste en Render, sería algo como 'https://tu-backend.onrender.com/api/turnos-rtm'
   private static API_BASE_URL = 'http://localhost:3333/api/turnos-rtm';
 
   /**
    * Obtiene el siguiente número de turno disponible.
    * Corresponde a GET /api/turnos-rtm/siguiente-turno
+   * @param token Token de autenticación.
+   * @returns Promise<SiguienteTurnoResponse>
    */
-  static async fetchSiguienteTurno() {
+  public static async fetchNextTurnNumber(token: string): Promise<SiguienteTurnoResponse> {
     try {
-      const response = await fetch(`${this.API_BASE_URL}/siguiente-turno`);
+      const response = await fetch(`${TurnosDelDiaService.API_BASE_URL}/siguiente-turno`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`, // Se envía el token
+        },
+      });
+
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.message || 'Error al obtener el siguiente turno');
+        throw new Error(errorData.message || 'Error al obtener el siguiente número de turno.');
       }
-      return await response.json();
+
+      return response.json();
     } catch (error) {
-      console.error('Error en fetchSiguienteTurno:', error);
+      console.error('Error en fetchNextTurnNumber:', error);
       throw error;
     }
   }
@@ -24,20 +51,20 @@ export default class TurnosDelDiaService {
    * Este método consolida la obtención de turnos del día y turnos históricos.
    * Corresponde a GET /api/turnos-rtm?fecha=YYYY-MM-DD&placa=...&tipoVehiculo=...&estado=...
    * @param filters - Un objeto con filtros opcionales (ej. { fecha: '2024-07-17', placa: 'ABC', tipoVehiculo: 'moto', estado: 'activo' }).
-   * @param token - Opcional: Token de autenticación si la ruta lo requiere.
+   * @param token - Token de autenticación.
    */
-  static async fetchTurnos(filters: Record<string, string | number | boolean> = {}, token?: string) {
+  public static async fetchTurnos(filters: Record<string, string | number | boolean> = {}, token: string): Promise<Turno[]> {
     try {
       const queryParams = new URLSearchParams(filters as Record<string, string>).toString();
       const url = queryParams
-        ? `${this.API_BASE_URL}?${queryParams}`
-        : this.API_BASE_URL;
+        ? `${TurnosDelDiaService.API_BASE_URL}?${queryParams}`
+        : TurnosDelDiaService.API_BASE_URL;
 
       const headers: HeadersInit = {
         'Content-Type': 'application/json',
       };
       if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
+        headers['Authorization'] = `Bearer ${token}`; // Se envía el token
       }
 
       const response = await fetch(url, {
@@ -61,18 +88,18 @@ export default class TurnosDelDiaService {
    * Obtiene un turno específico por ID para edición o detalles.
    * Corresponde a GET /api/turnos-rtm/:id
    * @param id - El ID del turno.
-   * @param token - Opcional: Token de autenticación.
+   * @param token - Token de autenticación.
    */
-  static async fetchTurnoById(id: number, token?: string) {
+  public static async fetchTurnoById(id: number, token: string) {
     try {
       const headers: HeadersInit = {
         'Content-Type': 'application/json',
       };
       if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
+        headers['Authorization'] = `Bearer ${token}`; // Se envía el token
       }
 
-      const response = await fetch(`${this.API_BASE_URL}/${id}`, { headers });
+      const response = await fetch(`${TurnosDelDiaService.API_BASE_URL}/${id}`, { headers });
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.message || 'Error al obtener el turno');
@@ -88,18 +115,18 @@ export default class TurnosDelDiaService {
    * Crea un nuevo turno RTM.
    * Corresponde a POST /api/turnos-rtm
    * @param turnoData - Los datos para el nuevo turno.
-   * @param token - Opcional: Token de autenticación.
+   * @param token - Token de autenticación.
    */
-  static async createTurno(turnoData: Record<string, unknown>, token?: string) {
+  public static async createTurno(turnoData: Record<string, unknown>, token: string) {
     try {
       const headers: HeadersInit = {
         'Content-Type': 'application/json',
       };
       if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
+        headers['Authorization'] = `Bearer ${token}`; // Se envía el token
       }
 
-      const response = await fetch(this.API_BASE_URL, {
+      const response = await fetch(TurnosDelDiaService.API_BASE_URL, {
         method: 'POST',
         headers,
         body: JSON.stringify(turnoData),
@@ -120,18 +147,18 @@ export default class TurnosDelDiaService {
    * Corresponde a PUT /api/turnos-rtm/:id
    * @param id - El ID del turno a actualizar.
    * @param turnoData - Los datos a actualizar.
-   * @param token - Opcional: Token de autenticación.
+   * @param token - Token de autenticación.
    */
-  static async updateTurno(id: number, turnoData: Record<string, unknown>, token?: string) {
+  public static async updateTurno(id: number, turnoData: Record<string, unknown>, token: string) {
     try {
       const headers: HeadersInit = {
         'Content-Type': 'application/json',
       };
       if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
+        headers['Authorization'] = `Bearer ${token}`; // Se envía el token
       }
 
-      const response = await fetch(`${this.API_BASE_URL}/${id}`, {
+      const response = await fetch(`${TurnosDelDiaService.API_BASE_URL}/${id}`, {
         method: 'PUT',
         headers,
         body: JSON.stringify(turnoData),
@@ -151,18 +178,18 @@ export default class TurnosDelDiaService {
    * Registra la hora de salida para un turno.
    * Corresponde a PUT /api/turnos-rtm/:id/salida
    * @param id - El ID del turno.
-   * @param token - Opcional: Token de autenticación.
+   * @param token - Token de autenticación.
    */
-  static async registrarSalida(id: number, token?: string) {
+  public static async registrarSalida(id: number, token: string) {
     try {
       const headers: HeadersInit = {
         'Content-Type': 'application/json',
       };
       if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
+        headers['Authorization'] = `Bearer ${token}`; // Se envía el token
       }
 
-      const response = await fetch(`${this.API_BASE_URL}/${id}/salida`, {
+      const response = await fetch(`${TurnosDelDiaService.API_BASE_URL}/${id}/salida`, {
         method: 'PUT',
         headers,
       });
@@ -181,18 +208,18 @@ export default class TurnosDelDiaService {
    * Activa un turno cambiando su estado a 'activo'.
    * Corresponde a PATCH /api/turnos-rtm/:id/activar
    * @param id - El ID del turno a activar.
-   * @param token - Opcional: Token de autenticación.
+   * @param token - Token de autenticación.
    */
-  static async activarTurno(id: number, token?: string) {
+  public static async activarTurno(id: number, token: string) {
     try {
       const headers: HeadersInit = {
         'Content-Type': 'application/json',
       };
       if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
+        headers['Authorization'] = `Bearer ${token}`; // Se envía el token
       }
 
-      const response = await fetch(`${this.API_BASE_URL}/${id}/activar`, {
+      const response = await fetch(`${TurnosDelDiaService.API_BASE_URL}/${id}/activar`, {
         method: 'PATCH',
         headers,
       });
@@ -211,18 +238,18 @@ export default class TurnosDelDiaService {
    * Cancela un turno cambiando su estado a 'cancelado'.
    * Corresponde a PATCH /api/turnos-rtm/:id/cancelar
    * @param id - El ID del turno a cancelar.
-   * @param token - Opcional: Token de autenticación.
+   * @param token - Token de autenticación.
    */
-  static async cancelarTurno(id: number, token?: string) {
+  public static async cancelarTurno(id: number, token: string) {
     try {
       const headers: HeadersInit = {
         'Content-Type': 'application/json',
       };
       if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
+        headers['Authorization'] = `Bearer ${token}`; // Se envía el token
       }
 
-      const response = await fetch(`${this.API_BASE_URL}/${id}/cancelar`, {
+      const response = await fetch(`${TurnosDelDiaService.API_BASE_URL}/${id}/cancelar`, {
         method: 'PATCH',
         headers,
       });
@@ -241,18 +268,18 @@ export default class TurnosDelDiaService {
    * "Inhabilita" (soft delete) un turno cambiando su estado a 'inactivo'.
    * Corresponde a PATCH /api/turnos-rtm/:id/inhabilitar
    * @param id - El ID del turno a inhabilitar.
-   * @param token - Opcional: Token de autenticación.
+   * @param token - Token de autenticación.
    */
-  static async inhabilitarTurno(id: number, token?: string) {
+  public static async inhabilitarTurno(id: number, token: string) {
     try {
       const headers: HeadersInit = {
         'Content-Type': 'application/json',
       };
       if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
+        headers['Authorization'] = `Bearer ${token}`; // Se envía el token
       }
 
-      const response = await fetch(`${this.API_BASE_URL}/${id}/inhabilitar`, {
+      const response = await fetch(`${TurnosDelDiaService.API_BASE_URL}/${id}/inhabilitar`, {
         method: 'PATCH',
         headers,
       });
@@ -267,3 +294,5 @@ export default class TurnosDelDiaService {
     }
   }
 }
+
+export default TurnosDelDiaService;
