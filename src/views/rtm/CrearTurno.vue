@@ -37,7 +37,7 @@
               density="comfortable"
               prepend-inner-icon="mdi-car-info"
               :rules="[v => !!v || 'La placa es requerida']"
-              @input="(event: { target: HTMLInputElement }) => form.placa = (event.target as HTMLInputElement).value.toUpperCase()" 
+              @input="event => form.placa = (event.target as HTMLInputElement).value.toUpperCase()"
             />
           </v-col>
           <v-col cols="12" sm="6">
@@ -193,13 +193,13 @@ interface TurnoForm {
   horaIngreso: string; // Este será HH:mm
   placa: string;
   tipoVehiculo: 'carro' | 'moto' | 'taxi' | 'enseñanza' | '';
-  // ACTUALIZADO: Las opciones de medioEntero para que coincidan con el backend
+  // Actualizadas las opciones de medioEntero
   medioEntero: 'redes_sociales' | 'convenio_referido_externo' | 'call_center' | 'fachada' | 'referido_interno' | 'asesor_comercial' | '';
   observaciones: string;
   tieneCita: boolean;
   convenio: string | null; // Usaremos este para "Nombre de Convenio o Referido Externo"
   referidoInterno: string | null; // Usaremos este para "Nombre del Referido Interno"
-  referidoExterno: string | null; // Este campo ya no se usará directamente en el input, su rol lo toma 'convenio'
+  referidoExterno: string | null;
   asesorComercial: string | null; // Usaremos este para "Nombre del Asesor Comercial"
   funcionarioId: number;
 }
@@ -214,7 +214,7 @@ const form = ref<TurnoForm>({
   tieneCita: false,
   convenio: null,
   referidoInterno: null,
-  referidoExterno: null, // Este campo ahora podría quedar en null si no lo usas para nada
+  referidoExterno: null,
   asesorComercial: null,
   funcionarioId: 1,
 })
@@ -250,12 +250,12 @@ const confirmDialogConfirmColor = ref('')
 type ActionType = 'create_turno'
 const currentAction = ref<ActionType | ''>('')
 
-onMounted(async () => {
+onMounted(async () => { // CAMBIO: onMounted ahora es async
   const user = authStore.user;
   if (user && user.id) {
     form.value.funcionarioId = user.id;
   }
-  await resetFormFields()
+  await resetFormFields() // CAMBIO: await aquí
 })
 
 // WATCHER para limpiar campos cuando medioEntero cambia
@@ -298,8 +298,8 @@ const fetchNextTurnNumber = async () => {
     }
     showSnackbar(message, 'error');
 
-    if (error instanceof Error) {
-        if (error.message.includes('Sesión expirada') || error.message.includes('no autorizada')) {
+    if (typeof error === 'object' && error !== null && 'message' in error) {
+        if ((error as Error).message.includes('Sesión expirada') || (error as Error).message.includes('no autorizada')) {
             authStore.logout();
             router.push('/login');
         }
@@ -307,7 +307,7 @@ const fetchNextTurnNumber = async () => {
   }
 }
 
-const resetFormFields = async () => {
+const resetFormFields = async () => { // CAMBIO: Ahora es async
   const now = DateTime.now().setZone('America/Bogota');
 
   form.value = {
@@ -326,10 +326,10 @@ const resetFormFields = async () => {
   };
   turnoNumero.value = null;
 
-  await fetchNextTurnNumber();
+  await fetchNextTurnNumber(); // CAMBIO: Esperar a que se obtenga el nuevo número de turno
 
   if (formRef.value) {
-    formRef.value.resetValidation();
+    formRef.value.resetValidation(); // CAMBIO: Resetear la validación después de que los campos estén llenos
   }
 }
 
@@ -407,7 +407,7 @@ const submitForm = async () => {
 
     showSnackbar(`✅ Turno #${data.turnoNumero} creado exitosamente`, 'success')
 
-    await resetFormFields()
+    await resetFormFields() // CAMBIO: await aquí
 
   } catch (error: unknown) {
     let message = 'Error desconocido al crear el turno.'
