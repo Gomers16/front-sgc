@@ -2,11 +2,10 @@
   <v-app>
     <AppSidebar />
 
-    <v-layout>
-      <AppNavbar />
+    <v-layout style="background: #B0BEC5;"> <AppNavbar />
     </v-layout>
 
-    <v-main class="pa-15" style="background: #fafafa;"> <router-view />
+    <v-main class="pa-15" style="background: #B0BEC5;"> <router-view />
     </v-main>
   </v-app>
 </template>

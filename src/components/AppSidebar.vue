@@ -40,19 +40,20 @@
           <v-list-item v-bind="props" title="RTM" />
         </template>
 
-        <v-list-item
-          title="Turnos del día"
-          :to="{ path: '/rtm/turnos-dia' }"
-          link
-        />
+        <!-- ORDEN CAMBIADO AQUÍ -->
         <v-list-item
           title="Crear turno"
           :to="{ path: '/rtm/crear-turno' }"
           link
         />
         <v-list-item
+          title="Turnos del día"
+          :to="{ path: '/rtm/turnos-dia' }"
+          link
+        />
+        <v-list-item
           title="Estado turno"
-          :to="{ path: '/rtm/estado-turnos' }" 
+          :to="{ path: '/rtm/estado-turnos' }"
           link
         />
       </v-list-group>

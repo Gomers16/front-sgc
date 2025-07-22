@@ -36,7 +36,7 @@
           <v-col cols="12" md="6">
             <v-select
               v-model="turno.medioEntero"
-              :items="['fachada', 'redes', 'telemercadeo', 'otros']"
+              :items="['fachada', 'redes', 'telemercadeo', 'otros', 'convenio']"
               label="Medio Entero"
               variant="outlined"
               required
@@ -77,7 +77,6 @@
             ></v-textarea>
           </v-col>
 
-          <!-- Campos de estado y tiempo, si se desea editar manualmente -->
           <v-col cols="12" md="4">
             <v-text-field
               v-model="turno.horaIngreso"
@@ -111,8 +110,7 @@
               required
             ></v-select>
           </v-col>
-          <!-- Asumiendo que funcionarioId no se edita directamente aquí, sino que se precarga -->
-        </v-row>
+          </v-row>
 
         <v-divider class="my-6"></v-divider>
 
@@ -138,7 +136,6 @@
       </v-form>
     </v-card>
 
-    <!-- Snackbar para notificaciones -->
     <v-snackbar
       v-model="snackbar.show"
       :color="snackbar.color"
@@ -151,7 +148,6 @@
       </template>
     </v-snackbar>
 
-    <!-- Modal de confirmación para guardar -->
     <v-dialog v-model="confirmSaveDialog.show" max-width="500">
       <v-card>
         <v-card-title class="text-h6 font-weight-bold">Confirmar Guardar Cambios</v-card-title>
@@ -164,7 +160,6 @@
       </v-card>
     </v-dialog>
 
-    <!-- Diálogo de carga inicial -->
     <v-dialog v-model="isLoading" persistent width="300">
       <v-card color="primary" dark>
         <v-card-text class="py-4 text-center">
@@ -197,7 +192,7 @@ interface Turno {
   convenio: string | null;
   referidoInterno: string | null;
   referidoExterno: string | null;
-  medioEntero: 'fachada' | 'redes' | 'telemercadeo' | 'otros';
+  medioEntero: 'fachada' | 'redes' | 'telemercadeo' | 'otros' | 'convenio'; // Añadido 'convenio' aquí
   observaciones: string | null;
   funcionarioId: number;
   estado: 'activo' | 'inactivo' | 'cancelado';
@@ -228,7 +223,7 @@ const turno = ref<Turno>({
   referidoExterno: null,
   medioEntero: 'fachada',
   observaciones: null,
-  funcionarioId: 0,
+  funcionarioId: 0, // Asegúrate de que este valor sea el ID real del funcionario logueado o asignado.
   estado: 'activo',
 })
 
@@ -263,11 +258,13 @@ const fetchTurnoDetails = async (id: number) => {
     const token = authStore.token
     if (!token) {
       showSnackbar('Error: No hay token de autenticación. Por favor, inicie sesión.', 'error')
+      authStore.logout() // Asegurar logout si el token no existe
       router.push('/login')
       return
     }
     const data = await TurnosDelDiaService.fetchTurnoById(id, token) as Turno
-    turno.value = { ...data } // Usa spread para asegurar reactividad
+    // Usa spread para asegurar reactividad y que se copien todas las propiedades
+    turno.value = { ...data }
   } catch (error: unknown) {
     console.error('Error al cargar los detalles del turno:', error)
     let message = 'Error al cargar los detalles del turno. Intente recargar la página.'
@@ -281,8 +278,7 @@ const fetchTurnoDetails = async (id: number) => {
       }
     }
     showSnackbar(message, 'error')
-    // Redirigir si el turno no se encuentra o hay un error crítico
-    router.push('/rtm/turnos-dia') // ✅ Ruta corregida aquí
+    router.push('/rtm/turnos-dia')
   } finally {
     isLoading.value = false
   }
@@ -296,15 +292,35 @@ const saveTurno = async () => {
     const token = authStore.token
     if (!token) {
       showSnackbar('Error: No hay token de autenticación. Por favor, inicie sesión.', 'error')
+      authStore.logout() // Asegurar logout si el token no existe
       router.push('/login')
       return
     }
 
-    // Prepara los datos a enviar. Asegúrate de enviar solo los campos que tu API espera para 'update'.
+    // Prepara los datos a enviar. Incluye solo los campos que tu API de 'update'
+    // en el backend está configurada para recibir y procesar.
+    const updatePayload = {
+      placa: turno.value.placa,
+      tipoVehiculo: turno.value.tipoVehiculo,
+      tieneCita: turno.value.tieneCita,
+      convenio: turno.value.convenio,
+      referidoInterno: turno.value.referidoInterno,
+      referidoExterno: turno.value.referidoExterno,
+      medioEntero: turno.value.medioEntero,
+      observaciones: turno.value.observaciones,
+      funcionarioId: turno.value.funcionarioId, // Asegúrate de enviar el funcionarioId si es necesario
+      horaSalida: turno.value.horaSalida,
+      tiempoServicio: turno.value.tiempoServicio,
+      estado: turno.value.estado,
+      // No incluyas id, turnoNumero, fecha, horaIngreso, createdAt, updatedAt
+      // a menos que tu API esté diseñada para que se puedan modificar explícitamente.
+    }
 
+    // AHORA SÍ: LLAMADA AL SERVICIO PARA ACTUALIZAR EL TURNO
+    await TurnosDelDiaService.updateTurno(turno.value.id, updatePayload, token)
 
     showSnackbar('Turno guardado exitosamente!', 'success')
-    router.push('/rtm/turnos-dia') // ✅ Ruta corregida aquí
+    router.push('/rtm/turnos-dia')
   } catch (error: unknown) {
     console.error('Error al guardar el turno:', error)
     let message = 'Error al guardar el turno. Intente de nuevo.'
@@ -313,6 +329,9 @@ const saveTurno = async () => {
       if (message.includes('Sesión expirada') || message.includes('no autorizada')) {
         authStore.logout()
         router.push('/login')
+      } else if (message.includes('Failed to fetch')) {
+        // Error de red, el servidor no responde
+        message = 'No se pudo conectar con el servidor. Verifique su conexión o el estado del servidor.'
       }
     }
     showSnackbar(message, 'error')
@@ -327,7 +346,7 @@ onMounted(() => {
     fetchTurnoDetails(turnoId)
   } else {
     showSnackbar('ID de turno no proporcionado.', 'error')
-    router.push('/rtm/turnos-dia') // ✅ Ruta corregida aquí
+    router.push('/rtm/turnos-dia')
   }
 })
 

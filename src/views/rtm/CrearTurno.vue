@@ -2,7 +2,7 @@
   <v-container class="mt-6">
     <v-card elevation="8" class="pa-8 rounded-xl border-spacing-2">
       <v-card-title class="text-h4 mb-6 text-center text-primary font-weight-bold">
-        Crear Turno RTM <span class="text-secondary">- Turno #{{ turnoNumero || '...' }}</span>
+        ✍️ Crear Turno RTM <span class="text-secondary">- Turno #{{ turnoNumero || '...' }}</span>
       </v-card-title>
 
       <v-form ref="formRef" @submit.prevent="openConfirmDialog">
@@ -19,7 +19,7 @@
           </v-col>
           <v-col cols="12" sm="6">
             <v-text-field
-              v-model="form.horaIngreso"
+              :model-value="formattedHoraIngreso"
               label="Hora de Ingreso"
               variant="outlined"
               readonly
@@ -37,12 +37,13 @@
               density="comfortable"
               prepend-inner-icon="mdi-car-info"
               :rules="[v => !!v || 'La placa es requerida']"
+              @input="(event: { target: HTMLInputElement }) => form.placa = (event.target as HTMLInputElement).value.toUpperCase()" 
             />
           </v-col>
           <v-col cols="12" sm="6">
             <v-select
               v-model="form.tipoVehiculo"
-              :items="['vehiculo', 'moto']"
+              :items="['carro', 'moto', 'taxi', 'enseñanza']"
               label="Tipo de Vehículo"
               variant="outlined"
               required
@@ -55,12 +56,13 @@
           <v-col cols="12" sm="6">
             <v-select
               v-model="form.medioEntero"
-              :items="[ // MODIFICACIÓN CLAVE 1: Añadir 'convenio'
+              :items="[
+                { title: 'Redes Sociales', value: 'redes_sociales' },
+                { title: 'Convenio o Referido Externo', value: 'convenio_referido_externo' },
+                { title: 'Call Center', value: 'call_center' },
                 { title: 'Fachada', value: 'fachada' },
-                { title: 'Redes Sociales', value: 'redes' },
-                { title: 'Telemercadeo', value: 'telemercadeo' },
-                { title: 'Otros', value: 'otros' },
-                { title: 'Convenio', value: 'convenio' },
+                { title: 'Referido Interno', value: 'referido_interno' },
+                { title: 'Asesor Comercial', value: 'asesor_comercial' },
               ]"
               label="¿Cómo se enteró de nosotros?"
               variant="outlined"
@@ -83,34 +85,35 @@
             </v-radio-group>
           </v-col>
 
-          <v-col cols="12" sm="4" v-if="form.medioEntero === 'convenio'">
+          <v-col cols="12" sm="6" v-if="form.medioEntero === 'convenio_referido_externo'">
             <v-text-field
               v-model="form.convenio"
-              label="Convenio (opcional)"
+              label="Nombre de Convenio o Referido Externo (opcional)"
               variant="outlined"
               density="comfortable"
               prepend-inner-icon="mdi-handshake"
             />
           </v-col>
-          <v-col cols="12" sm="4" v-if="form.medioEntero === 'convenio'">
+
+          <v-col cols="12" sm="6" v-if="form.medioEntero === 'referido_interno'">
             <v-text-field
               v-model="form.referidoInterno"
-              label="Referido Interno (opcional)"
+              label="Nombre del Referido Interno (opcional)"
               variant="outlined"
               density="comfortable"
               prepend-inner-icon="mdi-account-tie"
             />
           </v-col>
-          <v-col cols="12" sm="4" v-if="form.medioEntero === 'convenio'">
+
+          <v-col cols="12" sm="6" v-if="form.medioEntero === 'asesor_comercial'">
             <v-text-field
-              v-model="form.referidoExterno"
-              label="Referido Externo (opcional)"
+              v-model="form.asesorComercial"
+              label="Nombre del Asesor Comercial (opcional)"
               variant="outlined"
               density="comfortable"
-              prepend-inner-icon="mdi-account-group"
+              prepend-inner-icon="mdi-account-hard-hat"
             />
           </v-col>
-
           <v-col cols="12">
             <v-textarea
               v-model="form.observaciones"
@@ -172,36 +175,63 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
+import { DateTime } from 'luxon'
+import { authSetStore } from '@/stores/AuthStore'
+import type { VForm } from 'vuetify/components'
 
 const router = useRouter()
-const turnoNumero = ref<number | null>(null)
-const formRef = ref<any>(null) // Referencia al formulario para validación
-const isSubmitting = ref(false) // Nuevo estado para el loading del botón
+const authStore = authSetStore()
 
-const form = ref({
+const turnoNumero = ref<number | null>(null)
+const formRef = ref<VForm | null>(null)
+const isSubmitting = ref(false)
+
+interface TurnoForm {
+  fecha: string;
+  horaIngreso: string; // Este será HH:mm
+  placa: string;
+  tipoVehiculo: 'carro' | 'moto' | 'taxi' | 'enseñanza' | '';
+  // ACTUALIZADO: Las opciones de medioEntero para que coincidan con el backend
+  medioEntero: 'redes_sociales' | 'convenio_referido_externo' | 'call_center' | 'fachada' | 'referido_interno' | 'asesor_comercial' | '';
+  observaciones: string;
+  tieneCita: boolean;
+  convenio: string | null; // Usaremos este para "Nombre de Convenio o Referido Externo"
+  referidoInterno: string | null; // Usaremos este para "Nombre del Referido Interno"
+  referidoExterno: string | null; // Este campo ya no se usará directamente en el input, su rol lo toma 'convenio'
+  asesorComercial: string | null; // Usaremos este para "Nombre del Asesor Comercial"
+  funcionarioId: number;
+}
+
+const form = ref<TurnoForm>({
   fecha: '',
   horaIngreso: '',
   placa: '',
   tipoVehiculo: '',
   medioEntero: '',
   observaciones: '',
-
-  // Campos adicionales
-  tieneCita: false, // Ahora es booleano para el radio group
+  tieneCita: false,
   convenio: null,
-  referidoInterno: '',
-  referidoExterno: '',
-  funcionarioId: 1, // Se sobrescribe abajo si hay usuario
+  referidoInterno: null,
+  referidoExterno: null, // Este campo ahora podría quedar en null si no lo usas para nada
+  asesorComercial: null,
+  funcionarioId: 1,
 })
 
-// Estado para el Snackbar
+const formattedHoraIngreso = computed(() => {
+  if (form.value.horaIngreso) {
+    const time = DateTime.fromFormat(form.value.horaIngreso, 'HH:mm', { zone: 'America/Bogota' });
+    return time.isValid ? time.toFormat('hh:mm a') : form.value.horaIngreso;
+  }
+  return '';
+});
+
 const snackbar = ref({
   show: false,
   message: '',
   color: '',
-  timeout: 4000, // Aumentado el timeout para que el usuario lea mejor
+  timeout: 4000,
 })
 
 const showSnackbar = (message: string, color: string = 'info', timeout: number = 4000) => {
@@ -211,7 +241,6 @@ const showSnackbar = (message: string, color: string = 'info', timeout: number =
   snackbar.value.show = true
 }
 
-// Estado para el Modal de Confirmación
 const showConfirmDialog = ref(false)
 const confirmDialogTitle = ref('')
 const confirmDialogMessage = ref('')
@@ -221,67 +250,95 @@ const confirmDialogConfirmColor = ref('')
 type ActionType = 'create_turno'
 const currentAction = ref<ActionType | ''>('')
 
-onMounted(() => {
-  // Inicializa el formulario al montar el componente
-  resetFormFields()
-  // Carga el siguiente número de turno al montar
-  fetchNextTurnNumber()
+onMounted(async () => {
+  const user = authStore.user;
+  if (user && user.id) {
+    form.value.funcionarioId = user.id;
+  }
+  await resetFormFields()
 })
 
-// Función para obtener el siguiente número de turno del backend
+// WATCHER para limpiar campos cuando medioEntero cambia
+watch(() => form.value.medioEntero, () => {
+  // Siempre limpiar todos los campos condicionales al cambiar la opción
+  form.value.convenio = null;
+  form.value.referidoInterno = null;
+  form.value.asesorComercial = null;
+  // Si 'referidoExterno' no se usa, también se puede mantener en null aquí
+  form.value.referidoExterno = null;
+});
+
+
 const fetchNextTurnNumber = async () => {
   try {
+    const token = authStore.token;
+    const headers: HeadersInit = { 'Content-Type': 'application/json' };
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
     const response = await fetch('http://localhost:3333/api/turnos-rtm/siguiente-turno', {
       method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        // Si la ruta de siguiente-turno está protegida, necesitarías el token aquí:
-        // 'Authorization': `Bearer ${sessionStorage.getItem('token')}`,
-      },
+      headers: headers,
     })
 
     if (!response.ok) {
-      throw new Error('Error al obtener el siguiente número de turno del servidor.')
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'Error al obtener el siguiente número de turno del servidor.');
     }
     const data = await response.json()
     if (data?.siguiente) {
       turnoNumero.value = data.siguiente
     }
   } catch (error: unknown) {
-    void error;
     console.error('Error al cargar el siguiente número de turno:', error)
-    showSnackbar('Error al cargar el número de turno. Intente recargar la página.', 'error')
+    let message = 'Error al cargar el número de turno. Intente recargar la página.';
+    if (error instanceof Error) {
+      message = error.message;
+    }
+    showSnackbar(message, 'error');
+
+    if (error instanceof Error) {
+        if (error.message.includes('Sesión expirada') || error.message.includes('no autorizada')) {
+            authStore.logout();
+            router.push('/login');
+        }
+    }
   }
 }
 
-// Función para reiniciar los campos del formulario
-const resetFormFields = () => {
-  const now = new Date()
+const resetFormFields = async () => {
+  const now = DateTime.now().setZone('America/Bogota');
+
   form.value = {
-    fecha: now.toISOString().slice(0, 10),
-    horaIngreso: now.toTimeString().slice(0, 8),
+    fecha: now.toISODate() || '',
+    horaIngreso: now.toFormat('HH:mm'),
     placa: '',
     tipoVehiculo: '',
-    medioEntero: '', // IMPORTANTE: Resetea este campo
+    medioEntero: '',
     observaciones: '',
-    tieneCita: false, // Reinicia a 'No' por defecto
-    convenio: null, // Asegúrate de resetear estos campos también
-    referidoInterno: '',
-    referidoExterno: '',
-    funcionarioId: form.value.funcionarioId, // Mantiene el ID del funcionario
+    tieneCita: false,
+    convenio: null,
+    referidoInterno: null,
+    referidoExterno: null,
+    asesorComercial: null,
+    funcionarioId: form.value.funcionarioId,
   };
-  turnoNumero.value = null; // Resetea el número de turno mostrado temporalmente
+  turnoNumero.value = null;
 
-  // Resetea la validación del formulario si la referencia existe
+  await fetchNextTurnNumber();
+
   if (formRef.value) {
-    formRef.value.resetValidation()
+    formRef.value.resetValidation();
   }
-  // Después de resetear los campos, volvemos a cargar el siguiente número de turno
-  fetchNextTurnNumber()
 }
 
 
 const openConfirmDialog = async () => {
+  if (!formRef.value) {
+    showSnackbar('Error interno: El formulario no está inicializado.', 'error');
+    return;
+  }
   const { valid } = await formRef.value.validate()
 
   if (!valid) {
@@ -300,13 +357,13 @@ const openConfirmDialog = async () => {
 
 const handleConfirmAction = async () => {
   showConfirmDialog.value = false
-  isSubmitting.value = true // Activa el estado de loading
+  isSubmitting.value = true
 
   if (currentAction.value === 'create_turno') {
     await submitForm()
   }
   currentAction.value = ''
-  isSubmitting.value = false // Desactiva el estado de loading al finalizar
+  isSubmitting.value = false
 }
 
 
@@ -319,7 +376,7 @@ const handleCancelAction = () => {
 
 const submitForm = async () => {
   try {
-    const token = sessionStorage.getItem('token')
+    const token = authStore.token;
     if (!token) {
       showSnackbar('Error: No hay token de autenticación. Por favor, inicie sesión.', 'error')
       router.push('/login')
@@ -339,8 +396,7 @@ const submitForm = async () => {
       const errorData = await response.json()
       if (response.status === 401) {
         showSnackbar('Sesión expirada o no autorizada. Por favor, inicie sesión de nuevo.', 'error')
-        sessionStorage.removeItem('token')
-        sessionStorage.removeItem('user')
+        authStore.logout()
         router.push('/login')
         return
       }
@@ -351,15 +407,14 @@ const submitForm = async () => {
 
     showSnackbar(`✅ Turno #${data.turnoNumero} creado exitosamente`, 'success')
 
-    resetFormFields()
+    await resetFormFields()
 
-  } catch (_error: unknown) {
-    void _error;
+  } catch (error: unknown) {
     let message = 'Error desconocido al crear el turno.'
-    if (_error instanceof Error) {
-      message = _error.message
+    if (error instanceof Error) {
+      message = error.message
     }
-    console.error('Error:', _error)
+    console.error('Error:', error)
     showSnackbar(`❌ ${message}`, 'error')
   }
 }
@@ -368,33 +423,28 @@ const submitForm = async () => {
 <style scoped>
 .v-card-title {
   font-weight: bold;
-  letter-spacing: 0.05em; /* Un poco de espaciado para mejor lectura */
+  letter-spacing: 0.05em;
 }
 
-/* Estilos para el título del turno */
 .v-card-title .text-secondary {
-  color: #4CAF50; /* Un color verde para el número de turno */
+  color: #4CAF50;
 }
 
-/* Mejoras visuales para el card */
 .v-card {
   box-shadow: 0 10px 20px rgba(0,0,0,0.15), 0 6px 6px rgba(0,0,0,0.1);
-  border-radius: 16px; /* Bordes más redondeados */
-  background: linear-gradient(145deg, #f0f2f5, #e0e2e5); /* Degradado suave */
+  border-radius: 16px;
+  background: linear-gradient(145deg, #f0f2f5, #e0e2e5);
 }
 
-/* Estilos para los campos de texto/select */
 .v-text-field .v-input__control,
 .v-select .v-input__control {
   border-radius: 8px;
 }
 
-/* Iconos en los campos */
 .v-input__prepend-inner .v-icon {
-  color: #1976D2; /* Color primario para los iconos */
+  color: #1976D2;
 }
 
-/* Botón de Crear Turno */
 .v-btn {
   border-radius: 10px;
   transition: all 0.3s ease;
@@ -406,8 +456,7 @@ const submitForm = async () => {
   box-shadow: 0 6px 12px rgba(0,0,0,0.2);
 }
 
-/* Estilo para los radio buttons */
 .v-radio-group .v-radio {
-  margin-right: 16px; /* Espacio entre radios */
+  margin-right: 16px;
 }
 </style>

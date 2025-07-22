@@ -35,24 +35,52 @@
             clearable
           ></v-text-field>
         </v-col>
-        <v-col cols="12" class="d-flex justify-end">
+        <v-col cols="12" class="d-flex justify-end flex-wrap">
           <v-btn
             color="primary"
             variant="elevated"
             prepend-icon="mdi-filter"
             @click="applyFilters"
             :loading="isLoading"
+            class="mb-2 mr-2"
           >
             Aplicar Filtros
+          </v-btn>
+          <v-btn
+            color="info"
+            variant="outlined"
+            prepend-icon="mdi-calendar-today"
+            @click="setTodayAndFilter"
+            class="mb-2 mr-2"
+          >
+            Ver Turnos de Hoy
+          </v-btn>
+          <v-btn
+            color="cyan-darken-1"
+            variant="outlined"
+            prepend-icon="mdi-calendar-month"
+            @click="setMonthAndFilter"
+            class="mb-2 mr-2"
+          >
+            Ver Turnos del Mes Actual
           </v-btn>
           <v-btn
             color="grey"
             variant="outlined"
             prepend-icon="mdi-close-circle-outline"
-            class="ml-2"
+            class="mb-2"
             @click="clearFilters"
           >
             Limpiar Filtros
+          </v-btn>
+          <v-btn
+            color="secondary"
+            variant="elevated"
+            prepend-icon="mdi-chart-bar"
+            class="ml-2 mb-2"
+            @click="goToReporteCaptacion"
+          >
+            Reporte por Captación
           </v-btn>
         </v-col>
       </v-row>
@@ -61,13 +89,17 @@
 
       <v-data-table
         :headers="headers"
-        :items="turnos" :loading="isLoading"
+        :items="turnos"
+        :loading="isLoading"
         loading-text="Cargando histórico de turnos..."
         no-data-text="No hay turnos para mostrar con los filtros aplicados."
         class="elevation-1"
       >
         <template v-slot:item.fecha="{ item }">
           {{ formatDate(item.fecha) }}
+        </template>
+        <template v-slot:item.horaIngreso="{ item }">
+          {{ formatTime(item.horaIngreso ?? '') }}
         </template>
 
         <template v-slot:item.estado="{ item }">
@@ -107,25 +139,25 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue';
+import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
-import TurnosDelDiaService from '@/services/turnosdeldiaService';
+import { DateTime } from 'luxon';
+import TurnosDelDiaService from '@/services/turnosdeldiaService'; // Asegúrate de que este servicio existe y maneja los parámetros correctamente
 
-// Interfaz para el tipo Turno (no cambia, es la misma que ya tienes)
 interface Turno {
   id: number;
   turnoNumero: number;
   fecha: string;
-  horaIngreso: string;
+  horaIngreso: string | null;
   horaSalida: string | null;
   tiempoServicio: string | null;
   placa: string;
-  tipoVehiculo: 'vehiculo' | 'moto';
+  tipoVehiculo: 'carro' | 'moto' | 'taxi' | 'enseñanza';
   tieneCita: boolean;
   convenio: string | null;
   referidoInterno: string | null;
   referidoExterno: string | null;
-  medioEntero: 'fachada' | 'redes' | 'telemercadeo' | 'otros';
+  medioEntero: 'Redes Sociales' | 'Convenio o Referido Externo' | 'Call Center' | 'Fachada' | 'Referido Interno' | 'Asesor Comercial';
   observaciones: string | null;
   funcionarioId: number;
   estado: 'activo' | 'inactivo' | 'cancelado' | 'finalizado';
@@ -138,14 +170,23 @@ interface Turno {
   updatedAt: string;
 }
 
+// Nueva interfaz para los filtros que se envían al servicio
+interface FetchTurnosFilters {
+  placa?: string;
+  turnoNumero?: number;
+  fecha?: string; // Mantener por si se usa para un filtro de fecha exacta
+  fechaInicio?: string;
+  fechaFin?: string;
+}
+
 const router = useRouter();
 
 const turnos = ref<Turno[]>([]);
 const isLoading = ref(false);
 
-const searchPlaca = ref('');
+const searchPlaca = ref<string | null | undefined>(undefined);
 const searchTurnoNumero = ref<number | null>(null);
-const filterDate = ref('');
+const filterDate = ref<string | null | undefined>(undefined);
 
 const snackbar = ref({
   show: false,
@@ -170,31 +211,21 @@ const showSnackbar = (message: string, color = 'info', timeout = 4000) => {
 
 const getTurnoStatusText = (estado: Turno['estado']): string => {
   switch (estado) {
-    case 'activo':
-      return 'Activo';
-    case 'inactivo':
-      return 'Inactivo';
-    case 'cancelado':
-      return 'Cancelado';
-    case 'finalizado':
-      return 'Finalizado';
-    default:
-      return 'Desconocido';
+    case 'activo': return 'Activo';
+    case 'inactivo': return 'Inactivo';
+    case 'cancelado': return 'Cancelado';
+    case 'finalizado': return 'Finalizado';
+    default: return 'Desconocido';
   }
 };
 
 const getTurnoStatusColor = (estado: Turno['estado']): string => {
   switch (estado) {
-    case 'activo':
-      return 'success';
-    case 'inactivo':
-      return 'grey';
-    case 'cancelado':
-      return 'error';
-    case 'finalizado':
-      return 'info';
-    default:
-      return 'grey-lighten-1';
+    case 'activo': return 'success';
+    case 'inactivo': return 'grey';
+    case 'cancelado': return 'error';
+    case 'finalizado': return 'info';
+    default: return 'grey-lighten-1';
   }
 };
 
@@ -211,36 +242,68 @@ const getActualStageText = (turno: Turno): string => {
 const formatDate = (dateString: string): string => {
   if (!dateString) return '';
   try {
-    return dateString.split('T')[0];
+    const date = DateTime.fromISO(dateString);
+    return date.isValid ? date.toISODate() : dateString;
   } catch (e) {
     console.error("Error al formatear la fecha:", dateString, e);
     return dateString;
   }
 };
 
+const formatTime = (timeString: string | null): string => {
+  if (!timeString) return '';
+  let time: DateTime;
 
-const fetchTurnosFromApi = async () => {
+  // Intentar parsear como HH:mm:ss (si la BD lo guarda así)
+  time = DateTime.fromFormat(timeString, 'HH:mm:ss', { zone: 'America/Bogota' });
+
+  // Si no es válido como HH:mm:ss, intentar parsear como HH:mm
+  if (!time.isValid) {
+    time = DateTime.fromFormat(timeString, 'HH:mm', { zone: 'America/Bogota' });
+  }
+
+  if (time.isValid) {
+    return time.toFormat('hh:mm a'); // 'hh' para 12 horas, 'mm' para minutos, 'a' para AM/PM
+  }
+  console.warn('formatTime: Failed to parse timeString:', timeString);
+  return timeString; // Retorna el string original si el parseo falla
+};
+
+const fetchTurnosFromApi = async (fechaInicioParam?: string, fechaFinParam?: string) => {
   isLoading.value = true;
   try {
-    const filters: Record<string, string | number> = {}; // Allow number for turnoNumero
+    const filters: FetchTurnosFilters = {};
 
-    if (searchPlaca.value) filters.placa = searchPlaca.value;
-    // NEW: Pass searchTurnoNumero to the backend filter
+    // Asegurar que solo se añadan filtros si tienen un valor que es string y no está vacío
+    if (typeof searchPlaca.value === 'string' && searchPlaca.value.trim() !== '') { // CAMBIO: Añadir .trim()
+      filters.placa = searchPlaca.value.trim(); // CAMBIO: Añadir .trim()
+    }
     if (searchTurnoNumero.value !== null && searchTurnoNumero.value > 0) {
       filters.turnoNumero = searchTurnoNumero.value;
     }
-    if (filterDate.value) filters.fecha = filterDate.value;
 
-    console.log('Filtros que se enviarán al backend:', filters); // Add console.log as discussed
-    const queryParams = new URLSearchParams(filters as Record<string, string>).toString();
-    const url = queryParams
-        ? `${TurnosDelDiaService.API_BASE_URL}?${queryParams}` // Use the service's base URL
-        : TurnosDelDiaService.API_BASE_URL;
-    console.log('URL de la API construida:', url);
+    if (typeof filterDate.value === 'string' && filterDate.value !== '') {
+      filters.fechaInicio = filterDate.value;
+      filters.fechaFin = filterDate.value;
+    } else if (fechaInicioParam && fechaFinParam) {
+      filters.fechaInicio = fechaInicioParam;
+      filters.fechaFin = fechaFinParam;
+    }
 
-    const data = await TurnosDelDiaService.fetchTurnos(filters) as Turno[];
-    turnos.value = data; // Assign directly, as backend does the filtering
+    // --- DEBUGGING: Log de la URL que se va a enviar ---
+    const queryParams = new URLSearchParams();
+    for (const key in filters) {
+      const value = filters[key as keyof FetchTurnosFilters];
+      if (value !== undefined && value !== null && value !== '') {
+        queryParams.append(key, String(value));
+      }
+    }
+    const apiUrl = `http://localhost:3333/api/turnos-rtm?${queryParams.toString()}`;
+    console.log('Fetching from URL:', apiUrl);
+    // --- FIN DEBUGGING ---
 
+    const data = await TurnosDelDiaService.fetchTurnos(filters as Record<string, string | number | boolean>) as Turno[];
+    turnos.value = data;
     showSnackbar('Turnos cargados correctamente.', 'success');
   } catch (error: unknown) {
     console.error('Error al cargar turnos:', error);
@@ -255,29 +318,43 @@ const fetchTurnosFromApi = async () => {
   }
 };
 
-// REMOVED: The computed property `filteredTurnos` is no longer needed because filtering happens on the backend.
-// const filteredTurnos = computed(() => {
-//   if (searchTurnoNumero.value === null || searchTurnoNumero.value === 0) {
-//     return turnos.value;
-//   } else {
-//     return turnos.value.filter(turno => turno.turnoNumero === searchTurnoNumero.value);
-//   }
-// });
-
-
 const applyFilters = () => {
   fetchTurnosFromApi();
 };
 
 const clearFilters = () => {
-  searchPlaca.value = '';
+  searchPlaca.value = undefined;
   searchTurnoNumero.value = null;
-  filterDate.value = '';
+  filterDate.value = undefined;
   fetchTurnosFromApi();
 };
 
 const viewTurnoDetails = (id: number) => {
   router.push(`/rtm/editar-turno/${id}`);
+};
+
+const goToReporteCaptacion = () => {
+  router.push('/rtm/contador-captacion');
+};
+
+const setTodayAndFilter = () => {
+  const today = DateTime.local().setZone('America/Bogota');
+  filterDate.value = today.toISODate() ?? undefined;
+  searchPlaca.value = undefined;
+  searchTurnoNumero.value = null;
+  fetchTurnosFromApi();
+};
+
+const setMonthAndFilter = () => {
+  const today = DateTime.local().setZone('America/Bogota');
+  const firstDayOfMonth = today.startOf('month').toISODate() ?? undefined;
+  const lastDayOfMonth = today.endOf('month').toISODate() ?? undefined;
+
+  searchPlaca.value = undefined;
+  searchTurnoNumero.value = null;
+  filterDate.value = undefined;
+
+  fetchTurnosFromApi(firstDayOfMonth, lastDayOfMonth);
 };
 
 onMounted(() => {

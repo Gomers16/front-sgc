@@ -4,9 +4,10 @@ import DashboardView from '@/views/dashboard/DashboardView.vue'
 import RTMView from '@/views/RtmView.vue'
 import CrearTurnoView from '@/views/rtm/CrearTurno.vue'
 import TurnosDelDia from '@/views/rtm/TurnosDelDia.vue'
-import TurnoRtmEdit from '@/views/rtm/EditarTurno.vue' // ✅ Importa tu vista de edición (EditarTurno.vue)
-import EstadoDeTurnos from '@/views/rtm/EstadoDeTurnos.vue' // ✅ ¡Importa la nueva vista de Estado de Turnos!
-import { authSetStore } from '@/stores/AuthStore' // ✅ Importación de authSetStore
+import TurnoRtmEdit from '@/views/rtm/EditarTurno.vue'
+import EstadoDeTurnos from '@/views/rtm/EstadoDeTurnos.vue'
+import ContadorConvenios from '@/views/rtm/ContadorConvenios.vue' // ✅ ¡NUEVA IMPORTACIÓN DE LA VISTA!
+import { authSetStore } from '@/stores/AuthStore'
 
 const routes = [
   {
@@ -38,22 +39,28 @@ const routes = [
     meta: { layout: 'MainLayout', requiresAuth: true },
   },
   {
-    path: '/rtm/turnos-dia', // ✅ Ruta para Turnos del Día
+    path: '/rtm/turnos-dia',
     name: 'TurnosDelDia',
     component: TurnosDelDia,
     meta: { layout: 'MainLayout', requiresAuth: true },
   },
   {
-    path: '/rtm/editar-turno/:id', // ✅ Ruta para la edición de un turno
+    path: '/rtm/editar-turno/:id',
     name: 'TurnoRtmEdit',
     component: TurnoRtmEdit,
-    props: true, // Esto pasa el 'id' de la URL como prop al componente TurnoRtmEdit
+    props: true,
     meta: { layout: 'MainLayout', requiresAuth: true },
   },
   {
-    path: '/rtm/estado-turnos', // ✅ ¡NUEVA RUTA para el Histórico y Estado de Turnos!
+    path: '/rtm/estado-turnos',
     name: 'EstadoDeTurnos',
     component: EstadoDeTurnos,
+    meta: { layout: 'MainLayout', requiresAuth: true },
+  },
+  {
+    path: '/rtm/contador-captacion', // ✅ ¡NUEVA RUTA AGREGADA!
+    name: 'ContadorCaptacion',
+    component: ContadorConvenios,
     meta: { layout: 'MainLayout', requiresAuth: true },
   },
 ]
@@ -63,7 +70,7 @@ const router = createRouter({
   routes,
 })
 
-// ✅ Navegación protegida
+// Navegación protegida
 router.beforeEach((to, from, next) => {
   const authStore = authSetStore()
 

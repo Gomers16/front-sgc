@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { ref, onMounted } from 'vue' // Importar ref
 import { authSetStore } from '@/stores/AuthStore'
 import { useRouter } from 'vue-router'
 import ActivautosLogo from '@/assets/activautos-logo.png'
@@ -8,21 +8,31 @@ import CdaLogo from '@/assets/cda-centro-logo-amarillo.png'
 const authStore = authSetStore()
 const router = useRouter()
 
-async function irADetalle(noti: any) {
-  await authStore.markNotificationAsRead(noti.id)
-  router.push({ name: 'detalle-ticket', params: { id: String(noti.ticketId) } })
-}
+// Estado para el modal de confirmación de cierre de sesión
+const showLogoutConfirm = ref(false)
+const logoutLoading = ref(false)
 
 onMounted(async () => {
   await authStore.checkAuth()
 })
 
-const handleLogout = async () => {
+// Abre el modal de confirmación
+const handleLogout = () => {
+  showLogoutConfirm.value = true
+}
+
+// Ejecuta el cierre de sesión después de la confirmación
+const confirmLogout = async () => {
+  logoutLoading.value = true
   try {
     await authStore.logout()
     router.push('/login')
   } catch (error) {
     console.error('Error al cerrar sesión:', error)
+    // Opcional: mostrar un snackbar o mensaje de error si el logout falla
+  } finally {
+    logoutLoading.value = false
+    showLogoutConfirm.value = false // Cerrar el modal después de la acción
   }
 }
 </script>
@@ -50,42 +60,42 @@ const handleLogout = async () => {
 
     <!-- ✅ Texto centrado en el navbar -->
     <v-toolbar-title class="titulo-centrado">
-      Bienvenido, {{ authStore.user?.nombre || 'Usuario' }}
+      Bienvenido, {{ authStore.user?.nombres || 'Usuario' }}
     </v-toolbar-title>
 
     <v-spacer></v-spacer>
 
-    <v-menu location="bottom end" offset-y>
-      <template #activator="{ props }">
-        <v-badge
-          :content="authStore.cantidadNoLeidas"
-          color="red"
-          v-bind="props"
-          overlap
-        >
-          <v-icon>mdi-bell</v-icon>
-        </v-badge>
-      </template>
-
-      <v-list>
-        <v-list-item
-          v-for="noti in authStore.notificaciones"
-          :key="noti.id"
-          @click="irADetalle(noti)"
-        >
-          <v-list-item-title>{{ noti.titulo }}</v-list-item-title>
-          <v-list-item-subtitle>{{ noti.mensaje }}</v-list-item-subtitle>
-        </v-list-item>
-        <v-divider class="my-1" />
-        <v-list-item @click="router.push({ name: 'Notificaciones' })">
-          <v-list-item-title class="text-primary">
-            Ver todas las notificaciones
-          </v-list-item-title>
-        </v-list-item>
-      </v-list>
-    </v-menu>
-
+    <!-- Botón de logout -->
     <v-btn icon="mdi-export" @click="handleLogout"></v-btn>
+
+    <!-- Modal de confirmación de cierre de sesión -->
+    <v-dialog v-model="showLogoutConfirm" max-width="400">
+      <v-card class="rounded-lg">
+        <v-card-title class="text-h6 text-primary font-weight-bold">
+          Confirmar Cierre de Sesión
+        </v-card-title>
+        <v-card-text>
+          ¿Estás seguro de que quieres cerrar tu sesión?
+        </v-card-text>
+        <v-card-actions class="justify-end">
+          <v-btn
+            color="grey-darken-1"
+            variant="text"
+            @click="showLogoutConfirm = false"
+          >
+            Cancelar
+          </v-btn>
+          <v-btn
+            color="error"
+            variant="elevated"
+            :loading="logoutLoading"
+            @click="confirmLogout"
+          >
+            Sí, cerrar sesión
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
   </v-toolbar>
 </template>
 

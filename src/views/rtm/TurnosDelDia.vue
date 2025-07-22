@@ -1,7 +1,7 @@
 <template>
   <v-container class="mt-6">
-    <v-card elevation="8" class="pa-8 rounded-xl">
-      <v-card-title class="text-h4 mb-6 text-center text-primary font-weight-bold">
+    <v-card elevation="8" class="pa-8 rounded-xl bg-background-light">
+      <v-card-title class="text-h4 mb-6 text-center font-weight-bold text-primary">
         📋 Turnos en Proceso <span class="text-secondary">(HOY - {{ todayDate }})</span>
       </v-card-title>
 
@@ -22,7 +22,7 @@
             color="info"
             variant="outlined"
             prepend-icon="mdi-chart-bar"
-            @click="showSnackbar('Funcionalidad de estadísticas en desarrollo', 'info')"
+            @click="openStatsModal"
           >
             Ver estadísticas del día
           </v-btn>
@@ -63,31 +63,31 @@
           md="4"
           lg="3"
         >
-          <v-card class="turno-card pa-4 rounded-lg elevation-4">
-            <v-card-title class="text-h6 font-weight-bold text-primary pb-2">
+          <v-card class="turno-card pa-4 rounded-lg elevation-4" color="primary">
+            <v-card-title class="text-h6 font-weight-bold pb-2 text-on-primary-text">
               🔢 Turno: {{ turno.turnoNumero }}
             </v-card-title>
             <v-card-text>
-              <p class="text-subtitle-1">🚗 Placa: <span class="font-weight-medium">{{ turno.placa }}</span></p>
-              <p class="text-subtitle-1">⏰ Ingreso: <span class="font-weight-medium">{{ turno.horaIngreso }}</span></p>
-              <p class="text-subtitle-1 mt-3 font-weight-bold text-darken-1">📌 Etapas:</p>
-              <v-list dense class="py-0">
+              <p class="text-subtitle-1 text-on-primary-text">🚗 Placa: <span class="font-weight-medium">{{ turno.placa }}</span></p>
+              <p class="text-subtitle-1 text-on-primary-text">⏰ Ingreso: <span class="font-weight-medium">{{ formatTime(turno.horaIngreso) }}</span></p>
+              <p class="text-subtitle-1 mt-3 font-weight-bold text-on-primary-text">📌 Etapas:</p>
+              <v-list dense class="py-0 bg-transparent">
                 <v-list-item v-for="(etapa, i) in getEtapas(turno)" :key="i" class="py-0 px-0">
                   <template v-slot:prepend>
-                    <v-icon :color="etapa.completed ? 'success' : 'grey-lighten-1'">
+                    <v-icon :color="etapa.completed ? 'success' : 'on-primary-text-light'">
                       {{ etapa.completed ? 'mdi-check-circle' : 'mdi-circle-outline' }}
                     </v-icon>
                   </template>
-                  <v-list-item-title :class="{ 'text-decoration-line-through text-grey': etapa.completed }">
+                  <v-list-item-title :class="{ 'text-decoration-line-through text-on-primary-text-faded': etapa.completed }" class="text-on-primary-text">
                     {{ etapa.name }}
                   </v-list-item-title>
                 </v-list-item>
               </v-list>
             </v-card-text>
 
-            <v-card-actions class="justify-end pt-0">
+            <v-card-actions class="justify-center pt-0">
               <v-btn
-                color="warning"
+                color="button-text-light-warning"
                 variant="text"
                 prepend-icon="mdi-pencil"
                 @click="openConfirmDialog(turno, 'editar')"
@@ -95,7 +95,7 @@
                 Editar
               </v-btn>
               <v-btn
-                color="secondary"
+                color="button-text-light-secondary"
                 variant="text"
                 prepend-icon="mdi-play"
                 @click="openConfirmDialog(turno, 'continuar')"
@@ -133,35 +133,102 @@
         </v-card-actions>
       </v-card>
     </v-dialog>
+
+    <!-- Modal de Estadísticas -->
+    <v-dialog v-model="showStatsModal" max-width="800" content-class="elevation-24">
+      <v-card class="rounded-xl bg-white">
+        <v-card-title class="text-h5 text-center text-primary font-weight-bold py-4">
+          📊 Estadísticas de Turnos en Proceso (Hoy)
+        </v-card-title>
+        <v-card-text>
+          <p class="text-h6 mb-4 text-center">Total de Turnos en Proceso: <strong>{{ turnos.length }}</strong></p>
+
+          <v-divider class="my-4"></v-divider>
+
+          <v-row>
+            <v-col cols="12" md="6">
+              <v-card variant="outlined" class="pa-4">
+                <v-card-title class="text-h6 text-secondary">Por Tipo de Vehículo:</v-card-title>
+                <div style="height: 250px;"> <!-- Contenedor para el gráfico de barra -->
+                  <BarChart :data="chartDataTipoVehiculo" :options="chartOptions" />
+                </div>
+              </v-card>
+            </v-col>
+            <v-col cols="12" md="6">
+              <v-card variant="outlined" class="pa-4">
+                <v-card-title class="text-h6 text-secondary">Por Medio de Ingreso:</v-card-title>
+                <!-- CAMBIO AQUÍ: Reemplazado DoughnutChart por v-list -->
+                <v-list density="compact">
+                  <v-list-item v-for="(count, medio) in statsData.medioEntero" :key="medio">
+                    <v-list-item-title class="font-weight-medium text-capitalize">{{ medio }}:</v-list-item-title>
+                    <template v-slot:append>
+                      <v-chip color="blue-grey" label>{{ count }}</v-chip>
+                    </template>
+                  </v-list-item>
+                </v-list>
+              </v-card>
+            </v-col>
+          </v-row>
+        </v-card-text>
+        <v-card-actions class="justify-end py-4">
+          <v-btn color="primary" variant="elevated" @click="showStatsModal = false">Cerrar</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
   </v-container>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
-// Asegúrate de que esta ruta sea correcta para tu servicio
+import { DateTime } from 'luxon'
 import TurnosDelDiaService from '@/services/turnosdeldiaService'
 import { authSetStore } from '@/stores/AuthStore'
+
+// Importaciones para Chart.js y vue-chartjs
+import {
+  Chart as ChartJS,
+  Title,
+  Tooltip,
+  Legend,
+  BarElement,
+  CategoryScale,
+  LinearScale,
+  ArcElement,
+  type TooltipItem // CAMBIO: Importar TooltipItem
+ // CAMBIO: Importar TooltipItem
+} from 'chart.js';
+import { Bar as BarChart } from 'vue-chartjs';
+
+ChartJS.register(Title, Tooltip, Legend, BarElement, CategoryScale, LinearScale, ArcElement);
+
 
 // Interfaz para definir la estructura de un turno
 interface Turno {
   id: number;
-  fecha: string; // **Importante:** Este campo debe venir del backend en formato 'YYYY-MM-DD'
-  horaIngreso: string;
+  fecha: string;
+  horaIngreso: string | null;
   horaSalida: string | null;
   tiempoServicio: string | null;
   turnoNumero: number;
   turnoCodigo?: string;
   placa: string;
-  tipoVehiculo: 'vehiculo' | 'moto';
+  tipoVehiculo: 'carro' | 'moto' | 'taxi' | 'enseñanza' | null;
   tieneCita: boolean;
   convenio: string | null;
   referidoInterno: string | null;
   referidoExterno: string | null;
-  medioEntero: 'fachada' | 'redes' | 'telemercadeo' | 'otros';
+  medioEntero:
+    | 'Redes Sociales'
+    | 'Convenio o Referido Externo'
+    | 'Call Center'
+    | 'Fachada'
+    | 'Referido Interno'
+    | 'Asesor Comercial'
+    | null;
   observaciones: string | null;
   funcionarioId: number;
-  estado: 'activo' | 'inactivo' | 'cancelado' | 'finalizado'; // Tipos de estado posibles
+  estado: 'activo' | 'inactivo' | 'cancelado' | 'finalizado';
   funcionario?: {
     id: number;
     nombres: string;
@@ -174,7 +241,7 @@ interface Turno {
 const router = useRouter()
 const turnos = ref<Turno[]>([])
 const isLoading = ref(true)
-const todayDate = ref('') // Usado para mostrar la fecha de hoy en el título
+const todayDate = ref('')
 
 // --- Configuración del Snackbar (Notificaciones) ---
 const snackbar = ref({
@@ -193,7 +260,7 @@ const confirmDialog = ref({
   show: false,
   title: '',
   message: '',
-  action: '', // 'editar' o 'continuar'
+  action: '',
   turno: null as Turno | null,
   color: 'primary',
 })
@@ -222,6 +289,25 @@ const handleConfirmAction = () => {
   }
 }
 
+// --- FUNCIÓN PARA FORMATAR LA HORA (HH:mm:ss a hh:mm AM/PM) ---
+const formatTime = (timeString: string | null): string => {
+  if (!timeString) return '';
+  let time: DateTime;
+
+  time = DateTime.fromFormat(timeString, 'HH:mm:ss', { zone: 'America/Bogota' });
+
+  if (!time.isValid) {
+    time = DateTime.fromFormat(timeString, 'HH:mm', { zone: 'America/Bogota' });
+  }
+
+  if (time.isValid) {
+    return time.toFormat('hh:mm a');
+  }
+  console.warn('formatTime: Failed to parse timeString:', timeString);
+  return timeString;
+};
+
+
 // --- FUNCIÓN PRINCIPAL: Cargar turnos del día ---
 const loadTurnosHoy = async () => {
   isLoading.value = true
@@ -235,20 +321,14 @@ const loadTurnosHoy = async () => {
       return
     }
 
-    // Obtiene la fecha de hoy en formato 'YYYY-MM-DD' (ej. "2025-07-18")
-    // Se asegura de que sea la fecha de Ibagué, Colombia (-05:00) para evitar desfases.
-    // Aunque new Date() por defecto usa la zona horaria local del cliente.
-    // Para mayor robustez con zonas horarias, considera una librería como 'date-fns-tz'
-    // o asegurar que tu servidor esté en la misma zona horaria.
     const today = new Date();
     const options: Intl.DateTimeFormatOptions = {
         year: 'numeric',
         month: '2-digit',
         day: '2-digit',
-        timeZone: 'America/Bogota' // Especifica la zona horaria
+        timeZone: 'America/Bogota'
     };
     const formatter = new Intl.DateTimeFormat('es-CO', options);
-    // Formatea a MM/DD/YYYY y luego reordena a YYYY-MM-DD
     const parts = formatter.formatToParts(today);
     const year = parts.find(p => p.type === 'year')?.value;
     const month = parts.find(p => p.type === 'month')?.value;
@@ -256,25 +336,13 @@ const loadTurnosHoy = async () => {
     const todayISO = `${year}-${month}-${day}`;
 
 
-    // Envía el filtro de fecha al backend.
-    // Si el controlador no lo usa para filtrar, el siguiente paso lo manejará.
     const filters = { fecha: todayISO };
     const data = await TurnosDelDiaService.fetchTurnos(filters, token) as Turno[];
 
-    // --- FILTRADO ESTRICTO EN EL FRONTEND ---
-    // Esta es la corrección clave para asegurar que SOLO se muestren turnos de HOY
-    // y que estén en estado "en proceso".
     turnos.value = data.filter(turno => {
-      // Normaliza la fecha del turno a 'YYYY-MM-DD' para comparación
       const turnoFechaNormalizada = turno.fecha ? new Date(turno.fecha).toISOString().slice(0, 10) : '';
-
-      // Comprueba si la fecha del turno es la de hoy
       const isToday = turnoFechaNormalizada === todayISO;
-
-      // Comprueba si el turno está en un estado "en proceso"
       const isInProcess = turno.estado === 'activo' || (turno.horaIngreso && !turno.horaSalida);
-
-      // El turno se muestra si es de hoy Y está en proceso
       return isToday && isInProcess;
     });
 
@@ -292,7 +360,7 @@ const loadTurnosHoy = async () => {
       }
     }
     showSnackbar(message, 'error')
-    turnos.value = [] // Limpia los turnos en caso de error
+    turnos.value = []
   } finally {
     isLoading.value = false
   }
@@ -301,14 +369,13 @@ const loadTurnosHoy = async () => {
 // --- Lógica para determinar el estado de las etapas de un turno ---
 const getEtapas = (turno: Turno) => {
   const etapas = [
-    { name: 'Puerta', completed: !!turno.horaIngreso }, // Completada si hay hora de ingreso
-    { name: 'Registro', completed: false }, // Estas requieren lógica de backend si existen
+    { name: 'Puerta', completed: !!turno.horaIngreso },
+    { name: 'Registro', completed: false },
     { name: 'Facturación', completed: false },
     { name: 'Revisión', completed: false },
-    { name: 'Certificación', completed: !!turno.horaSalida }, // Completada si hay hora de salida
+    { name: 'Certificación', completed: !!turno.horaSalida },
   ];
 
-  // Si el turno está cancelado o inactivo, resetear el estado de las etapas visualmente
   if (turno.estado === 'cancelado' || turno.estado === 'inactivo') {
     etapas.forEach(etapa => etapa.completed = false);
   }
@@ -316,36 +383,178 @@ const getEtapas = (turno: Turno) => {
   return etapas;
 }
 
+// --- Estado y Lógica para el Modal de Estadísticas ---
+const showStatsModal = ref(false);
+const statsData = ref({
+  tipoVehiculo: {
+    'carro': 0,
+    'moto': 0,
+    'taxi': 0,
+    'enseñanza': 0,
+    'Desconocido': 0,
+  } as Record<string, number>,
+  medioEntero: {
+    'Redes Sociales': 0,
+    'Convenio o Referido Externo': 0,
+    'Call Center': 0,
+    'Fachada': 0,
+    'Referido Interno': 0,
+    'Asesor Comercial': 0,
+    'Desconocido': 0,
+  } as Record<string, number>,
+});
+
+const calculateStats = () => {
+  statsData.value.tipoVehiculo = { 'carro': 0, 'moto': 0, 'taxi': 0, 'enseñanza': 0, 'Desconocido': 0 };
+  statsData.value.medioEntero = {
+    'Redes Sociales': 0,
+    'Convenio o Referido Externo': 0,
+    'Call Center': 0,
+    'Fachada': 0,
+    'Referido Interno': 0,
+    'Asesor Comercial': 0,
+    'Desconocido': 0,
+  };
+
+  turnos.value.forEach(turno => {
+    const tipo = turno.tipoVehiculo;
+    if (tipo && tipo in statsData.value.tipoVehiculo) {
+      statsData.value.tipoVehiculo[tipo]++;
+    } else {
+      statsData.value.tipoVehiculo['Desconocido']++;
+    }
+
+    const medio = turno.medioEntero;
+    if (medio && medio in statsData.value.medioEntero) {
+      statsData.value.medioEntero[medio]++;
+    } else {
+      statsData.value.medioEntero['Desconocido']++;
+    }
+  });
+};
+
+const openStatsModal = () => {
+  calculateStats();
+  showStatsModal.value = true;
+};
+
+// --- Propiedades computadas para los datos de los gráficos ---
+const chartDataTipoVehiculo = computed(() => {
+  const labels = Object.keys(statsData.value.tipoVehiculo);
+  const data = Object.values(statsData.value.tipoVehiculo);
+  const backgroundColors = ['#42A5F5', '#66BB6A', '#FFA726', '#EF5350', '#9E9E9E'];
+
+  return {
+    labels: labels.map(label => label.charAt(0).toUpperCase() + label.slice(1)),
+    datasets: [
+      {
+        label: 'Cantidad de Turnos',
+        backgroundColor: backgroundColors,
+        data: data,
+      },
+    ],
+  };
+});
+
+const chartOptions = {
+  responsive: true,
+  maintainAspectRatio: false,
+  plugins: {
+    legend: {
+      position: 'top' as const,
+    },
+    tooltip: {
+      callbacks: {
+        // CAMBIO: Tipado explícito para 'context'
+        label: function(context: TooltipItem<'bar'>) { // Usamos TooltipItem<'bar'> ya que es un BarChart
+          const label = context.label || '';
+          const value = context.parsed.y; // Para BarChart, siempre es 'y'
+          return `${label}: ${value}`;
+        }
+      }
+    }
+  }
+};
+
+
 // --- Hook de ciclo de vida: Se ejecuta cuando el componente se monta ---
 onMounted(() => {
-  // Formatea la fecha actual para mostrarla de forma legible en el título
   todayDate.value = new Date().toLocaleDateString('es-CO', { year: 'numeric', month: 'long', day: 'numeric' });
-  loadTurnosHoy(); // Carga los turnos al iniciar el componente
+  loadTurnosHoy();
 })
 </script>
 
 <style scoped>
-/* Estilos específicos del componente */
-.v-card-title {
-  font-weight: bold;
-  letter-spacing: 0.05em;
+/* Las variables de tema de Vuetify son globales y deben definirse en `plugins/vuetify.ts`
+    No es apropiado redefinirlas en `<style scoped>`. Las incluyo como referencia de qué colores se usan.
+*/
+/*
+:root {
+  --v-theme-background-light: #FFFFFF;
+  --v-theme-primary: #1976D2;
+  --v-theme-secondary: #424242;
+  --v-theme-info: #2196F3;
+  --v-theme-success: #4CAF50;
+  --v-theme-warning: #FB8C00;
+  --v-theme-error: #FF5252;
+  --v-theme-on-primary-text: #FFFFFF;
+  --v-theme-on-primary-text-light: #BBDEFB;
+  --v-theme-on-primary-text-faded: rgba(255, 255, 255, 0.7);
+  --v-theme-button-text-light-warning: #FFD700;
+  --v-theme-button-text-light-secondary: #E0E0E0;
 }
+*/
+
+/* Estilos para el título dentro del v-card principal */
 .v-card-title .text-secondary {
-  color: #4CAF50; /* Color secundario, por ejemplo, para la fecha */
+  color: #4CAF50; /* Verde para la fecha, coherente con CrearTurnoRTMView */
 }
+
+/* Estilo para el CONTORNO PRINCIPAL (el v-card más externo) */
+/* La clase `bg-background-light` en el template ahora aplicará el color blanco
+    definido en tu tema de Vuetify para `background-light`.
+    Mantenemos la sombra y el border-radius para la apariencia de "contorno".
+*/
 .v-card {
-  box-shadow: 0 10px 20px rgba(0,0,0,0.15), 0 6px 6px rgba(0,0,0,0.1);
+  box-shadow: 0 10px 20px rgba(0,0,0,0.08), 0 6px 6px rgba(0,0,0,0.05); /* Sombra más sutil */
   border-radius: 16px;
-  background: linear-gradient(145deg, #f0f2f5, #e0e2e5); /* Estilo de tarjeta con gradiente suave */
+  /* NO se necesita `background` aquí, ya que `bg-background-light` lo maneja desde el tema. */
 }
+
+/* ESTILO CRÍTICO PARA LAS TARJETAS AZULES (las que están dentro del contorno) */
+/* Estas deben permanecer con sus estilos originales y el color azul */
 .turno-card {
-  transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out; /* Animación al pasar el ratón */
+  transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+  border-radius: 12px;
+  box-shadow: 0 8px 15px rgba(0,0,0,0.2); /* Sombra para las tarjetas azules */
 }
+
 .turno-card:hover {
-  transform: translateY(-5px); /* Efecto de elevación */
-  box-shadow: 0 15px 30px rgba(0,0,0,0.2); /* Sombra más pronunciada */
+  transform: translateY(-7px);
+  box-shadow: 0 18px 35px rgba(0,0,0,0.3);
 }
+
+/* Colores de texto para elementos sobre fondos oscuros (las tarjetas azules) */
+/* Estos colores se extraen del tema de Vuetify. */
+.text-on-primary-text {
+  color: rgb(var(--v-theme-on-primary-text)) !important;
+}
+
+.text-on-primary-text-faded {
+  color: rgb(var(--v-theme-on-primary-text-faded)) !important;
+}
+
 .v-list-item-title {
-  font-size: 0.95rem; /* Tamaño de fuente para los ítems de lista de etapas */
+  font-size: 0.95rem;
+}
+
+/* Color para los íconos de etapa no completados sobre el fondo azul */
+.v-icon.on-primary-text-light {
+  color: rgb(var(--v-theme-on-primary-text-light)) !important;
+}
+
+/* Asegurar que el fondo de la lista de etapas sea transparente */
+.v-list.bg-transparent {
+  background-color: transparent !important;
 }
 </style>
