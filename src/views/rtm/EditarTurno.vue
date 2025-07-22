@@ -14,12 +14,13 @@
               variant="outlined"
               required
               :rules="[(v) => !!v || 'La placa es obligatoria']"
+              @input="(event: { target: HTMLInputElement; }) => turno.placa = (event.target as HTMLInputElement).value.toUpperCase()"
             ></v-text-field>
           </v-col>
           <v-col cols="12" md="6">
             <v-select
               v-model="turno.tipoVehiculo"
-              :items="['vehiculo', 'moto']"
+              :items="['carro', 'moto', 'taxi', 'enseñanza']"
               label="Tipo de Vehículo"
               variant="outlined"
               required
@@ -36,37 +37,42 @@
           <v-col cols="12" md="6">
             <v-select
               v-model="turno.medioEntero"
-              :items="['fachada', 'redes', 'telemercadeo', 'otros', 'convenio']"
-              label="Medio Entero"
+              :items="medioEnteroOptions"
+              label="¿Cómo se enteró de nosotros?"
               variant="outlined"
               required
               :rules="[(v) => !!v || 'El medio por el que se enteró es obligatorio']"
             ></v-select>
           </v-col>
-          <v-col cols="12" md="6">
+
+          <!-- Campos condicionales (Convenio, Referido Interno, Asesor Comercial) -->
+          <!-- CAMBIO: v-if ahora usa el valor directo de turno.medioEntero -->
+          <v-col cols="12" md="6" v-if="turno.medioEntero === 'Convenio o Referido Externo'">
             <v-text-field
               v-model="turno.convenio"
-              label="Convenio (Opcional)"
+              label="Nombre de Convenio o Referido Externo (Opcional)"
               variant="outlined"
               clearable
             ></v-text-field>
           </v-col>
-          <v-col cols="12" md="6">
+          <v-col cols="12" md="6" v-if="turno.medioEntero === 'Referido Interno'">
             <v-text-field
               v-model="turno.referidoInterno"
-              label="Referido Interno (Opcional)"
+              label="Nombre del Referido Interno (Opcional)"
               variant="outlined"
               clearable
             ></v-text-field>
           </v-col>
-          <v-col cols="12" md="6">
+          <v-col cols="12" md="6" v-if="turno.medioEntero === 'Asesor Comercial'">
             <v-text-field
-              v-model="turno.referidoExterno"
-              label="Referido Externo (Opcional)"
+              v-model="turno.asesorComercial"
+              label="Nombre del Asesor Comercial (Opcional)"
               variant="outlined"
               clearable
             ></v-text-field>
           </v-col>
+          <!-- FIN Campos condicionales -->
+
           <v-col cols="12">
             <v-textarea
               v-model="turno.observaciones"
@@ -104,13 +110,13 @@
           <v-col cols="12" md="6">
             <v-select
               v-model="turno.estado"
-              :items="['activo', 'inactivo', 'cancelado']"
+              :items="['activo', 'inactivo', 'cancelado', 'finalizado']"
               label="Estado del Turno"
               variant="outlined"
               required
             ></v-select>
           </v-col>
-          </v-row>
+        </v-row>
 
         <v-divider class="my-6"></v-divider>
 
@@ -174,11 +180,9 @@
 <script setup lang="ts">
 import { ref, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import TurnosDelDiaService from '@/services/turnosdeldiaService' // Tu servicio existente
-import { authSetStore } from '@/stores/AuthStore' // Tu store de autenticación
+import TurnosDelDiaService from '@/services/turnosdeldiaService'
+import { authSetStore } from '@/stores/AuthStore'
 
-// Define la interfaz para la estructura de un Turno, asegurando la tipificación.
-// Asegúrate de que esta interfaz coincida exactamente con la que usa tu backend.
 interface Turno {
   id: number;
   turnoNumero: number;
@@ -187,21 +191,30 @@ interface Turno {
   horaSalida: string | null;
   tiempoServicio: string | null;
   placa: string;
-  tipoVehiculo: 'vehiculo' | 'moto';
+  tipoVehiculo: 'carro' | 'moto' | 'taxi' | 'enseñanza';
   tieneCita: boolean;
   convenio: string | null;
   referidoInterno: string | null;
-  referidoExterno: string | null;
-  medioEntero: 'fachada' | 'redes' | 'telemercadeo' | 'otros' | 'convenio'; // Añadido 'convenio' aquí
+  // CAMBIO: 'referidoExterno' eliminado de la interfaz si no hay input directo
+  asesorComercial: string | null;
+  medioEntero:
+    | 'Redes Sociales'
+    | 'Convenio o Referido Externo'
+    | 'Call Center'
+    | 'Fachada'
+    | 'Referido Interno'
+    | 'Asesor Comercial'
+    | 'Otros'; // Mantener 'Otros' si es un valor posible en tu backend
   observaciones: string | null;
   funcionarioId: number;
-  estado: 'activo' | 'inactivo' | 'cancelado';
-  // Puedes añadir funcionario si lo precargas y lo necesitas en el formulario
+  estado: 'activo' | 'inactivo' | 'cancelado' | 'finalizado';
   funcionario?: {
     id: number;
     nombres: string;
     apellidos: string;
   };
+  createdAt: string;
+  updatedAt: string;
 }
 
 const route = useRoute()
@@ -216,21 +229,22 @@ const turno = ref<Turno>({
   horaSalida: null,
   tiempoServicio: null,
   placa: '',
-  tipoVehiculo: 'vehiculo',
+  tipoVehiculo: 'carro',
   tieneCita: false,
   convenio: null,
   referidoInterno: null,
-  referidoExterno: null,
-  medioEntero: 'fachada',
+  asesorComercial: null,
+  medioEntero: 'Fachada', // Valor inicial que debe ser uno de los del backend
   observaciones: null,
-  funcionarioId: 0, // Asegúrate de que este valor sea el ID real del funcionario logueado o asignado.
+  funcionarioId: 0,
   estado: 'activo',
+  createdAt: '',
+  updatedAt: ''
 })
 
-const isLoading = ref(true) // Para la carga inicial del turno
-const isSaving = ref(false) // Para el botón de guardar
+const isLoading = ref(true)
+const isSaving = ref(false)
 
-// Snackbar para notificaciones
 const snackbar = ref({
   show: false,
   message: '',
@@ -242,7 +256,6 @@ const showSnackbar = (message: string, color = 'info', timeout = 4000) => {
   snackbar.value = { show: true, message, color, timeout }
 }
 
-// Modal de confirmación para guardar
 const confirmSaveDialog = ref({
   show: false,
 })
@@ -251,19 +264,38 @@ const openConfirmSaveDialog = () => {
   confirmSaveDialog.value.show = true
 }
 
-// Función para cargar los detalles del turno
+// CAMBIO: Opciones para el v-select de medioEntero (valores exactos del backend)
+const medioEnteroOptions: Turno['medioEntero'][] = [
+  'Redes Sociales',
+  'Convenio o Referido Externo',
+  'Call Center',
+  'Fachada',
+  'Referido Interno',
+  'Asesor Comercial',
+  // 'Otros' // CAMBIO: Eliminado si no se maneja explícitamente en el backend
+];
+
+// CAMBIO: Watcher para limpiar campos condicionales cuando cambia turno.medioEntero
+watch(() => turno.value.medioEntero, (newValue, oldValue) => {
+  if (newValue !== oldValue) {
+    // Limpiar todos los campos condicionales al cambiar la opción
+    turno.value.convenio = null;
+    turno.value.referidoInterno = null;
+    turno.value.asesorComercial = null;
+  }
+});
+
 const fetchTurnoDetails = async (id: number) => {
   isLoading.value = true
   try {
     const token = authStore.token
     if (!token) {
       showSnackbar('Error: No hay token de autenticación. Por favor, inicie sesión.', 'error')
-      authStore.logout() // Asegurar logout si el token no existe
+      authStore.logout()
       router.push('/login')
       return
     }
     const data = await TurnosDelDiaService.fetchTurnoById(id, token) as Turno
-    // Usa spread para asegurar reactividad y que se copien todas las propiedades
     turno.value = { ...data }
   } catch (error: unknown) {
     console.error('Error al cargar los detalles del turno:', error)
@@ -284,39 +316,35 @@ const fetchTurnoDetails = async (id: number) => {
   }
 }
 
-// Función para guardar los cambios del turno
 const saveTurno = async () => {
-  confirmSaveDialog.value.show = false // Cierra el modal de confirmación
+  confirmSaveDialog.value.show = false
   isSaving.value = true
   try {
     const token = authStore.token
     if (!token) {
       showSnackbar('Error: No hay token de autenticación. Por favor, inicie sesión.', 'error')
-      authStore.logout() // Asegurar logout si el token no existe
+      authStore.logout()
       router.push('/login')
       return
     }
 
-    // Prepara los datos a enviar. Incluye solo los campos que tu API de 'update'
-    // en el backend está configurada para recibir y procesar.
     const updatePayload = {
       placa: turno.value.placa,
       tipoVehiculo: turno.value.tipoVehiculo,
       tieneCita: turno.value.tieneCita,
       convenio: turno.value.convenio,
       referidoInterno: turno.value.referidoInterno,
-      referidoExterno: turno.value.referidoExterno,
+      // CAMBIO: 'referidoExterno' se elimina del payload si no hay input directo y no es necesario en el backend
+      // Si tu backend lo espera, considera añadir un input para él o manejarlo de otra forma.
       medioEntero: turno.value.medioEntero,
       observaciones: turno.value.observaciones,
-      funcionarioId: turno.value.funcionarioId, // Asegúrate de enviar el funcionarioId si es necesario
+      funcionarioId: turno.value.funcionarioId,
       horaSalida: turno.value.horaSalida,
       tiempoServicio: turno.value.tiempoServicio,
       estado: turno.value.estado,
-      // No incluyas id, turnoNumero, fecha, horaIngreso, createdAt, updatedAt
-      // a menos que tu API esté diseñada para que se puedan modificar explícitamente.
+      asesorComercial: turno.value.asesorComercial,
     }
 
-    // AHORA SÍ: LLAMADA AL SERVICIO PARA ACTUALIZAR EL TURNO
     await TurnosDelDiaService.updateTurno(turno.value.id, updatePayload, token)
 
     showSnackbar('Turno guardado exitosamente!', 'success')
@@ -330,7 +358,6 @@ const saveTurno = async () => {
         authStore.logout()
         router.push('/login')
       } else if (message.includes('Failed to fetch')) {
-        // Error de red, el servidor no responde
         message = 'No se pudo conectar con el servidor. Verifique su conexión o el estado del servidor.'
       }
     }
@@ -350,7 +377,6 @@ onMounted(() => {
   }
 })
 
-// Opcional: Watch para recargar si el ID de la ruta cambia (útil si se navega entre ediciones sin destruir el componente)
 watch(
   () => route.params.id,
   (newId) => {

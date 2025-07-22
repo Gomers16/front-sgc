@@ -37,7 +37,7 @@
               density="comfortable"
               prepend-inner-icon="mdi-car-info"
               :rules="[v => !!v || 'La placa es requerida']"
-              @input="event => form.placa = (event.target as HTMLInputElement).value.toUpperCase()"
+              @input="(event: { target: HTMLInputElement }) => form.placa = (event.target as HTMLInputElement).value.toUpperCase()"
             />
           </v-col>
           <v-col cols="12" sm="6">
