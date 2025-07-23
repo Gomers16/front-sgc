@@ -1,28 +1,37 @@
+// src/services/turnosdeldiaService.ts
+
+import { DateTime } from 'luxon';
 
 interface SiguienteTurnoResponse {
   siguiente: number;
 }
 
-// Interfaz para un turno (simplificada si solo necesitas ciertos campos)
 interface Turno {
   id: number;
+  turnoNumero: number;
+  placa: string;
+  tipoVehiculo: 'carro' | 'moto' | 'taxi' | 'enseñanza';
   estado: 'activo' | 'inactivo' | 'cancelado' | 'finalizado';
   horaIngreso: string | null;
   horaSalida: string | null;
   fecha: string;
-  // Añade otros campos si los necesitas para cálculos o visualizaciones futuras
+  convenio: string | null;
+  referidoInterno: string | null;
+  referidoExterno: string | null;
+  medioEntero: 'Redes Sociales' | 'Convenio o Referido Externo' | 'Call Center' | 'Fachada' | 'Referido Interno' | 'Asesor Comercial';
+  observaciones: string | null;
+  funcionarioId: number;
+  // ... otros campos si los necesitas ...
 }
 
 class TurnosDelDiaService {
-  // Asegúrate de que esta URL base sea la correcta para tu backend AdonisJS
-  // Por ejemplo, si lo desplegaste en Render, sería algo como 'https://tu-backend.onrender.com/api/turnos-rtm'
-  private static API_BASE_URL = 'http://localhost:3333/api/turnos-rtm';
+  private static API_BASE_URL = 'http://localhost:3333/api/turnos-rtm'; // ¡Ajusta esta URL si tu backend no está en localhost!
 
   /**
    * Obtiene el siguiente número de turno disponible.
-   * Corresponde a GET /api/turnos-rtm/siguiente-turno
-   * @param token Token de autenticación.
-   * @returns Promise<SiguienteTurnoResponse>
+   * Si tu backend NO requiere token para esta ruta, también quita el parámetro `token` aquí.
+   * Actualmente, tu backend NO LO REQUIERE para el reporte, pero esta función original lo tiene.
+   * Si esta ruta ('siguiente-turno') sí lo requiere, déjalo. Si no, quítalo.
    */
   public static async fetchNextTurnNumber(token: string): Promise<SiguienteTurnoResponse> {
     try {
@@ -30,7 +39,7 @@ class TurnosDelDiaService {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`, // Se envía el token
+          'Authorization': `Bearer ${token}`, // Mantener si el backend SÍ lo pide para esta ruta
         },
       });
 
@@ -48,12 +57,12 @@ class TurnosDelDiaService {
 
   /**
    * Obtiene una lista de turnos RTM, permitiendo varios filtros.
-   * Este método consolida la obtención de turnos del día y turnos históricos.
    * Corresponde a GET /api/turnos-rtm?fecha=YYYY-MM-DD&placa=...&tipoVehiculo=...&estado=...
-   * @param filters - Un objeto con filtros opcionales (ej. { fecha: '2024-07-17', placa: 'ABC', tipoVehiculo: 'moto', estado: 'activo' }).
-   * @param token - Token de autenticación.
+   * @param filters - Un objeto con filtros opcionales.
+   * ¡TOKEN ELIMINADO DE AQUÍ PORQUE TU BACKEND NO LO VALIDA PARA ESTA RUTA!
    */
-  public static async fetchTurnos(filters: Record<string, string | number | boolean> = {}, token: string): Promise<Turno[]> {
+  // AHORA LA FIRMA DE LA FUNCIÓN YA NO TIENE EL PARÁMETRO '_token'
+  public static async fetchTurnos(filters: Record<string, string | number | boolean> = {}): Promise<Turno[]> {
     try {
       const queryParams = new URLSearchParams(filters as Record<string, string>).toString();
       const url = queryParams
@@ -63,9 +72,7 @@ class TurnosDelDiaService {
       const headers: HeadersInit = {
         'Content-Type': 'application/json',
       };
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`; // Se envía el token
-      }
+      // No agregamos el header 'Authorization' porque el backend no lo valida
 
       const response = await fetch(url, {
         method: 'GET',
@@ -86,17 +93,15 @@ class TurnosDelDiaService {
 
   /**
    * Obtiene un turno específico por ID para edición o detalles.
-   * Corresponde a GET /api/turnos-rtm/:id
-   * @param id - El ID del turno.
-   * @param token - Token de autenticación.
+   * Si tu backend NO requiere token para esta ruta, también quita el parámetro `token` aquí.
    */
-  public static async fetchTurnoById(id: number, token: string) {
+  public static async fetchTurnoById(id: number, token: string): Promise<Turno> {
     try {
       const headers: HeadersInit = {
         'Content-Type': 'application/json',
       };
       if (token) {
-        headers['Authorization'] = `Bearer ${token}`; // Se envía el token
+        headers['Authorization'] = `Bearer ${token}`; // Mantener si el backend SÍ lo pide para esta ruta
       }
 
       const response = await fetch(`${TurnosDelDiaService.API_BASE_URL}/${id}`, { headers });
@@ -113,17 +118,15 @@ class TurnosDelDiaService {
 
   /**
    * Crea un nuevo turno RTM.
-   * Corresponde a POST /api/turnos-rtm
-   * @param turnoData - Los datos para el nuevo turno.
-   * @param token - Token de autenticación.
+   * Si tu backend NO requiere token para esta ruta, también quita el parámetro `token` aquí.
    */
-  public static async createTurno(turnoData: Record<string, unknown>, token: string) {
+  public static async createTurno(turnoData: Record<string, unknown>, token: string): Promise<Turno> {
     try {
       const headers: HeadersInit = {
         'Content-Type': 'application/json',
       };
       if (token) {
-        headers['Authorization'] = `Bearer ${token}`; // Se envía el token
+        headers['Authorization'] = `Bearer ${token}`; // Mantener si el backend SÍ lo pide para esta ruta
       }
 
       const response = await fetch(TurnosDelDiaService.API_BASE_URL, {
@@ -144,18 +147,15 @@ class TurnosDelDiaService {
 
   /**
    * Actualiza un turno existente.
-   * Corresponde a PUT /api/turnos-rtm/:id
-   * @param id - El ID del turno a actualizar.
-   * @param turnoData - Los datos a actualizar.
-   * @param token - Token de autenticación.
+   * Si tu backend NO requiere token para esta ruta, también quita el parámetro `token` aquí.
    */
-  public static async updateTurno(id: number, turnoData: Record<string, unknown>, token: string) {
+  public static async updateTurno(id: number, turnoData: Record<string, unknown>, token: string): Promise<Turno> {
     try {
       const headers: HeadersInit = {
         'Content-Type': 'application/json',
       };
       if (token) {
-        headers['Authorization'] = `Bearer ${token}`; // Se envía el token
+        headers['Authorization'] = `Bearer ${token}`; // Mantener si el backend SÍ lo pide para esta ruta
       }
 
       const response = await fetch(`${TurnosDelDiaService.API_BASE_URL}/${id}`, {
@@ -176,17 +176,15 @@ class TurnosDelDiaService {
 
   /**
    * Registra la hora de salida para un turno.
-   * Corresponde a PUT /api/turnos-rtm/:id/salida
-   * @param id - El ID del turno.
-   * @param token - Token de autenticación.
+   * Si tu backend NO requiere token para esta ruta, también quita el parámetro `token` aquí.
    */
-  public static async registrarSalida(id: number, token: string) {
+  public static async registrarSalida(id: number, token: string): Promise<Turno> {
     try {
       const headers: HeadersInit = {
         'Content-Type': 'application/json',
       };
       if (token) {
-        headers['Authorization'] = `Bearer ${token}`; // Se envía el token
+        headers['Authorization'] = `Bearer ${token}`; // Mantener si el backend SÍ lo pide para esta ruta
       }
 
       const response = await fetch(`${TurnosDelDiaService.API_BASE_URL}/${id}/salida`, {
@@ -206,17 +204,15 @@ class TurnosDelDiaService {
 
   /**
    * Activa un turno cambiando su estado a 'activo'.
-   * Corresponde a PATCH /api/turnos-rtm/:id/activar
-   * @param id - El ID del turno a activar.
-   * @param token - Token de autenticación.
+   * Si tu backend NO requiere token para esta ruta, también quita el parámetro `token` aquí.
    */
-  public static async activarTurno(id: number, token: string) {
+  public static async activarTurno(id: number, token: string): Promise<Turno> {
     try {
       const headers: HeadersInit = {
         'Content-Type': 'application/json',
       };
       if (token) {
-        headers['Authorization'] = `Bearer ${token}`; // Se envía el token
+        headers['Authorization'] = `Bearer ${token}`; // Mantener si el backend SÍ lo pide para esta ruta
       }
 
       const response = await fetch(`${TurnosDelDiaService.API_BASE_URL}/${id}/activar`, {
@@ -236,17 +232,15 @@ class TurnosDelDiaService {
 
   /**
    * Cancela un turno cambiando su estado a 'cancelado'.
-   * Corresponde a PATCH /api/turnos-rtm/:id/cancelar
-   * @param id - El ID del turno a cancelar.
-   * @param token - Token de autenticación.
+   * Si tu backend NO requiere token para esta ruta, también quita el parámetro `token` aquí.
    */
-  public static async cancelarTurno(id: number, token: string) {
+  public static async cancelarTurno(id: number, token: string): Promise<Turno> {
     try {
       const headers: HeadersInit = {
         'Content-Type': 'application/json',
       };
       if (token) {
-        headers['Authorization'] = `Bearer ${token}`; // Se envía el token
+        headers['Authorization'] = `Bearer ${token}`; // Mantener si el backend SÍ lo pide para esta ruta
       }
 
       const response = await fetch(`${TurnosDelDiaService.API_BASE_URL}/${id}/cancelar`, {
@@ -266,17 +260,15 @@ class TurnosDelDiaService {
 
   /**
    * "Inhabilita" (soft delete) un turno cambiando su estado a 'inactivo'.
-   * Corresponde a PATCH /api/turnos-rtm/:id/inhabilitar
-   * @param id - El ID del turno a inhabilitar.
-   * @param token - Token de autenticación.
+   * Si tu backend NO requiere token para esta ruta, también quita el parámetro `token` aquí.
    */
-  public static async inhabilitarTurno(id: number, token: string) {
+  public static async inhabilitarTurno(id: number, token: string): Promise<Turno> {
     try {
       const headers: HeadersInit = {
         'Content-Type': 'application/json',
       };
       if (token) {
-        headers['Authorization'] = `Bearer ${token}`; // Se envía el token
+        headers['Authorization'] = `Bearer ${token}`; // Mantener si el backend SÍ lo pide para esta ruta
       }
 
       const response = await fetch(`${TurnosDelDiaService.API_BASE_URL}/${id}/inhabilitar`, {
@@ -290,6 +282,62 @@ class TurnosDelDiaService {
       return await response.json();
     } catch (error) {
       console.error('Error en inhabilitarTurno:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Exporta turnos a un archivo Excel desde el backend.
+   * Corresponde a GET /api/turnos-rtm/reporte/excel?fechaInicio=YYYY-MM-DD&fechaFin=YYYY-MM-DD
+   * @param filters - Un objeto con los filtros de fecha (fechaInicio, fechaFin).
+   * ¡TOKEN ELIMINADO DE AQUÍ PORQUE TU BACKEND NO LO VALIDA PARA ESTA RUTA!
+   * @returns {Promise<{ data: Blob, filename: string }>} Un objeto con el Blob del archivo y el nombre sugerido.
+   */
+  public static async exportTurnosExcel(filters: { fechaInicio?: string; fechaFin?: string }): Promise<{ data: Blob, filename: string }> {
+    try {
+      const queryParams = new URLSearchParams(filters as Record<string, string>).toString();
+      const url = `${TurnosDelDiaService.API_BASE_URL}/reporte/excel?${queryParams}`;
+
+      const headers: HeadersInit = {};
+      // No agregamos el header 'Authorization' porque el backend no lo valida
+
+      const response = await fetch(url, {
+        method: 'GET',
+        headers,
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        try {
+          const errorData = JSON.parse(errorText);
+          throw new Error(errorData.message || 'Error al descargar el archivo Excel.');
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        } catch (parseError) {
+          throw new Error(errorText || `Error de red o servidor al descargar el archivo (${response.status} ${response.statusText}).`);
+        }
+      }
+
+      const contentDisposition = response.headers.get('content-disposition');
+      let filename = `reporte_captacion_${DateTime.local().toISODate()}.xlsx`;
+
+      if (contentDisposition) {
+        const filenameMatch = contentDisposition.match(/filename\*?=['"]?(?:UTF-8'')?([^"'\s;]+)['"]?$/i);
+        if (filenameMatch && filenameMatch[1]) {
+          try {
+            filename = decodeURIComponent(filenameMatch[1]);
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          } catch (e) {
+            console.warn('No se pudo decodificar el nombre del archivo, usando el valor original:', filenameMatch[1]);
+            filename = filenameMatch[1];
+          }
+        }
+      }
+
+      const blobData = await response.blob();
+      return { data: blobData, filename };
+
+    } catch (error) {
+      console.error('Error en exportTurnosExcel:', error);
       throw error;
     }
   }

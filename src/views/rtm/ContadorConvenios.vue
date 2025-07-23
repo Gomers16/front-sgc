@@ -1,12 +1,12 @@
 <template>
-  <v-container class="mt-6">
-    <v-card elevation="8" class="pa-8 rounded-xl">
-      <v-card-title class="text-h4 mb-6 text-center text-primary font-weight-bold">
-        📊 Reporte de Medios de Captación
+  <v-container class="mt-4"> <v-card elevation="8" class="pa-6 rounded-xl"> <v-card-title class="text-h4 mb-4 font-weight-bold d-flex justify-center title-full-bordered-container">
+        <span class="title-text-with-border">
+          📊 Reporte de Medios de Captación
+        </span>
       </v-card-title>
 
-      <v-row class="mb-4">
-        <v-col cols="12" md="4">
+      <v-row class="mb-4 d-flex justify-center align-center">
+        <v-col cols="6" sm="4" md="3" lg="2">
           <v-text-field
             v-model="startDate"
             label="Fecha Inicio"
@@ -14,9 +14,10 @@
             variant="outlined"
             type="date"
             clearable
+            density="compact"
           ></v-text-field>
         </v-col>
-        <v-col cols="12" md="4">
+        <v-col cols="6" sm="4" md="3" lg="2">
           <v-text-field
             v-model="endDate"
             label="Fecha Fin"
@@ -24,44 +25,69 @@
             variant="outlined"
             type="date"
             clearable
+            density="compact"
           ></v-text-field>
         </v-col>
-        <v-col cols="12" md="4" class="d-flex flex-column justify-start">
+
+        <v-col cols="12" sm="10" md="6" lg="5" class="d-flex flex-wrap justify-center align-center gap-2">
           <v-btn
             color="primary"
             variant="elevated"
-            prepend-icon="mdi-filter"
             @click="applyDateFilter"
             :loading="isLoading"
-            class="mb-2"
+            class="bordered-button d-flex align-center justify-center flex-grow-1"
+            size="small"
+            style="min-width: 120px; max-width: 160px;"
           >
-            Aplicar Filtro de Fecha
-          </v-btn>
-          <v-btn
-            color="info"
-            variant="outlined"
-            prepend-icon="mdi-calendar-today" @click="setTodayAndFilter"
-            class="mb-2"
-          >
-            Ver Turnos de Hoy
-          </v-btn>
-          <v-btn
-            color="cyan-darken-1" variant="outlined"
-            prepend-icon="mdi-calendar-month"
-            @click="setMonthAndFilter"
-            class="mb-2"
-          >
-            Ver Turnos del Mes Actual
+            <v-icon class="mr-1">mdi-filter</v-icon>
+            Filtrar
           </v-btn>
           <v-btn
             color="grey"
             variant="outlined"
-            prepend-icon="mdi-close-circle-outline"
             @click="clearDateFilter"
+            class="bordered-button-grey d-flex align-center justify-center flex-grow-1"
+            size="small"
+            style="min-width: 120px; max-width: 160px;"
           >
-            Limpiar Fechas
+            <v-icon class="mr-1">mdi-close-circle-outline</v-icon>
+            Limpiar
           </v-btn>
-          </v-col>
+          <v-btn
+            color="info"
+            variant="outlined"
+            @click="setTodayAndFilter"
+            class="bordered-button-info d-flex align-center justify-center flex-grow-1"
+            size="small"
+            style="min-width: 120px; max-width: 160px;"
+          >
+            <v-icon class="mr-1">mdi-calendar-today</v-icon>
+            Hoy
+          </v-btn>
+          <v-btn
+            color="cyan-darken-1"
+            variant="outlined"
+            @click="setMonthAndFilter"
+            class="bordered-button-cyan d-flex align-center justify-center flex-grow-1"
+            size="small"
+            style="min-width: 120px; max-width: 160px;"
+          >
+            <v-icon class="mr-1">mdi-calendar-month</v-icon>
+            Mes
+          </v-btn>
+          <v-btn
+            color="success"
+            variant="elevated"
+            @click="exportReportToExcel"
+            :loading="isExporting"
+            class="bordered-button-success d-flex align-center justify-center flex-grow-1"
+            size="small"
+            style="min-width: 120px; max-width: 160px;"
+          >
+            <v-icon class="mr-1">mdi-microsoft-excel</v-icon>
+            Exportar
+          </v-btn>
+        </v-col>
       </v-row>
 
       <v-divider class="my-6"></v-divider>
@@ -111,7 +137,6 @@
                   </v-btn>
                 </template>
               </v-list-item>
-              <!-- ELIMINADO: Referido Externo del resumen principal -->
               <v-list-item>
                 <v-list-item-title class="font-weight-medium">Sin Referido:</v-list-item-title>
                 <template v-slot:append>
@@ -172,16 +197,14 @@
             <template v-slot:item.horaIngreso="{ item }">
               {{ formatTime(item.horaIngreso ?? '') }}
             </template>
-            <!-- NUEVO: Plantilla para mostrar el Referido Interno -->
             <template v-slot:item.referidoInterno="{ item }">
               {{ item.referidoInterno || '-' }}
             </template>
-            <!-- NUEVO: Plantilla para mostrar el Convenio / Referido Externo -->
             <template v-slot:item.convenio_referido_externo_display="{ item }">
               <span v-if="item.medioEntero === 'Convenio o Referido Externo' && item.convenio">
                 {{ item.convenio }}
               </span>
-              <span v-else-if="item.referidoExterno"> <!-- Si referidoExterno aún se usa para nombres -->
+              <span v-else-if="item.referidoExterno">
                 {{ item.referidoExterno }}
               </span>
               <span v-else>-</span>
@@ -198,7 +221,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue';
-import { DateTime } from 'luxon'; // Importa DateTime de Luxon
+import { DateTime } from 'luxon';
 import TurnosDelDiaService from '@/services/turnosdeldiaService';
 
 interface Turno {
@@ -214,7 +237,6 @@ interface Turno {
   convenio: string | null;
   referidoInterno: string | null;
   referidoExterno: string | null;
-  // ACTUALIZADO: Tipo de medioEntero para coincidir con los valores mapeados del backend
   medioEntero: 'Redes Sociales' | 'Convenio o Referido Externo' | 'Call Center' | 'Fachada' | 'Referido Interno' | 'Asesor Comercial';
   observaciones: string | null;
   funcionarioId: number;
@@ -230,6 +252,7 @@ interface Turno {
 
 const turnos = ref<Turno[]>([]);
 const isLoading = ref(false);
+const isExporting = ref(false);
 
 const startDate = ref<string | undefined>(undefined);
 const endDate = ref<string | undefined>(undefined);
@@ -242,7 +265,6 @@ const snackbar = ref({
 });
 
 const reportData = ref({
-  // ACTUALIZADO: Las claves de medios deben coincidir con los valores mapeados del backend
   medios: {
     'Fachada': 0,
     'Redes Sociales': 0,
@@ -252,7 +274,6 @@ const reportData = ref({
     'Asesor Comercial': 0,
   } as Record<Turno['medioEntero'], number>,
   referidoInternoCount: 0,
-  // ELIMINADO: referidoExternoCount ya no se cuenta por separado en el resumen
   noReferidoCount: 0,
 });
 
@@ -268,8 +289,8 @@ const detailHeaders = [
   { title: 'Fecha', key: 'fecha' },
   { title: 'Hora Ingreso', key: 'horaIngreso' },
   { title: 'Medio Captación', key: 'medioEntero' },
-  { title: 'Referido Interno', key: 'referidoInterno' }, // Mantener para mostrar el nombre
-  { title: 'Convenio / Ref. Externo', key: 'convenio_referido_externo_display' }, // Nueva columna para el nombre del convenio/referido externo
+  { title: 'Referido Interno', key: 'referidoInterno' },
+  { title: 'Convenio / Ref. Externo', key: 'convenio_referido_externo_display' },
 ];
 
 const showSnackbar = (message: string, color = 'info', timeout = 4000) => {
@@ -304,7 +325,6 @@ const formatTime = (timeString: string | null): string => {
   return timeString;
 };
 
-
 const getMonthName = (monthIndex: number): string => {
   const months = [
     'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
@@ -312,7 +332,6 @@ const getMonthName = (monthIndex: number): string => {
   ];
   return months[monthIndex];
 };
-
 
 const periodTitle = computed(() => {
   const startDt = startDate.value ? DateTime.fromISO(startDate.value, { zone: 'America/Bogota' }) : null;
@@ -337,7 +356,6 @@ const periodTitle = computed(() => {
     return `Resumen de Captación desde el ${formatDate(startDt.toISODate())} hasta el ${formatDate(endDt.toISODate())}`;
   }
 });
-
 
 const fetchTurnosForReport = async () => {
   isLoading.value = true;
@@ -399,14 +417,11 @@ const calculateReportData = () => {
         console.warn(`Medio de entrada desconocido o no manejado: ${turno.medioEntero}`);
     }
 
-    // Contar Referido Interno con nombre
     if (turno.medioEntero === 'Referido Interno' && turno.referidoInterno && turno.referidoInterno.trim() !== '') {
       referidoInternoCount++;
     }
   });
 
-  // Calcular "Sin Referido": turnos que no son "Referido Interno" con nombre
-  // Y no son "Convenio o Referido Externo" con un nombre de convenio
   noReferidoCount = turnos.value.filter(turno => {
     const isInternalReferralWithName = turno.medioEntero === 'Referido Interno' && turno.referidoInterno && turno.referidoInterno.trim() !== '';
     const isExternalReferralWithName = turno.medioEntero === 'Convenio o Referido Externo' && turno.convenio && turno.convenio.trim() !== '';
@@ -450,9 +465,8 @@ const setMonthAndFilter = () => {
 const clearDateFilter = () => {
   startDate.value = undefined;
   endDate.value = undefined;
-  setMonthAndFilter();
+  setMonthAndFilter(); // Vuelve a cargar el mes actual por defecto
 };
-
 
 const showDetailsModal = (type: 'medioEntero' | 'referidoInterno' | 'referidoExterno' | 'noReferido', value?: Turno['medioEntero']) => {
   currentDetailType.value = type;
@@ -470,7 +484,7 @@ const showDetailsModal = (type: 'medioEntero' | 'referidoInterno' | 'referidoExt
       filteredDetailTurnos.value = turnos.value.filter(turno => turno.medioEntero === 'Referido Interno' && turno.referidoInterno && turno.referidoInterno.trim() !== '');
       currentDetailValueText.value = 'Referido Interno';
       break;
-    case 'referidoExterno': // Este caso ya no se usa para el resumen, pero se mantiene para la lógica de detalle si fuera necesario
+    case 'referidoExterno':
       filteredDetailTurnos.value = turnos.value.filter(turno =>
         turno.medioEntero === 'Convenio o Referido Externo' && turno.convenio && turno.convenio.trim() !== ''
       );
@@ -488,20 +502,34 @@ const showDetailsModal = (type: 'medioEntero' | 'referidoInterno' | 'referidoExt
   detailsModal.value = true;
 };
 
-/*
-// Descomentar y adaptar si implementas la exportación a PDF
-const exportReportToPdf = async () => {
+const exportReportToExcel = async () => {
   isExporting.value = true;
   try {
     const filters: { fechaInicio?: string; fechaFin?: string } = {};
+
     if (startDate.value) filters.fechaInicio = startDate.value;
     if (endDate.value) filters.fechaFin = endDate.value;
 
-    await TurnosDelDiaService.exportTurnosPdf(filters);
-    showSnackbar('PDF generado y descargado exitosamente.', 'success');
+    if (!filters.fechaInicio || !filters.fechaFin) {
+      showSnackbar('Por favor, selecciona un rango de fechas (Fecha Inicio y Fecha Fin) para exportar el Excel.', 'warning');
+      return;
+    }
+
+    const { data, filename } = await TurnosDelDiaService.exportTurnosExcel(filters);
+
+    const url = window.URL.createObjectURL(new Blob([data]));
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', filename);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+
+    showSnackbar('Reporte Excel generado y descargado exitosamente.', 'success');
   } catch (error: unknown) {
-    console.error('Error al exportar el reporte a PDF:', error);
-    let message = 'Error al exportar el reporte a PDF.';
+    console.error('Error al exportar el reporte a Excel:', error);
+    let message = 'Error al exportar el reporte a Excel.';
     if (error instanceof Error) {
       message = error.message;
     }
@@ -510,7 +538,6 @@ const exportReportToPdf = async () => {
     isExporting.value = false;
   }
 };
-*/
 
 onMounted(() => {
   setMonthAndFilter();
@@ -518,23 +545,59 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.v-card-title {
-  font-weight: bold;
-  letter-spacing: 0.05em;
+/* Contenedor del título que ahora centra su contenido */
+.title-full-bordered-container {
+  padding: 0 !important;
 }
+
+/* Estilo para el span que contiene el texto y el borde */
+.title-text-with-border {
+  border: 2px solid black;
+  padding: 8px 15px; /* Reducir padding */
+  border-radius: 10px; /* Reducir radio de borde */
+  background-color: rgba(255, 255, 255, 0.9);
+  margin-bottom: 15px; /* Reducir margen inferior */
+  display: inline-block;
+  font-weight: bold;
+  letter-spacing: 0.04em; /* Ligeramente más compacto */
+  color: var(--v-theme-primary);
+  font-size: 1.8rem !important; /* Ajustar tamaño de fuente */
+}
+
+/* Estilo para el CONTORNO PRINCIPAL (el v-card más externo) */
 .v-card {
   box-shadow: 0 10px 20px rgba(0,0,0,0.15), 0 6px 6px rgba(0,0,0,0.1);
   border-radius: 16px;
   background: linear-gradient(145deg, #f0f2f5, #e0e2e5);
 }
-.v-btn {
-  border-radius: 10px;
+
+/* Estilo base para todos los botones con borde */
+.bordered-button,
+.bordered-button-info,
+.bordered-button-cyan,
+.bordered-button-grey,
+.bordered-button-success {
+  border-radius: 8px; /* Reducir radio de borde del botón */
   transition: all 0.3s ease;
-  box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+  box-shadow: 0 3px 5px rgba(0,0,0,0.1), 0 0 0 1.5px black !important; /* Borde más fino */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 8px; /* Espacio entre botones */
 }
-.v-btn:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 6px 12px rgba(0,0,0,0.2);
+
+/* Estilo para el contenedor flex de los botones para el gap */
+.gap-2 > .v-btn {
+    margin: 4px; /* Espacio entre los botones cuando están en flex-wrap */
+}
+
+.bordered-button:hover,
+.bordered-button-info:hover,
+.bordered-button-cyan:hover,
+.bordered-button-grey:hover,
+.bordered-button-success:hover {
+  transform: translateY(-1px); /* Menor desplazamiento */
+  box-shadow: 0 4px 8px rgba(0,0,0,0.15), 0 0 0 2px black !important; /* Borde al pasar el ratón */
 }
 .v-list-item-title {
   text-transform: capitalize;

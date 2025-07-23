@@ -10,9 +10,8 @@
     <!-- Usuario -->
     <v-list>
       <v-list-item
-        :prepend-avatar="auth.user?.profilePictureUrl || 'https://i.pravatar.cc/160?img=3'"
         :subtitle="auth.user?.correo"
-        :title="auth.user?.nombre"
+        :title="auth.user?.nombres"
         class="user-info"
       />
     </v-list>

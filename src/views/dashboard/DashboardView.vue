@@ -2,48 +2,37 @@
   <v-container>
     <v-card class="welcome-card" elevation="10">
       <v-card-title
-        class="text-h4 text-center font-bold mb-4" 
+        class="text-h4 text-center font-bold mb-4"
         style="color: black;"
       >
         ¡Bienvenido a ACTIVAUTOS CDA DEL CENTRO IBAGUÉ!
       </v-card-title>
-      <v-card-text class="text-center text-subtitle-1 mb-6"> <!-- CAMBIO: Aumentado a text-subtitle-1 -->
-        Estamos felices de tenerte de vuelta. Aquí tienes un resumen de la operación de hoy.
+      <v-card-text class="text-center text-subtitle-1 mb-6"> Estamos felices de tenerte de vuelta. Aquí tienes un resumen de la operación de hoy.
       </v-card-text>
 
       <v-divider class="my-6"></v-divider>
 
-      <!-- Sección de KPIs -->
-      <h3 class="text-h4 text-center mb-6 text-primary font-weight-bold">📊 Resumen del Día ({{ todayDate }})</h3> <!-- CAMBIO: Aumentado a text-h4 -->
-      <v-row justify="center" class="mb-8">
+      <h3 class="text-h4 text-center mb-6 text-primary font-weight-bold">📊 Resumen del Día ({{ todayDate }})</h3> <v-row justify="center" class="mb-8">
         <v-col cols="12" sm="6" md="4">
           <v-card class="kpi-card pa-4 text-center elevation-4" color="light-blue-lighten-5">
             <v-icon size="48" color="blue-darken-2">mdi-car-multiple</v-icon>
-            <v-card-title class="text-h4 font-weight-bold text-blue-darken-2">{{ isLoadingKpis ? '...' : turnosEnProceso }}</v-card-title> <!-- CAMBIO: Aumentado a text-h4 -->
-            <v-card-subtitle class="text-body-1 text-blue-darken-2">Turnos en Proceso</v-card-subtitle> <!-- CAMBIO: Aumentado a text-body-1 -->
-          </v-card>
+            <v-card-title class="text-h4 font-weight-bold text-blue-darken-2">{{ isLoadingKpis ? '...' : turnosEnProceso }}</v-card-title> <v-card-subtitle class="text-body-1 text-blue-darken-2">Turnos en Proceso</v-card-subtitle> </v-card>
         </v-col>
         <v-col cols="12" sm="6" md="4">
           <v-card class="kpi-card pa-4 text-center elevation-4" color="green-lighten-5">
             <v-icon size="48" color="green-darken-2">mdi-check-circle-outline</v-icon>
-            <v-card-title class="text-h4 font-weight-bold text-green-darken-2">{{ isLoadingKpis ? '...' : turnosFinalizados }}</v-card-title> <!-- CAMBIO: Aumentado a text-h4 -->
-            <v-card-subtitle class="text-body-1 text-green-darken-2">Turnos Finalizados</v-card-subtitle> <!-- CAMBIO: Aumentado a text-body-1 -->
-          </v-card>
+            <v-card-title class="text-h4 font-weight-bold text-green-darken-2">{{ isLoadingKpis ? '...' : turnosFinalizados }}</v-card-title> <v-card-subtitle class="text-body-1 text-green-darken-2">Turnos Finalizados</v-card-subtitle> </v-card>
         </v-col>
         <v-col cols="12" sm="6" md="4">
           <v-card class="kpi-card pa-4 text-center elevation-4" color="orange-lighten-5">
             <v-icon size="48" color="orange-darken-2">mdi-numeric</v-icon>
-            <v-card-title class="text-h4 font-weight-bold text-orange-darken-2">{{ isLoadingKpis ? '...' : siguienteTurno }}</v-card-title> <!-- CAMBIO: Aumentado a text-h4 -->
-            <v-card-subtitle class="text-body-1 text-orange-darken-2">Siguiente Turno</v-card-subtitle> <!-- CAMBIO: Aumentado a text-body-1 -->
-          </v-card>
+            <v-card-title class="text-h4 font-weight-bold text-orange-darken-2">{{ isLoadingKpis ? '...' : siguienteTurno }}</v-card-title> <v-card-subtitle class="text-body-1 text-orange-darken-2">Siguiente Turno</v-card-subtitle> </v-card>
         </v-col>
       </v-row>
 
       <v-divider class="my-6"></v-divider>
 
-      <!-- Sección de Acciones Rápidas -->
-      <h3 class="text-h4 text-center mb-6 text-primary font-weight-bold">🚀 Acciones Rápidas</h3> <!-- CAMBIO: Aumentado a text-h4 -->
-      <v-row justify="center">
+      <h3 class="text-h4 text-center mb-6 text-primary font-weight-bold">🚀 Acciones Rápidas</h3> <v-row justify="center">
         <v-col cols="12" sm="6" md="4">
           <v-btn
             color="success"
@@ -152,7 +141,8 @@ const fetchDashboardData = async () => {
     const todayISO = today.toISODate() || '';
 
     // 2. Obtener todos los turnos del día para calcular KPIs
-    const allTurnosToday = await TurnosDelDiaService.fetchTurnos({ fecha: todayISO }, token) as Turno[];
+    // *** LÍNEA CORREGIDA: Eliminado el 'token' de aquí ***
+    const allTurnosToday = await TurnosDelDiaService.fetchTurnos({ fecha: todayISO }) as Turno[];
 
     turnosEnProceso.value = allTurnosToday.filter(
       t => t.estado === 'activo' && !t.horaSalida // Activo y sin hora de salida
@@ -163,6 +153,7 @@ const fetchDashboardData = async () => {
     ).length;
 
     // 3. Obtener el siguiente número de turno
+    // Aquí fetchNextTurnNumber SÍ requiere el token, así que se mantiene.
     const siguienteTurnoData = await TurnosDelDiaService.fetchNextTurnNumber(token);
     siguienteTurno.value = siguienteTurnoData.siguiente;
 

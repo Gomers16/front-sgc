@@ -295,7 +295,7 @@ const fetchTurnoDetails = async (id: number) => {
       router.push('/login')
       return
     }
-    const data = await TurnosDelDiaService.fetchTurnoById(id, token) as Turno
+    const data = await TurnosDelDiaService.fetchTurnoById(id, token) as unknown as Turno
     turno.value = { ...data }
   } catch (error: unknown) {
     console.error('Error al cargar los detalles del turno:', error)

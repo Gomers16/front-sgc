@@ -1,8 +1,10 @@
 <template>
   <v-container class="mt-6">
     <v-card elevation="8" class="pa-8 rounded-xl bg-background-light">
-      <v-card-title class="text-h4 mb-6 text-center font-weight-bold text-primary">
-        📋 Turnos en Proceso <span class="text-secondary">(HOY - {{ todayDate }})</span>
+      <v-card-title class="text-h4 mb-6 font-weight-bold d-flex justify-center title-full-bordered-container">
+        <span class="title-text-with-border">
+          📋 Turnos en Proceso <span class="text-secondary">(HOY - {{ todayDate }})</span>
+        </span>
       </v-card-title>
 
       <v-row class="mb-4 align-center">
@@ -13,6 +15,8 @@
             prepend-icon="mdi-refresh"
             @click="loadTurnosHoy"
             :loading="isLoading"
+            class="bordered-button"
+            size="large"
           >
             Refrescar
           </v-btn>
@@ -23,6 +27,8 @@
             variant="outlined"
             prepend-icon="mdi-chart-bar"
             @click="openStatsModal"
+            class="bordered-button-info"
+            size="large"
           >
             Ver estadísticas del día
           </v-btn>
@@ -33,6 +39,8 @@
             variant="elevated"
             prepend-icon="mdi-plus-circle"
             @click="router.push('/rtm/crear-turno')"
+            class="bordered-button-success"
+            size="large"
           >
             Crear Nuevo Turno
           </v-btn>
@@ -127,14 +135,13 @@
         <v-card-actions>
           <v-spacer />
           <v-btn color="grey" variant="text" @click="confirmDialog.show = false">Cancelar</v-btn>
-          <v-btn :color="confirmDialog.color" variant="elevated" @click="handleConfirmAction">
+          <v-btn :color="confirmDialog.color" variant="elevated" @click="handleConfirmAction" class="bordered-dialog-button">
             Confirmar
           </v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
 
-    <!-- Modal de Estadísticas -->
     <v-dialog v-model="showStatsModal" max-width="800" content-class="elevation-24">
       <v-card class="rounded-xl bg-white">
         <v-card-title class="text-h5 text-center text-primary font-weight-bold py-4">
@@ -149,15 +156,13 @@
             <v-col cols="12" md="6">
               <v-card variant="outlined" class="pa-4">
                 <v-card-title class="text-h6 text-secondary">Por Tipo de Vehículo:</v-card-title>
-                <div style="height: 250px;"> <!-- Contenedor para el gráfico de barra -->
-                  <BarChart :data="chartDataTipoVehiculo" :options="chartOptions" />
+                <div style="height: 250px;"> <BarChart :data="chartDataTipoVehiculo" :options="chartOptions" />
                 </div>
               </v-card>
             </v-col>
             <v-col cols="12" md="6">
               <v-card variant="outlined" class="pa-4">
                 <v-card-title class="text-h6 text-secondary">Por Medio de Ingreso:</v-card-title>
-                <!-- CAMBIO AQUÍ: Reemplazado DoughnutChart por v-list -->
                 <v-list density="compact">
                   <v-list-item v-for="(count, medio) in statsData.medioEntero" :key="medio">
                     <v-list-item-title class="font-weight-medium text-capitalize">{{ medio }}:</v-list-item-title>
@@ -196,7 +201,6 @@ import {
   LinearScale,
   ArcElement,
   type TooltipItem // CAMBIO: Importar TooltipItem
- // CAMBIO: Importar TooltipItem
 } from 'chart.js';
 import { Bar as BarChart } from 'vue-chartjs';
 
@@ -312,14 +316,16 @@ const formatTime = (timeString: string | null): string => {
 const loadTurnosHoy = async () => {
   isLoading.value = true
   try {
-    const authStore = authSetStore();
-    const token = authStore.token;
+    // No necesitamos el token aquí si fetchTurnos no lo requiere.
+    // Aunque authStore.token se obtiene, no se pasa a fetchTurnos.
+    // Esto es coherente con el servicio donde se eliminó el token de fetchTurnos.
+    // const token = authStore.token; // No es necesario si fetchTurnos no lo usa.
 
-    if (!token) {
-      showSnackbar('Error: No hay token de autenticación. Por favor, inicie sesión.', 'error')
-      router.push('/login')
-      return
-    }
+    // if (!token) { // Esta validación solo es necesaria si la ruta realmente requiere token.
+    //   showSnackbar('Error: No hay token de autenticación. Por favor, inicie sesión.', 'error')
+    //   router.push('/login')
+    //   return
+    // }
 
     const today = new Date();
     const options: Intl.DateTimeFormatOptions = {
@@ -337,7 +343,9 @@ const loadTurnosHoy = async () => {
 
 
     const filters = { fecha: todayISO };
-    const data = await TurnosDelDiaService.fetchTurnos(filters, token) as Turno[];
+    // *** LA LÍNEA CRÍTICA CORREGIDA ***
+    // Se eliminó el 'token' como segundo argumento, ya que fetchTurnos en el servicio ahora solo espera 'filters'.
+    const data = await TurnosDelDiaService.fetchTurnos(filters) as Turno[];
 
     turnos.value = data.filter(turno => {
       const turnoFechaNormalizada = turno.fecha ? new Date(turno.fecha).toISOString().slice(0, 10) : '';
@@ -485,44 +493,75 @@ onMounted(() => {
 </script>
 
 <style scoped>
-/* Las variables de tema de Vuetify son globales y deben definirse en `plugins/vuetify.ts`
-    No es apropiado redefinirlas en `<style scoped>`. Las incluyo como referencia de qué colores se usan.
-*/
-/*
-:root {
-  --v-theme-background-light: #FFFFFF;
-  --v-theme-primary: #1976D2;
-  --v-theme-secondary: #424242;
-  --v-theme-info: #2196F3;
-  --v-theme-success: #4CAF50;
-  --v-theme-warning: #FB8C00;
-  --v-theme-error: #FF5252;
-  --v-theme-on-primary-text: #FFFFFF;
-  --v-theme-on-primary-text-light: #BBDEFB;
-  --v-theme-on-primary-text-faded: rgba(255, 255, 255, 0.7);
-  --v-theme-button-text-light-warning: #FFD700;
-  --v-theme-button-text-light-secondary: #E0E0E0;
-}
-*/
-
-/* Estilos para el título dentro del v-card principal */
-.v-card-title .text-secondary {
-  color: #4CAF50; /* Verde para la fecha, coherente con CrearTurnoRTMView */
-}
-
-/* Estilo para el CONTORNO PRINCIPAL (el v-card más externo) */
-/* La clase `bg-background-light` en el template ahora aplicará el color blanco
-    definido en tu tema de Vuetify para `background-light`.
-    Mantenemos la sombra y el border-radius para la apariencia de "contorno".
-*/
+/* Estilos para el CONTORNO PRINCIPAL (el v-card más externo) */
 .v-card {
   box-shadow: 0 10px 20px rgba(0,0,0,0.08), 0 6px 6px rgba(0,0,0,0.05); /* Sombra más sutil */
   border-radius: 16px;
-  /* NO se necesita `background` aquí, ya que `bg-background-light` lo maneja desde el tema. */
+}
+
+/* 1. Estilos para el TÍTULO PRINCIPAL con borde y centrado */
+/* Contenedor del título que ahora centra su contenido */
+.title-full-bordered-container {
+  /* Vuetify d-flex y justify-center ya manejan el display flex y el centrado */
+  padding: 0 !important; /* Asegura que el v-card-title no tenga padding extra */
+}
+
+/* Estilo para el span que contiene el texto y el borde */
+.title-text-with-border {
+  border: 2px solid black; /* Borde negro de 2px */
+  padding: 10px 20px; /* Más padding para que el borde se vea bien */
+  border-radius: 12px; /* Bordes ligeramente más redondeados */
+  background-color: rgba(255, 255, 255, 0.9); /* Fondo semi-transparente para que el borde resalte */
+  margin-bottom: 24px; /* Un margen inferior para separarlo del formulario/botones */
+  display: inline-block; /* Importante para que el padding y border se apliquen correctamente */
+  /* El centrado lo hará el padre con d-flex justify-center */
+}
+
+/* Estilo para el texto principal del título (dentro del span con borde) */
+.title-text-with-border {
+  /* Estas propiedades ya están en el v-card-title, pero las repetimos por especificidad */
+  font-weight: bold;
+  letter-spacing: 0.05em;
+  color: var(--v-theme-primary); /* Usar la variable de color primary de Vuetify */
+}
+
+/* Asegurar que el span de la fecha esté en la misma línea y tenga espacio */
+.title-text-with-border .text-secondary {
+  display: inline; /* Asegura que la fecha esté en la misma línea */
+  margin-left: 8px; /* Espacio entre el texto principal y la fecha */
+  color: #4CAF50; /* Color verde para la fecha */
+}
+
+/* 2. Estilos para los BOTONES con borde */
+/* Estilo base para todos los botones con borde */
+.bordered-button,
+.bordered-button-info,
+.bordered-button-success {
+  border-radius: 10px;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.1), 0 0 0 2px black !important; /* Borde negro de 2px */
+}
+
+.bordered-button:hover,
+.bordered-button-info:hover,
+.bordered-button-success:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 12px rgba(0,0,0,0.2), 0 0 0 3px black !important; /* Borde al pasar el ratón */
+}
+
+/* Estilos específicos para el color de la sombra y borde de cada botón */
+
+
+/* Estilo para el botón de confirmación en el diálogo (ya existente) */
+.bordered-dialog-button {
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1), 0 0 0 1px black !important;
+}
+
+.bordered-dialog-button:hover {
+  box-shadow: 0 4px 8px rgba(0,0,0,0.2), 0 0 0 2px black !important;
 }
 
 /* ESTILO CRÍTICO PARA LAS TARJETAS AZULES (las que están dentro del contorno) */
-/* Estas deben permanecer con sus estilos originales y el color azul */
 .turno-card {
   transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
   border-radius: 12px;
@@ -535,7 +574,6 @@ onMounted(() => {
 }
 
 /* Colores de texto para elementos sobre fondos oscuros (las tarjetas azules) */
-/* Estos colores se extraen del tema de Vuetify. */
 .text-on-primary-text {
   color: rgb(var(--v-theme-on-primary-text)) !important;
 }

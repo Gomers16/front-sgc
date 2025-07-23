@@ -1,8 +1,10 @@
 <template>
   <v-container class="mt-6">
     <v-card elevation="8" class="pa-8 rounded-xl">
-      <v-card-title class="text-h4 mb-6 text-center text-primary font-weight-bold">
-        🔍 Histórico y Estado de Turnos
+      <v-card-title class="text-h4 mb-6 font-weight-bold d-flex justify-center title-full-bordered-container">
+        <span class="title-text-with-border">
+          🔍 Histórico y Estado de Turnos
+        </span>
       </v-card-title>
 
       <v-row class="mb-4">
@@ -35,23 +37,37 @@
             clearable
           ></v-text-field>
         </v-col>
-        <v-col cols="12" class="d-flex justify-end flex-wrap">
+
+        <v-col cols="12" class="d-flex flex-wrap justify-end align-center">
           <v-btn
             color="primary"
             variant="elevated"
             prepend-icon="mdi-filter"
             @click="applyFilters"
             :loading="isLoading"
-            class="mb-2 mr-2"
+            class="mb-2 mr-4 bordered-button"
+            size="default"
           >
             Aplicar Filtros
           </v-btn>
+          <v-btn
+            color="grey"
+            variant="outlined"
+            prepend-icon="mdi-close-circle-outline"
+            class="mb-2 mr-4 bordered-button-grey"
+            size="default"
+            @click="clearFilters"
+          >
+            Limpiar Filtros
+          </v-btn>
+
           <v-btn
             color="info"
             variant="outlined"
             prepend-icon="mdi-calendar-today"
             @click="setTodayAndFilter"
-            class="mb-2 mr-2"
+            class="mb-2 mr-4 bordered-button-info"
+            size="default"
           >
             Ver Turnos de Hoy
           </v-btn>
@@ -60,24 +76,18 @@
             variant="outlined"
             prepend-icon="mdi-calendar-month"
             @click="setMonthAndFilter"
-            class="mb-2 mr-2"
+            class="mb-2 mr-4 bordered-button-cyan"
+            size="default"
           >
-            Ver Turnos del Mes Actual
+            Ver Turnos del Mes
           </v-btn>
-          <v-btn
-            color="grey"
-            variant="outlined"
-            prepend-icon="mdi-close-circle-outline"
-            class="mb-2"
-            @click="clearFilters"
-          >
-            Limpiar Filtros
-          </v-btn>
+
           <v-btn
             color="secondary"
             variant="elevated"
             prepend-icon="mdi-chart-bar"
-            class="ml-2 mb-2"
+            class="mb-2 bordered-button-secondary"
+            size="default"
             @click="goToReporteCaptacion"
           >
             Reporte por Captación
@@ -142,7 +152,7 @@
 import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { DateTime } from 'luxon';
-import TurnosDelDiaService from '@/services/turnosdeldiaService'; // Asegúrate de que este servicio existe y maneja los parámetros correctamente
+import TurnosDelDiaService from '@/services/turnosdeldiaService';
 
 interface Turno {
   id: number;
@@ -241,32 +251,25 @@ const getActualStageText = (turno: Turno): string => {
 
 const formatDate = (dateString: string): string => {
   if (!dateString) return '';
-  try {
-    const date = DateTime.fromISO(dateString);
-    return date.isValid ? date.toISODate() : dateString;
-  } catch (e) {
-    console.error("Error al formatear la fecha:", dateString, e);
-    return dateString;
-  }
+  const parts = dateString.split('T');
+  return parts.length > 0 ? parts[0] : dateString;
 };
 
 const formatTime = (timeString: string | null): string => {
   if (!timeString) return '';
   let time: DateTime;
 
-  // Intentar parsear como HH:mm:ss (si la BD lo guarda así)
   time = DateTime.fromFormat(timeString, 'HH:mm:ss', { zone: 'America/Bogota' });
 
-  // Si no es válido como HH:mm:ss, intentar parsear como HH:mm
   if (!time.isValid) {
     time = DateTime.fromFormat(timeString, 'HH:mm', { zone: 'America/Bogota' });
   }
 
   if (time.isValid) {
-    return time.toFormat('hh:mm a'); // 'hh' para 12 horas, 'mm' para minutos, 'a' para AM/PM
+    return time.toFormat('hh:mm a');
   }
   console.warn('formatTime: Failed to parse timeString:', timeString);
-  return timeString; // Retorna el string original si el parseo falla
+  return timeString;
 };
 
 const fetchTurnosFromApi = async (fechaInicioParam?: string, fechaFinParam?: string) => {
@@ -274,9 +277,8 @@ const fetchTurnosFromApi = async (fechaInicioParam?: string, fechaFinParam?: str
   try {
     const filters: FetchTurnosFilters = {};
 
-    // Asegurar que solo se añadan filtros si tienen un valor que es string y no está vacío
-    if (typeof searchPlaca.value === 'string' && searchPlaca.value.trim() !== '') { // CAMBIO: Añadir .trim()
-      filters.placa = searchPlaca.value.trim(); // CAMBIO: Añadir .trim()
+    if (typeof searchPlaca.value === 'string' && searchPlaca.value.trim() !== '') {
+      filters.placa = searchPlaca.value.trim();
     }
     if (searchTurnoNumero.value !== null && searchTurnoNumero.value > 0) {
       filters.turnoNumero = searchTurnoNumero.value;
@@ -290,7 +292,6 @@ const fetchTurnosFromApi = async (fechaInicioParam?: string, fechaFinParam?: str
       filters.fechaFin = fechaFinParam;
     }
 
-    // --- DEBUGGING: Log de la URL que se va a enviar ---
     const queryParams = new URLSearchParams();
     for (const key in filters) {
       const value = filters[key as keyof FetchTurnosFilters];
@@ -300,7 +301,6 @@ const fetchTurnosFromApi = async (fechaInicioParam?: string, fechaFinParam?: str
     }
     const apiUrl = `http://localhost:3333/api/turnos-rtm?${queryParams.toString()}`;
     console.log('Fetching from URL:', apiUrl);
-    // --- FIN DEBUGGING ---
 
     const data = await TurnosDelDiaService.fetchTurnos(filters as Record<string, string | number | boolean>) as Turno[];
     turnos.value = data;
@@ -363,22 +363,59 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.v-card-title {
+/* Contenedor del título que ahora centra su contenido */
+.title-full-bordered-container {
+  padding: 0 !important;
+}
+
+/* Estilo para el span que contiene el texto y el borde */
+.title-text-with-border {
+  border: 2px solid black;
+  padding: 10px 20px;
+  border-radius: 12px;
+  background-color: rgba(255, 255, 255, 0.9);
+  margin-bottom: 24px;
+  display: inline-block;
   font-weight: bold;
   letter-spacing: 0.05em;
+  color: var(--v-theme-primary);
 }
+
+/* Estilo para el CONTORNO PRINCIPAL (el v-card más externo) */
 .v-card {
   box-shadow: 0 10px 20px rgba(0,0,0,0.15), 0 6px 6px rgba(0,0,0,0.1);
   border-radius: 16px;
   background: linear-gradient(145deg, #f0f2f5, #e0e2e5);
 }
-.v-btn {
+
+/* Estilo base para todos los botones con borde */
+.bordered-button,
+.bordered-button-info,
+.bordered-button-cyan,
+.bordered-button-grey,
+.bordered-button-secondary {
   border-radius: 10px;
   transition: all 0.3s ease;
-  box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+  box-shadow: 0 4px 6px rgba(0,0,0,0.1), 0 0 0 2px black !important; /* Borde negro de 2px */
 }
-.v-btn:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 6px 12px rgba(0,0,0,0.2);
+
+.bordered-button:hover,
+.bordered-button-info:hover,
+.bordered-button-cyan:hover,
+.bordered-button-grey:hover,
+.bordered-button-secondary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 12px rgba(0,0,0,0.2), 0 0 0 3px black !important; /* Borde al pasar el ratón */
 }
+
+/* Puedes añadir ajustes finos para colores de borde específicos si el negro no es ideal para todos */
+/* Ejemplo: para info button, un borde azul tenue */
+/*
+.bordered-button-info {
+  box-shadow: 0 4px 6px rgba(0,0,0,0.1), 0 0 0 2px rgba(33, 150, 243, 0.7) !important;
+}
+.bordered-button-info:hover {
+  box-shadow: 0 6px 12px rgba(0,0,0,0.2), 0 0 0 3px rgba(33, 150, 243, 0.9) !important;
+}
+*/
 </style>

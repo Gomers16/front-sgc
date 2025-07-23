@@ -1,8 +1,10 @@
 <template>
   <v-container class="mt-6">
-    <v-card elevation="8" class="pa-8 rounded-xl border-spacing-2">
-      <v-card-title class="text-h4 mb-6 text-center text-primary font-weight-bold">
-        ✍️ Crear Turno RTM <span class="text-secondary">- Turno #{{ turnoNumero || '...' }}</span>
+    <v-card elevation="8" class="pa-8 rounded-xl">
+      <v-card-title class="text-h4 mb-6 text-primary font-weight-bold d-flex justify-center title-full-bordered-container">
+        <span class="title-text-with-border">
+          ✍️ Crear Turno RTM <span class="text-secondary">- Turno #{{ turnoNumero || '...' }}</span>
+        </span>
       </v-card-title>
 
       <v-form ref="formRef" @submit.prevent="openConfirmDialog">
@@ -36,8 +38,8 @@
               required
               density="comfortable"
               prepend-inner-icon="mdi-car-info"
-              :rules="[v => !!v || 'La placa es requerida']"
               @input="(event: { target: HTMLInputElement }) => form.placa = (event.target as HTMLInputElement).value.toUpperCase()"
+              :rules="[v => !!v || 'La placa es requerida']"
             />
           </v-col>
           <v-col cols="12" sm="6">
@@ -130,7 +132,7 @@
             <v-btn
               color="primary"
               @click="openConfirmDialog"
-              class="font-weight-bold py-3 px-6"
+              class="font-weight-bold py-3 px-6 bordered-button"
               size="large"
               :loading="isSubmitting"
               :disabled="isSubmitting"
@@ -167,7 +169,7 @@
         </v-card-text>
         <v-card-actions class="justify-center pa-4">
           <v-btn color="grey-darken-1" variant="outlined" @click="handleCancelAction">Cancelar</v-btn>
-          <v-btn :color="confirmDialogConfirmColor" variant="elevated" @click="handleConfirmAction">{{ confirmDialogConfirmText }}</v-btn>
+          <v-btn :color="confirmDialogConfirmColor" variant="elevated" @click="handleConfirmAction" class="bordered-dialog-button">{{ confirmDialogConfirmText }}</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
@@ -193,14 +195,13 @@ interface TurnoForm {
   horaIngreso: string; // Este será HH:mm
   placa: string;
   tipoVehiculo: 'carro' | 'moto' | 'taxi' | 'enseñanza' | '';
-  // Actualizadas las opciones de medioEntero
   medioEntero: 'redes_sociales' | 'convenio_referido_externo' | 'call_center' | 'fachada' | 'referido_interno' | 'asesor_comercial' | '';
   observaciones: string;
   tieneCita: boolean;
-  convenio: string | null; // Usaremos este para "Nombre de Convenio o Referido Externo"
-  referidoInterno: string | null; // Usaremos este para "Nombre del Referido Interno"
+  convenio: string | null;
+  referidoInterno: string | null;
   referidoExterno: string | null;
-  asesorComercial: string | null; // Usaremos este para "Nombre del Asesor Comercial"
+  asesorComercial: string | null;
   funcionarioId: number;
 }
 
@@ -250,24 +251,20 @@ const confirmDialogConfirmColor = ref('')
 type ActionType = 'create_turno'
 const currentAction = ref<ActionType | ''>('')
 
-onMounted(async () => { // CAMBIO: onMounted ahora es async
+onMounted(async () => {
   const user = authStore.user;
   if (user && user.id) {
     form.value.funcionarioId = user.id;
   }
-  await resetFormFields() // CAMBIO: await aquí
+  await resetFormFields()
 })
 
-// WATCHER para limpiar campos cuando medioEntero cambia
 watch(() => form.value.medioEntero, () => {
-  // Siempre limpiar todos los campos condicionales al cambiar la opción
   form.value.convenio = null;
   form.value.referidoInterno = null;
   form.value.asesorComercial = null;
-  // Si 'referidoExterno' no se usa, también se puede mantener en null aquí
   form.value.referidoExterno = null;
 });
-
 
 const fetchNextTurnNumber = async () => {
   try {
@@ -307,7 +304,7 @@ const fetchNextTurnNumber = async () => {
   }
 }
 
-const resetFormFields = async () => { // CAMBIO: Ahora es async
+const resetFormFields = async () => {
   const now = DateTime.now().setZone('America/Bogota');
 
   form.value = {
@@ -326,13 +323,12 @@ const resetFormFields = async () => { // CAMBIO: Ahora es async
   };
   turnoNumero.value = null;
 
-  await fetchNextTurnNumber(); // CAMBIO: Esperar a que se obtenga el nuevo número de turno
+  await fetchNextTurnNumber();
 
   if (formRef.value) {
-    formRef.value.resetValidation(); // CAMBIO: Resetear la validación después de que los campos estén llenos
+    formRef.value.resetValidation();
   }
 }
-
 
 const openConfirmDialog = async () => {
   if (!formRef.value) {
@@ -354,7 +350,6 @@ const openConfirmDialog = async () => {
   showConfirmDialog.value = true
 }
 
-
 const handleConfirmAction = async () => {
   showConfirmDialog.value = false
   isSubmitting.value = true
@@ -366,13 +361,11 @@ const handleConfirmAction = async () => {
   isSubmitting.value = false
 }
 
-
 const handleCancelAction = () => {
   showConfirmDialog.value = false
   currentAction.value = ''
   showSnackbar('Creación de turno cancelada.', 'info')
 }
-
 
 const submitForm = async () => {
   try {
@@ -407,7 +400,7 @@ const submitForm = async () => {
 
     showSnackbar(`✅ Turno #${data.turnoNumero} creado exitosamente`, 'success')
 
-    await resetFormFields() // CAMBIO: await aquí
+    await resetFormFields()
 
   } catch (error: unknown) {
     let message = 'Error desconocido al crear el turno.'
@@ -421,13 +414,38 @@ const submitForm = async () => {
 </script>
 
 <style scoped>
-.v-card-title {
-  font-weight: bold;
-  letter-spacing: 0.05em;
+/* Contenedor del título que ahora centra su contenido */
+.title-full-bordered-container {
+  /* Vuetify d-flex y justify-center ya manejan el display flex y el centrado */
+  /* text-align: center; /* Ya no es necesario si usamos flexbox para el centrado */
+  padding: 0 !important; /* Asegura que el v-card-title no tenga padding extra */
 }
 
-.v-card-title .text-secondary {
-  color: #4CAF50;
+/* Estilo para el span que contiene el texto y el borde */
+.title-text-with-border {
+  border: 2px solid black; /* Borde negro de 2px */
+  padding: 10px 20px; /* Más padding para que el borde se vea bien */
+  border-radius: 12px; /* Bordes ligeramente más redondeados */
+  background-color: rgba(255, 255, 255, 0.9); /* Fondo semi-transparente para que el borde resalte */
+  /* Quitamos margin: auto aquí, ya que el padre flex lo centrará */
+  /* margin-bottom para separarlo del formulario */
+  margin-bottom: 24px; /* Un margen inferior para separarlo del formulario */
+  display: inline-block; /* Importante para que el padding y border se apliquen correctamente */
+  /* text-align: center; /* Centrar el texto dentro de este span si se rompiera en varias líneas */
+}
+
+/* Estilo para el texto principal del título (fuera del span del número) */
+.title-text-with-border {
+  font-weight: bold;
+  letter-spacing: 0.05em;
+  color: var(--v-theme-primary); /* Usar la variable de color primary de Vuetify */
+}
+
+/* Asegurar que el span del número de turno esté en la misma línea y tenga espacio */
+.title-text-with-border .text-secondary {
+  display: inline; /* Asegura que el número de turno esté en la misma línea */
+  margin-left: 8px; /* Espacio entre el texto principal y el número de turno */
+  color: #4CAF50; /* Color verde para el número de turno */
 }
 
 .v-card {
@@ -451,9 +469,23 @@ const submitForm = async () => {
   box-shadow: 0 4px 6px rgba(0,0,0,0.1);
 }
 
+/* Estilo para el botón principal "Crear Nuevo Turno" */
+.bordered-button {
+  box-shadow: 0 4px 6px rgba(0,0,0,0.1), 0 0 0 2px black !important;
+}
+
 .v-btn:hover {
   transform: translateY(-2px);
-  box-shadow: 0 6px 12px rgba(0,0,0,0.2);
+  box-shadow: 0 6px 12px rgba(0,0,0,0.2), 0 0 0 3px black !important;
+}
+
+/* Estilo para el botón de confirmación en el diálogo */
+.bordered-dialog-button {
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1), 0 0 0 1px black !important;
+}
+
+.bordered-dialog-button:hover {
+  box-shadow: 0 4px 8px rgba(0,0,0,0.2), 0 0 0 2px black !important;
 }
 
 .v-radio-group .v-radio {
