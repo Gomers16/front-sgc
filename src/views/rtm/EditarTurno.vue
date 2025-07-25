@@ -2,7 +2,7 @@
   <v-container class="mt-6">
     <v-card elevation="8" class="pa-8 rounded-xl">
       <v-card-title class="text-h4 mb-6 text-center text-primary font-weight-bold">
-        ✍️ Editar Turno RTM #{{ turno.turnoNumero }}
+        ✍️ {{ isEditing ? 'Editar Turno RTM' : 'Ver Detalles del Turno RTM' }} #{{ turno.turnoNumero }}
       </v-card-title>
 
       <v-form @submit.prevent="openConfirmSaveDialog">
@@ -15,6 +15,7 @@
               required
               :rules="[(v) => !!v || 'La placa es obligatoria']"
               @input="(event: { target: HTMLInputElement; }) => turno.placa = (event.target as HTMLInputElement).value.toUpperCase()"
+              :readonly="!isEditing"
             ></v-text-field>
           </v-col>
           <v-col cols="12" md="6">
@@ -25,6 +26,7 @@
               variant="outlined"
               required
               :rules="[(v) => !!v || 'El tipo de vehículo es obligatorio']"
+              :readonly="!isEditing"
             ></v-select>
           </v-col>
           <v-col cols="12" md="6">
@@ -32,6 +34,7 @@
               v-model="turno.tieneCita"
               label="Tiene Cita"
               color="primary"
+              :readonly="!isEditing"
             ></v-checkbox>
           </v-col>
           <v-col cols="12" md="6">
@@ -42,17 +45,17 @@
               variant="outlined"
               required
               :rules="[(v) => !!v || 'El medio por el que se enteró es obligatorio']"
+              :readonly="!isEditing"
             ></v-select>
           </v-col>
 
-          <!-- Campos condicionales (Convenio, Referido Interno, Asesor Comercial) -->
-          <!-- CAMBIO: v-if ahora usa el valor directo de turno.medioEntero -->
           <v-col cols="12" md="6" v-if="turno.medioEntero === 'Convenio o Referido Externo'">
             <v-text-field
               v-model="turno.convenio"
               label="Nombre de Convenio o Referido Externo (Opcional)"
               variant="outlined"
               clearable
+              :readonly="!isEditing"
             ></v-text-field>
           </v-col>
           <v-col cols="12" md="6" v-if="turno.medioEntero === 'Referido Interno'">
@@ -61,6 +64,7 @@
               label="Nombre del Referido Interno (Opcional)"
               variant="outlined"
               clearable
+              :readonly="!isEditing"
             ></v-text-field>
           </v-col>
           <v-col cols="12" md="6" v-if="turno.medioEntero === 'Asesor Comercial'">
@@ -69,10 +73,9 @@
               label="Nombre del Asesor Comercial (Opcional)"
               variant="outlined"
               clearable
+              :readonly="!isEditing"
             ></v-text-field>
           </v-col>
-          <!-- FIN Campos condicionales -->
-
           <v-col cols="12">
             <v-textarea
               v-model="turno.observaciones"
@@ -80,6 +83,7 @@
               variant="outlined"
               rows="3"
               clearable
+              :readonly="!isEditing"
             ></v-textarea>
           </v-col>
 
@@ -97,6 +101,7 @@
               label="Hora de Salida (HH:mm:ss)"
               variant="outlined"
               clearable
+              :readonly="!isEditing"
             ></v-text-field>
           </v-col>
           <v-col cols="12" md="4">
@@ -105,6 +110,7 @@
               label="Tiempo de Servicio (ej. '30 min')"
               variant="outlined"
               clearable
+              :readonly="!isEditing"
             ></v-text-field>
           </v-col>
           <v-col cols="12" md="6">
@@ -114,6 +120,7 @@
               label="Estado del Turno"
               variant="outlined"
               required
+              :readonly="!isEditing"
             ></v-select>
           </v-col>
         </v-row>
@@ -130,6 +137,16 @@
             Volver
           </v-btn>
           <v-btn
+            v-if="!isEditing"
+            color="primary"
+            variant="elevated"
+            prepend-icon="mdi-pencil"
+            @click="isEditing = true"
+          >
+            Editar Turno
+          </v-btn>
+          <v-btn
+            v-if="isEditing"
             color="primary"
             variant="elevated"
             prepend-icon="mdi-content-save"
@@ -137,6 +154,15 @@
             :loading="isSaving"
           >
             Guardar Cambios
+          </v-btn>
+          <v-btn
+            v-if="isEditing"
+            color="error"
+            variant="outlined"
+            prepend-icon="mdi-close"
+            @click="cancelEdit"
+          >
+            Cancelar Edición
           </v-btn>
         </v-card-actions>
       </v-form>
@@ -195,7 +221,6 @@ interface Turno {
   tieneCita: boolean;
   convenio: string | null;
   referidoInterno: string | null;
-  // CAMBIO: 'referidoExterno' eliminado de la interfaz si no hay input directo
   asesorComercial: string | null;
   medioEntero:
     | 'Redes Sociales'
@@ -204,7 +229,7 @@ interface Turno {
     | 'Fachada'
     | 'Referido Interno'
     | 'Asesor Comercial'
-    | 'Otros'; // Mantener 'Otros' si es un valor posible en tu backend
+    | 'Otros';
   observaciones: string | null;
   funcionarioId: number;
   estado: 'activo' | 'inactivo' | 'cancelado' | 'finalizado';
@@ -221,6 +246,7 @@ const route = useRoute()
 const router = useRouter()
 const authStore = authSetStore()
 
+const originalTurno = ref<Turno | null>(null); // Para almacenar los datos originales fetched
 const turno = ref<Turno>({
   id: 0,
   turnoNumero: 0,
@@ -244,6 +270,7 @@ const turno = ref<Turno>({
 
 const isLoading = ref(true)
 const isSaving = ref(false)
+const isEditing = ref(false) // Nueva variable de estado
 
 const snackbar = ref({
   show: false,
@@ -264,7 +291,7 @@ const openConfirmSaveDialog = () => {
   confirmSaveDialog.value.show = true
 }
 
-// CAMBIO: Opciones para el v-select de medioEntero (valores exactos del backend)
+// Opciones para el v-select de medioEntero (valores exactos del backend)
 const medioEnteroOptions: Turno['medioEntero'][] = [
   'Redes Sociales',
   'Convenio o Referido Externo',
@@ -272,13 +299,12 @@ const medioEnteroOptions: Turno['medioEntero'][] = [
   'Fachada',
   'Referido Interno',
   'Asesor Comercial',
-  // 'Otros' // CAMBIO: Eliminado si no se maneja explícitamente en el backend
+  'Otros' // Se mantiene 'Otros' ya que está en tu interfaz
 ];
 
-// CAMBIO: Watcher para limpiar campos condicionales cuando cambia turno.medioEntero
+// Watcher para limpiar campos condicionales cuando cambia turno.medioEntero
 watch(() => turno.value.medioEntero, (newValue, oldValue) => {
-  if (newValue !== oldValue) {
-    // Limpiar todos los campos condicionales al cambiar la opción
+  if (newValue !== oldValue && isEditing.value) { // Solo limpiar si está en modo edición
     turno.value.convenio = null;
     turno.value.referidoInterno = null;
     turno.value.asesorComercial = null;
@@ -297,6 +323,7 @@ const fetchTurnoDetails = async (id: number) => {
     }
     const data = await TurnosDelDiaService.fetchTurnoById(id, token) as unknown as Turno
     turno.value = { ...data }
+    originalTurno.value = { ...data }; // Almacenar los datos originales
   } catch (error: unknown) {
     console.error('Error al cargar los detalles del turno:', error)
     let message = 'Error al cargar los detalles del turno. Intente recargar la página.'
@@ -334,21 +361,21 @@ const saveTurno = async () => {
       tieneCita: turno.value.tieneCita,
       convenio: turno.value.convenio,
       referidoInterno: turno.value.referidoInterno,
-      // CAMBIO: 'referidoExterno' se elimina del payload si no hay input directo y no es necesario en el backend
-      // Si tu backend lo espera, considera añadir un input para él o manejarlo de otra forma.
+      asesorComercial: turno.value.asesorComercial,
       medioEntero: turno.value.medioEntero,
       observaciones: turno.value.observaciones,
       funcionarioId: turno.value.funcionarioId,
       horaSalida: turno.value.horaSalida,
       tiempoServicio: turno.value.tiempoServicio,
       estado: turno.value.estado,
-      asesorComercial: turno.value.asesorComercial,
     }
 
     await TurnosDelDiaService.updateTurno(turno.value.id, updatePayload, token)
 
     showSnackbar('Turno guardado exitosamente!', 'success')
-    router.push('/rtm/turnos-dia')
+    isEditing.value = false; // Salir del modo edición después de guardar
+    originalTurno.value = { ...turno.value }; // Actualizar los datos originales después de guardar
+    router.push('/rtm/turnos-dia') // Opcionalmente, navegar de vuelta después de guardar
   } catch (error: unknown) {
     console.error('Error al guardar el turno:', error)
     let message = 'Error al guardar el turno. Intente de nuevo.'
@@ -366,6 +393,14 @@ const saveTurno = async () => {
     isSaving.value = false
   }
 }
+
+const cancelEdit = () => {
+  if (originalTurno.value) {
+    turno.value = { ...originalTurno.value }; // Revertir a los datos originales
+  }
+  isEditing.value = false; // Salir del modo edición
+  showSnackbar('Edición cancelada. Los cambios no se guardaron.', 'info');
+};
 
 onMounted(() => {
   const turnoId = Number(route.params.id)
