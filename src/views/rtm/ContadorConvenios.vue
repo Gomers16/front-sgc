@@ -1,5 +1,7 @@
 <template>
-  <v-container class="mt-4"> <v-card elevation="8" class="pa-6 rounded-xl"> <v-card-title class="text-h4 mb-4 font-weight-bold d-flex justify-center title-full-bordered-container">
+  <v-container class="mt-4">
+    <v-card elevation="8" class="pa-6 rounded-xl">
+      <v-card-title class="text-h4 mb-4 font-weight-bold d-flex justify-center title-full-bordered-container">
         <span class="title-text-with-border">
           📊 Reporte de Medios de Captación
         </span>
@@ -178,7 +180,7 @@
       </template>
     </v-snackbar>
 
-    <v-dialog v-model="detailsModal" max-width="900">
+    <v-dialog v-model="detailsModal" max-width="1200">
       <v-card class="rounded-xl">
         <v-card-title class="text-h5 text-center text-primary font-weight-bold py-4">
           Detalles de Turnos por {{ currentDetailType }}
@@ -197,9 +199,11 @@
             <template v-slot:item.horaIngreso="{ item }">
               {{ formatTime(item.horaIngreso ?? '') }}
             </template>
+
             <template v-slot:item.referidoInterno="{ item }">
               {{ item.referidoInterno || '-' }}
             </template>
+
             <template v-slot:item.convenio_referido_externo_display="{ item }">
               <span v-if="item.medioEntero === 'Convenio o Referido Externo' && item.convenio">
                 {{ item.convenio }}
@@ -209,7 +213,14 @@
               </span>
               <span v-else>-</span>
             </template>
-          </v-data-table>
+
+            <template v-slot:item.asesorComercialDisplay="{ item }">
+              <span v-if="item.medioEntero === 'Asesor Comercial' && item.asesorComercial">
+                {{ item.asesorComercial }}
+              </span>
+              <span v-else>-</span>
+            </template>
+            </v-data-table>
         </v-card-text>
         <v-card-actions class="justify-end py-4">
           <v-btn color="primary" variant="elevated" @click="detailsModal = false">Cerrar</v-btn>
@@ -241,11 +252,13 @@ interface Turno {
   observaciones: string | null;
   funcionarioId: number;
   estado: 'activo' | 'inactivo' | 'cancelado' | 'finalizado';
-  funcionario?: {
-    id: number;
-    nombres: string;
-    apellidos: string;
-  };
+  // Asegúrate de que esta propiedad exista y se esté enviando desde tu backend
+  asesorComercial: string | null; // ¡NUEVO!
+  // funcionario?: { // Esta ya no es necesaria para la columna de Asesor Comercial si el backend envía el string directamente
+  //   id: number;
+  //   nombres: string;
+  //   apellidos: string;
+  // };
   createdAt: string;
   updatedAt: string;
 }
@@ -291,6 +304,7 @@ const detailHeaders = [
   { title: 'Medio Captación', key: 'medioEntero' },
   { title: 'Referido Interno', key: 'referidoInterno' },
   { title: 'Convenio / Ref. Externo', key: 'convenio_referido_externo_display' },
+  { title: 'Asesor Comercial', key: 'asesorComercialDisplay' }, // ¡NUEVA COLUMNA!
 ];
 
 const showSnackbar = (message: string, color = 'info', timeout = 4000) => {
