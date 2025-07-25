@@ -104,7 +104,14 @@
         loading-text="Cargando histórico de turnos..."
         no-data-text="No hay turnos para mostrar con los filtros aplicados."
         class="elevation-1"
+        :sort-by="defaultSort"
       >
+        <template v-slot:item.turnoNumero="{ item }">
+          <span class="turno-number-display">
+            {{ item.turnoNumero }}
+          </span>
+        </template>
+
         <template v-slot:item.fecha="{ item }">
           {{ formatDate(item.fecha) }}
         </template>
@@ -180,11 +187,10 @@ interface Turno {
   updatedAt: string;
 }
 
-// Nueva interfaz para los filtros que se envían al servicio
 interface FetchTurnosFilters {
   placa?: string;
   turnoNumero?: number;
-  fecha?: string; // Mantener por si se usa para un filtro de fecha exacta
+  fecha?: string;
   fechaInicio?: string;
   fechaFin?: string;
 }
@@ -205,14 +211,22 @@ const snackbar = ref({
   timeout: 4000,
 });
 
+// --- MODIFICACIÓN CLAVE AQUÍ: 'sortable: false' en todos EXCEPTO en 'turnoNumero' ---
 const headers = [
-  { title: 'Turno #', key: 'turnoNumero' },
-  { title: 'Placa', key: 'placa' },
-  { title: 'Fecha', key: 'fecha' },
-  { title: 'Hora Ingreso', key: 'horaIngreso' },
-  { title: 'Estado', key: 'estado' },
+  { title: 'Turno #', key: 'turnoNumero', align: 'center' }, // Removido sortable: false aquí para que sea ordenable
+  { title: 'Placa', key: 'placa', sortable: false },
+  { title: 'Fecha', key: 'fecha', sortable: false },
+  { title: 'Hora Ingreso', key: 'horaIngreso', sortable: false },
+  { title: 'Estado', key: 'estado', sortable: false },
   { title: 'Etapa Actual', key: 'etapaActual', sortable: false },
   { title: 'Acciones', key: 'actions', sortable: false },
+];
+// --------------------------------------------------------------------------------------
+
+// Define el ordenamiento por defecto: por fecha descendente y luego por turnoNumero descendente
+const defaultSort = [
+  { key: 'fecha', order: 'desc' },
+  { key: 'turnoNumero', order: 'desc' },
 ];
 
 const showSnackbar = (message: string, color = 'info', timeout = 4000) => {
@@ -303,7 +317,15 @@ const fetchTurnosFromApi = async (fechaInicioParam?: string, fechaFinParam?: str
     console.log('Fetching from URL:', apiUrl);
 
     const data = await TurnosDelDiaService.fetchTurnos(filters as Record<string, string | number | boolean>) as Turno[];
-    turnos.value = data;
+
+    // Asegurar el formato de fecha para la ordenación
+    turnos.value = data.map(turno => {
+      if (turno.fecha && typeof turno.fecha === 'string' && turno.fecha.includes('T')) {
+        return { ...turno, fecha: turno.fecha.split('T')[0] };
+      }
+      return turno;
+    });
+
     showSnackbar('Turnos cargados correctamente.', 'success');
   } catch (error: unknown) {
     console.error('Error al cargar turnos:', error);
@@ -408,14 +430,13 @@ onMounted(() => {
   box-shadow: 0 6px 12px rgba(0,0,0,0.2), 0 0 0 3px black !important; /* Borde al pasar el ratón */
 }
 
-/* Puedes añadir ajustes finos para colores de borde específicos si el negro no es ideal para todos */
-/* Ejemplo: para info button, un borde azul tenue */
-/*
-.bordered-button-info {
-  box-shadow: 0 4px 6px rgba(0,0,0,0.1), 0 0 0 2px rgba(33, 150, 243, 0.7) !important;
+/* Nuevos estilos para el número de turno */
+.turno-number-display {
+  font-weight: bold;
+  font-size: 1.1em; /* Un poco más grande para que destaque */
+  color: var(--v-theme-primary); /* Usar el color primario de tu tema */
+  display: block; /* Para que text-align funcione correctamente en la celda */
+  text-align: center; /* Centrar el número */
+  padding: 2px 0; /* Pequeño padding vertical para mejor espaciado */
 }
-.bordered-button-info:hover {
-  box-shadow: 0 6px 12px rgba(0,0,0,0.2), 0 0 0 3px rgba(33, 150, 243, 0.9) !important;
-}
-*/
 </style>

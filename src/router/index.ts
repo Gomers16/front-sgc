@@ -6,7 +6,8 @@ import CrearTurnoView from '@/views/rtm/CrearTurno.vue'
 import TurnosDelDia from '@/views/rtm/TurnosDelDia.vue'
 import TurnoRtmEdit from '@/views/rtm/EditarTurno.vue'
 import EstadoDeTurnos from '@/views/rtm/EstadoDeTurnos.vue'
-import ContadorConvenios from '@/views/rtm/ContadorConvenios.vue' // ✅ ¡NUEVA IMPORTACIÓN DE LA VISTA!
+import ContadorConvenios from '@/views/rtm/ContadorConvenios.vue'
+import Vistadesarrollo from '@/views/Vistadesarrollo.vue' // ✅ NUEVA IMPORTACIÓN DE LA VISTA DE DESARROLLO
 import { authSetStore } from '@/stores/AuthStore'
 
 const routes = [
@@ -58,9 +59,15 @@ const routes = [
     meta: { layout: 'MainLayout', requiresAuth: true },
   },
   {
-    path: '/rtm/contador-captacion', // ✅ ¡NUEVA RUTA AGREGADA!
+    path: '/rtm/contador-captacion',
     name: 'ContadorCaptacion',
     component: ContadorConvenios,
+    meta: { layout: 'MainLayout', requiresAuth: true },
+  },
+  {
+    path: '/rtm/proximamente', // ✅ RUTA DEDICADA PARA LA VISTA DE DESARROLLO
+    name: 'Proximamente',
+    component: Vistadesarrollo, // El componente a renderizar para esta ruta
     meta: { layout: 'MainLayout', requiresAuth: true },
   },
 ]

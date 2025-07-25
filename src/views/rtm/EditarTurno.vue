@@ -50,20 +50,18 @@
               variant="outlined"
               required
               :rules="[(v) => !!v || 'El medio por el que se enteró es obligatorio']"
-              :readonly="!isEditing"
+              :readonly="!isEditing || shouldLockMedioEnteroSelect"
               density="comfortable"
             ></v-select>
           </v-col>
 
-          <!-- Campos condicionales (Convenio, Referido Interno, Asesor Comercial) -->
-          <!-- AHORA usan los 'value' exactos del backend para las condiciones v-if -->
           <v-col cols="12" sm="6" v-if="turno.medioEntero === 'convenio_referido_externo'">
             <v-text-field
               v-model="turno.convenio"
               label="Nombre de Convenio o Referido Externo (Opcional)"
               variant="outlined"
-              clearable
-              :readonly="!isEditing"
+              :clearable="isEditing && !isConvenioLocked"
+              :readonly="!isEditing || isConvenioLocked"
               density="comfortable"
             ></v-text-field>
           </v-col>
@@ -72,8 +70,8 @@
               v-model="turno.referidoInterno"
               label="Nombre del Referido Interno (Opcional)"
               variant="outlined"
-              clearable
-              :readonly="!isEditing"
+              :clearable="isEditing && !isReferidoInternoLocked"
+              :readonly="!isEditing || isReferidoInternoLocked"
               density="comfortable"
             ></v-text-field>
           </v-col>
@@ -82,13 +80,11 @@
               v-model="turno.asesorComercial"
               label="Nombre del Asesor Comercial (Opcional)"
               variant="outlined"
-              clearable
-              :readonly="!isEditing"
+              :clearable="isEditing && !isAsesorComercialLocked"
+              :readonly="!isEditing || isAsesorComercialLocked"
               density="comfortable"
             ></v-text-field>
           </v-col>
-          <!-- FIN Campos condicionales -->
-
           <v-col cols="12">
             <v-textarea
               v-model="turno.observaciones"
@@ -226,7 +222,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue'
+import { ref, onMounted, watch, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import TurnosDelDiaService from '@/services/turnosdeldiaService'
 import { authSetStore } from '@/stores/AuthStore'
@@ -244,7 +240,6 @@ interface Turno {
   convenio: string | null;
   referidoInterno: string | null;
   asesorComercial: string | null;
-  // La interfaz debe ser flexible para recibir tanto Title Case como snake_case
   medioEntero:
     | 'Redes Sociales'
     | 'Convenio o Referido Externo'
@@ -331,18 +326,63 @@ const medioEnteroOptions = [
   { title: 'Otros', value: 'otros' },
 ];
 
+// Función auxiliar para verificar si una cadena tiene un valor no vacío (excluyendo espacios)
+const hasValue = (val: string | null | undefined): boolean => {
+  return val !== null && val !== undefined && val.trim() !== '';
+};
+
+// Propiedades computadas para determinar si cada campo condicional individual está bloqueado
+const isConvenioLocked = computed(() => {
+  // Solo se bloquea si ya tiene un valor en el 'originalTurno'
+  return isEditing.value && originalTurno.value !== null && hasValue(originalTurno.value.convenio);
+});
+
+const isReferidoInternoLocked = computed(() => {
+  return isEditing.value && originalTurno.value !== null && hasValue(originalTurno.value.referidoInterno);
+});
+
+const isAsesorComercialLocked = computed(() => {
+  return isEditing.value && originalTurno.value !== null && hasValue(originalTurno.value.asesorComercial);
+});
+
+
+// Propiedad computada para determinar si el select de medioEntero debe bloquearse
+const shouldLockMedioEnteroSelect = computed(() => {
+  if (!isEditing.value) {
+    return true; // Siempre de solo lectura cuando no está en modo edición
+  }
+
+  // Se bloquea si CUALQUIERA de los campos condicionales (en el original, no en el actual)
+  // YA TIENE UN VALOR GUARDADO.
+  if (originalTurno.value && (
+    hasValue(originalTurno.value.convenio) ||
+    hasValue(originalTurno.value.referidoInterno) ||
+    hasValue(originalTurno.value.asesorComercial)
+  )) {
+    return true;
+  }
+
+  return false; // Por defecto, es editable si no se cumplen las condiciones anteriores
+});
+
+
 // Función de mapeo para convertir Title Case a snake_case
 const mapToSnakeCase = (value: string | null): string | null => {
   if (!value) return null;
-  const foundOption = medioEnteroOptions.find(option => option.title === value);
-  return foundOption ? foundOption.value : value; // Si no lo encuentra, devuelve el original
+  const foundOption = medioEnteroOptions.find(option => option.title === value || option.value === value);
+  return foundOption ? foundOption.value : value;
 };
 
-// Watcher para limpiar campos condicionales cuando cambia turno.medioEntero
+
+// Observador para limpiar campos condicionales cuando cambia turno.medioEntero
 watch(() => turno.value.medioEntero, (newValue, oldValue) => {
-  if (newValue !== oldValue && isEditing.value) {
+  // Solo limpiar si estamos en modo edición y el valor realmente ha cambiado
+  if (isEditing.value && newValue !== oldValue) {
+    // Si el nuevo valor NO es 'convenio_referido_externo', limpiar 'convenio'
     if (newValue !== 'convenio_referido_externo') turno.value.convenio = null;
+    // Si el nuevo valor NO es 'referido_interno', limpiar 'referidoInterno'
     if (newValue !== 'referido_interno') turno.value.referidoInterno = null;
+    // Si el nuevo valor NO es 'asesor_comercial', limpiar 'asesorComercial'
     if (newValue !== 'asesor_comercial') turno.value.asesorComercial = null;
   }
 });
@@ -360,18 +400,12 @@ const fetchTurnoDetails = async (id: number) => {
     }
     const data = await TurnosDelDiaService.fetchTurnoById(id, token) as unknown as Turno
 
-    console.log('--- FETCH TURNO DETAILS ---');
-    console.log('Datos recibidos del backend (original):', data);
-    console.log('Valor de medioEntero recibido del backend (original):', data.medioEntero);
-    console.log('Tipo de medioEntero recibido del backend (original):', typeof data.medioEntero);
+    const processedMedioEntero = mapToSnakeCase(data.medioEntero) as typeof turno.value.medioEntero;
 
-    // CAMBIO CLAVE: Mapear medioEntero a snake_case al cargar
     const processedData = {
-        ...data,
-        medioEntero: mapToSnakeCase(data.medioEntero) as typeof turno.value.medioEntero // Asegura el tipo correcto
+      ...data,
+      medioEntero: processedMedioEntero
     };
-
-    console.log('Valor de medioEntero después de mapear (snake_case):', processedData.medioEntero);
 
     turno.value = { ...processedData }
     originalTurno.value = { ...processedData }; // Almacenar los datos originales ya procesados
@@ -413,7 +447,7 @@ const saveTurno = async () => {
       convenio: turno.value.convenio,
       referidoInterno: turno.value.referidoInterno,
       asesorComercial: turno.value.asesorComercial,
-      medioEntero: turno.value.medioEntero, // Este valor ahora debería ser el snake_case
+      medioEntero: turno.value.medioEntero,
       observaciones: turno.value.observaciones,
       funcionarioId: turno.value.funcionarioId,
       horaSalida: turno.value.horaSalida,
@@ -421,16 +455,12 @@ const saveTurno = async () => {
       estado: turno.value.estado,
     }
 
-    console.log('--- SAVE TURNO ---');
-    console.log('Payload enviado al backend:', updatePayload);
-    console.log('Valor de medioEntero en payload:', updatePayload.medioEntero);
-    console.log('Tipo de medioEntero en payload:', typeof updatePayload.medioEntero);
-
     await TurnosDelDiaService.updateTurno(turno.value.id, updatePayload, token)
 
     showSnackbar('Turno guardado exitosamente!', 'success')
     isEditing.value = false;
-    // Si la edición fue exitosa, el original también debe actualizarse al nuevo estado
+    // IMPORTANTE: Si el guardado fue exitoso, originalTurno debe actualizarse
+    // con el ESTADO ACTUAL de turno.value. Esto es clave para el bloqueo futuro.
     originalTurno.value = { ...turno.value };
   } catch (error: unknown) {
     console.error('Error al guardar el turno:', error)

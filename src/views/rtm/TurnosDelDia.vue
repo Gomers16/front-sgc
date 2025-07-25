@@ -200,7 +200,7 @@ import {
   CategoryScale,
   LinearScale,
   ArcElement,
-  type TooltipItem // CAMBIO: Importar TooltipItem
+  type TooltipItem
 } from 'chart.js';
 import { Bar as BarChart } from 'vue-chartjs';
 
@@ -289,7 +289,8 @@ const handleConfirmAction = () => {
   if (action === 'editar') {
     router.push(`/rtm/editar-turno/${turno.id}`)
   } else if (action === 'continuar') {
-    router.push(`/rtm/continuar-turno/${turno.id}`)
+    // CAMBIO CLAVE AQUÍ: Redirige a la nueva vista de desarrollo
+    router.push(`/rtm/proximamente`)
   }
 }
 
@@ -316,17 +317,6 @@ const formatTime = (timeString: string | null): string => {
 const loadTurnosHoy = async () => {
   isLoading.value = true
   try {
-    // No necesitamos el token aquí si fetchTurnos no lo requiere.
-    // Aunque authStore.token se obtiene, no se pasa a fetchTurnos.
-    // Esto es coherente con el servicio donde se eliminó el token de fetchTurnos.
-    // const token = authStore.token; // No es necesario si fetchTurnos no lo usa.
-
-    // if (!token) { // Esta validación solo es necesaria si la ruta realmente requiere token.
-    //   showSnackbar('Error: No hay token de autenticación. Por favor, inicie sesión.', 'error')
-    //   router.push('/login')
-    //   return
-    // }
-
     const today = new Date();
     const options: Intl.DateTimeFormatOptions = {
         year: 'numeric',
@@ -343,8 +333,6 @@ const loadTurnosHoy = async () => {
 
 
     const filters = { fecha: todayISO };
-    // *** LA LÍNEA CRÍTICA CORREGIDA ***
-    // Se eliminó el 'token' como segundo argumento, ya que fetchTurnos en el servicio ahora solo espera 'filters'.
     const data = await TurnosDelDiaService.fetchTurnos(filters) as Turno[];
 
     turnos.value = data.filter(turno => {
@@ -473,10 +461,9 @@ const chartOptions = {
     },
     tooltip: {
       callbacks: {
-        // CAMBIO: Tipado explícito para 'context'
-        label: function(context: TooltipItem<'bar'>) { // Usamos TooltipItem<'bar'> ya que es un BarChart
+        label: function(context: TooltipItem<'bar'>) {
           const label = context.label || '';
-          const value = context.parsed.y; // Para BarChart, siempre es 'y'
+          const value = context.parsed.y;
           return `${label}: ${value}`;
         }
       }
