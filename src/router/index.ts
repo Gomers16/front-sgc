@@ -7,7 +7,8 @@ import TurnosDelDia from '@/views/rtm/TurnosDelDia.vue'
 import TurnoRtmEdit from '@/views/rtm/EditarTurno.vue'
 import EstadoDeTurnos from '@/views/rtm/EstadoDeTurnos.vue'
 import ContadorConvenios from '@/views/rtm/ContadorConvenios.vue'
-import Vistadesarrollo from '@/views/Vistadesarrollo.vue' // ✅ NUEVA IMPORTACIÓN DE LA VISTA DE DESARROLLO
+import Vistadesarrollo from '@/views/Vistadesarrollo.vue'
+import UsuariosView from '@/views/usuarios/UsuariosView.vue' // ✅ Importación de la vista de Usuarios
 import { authSetStore } from '@/stores/AuthStore'
 
 const routes = [
@@ -65,9 +66,15 @@ const routes = [
     meta: { layout: 'MainLayout', requiresAuth: true },
   },
   {
-    path: '/rtm/proximamente', // ✅ RUTA DEDICADA PARA LA VISTA DE DESARROLLO
+    path: '/rtm/proximamente',
     name: 'Proximamente',
-    component: Vistadesarrollo, // El componente a renderizar para esta ruta
+    component: Vistadesarrollo,
+    meta: { layout: 'MainLayout', requiresAuth: true },
+  },
+  {
+    path: '/usuarios', // ✅ NUEVA RUTA PARA LA VISTA DE USUARIOS
+    name: 'Usuarios',
+    component: UsuariosView, // El componente UsuariosView.vue
     meta: { layout: 'MainLayout', requiresAuth: true },
   },
 ]
@@ -93,3 +100,4 @@ router.beforeEach((to, from, next) => {
 })
 
 export default router
+

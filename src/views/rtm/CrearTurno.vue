@@ -45,7 +45,7 @@
           <v-col cols="12" sm="6">
             <v-select
               v-model="form.tipoVehiculo"
-              :items="['carro', 'moto', 'taxi', 'enseñanza']"
+              :items="['Liviano Particular', 'Liviano Taxi', 'Liviano Público', 'Motocicleta']"
               label="Tipo de Vehículo"
               variant="outlined"
               required
@@ -180,8 +180,9 @@
 import { ref, onMounted, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { DateTime } from 'luxon'
-import { authSetStore } from '@/stores/AuthStore'
+import { authSetStore } from '@/stores/AuthStore' // Asegúrate de que esta ruta sea correcta
 import type { VForm } from 'vuetify/components'
+import TurnosDelDiaService from '@/services/turnosdeldiaService'; // ¡Importamos el servicio!
 
 const router = useRouter()
 const authStore = authSetStore()
@@ -194,7 +195,7 @@ interface TurnoForm {
   fecha: string;
   horaIngreso: string; // Este será HH:mm
   placa: string;
-  tipoVehiculo: 'carro' | 'moto' | 'taxi' | 'enseñanza' | '';
+  tipoVehiculo: 'Liviano Particular' | 'Liviano Taxi' | 'Liviano Público' | 'Motocicleta' | '';
   medioEntero: 'redes_sociales' | 'convenio_referido_externo' | 'call_center' | 'fachada' | 'referido_interno' | 'asesor_comercial' | '';
   observaciones: string;
   tieneCita: boolean;
@@ -202,7 +203,8 @@ interface TurnoForm {
   referidoInterno: string | null;
   referidoExterno: string | null;
   asesorComercial: string | null;
-  funcionarioId: number;
+  // CAMBIO CLAVE AQUÍ: Usamos 'usuarioId' para coincidir con el backend
+  usuarioId: number;
 }
 
 const form = ref<TurnoForm>({
@@ -217,7 +219,9 @@ const form = ref<TurnoForm>({
   referidoInterno: null,
   referidoExterno: null,
   asesorComercial: null,
-  funcionarioId: 1,
+  // Inicializamos usuarioId.
+  // Es crucial que este valor se actualice con el ID real del usuario logueado.
+  usuarioId: 0, // Inicia con 0 o un valor que indique "no asignado"
 })
 
 const formattedHoraIngreso = computed(() => {
@@ -253,8 +257,16 @@ const currentAction = ref<ActionType | ''>('')
 
 onMounted(async () => {
   const user = authStore.user;
+  // Asignamos el ID del usuario de la sesión al campo usuarioId del formulario
+  // Es VITAL que `user.id` contenga el ID numérico que el backend espera.
   if (user && user.id) {
-    form.value.funcionarioId = user.id;
+    form.value.usuarioId = user.id;
+  } else {
+    // Si no hay user.id, podrías establecer un ID por defecto para pruebas
+    // o redirigir al login si el usuario es estrictamente necesario.
+    console.warn('Usuario no logueado o ID de usuario no disponible. Usando ID por defecto o 0.');
+    // form.value.usuarioId = ID_DE_USUARIO_POR_DEFECTO_PARA_PRUEBAS;
+    // router.push('/login'); // O redirigir si el usuario es requerido
   }
   await resetFormFields()
 })
@@ -263,44 +275,27 @@ watch(() => form.value.medioEntero, () => {
   form.value.convenio = null;
   form.value.referidoInterno = null;
   form.value.asesorComercial = null;
-  form.value.referidoExterno = null;
+  // form.value.referidoExterno = null; // Si referidoExterno no se usa, puedes quitarlo
 });
 
 const fetchNextTurnNumber = async () => {
   try {
-    const token = authStore.token;
-    const headers: HeadersInit = { 'Content-Type': 'application/json' };
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
-    }
+    // ¡CORRECCIÓN CLAVE AQUÍ! Usamos el servicio y pasamos el usuarioId del formulario.
+    console.log('Solicitando siguiente turno para usuarioId:', form.value.usuarioId); // LOG PARA DEPURACIÓN
+    const data = await TurnosDelDiaService.fetchNextTurnNumber(form.value.usuarioId);
 
-    const response = await fetch('http://localhost:3333/api/turnos-rtm/siguiente-turno', {
-      method: 'GET',
-      headers: headers,
-    })
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.message || 'Error al obtener el siguiente número de turno del servidor.');
-    }
-    const data = await response.json()
     if (data?.siguiente) {
-      turnoNumero.value = data.siguiente
+      turnoNumero.value = data.siguiente;
+      // Si el backend también devuelve la sedeId en esta respuesta, podrías asignarla aquí:
+      // form.value.sedeId = data.sedeId;
     }
   } catch (error: unknown) {
-    console.error('Error al cargar el siguiente número de turno:', error)
+    console.error('Error al cargar el siguiente número de turno:', error);
     let message = 'Error al cargar el número de turno. Intente recargar la página.';
     if (error instanceof Error) {
       message = error.message;
     }
     showSnackbar(message, 'error');
-
-    if (typeof error === 'object' && error !== null && 'message' in error) {
-        if ((error as Error).message.includes('Sesión expirada') || (error as Error).message.includes('no autorizada')) {
-            authStore.logout();
-            router.push('/login');
-        }
-    }
   }
 }
 
@@ -319,11 +314,12 @@ const resetFormFields = async () => {
     referidoInterno: null,
     referidoExterno: null,
     asesorComercial: null,
-    funcionarioId: form.value.funcionarioId,
+    // Mantenemos el usuarioId que ya estaba asignado o el valor por defecto
+    usuarioId: form.value.usuarioId,
   };
   turnoNumero.value = null;
 
-  await fetchNextTurnNumber();
+  await fetchNextTurnNumber(); // Llama a la función corregida
 
   if (formRef.value) {
     formRef.value.resetValidation();
@@ -369,30 +365,16 @@ const handleCancelAction = () => {
 
 const submitForm = async () => {
   try {
-    const token = authStore.token;
-    if (!token) {
-      showSnackbar('Error: No hay token de autenticación. Por favor, inicie sesión.', 'error')
-      router.push('/login')
-      return
-    }
-
     const response = await fetch('http://localhost:3333/api/turnos-rtm', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
       },
       body: JSON.stringify(form.value),
     })
 
     if (!response.ok) {
       const errorData = await response.json()
-      if (response.status === 401) {
-        showSnackbar('Sesión expirada o no autorizada. Por favor, inicie sesión de nuevo.', 'error')
-        authStore.logout()
-        router.push('/login')
-        return
-      }
       throw new Error(errorData.message || 'Error al crear el turno')
     }
 

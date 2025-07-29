@@ -4,7 +4,6 @@ import { authSetStore } from '@/stores/AuthStore'; // Importa el AuthStore para 
 
 // Define la URL base de tu API de AdonisJS
 // IMPORTANTE: Asegúrate de que esta URL sea correcta.
-// Para el login, la ruta parece ser directamente en la raíz, no bajo /api
 const API_BASE_URL = 'http://localhost:3333';
 
 export default class AuthService {
@@ -14,11 +13,11 @@ export default class AuthService {
    */
   async login(correo: string, password: string) {
     try {
-      // La URL para el login parece ser directamente en la raíz de la API, ej. http://localhost:3333/login
-      const response = await fetch(`${API_BASE_URL}/login`, {
+      // ✅ CORRECCIÓN: La URL para el login ahora incluye el prefijo '/api'
+      const response = await fetch(`${API_BASE_URL}/api/login`, { // <--- ¡CAMBIO AQUÍ!
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json', // 'Content-Type' es el correcto, 'content-type' también funciona pero es menos común
+          'Content-Type': 'application/json',
         },
         body: JSON.stringify({ correo, password }),
       });

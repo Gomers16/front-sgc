@@ -56,6 +56,16 @@
           link
         />
       </v-list-group>
+
+      <!-- NUEVO: Menú para Usuarios -->
+      <v-list-item
+        prepend-icon="mdi-account-group"
+        title="Usuarios"
+        :to="{ path: '/usuarios' }"
+        link
+        class="nav-item"
+      />
+
     </v-list>
   </v-navigation-drawer>
 </template>

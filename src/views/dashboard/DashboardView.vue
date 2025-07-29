@@ -7,32 +7,41 @@
       >
         ¡Bienvenido a ACTIVAUTOS CDA DEL CENTRO IBAGUÉ!
       </v-card-title>
-      <v-card-text class="text-center text-subtitle-1 mb-6"> Estamos felices de tenerte de vuelta. Aquí tienes un resumen de la operación de hoy.
+      <v-card-text class="text-center text-subtitle-1 mb-6">
+        Estamos felices de tenerte de vuelta. Aquí tienes un resumen de la operación de hoy.
       </v-card-text>
 
       <v-divider class="my-6"></v-divider>
 
-      <h3 class="text-h4 text-center mb-6 text-primary font-weight-bold">📊 Resumen del Día ({{ todayDate }})</h3> <v-row justify="center" class="mb-8">
+      <h3 class="text-h4 text-center mb-6 text-primary font-weight-bold">📊 Resumen del Día ({{ todayDate }})</h3>
+      <v-row justify="center" class="mb-8">
         <v-col cols="12" sm="6" md="4">
           <v-card class="kpi-card pa-4 text-center elevation-4" color="light-blue-lighten-5">
             <v-icon size="48" color="blue-darken-2">mdi-car-multiple</v-icon>
-            <v-card-title class="text-h4 font-weight-bold text-blue-darken-2">{{ isLoadingKpis ? '...' : turnosEnProceso }}</v-card-title> <v-card-subtitle class="text-body-1 text-blue-darken-2">Turnos en Proceso</v-card-subtitle> </v-card>
+            <v-card-title class="text-h4 font-weight-bold text-blue-darken-2">{{ isLoadingKpis ? '...' : turnosEnProceso }}</v-card-title>
+            <v-card-subtitle class="text-body-1 text-blue-darken-2">Turnos en Proceso</v-card-subtitle>
+          </v-card>
         </v-col>
         <v-col cols="12" sm="6" md="4">
           <v-card class="kpi-card pa-4 text-center elevation-4" color="green-lighten-5">
             <v-icon size="48" color="green-darken-2">mdi-check-circle-outline</v-icon>
-            <v-card-title class="text-h4 font-weight-bold text-green-darken-2">{{ isLoadingKpis ? '...' : turnosFinalizados }}</v-card-title> <v-card-subtitle class="text-body-1 text-green-darken-2">Turnos Finalizados</v-card-subtitle> </v-card>
+            <v-card-title class="text-h4 font-weight-bold text-green-darken-2">{{ isLoadingKpis ? '...' : turnosFinalizados }}</v-card-title>
+            <v-card-subtitle class="text-body-1 text-green-darken-2">Turnos Finalizados</v-card-subtitle>
+          </v-card>
         </v-col>
         <v-col cols="12" sm="6" md="4">
           <v-card class="kpi-card pa-4 text-center elevation-4" color="orange-lighten-5">
             <v-icon size="48" color="orange-darken-2">mdi-numeric</v-icon>
-            <v-card-title class="text-h4 font-weight-bold text-orange-darken-2">{{ isLoadingKpis ? '...' : siguienteTurno }}</v-card-title> <v-card-subtitle class="text-body-1 text-orange-darken-2">Siguiente Turno</v-card-subtitle> </v-card>
+            <v-card-title class="text-h4 font-weight-bold text-orange-darken-2">{{ isLoadingKpis ? '...' : siguienteTurno }}</v-card-title>
+            <v-card-subtitle class="text-body-1 text-orange-darken-2">Siguiente Turno</v-card-subtitle>
+          </v-card>
         </v-col>
       </v-row>
 
       <v-divider class="my-6"></v-divider>
 
-      <h3 class="text-h4 text-center mb-6 text-primary font-weight-bold">🚀 Acciones Rápidas</h3> <v-row justify="center">
+      <h3 class="text-h4 text-center mb-6 text-primary font-weight-bold">🚀 Acciones Rápidas</h3>
+      <v-row justify="center">
         <v-col cols="12" sm="6" md="4">
           <v-btn
             color="success"
@@ -129,11 +138,15 @@ const showSnackbar = (message: string, color = 'info', timeout = 4000) => {
 const fetchDashboardData = async () => {
   isLoadingKpis.value = true
   try {
-    const token = authStore.token
-    if (!token) {
-      showSnackbar('Error: No hay token de autenticación. Por favor, inicie sesión.', 'error')
-      router.push('/login')
-      return
+    // ✅ Obtener el ID numérico del usuario del AuthStore
+    const userId = authStore.currentUserId;
+
+    // ✅ Verificar si el userId es nulo antes de continuar
+    if (userId === null) {
+      showSnackbar('Error: No se pudo obtener el ID de usuario. Por favor, inicie sesión.', 'error');
+      authStore.logout();
+      router.push('/login');
+      return; // Detener la ejecución si no hay userId
     }
 
     // 1. Obtener la fecha de hoy para filtrar
@@ -141,7 +154,7 @@ const fetchDashboardData = async () => {
     const todayISO = today.toISODate() || '';
 
     // 2. Obtener todos los turnos del día para calcular KPIs
-    // *** LÍNEA CORREGIDA: Eliminado el 'token' de aquí ***
+    // Esta llamada no necesita el usuarioId, ya que es para todos los turnos del día
     const allTurnosToday = await TurnosDelDiaService.fetchTurnos({ fecha: todayISO }) as Turno[];
 
     turnosEnProceso.value = allTurnosToday.filter(
@@ -153,8 +166,8 @@ const fetchDashboardData = async () => {
     ).length;
 
     // 3. Obtener el siguiente número de turno
-    // Aquí fetchNextTurnNumber SÍ requiere el token, así que se mantiene.
-    const siguienteTurnoData = await TurnosDelDiaService.fetchNextTurnNumber(token);
+    // ✅ Pasa el ID numérico del usuario (userId), no el token
+    const siguienteTurnoData = await TurnosDelDiaService.fetchNextTurnNumber(userId);
     siguienteTurno.value = siguienteTurnoData.siguiente;
 
     showSnackbar('Datos del dashboard actualizados.', 'success');
@@ -164,9 +177,10 @@ const fetchDashboardData = async () => {
     let message = 'Error al cargar los datos del dashboard. Intente recargar la página.'
     if (error instanceof Error) {
       message = error.message
-      if (message.includes('Sesión expirada') || message.includes('no autorizada')) {
-        authStore.logout()
-        router.push('/login')
+      // Añadimos más condiciones para redirigir si el error es de autenticación/token
+      if (message.includes('Sesión expirada') || message.includes('no autorizada') || message.includes('no es un número válido')) {
+        authStore.logout();
+        router.push('/login');
       }
     }
     showSnackbar(message, 'error')
@@ -175,14 +189,14 @@ const fetchDashboardData = async () => {
     turnosFinalizados.value = 0;
     siguienteTurno.value = 0;
   } finally {
-    isLoadingKpis.value = false
+    isLoadingKpis.value = false;
   }
 }
 
 onMounted(() => {
-  authStore.checkAuth() // Asegura que el usuario esté autenticado
+  authStore.checkAuth(); // Asegura que el usuario esté autenticado y sus datos cargados
   todayDate.value = DateTime.local().setZone('America/Bogota').toFormat('dd/MM/yyyy');
-  fetchDashboardData()
+  fetchDashboardData();
 })
 </script>
 

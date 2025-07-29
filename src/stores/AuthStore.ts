@@ -75,14 +75,15 @@ export const authSetStore = defineStore('auth', {
         if (error instanceof Error) {
           errorMessage = error.message;
         }
-        alert(errorMessage);
-        console.error('Error en AuthStore.login (capturado del servicio):', error);
+        // Sustituido alert por console.error para evitar bloqueos en el navegador
+        console.error('Error en AuthStore.login (capturado del servicio):', errorMessage);
         return false;
       }
 
       // Manejo de errores si el servicio de login devuelve una propiedad 'errors'
       if (loginResponse.errors?.[0]) {
-        alert(loginResponse.errors[0].message);
+        // Sustituido alert por console.error
+        console.error('Error de login desde el backend:', loginResponse.errors[0].message);
         return false;
       }
 
@@ -94,8 +95,8 @@ export const authSetStore = defineStore('auth', {
 
       // Verifica que tanto el token como los datos del usuario sean válidos
       if (!tokenValue || !userFromBackend) {
-        alert('Respuesta inválida del servidor al iniciar sesión: Token o datos de usuario incompletos.');
-        console.error('Respuesta del servidor (incompleta):', loginResponse); // Log para depuración
+        // Sustituido alert por console.error
+        console.error('Respuesta inválida del servidor al iniciar sesión: Token o datos de usuario incompletos.', loginResponse); // Log para depuración
         return false;
       }
 
@@ -173,5 +174,10 @@ export const authSetStore = defineStore('auth', {
         console.log('checkAuth: No hay token en sessionStorage, no se verifica autenticación.');
       }
     },
+  },
+  getters: {
+    isAuthenticated: (state) => !!state.token && !!state.user,
+    // ✅ Nuevo getter: Proporciona el ID numérico del usuario de forma segura
+    currentUserId: (state) => state.user?.id || null,
   },
 });
