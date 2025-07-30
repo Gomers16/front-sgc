@@ -512,7 +512,7 @@ const sedes = ref<any[]>([]);
 const cargos = ref<any[]>([]);
 const entidadesSalud = ref<any[]>([]); // Lista completa de todas las entidades de salud
 
-// Propiedades computadas para filtrar las entidades de salud por tipo
+// ✅ Propiedades computadas para filtrar las entidades de salud por tipo
 const filteredEps = computed(() => entidadesSalud.value.filter(e => e.tipo === 'eps'));
 const filteredArl = computed(() => entidadesSalud.value.filter(e => e.tipo === 'arl'));
 const filteredAfp = computed(() => entidadesSalud.value.filter(e => e.tipo === 'afp'));
@@ -614,8 +614,7 @@ async function fetchCargos() {
 async function fetchEntidadesSalud() {
   try {
     const data = await obtenerEntidadesSalud();
-    entidadesSalud.value = data;
-    console.log('Datos de entidades de salud recibidos:', data); // ✅ Añadido para depuración
+    entidadesSalud.value = data; // ✅ Se asigna la lista completa aquí
   } catch (error: unknown) {
     console.error('Error al obtener las entidades de salud:', error);
     showSnackbar(`Error al cargar las entidades de salud: ${error instanceof Error ? error.message : String(error)}`, 'error');
@@ -806,6 +805,7 @@ async function handleConfirmAction() {
 
     } else if (currentAction.value === 'delete') {
       if (userToDeleteId.value !== null) {
+        // La función eliminarUsuario se mantiene, pero el botón ha sido removido del template
         await eliminarUsuario(userToDeleteId.value);
         showSnackbar('Usuario eliminado correctamente.', 'success');
         await cargarUsuarios();

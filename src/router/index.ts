@@ -8,7 +8,7 @@ import TurnoRtmEdit from '@/views/rtm/EditarTurno.vue'
 import EstadoDeTurnos from '@/views/rtm/EstadoDeTurnos.vue'
 import ContadorConvenios from '@/views/rtm/ContadorConvenios.vue'
 import Vistadesarrollo from '@/views/Vistadesarrollo.vue'
-import UsuariosView from '@/views/usuarios/UsuariosView.vue' // ✅ Importación de la vista de Usuarios
+import UsuariosView from '@/views/usuarios/UsuariosView.vue' // 🔧 corregido
 import { authSetStore } from '@/stores/AuthStore'
 
 const routes = [
@@ -72,9 +72,16 @@ const routes = [
     meta: { layout: 'MainLayout', requiresAuth: true },
   },
   {
-    path: '/usuarios', // ✅ NUEVA RUTA PARA LA VISTA DE USUARIOS
+    path: '/gestion-documental/usuarios', // 🔧 Ruta válida para el menú
     name: 'Usuarios',
-    component: UsuariosView, // El componente UsuariosView.vue
+    component: UsuariosView,
+    meta: { layout: 'MainLayout', requiresAuth: true },
+  },
+  {
+    path: '/gestion-documental/razon-social/:id',
+    name: 'RazonSocialDetalle',
+    component: () => import('@/views/gestion-documental/RazonSocialView.vue'),
+    props: true,
     meta: { layout: 'MainLayout', requiresAuth: true },
   },
 ]
@@ -84,7 +91,7 @@ const router = createRouter({
   routes,
 })
 
-// Navegación protegida
+// Protección de rutas
 router.beforeEach((to, from, next) => {
   const authStore = authSetStore()
 
@@ -100,4 +107,3 @@ router.beforeEach((to, from, next) => {
 })
 
 export default router
-

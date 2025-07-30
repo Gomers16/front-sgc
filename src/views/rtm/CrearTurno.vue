@@ -178,13 +178,11 @@
 
 <script setup lang="ts">
 import { ref, onMounted, computed, watch } from 'vue'
-import { useRouter } from 'vue-router'
 import { DateTime } from 'luxon'
 import { authSetStore } from '@/stores/AuthStore' // Asegúrate de que esta ruta sea correcta
 import type { VForm } from 'vuetify/components'
 import TurnosDelDiaService from '@/services/turnosdeldiaService'; // ¡Importamos el servicio!
 
-const router = useRouter()
 const authStore = authSetStore()
 
 const turnoNumero = ref<number | null>(null)

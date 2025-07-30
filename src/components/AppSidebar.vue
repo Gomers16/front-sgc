@@ -6,6 +6,8 @@
     permanent
     color="#FFEB3B"
     style="margin-top: 64px;"
+    :width="280"
+    :rail-width="64"
   >
     <!-- Usuario -->
     <v-list>
@@ -16,10 +18,11 @@
       />
     </v-list>
 
-    <v-divider class="my-2"></v-divider>
+    <v-divider class="my-2" />
 
-    <!-- Menú -->
+    <!-- Menú principal -->
     <v-list density="compact" nav>
+      <!-- Dashboard -->
       <v-list-item
         prepend-icon="mdi-view-dashboard"
         title="Dashboard"
@@ -28,7 +31,7 @@
         class="nav-item"
       />
 
-      <!-- Menú RTM con subitems -->
+      <!-- RTM -->
       <v-list-group
         value="rtm"
         prepend-icon="mdi-clipboard-list-outline"
@@ -39,33 +42,71 @@
           <v-list-item v-bind="props" title="RTM" />
         </template>
 
-        <!-- ORDEN CAMBIADO AQUÍ -->
+        <v-list-item title="Crear turno" :to="{ path: '/rtm/crear-turno' }" link />
+        <v-list-item title="Turnos del día" :to="{ path: '/rtm/turnos-dia' }" link />
+        <v-list-item title="Estado turno" :to="{ path: '/rtm/estado-turnos' }" link />
+      </v-list-group>
+
+      <!-- Gestión Documental -->
+      <v-list-group
+        value="gestion-documental"
+        prepend-icon="mdi-folder-file"
+        class="nav-item"
+        color="black"
+      >
+        <template #activator="{ props }">
+          <v-list-item v-bind="props" title="Gestión Documental" />
+        </template>
+
+        <!-- Submenú: Razón Social -->
+        <v-list-group
+          value="razon-social"
+          prepend-icon="mdi-domain"
+          class="nav-item"
+          color="black"
+        >
+          <template #activator="{ props }">
+            <v-list-item v-bind="props" title="Razón Social" />
+          </template>
+
+          <v-list-item
+            title="CDA del Centro"
+            :to="{ name: 'RazonSocialDetalle', params: { id: 1, nombre: 'CDA del Centro' } }"
+            link
+          />
+          <v-list-item
+            title="Activautos"
+            :to="{ name: 'RazonSocialDetalle', params: { id: 2, nombre: 'Activautos' } }"
+            link
+          />
+          <v-list-item
+            title="JEF & CO"
+            :to="{ name: 'RazonSocialDetalle', params: { id: 3, nombre: 'JEF & CO' } }"
+            link
+          />
+          <v-list-item
+            title="Activa Marketing"
+            :to="{ name: 'RazonSocialDetalle', params: { id: 4, nombre: 'Activa Marketing' } }"
+            link
+          />
+        </v-list-group>
+
+        <!-- ✅ Vista general de usuarios -->
         <v-list-item
-          title="Crear turno"
-          :to="{ path: '/rtm/crear-turno' }"
+          title="Usuarios"
+          prepend-icon="mdi-account-group"
+          :to="{ name: 'Usuarios' }"
           link
         />
+
+        <!-- Crear contrato -->
         <v-list-item
-          title="Turnos del día"
-          :to="{ path: '/rtm/turnos-dia' }"
-          link
-        />
-        <v-list-item
-          title="Estado turno"
-          :to="{ path: '/rtm/estado-turnos' }"
+          title="Crear contrato"
+          prepend-icon="mdi-file-document-edit"
+          :to="{ path: '/gestion-documental/crear-contrato' }"
           link
         />
       </v-list-group>
-
-      <!-- NUEVO: Menú para Usuarios -->
-      <v-list-item
-        prepend-icon="mdi-account-group"
-        title="Usuarios"
-        :to="{ path: '/usuarios' }"
-        link
-        class="nav-item"
-      />
-
     </v-list>
   </v-navigation-drawer>
 </template>
@@ -82,20 +123,29 @@ const auth = authSetStore()
   z-index: 1000;
 }
 
-/* Texto en negrita */
+.v-navigation-drawer.v-navigation-drawer--expand-on-hover:not(.v-navigation-drawer--rail) {
+  width: 280px !important;
+  min-width: 280px !important;
+}
+
 .v-list-item-title,
 .v-list-item-subtitle {
   color: black !important;
   font-weight: bold;
 }
 
-/* Ítems del menú */
+.v-list-item__content {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  padding-left: 16px !important;
+}
+
 .nav-item {
   font-weight: bold;
   color: black !important;
 }
 
-/* Info de usuario */
 .user-info {
   font-weight: bold;
   color: black !important;
