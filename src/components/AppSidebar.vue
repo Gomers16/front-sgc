@@ -9,7 +9,6 @@
     :width="280"
     :rail-width="64"
   >
-    <!-- Usuario -->
     <v-list>
       <v-list-item
         :subtitle="auth.user?.correo"
@@ -20,9 +19,7 @@
 
     <v-divider class="my-2" />
 
-    <!-- Menú principal -->
     <v-list density="compact" nav>
-      <!-- Dashboard -->
       <v-list-item
         prepend-icon="mdi-view-dashboard"
         title="Dashboard"
@@ -31,7 +28,6 @@
         class="nav-item"
       />
 
-      <!-- RTM -->
       <v-list-group
         value="rtm"
         prepend-icon="mdi-clipboard-list-outline"
@@ -47,7 +43,6 @@
         <v-list-item title="Estado turno" :to="{ path: '/rtm/estado-turnos' }" link />
       </v-list-group>
 
-      <!-- Gestión Documental -->
       <v-list-group
         value="gestion-documental"
         prepend-icon="mdi-folder-file"
@@ -58,7 +53,6 @@
           <v-list-item v-bind="props" title="Gestión Documental" />
         </template>
 
-        <!-- Submenú: Razón Social -->
         <v-list-group
           value="razon-social"
           prepend-icon="mdi-domain"
@@ -91,7 +85,6 @@
           />
         </v-list-group>
 
-        <!-- ✅ Vista general de usuarios -->
         <v-list-item
           title="Usuarios"
           prepend-icon="mdi-account-group"
@@ -99,11 +92,10 @@
           link
         />
 
-        <!-- Crear contrato -->
         <v-list-item
           title="Crear contrato"
           prepend-icon="mdi-file-document-edit"
-          :to="{ path: '/gestion-documental/crear-contrato' }"
+          :to="{ name: 'Contratos' }"
           link
         />
       </v-list-group>

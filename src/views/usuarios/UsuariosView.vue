@@ -96,28 +96,6 @@
               />
             </v-col>
 
-            <v-col cols="12" md="6">
-              <v-file-input
-                label="Foto de Perfil"
-                prepend-icon="mdi-camera"
-                accept="image/*"
-                @change="onFileSelected"
-                :error-messages="fileError"
-                outlined
-                clearable
-                density="comfortable"
-              ></v-file-input>
-              <div v-if="imageUrl" class="d-flex justify-center my-2">
-                <v-img
-                  :src="imageUrl"
-                  aspect-ratio="1"
-                  max-width="150"
-                  max-height="150"
-                  class="rounded-circle elevation-2"
-                ></v-img>
-              </div>
-            </v-col>
-
             <v-col cols="12" md="6" class="d-flex align-center">
               <v-checkbox
                 label="Recomendaciones"
@@ -354,15 +332,6 @@
         v-model:sort-by="sortBy"
         class="elevation-0"
       >
-        <template v-slot:item.fotoPerfil="{ item }">
-            <v-avatar size="40">
-                <v-img :src="item.fotoPerfil || '/default-avatar.png'" alt="Foto de perfil"></v-img>
-            </v-avatar>
-        </template>
-        <template v-slot:item.hasAttachment="{ item }">
-          <v-icon v-if="item.fotoPerfil" color="info">mdi-attachment</v-icon>
-          <v-icon v-else color="grey-lighten-1">mdi-attachment-off</v-icon>
-        </template>
         <template v-slot:item.rol.nombre="{ item }">{{ item.rol?.nombre || 'N/A' }}</template>
         <template v-slot:item.razonSocial.nombre="{ item }">{{ item.razonSocial?.nombre || 'N/A' }}</template>
         <template v-slot:item.sede.nombre="{ item }">{{ item.sede?.nombre || 'N/A' }}</template>
@@ -431,7 +400,6 @@ import {
   obtenerSedes,
   obtenerCargos,
   obtenerEntidadesSalud,
-  uploadProfilePicture,
 } from "../../services/userService";
 import ConfirmDialog from "../../components/Confirmardialogo.vue";
 
@@ -488,16 +456,9 @@ const { value: celularPersonal, errorMessage: celularPersonalError } = useField<
 const { value: celularCorporativo, errorMessage: celularCorporativoError } = useField<string | null>('celularCorporativo', [optionalNumber], { initialValue: '' });
 const { value: direccion, errorMessage: direccionError } = useField('direccion', undefined, { initialValue: '' });
 const { value: centroCosto, errorMessage: centroCostoError } = useField('centroCosto', undefined, { initialValue: '' });
-
-// Campo para subir foto de perfil
-const selectedFile = ref<File | null>(null);
-const imageUrl = ref<string | null>(null); // Para previsualizar el archivo seleccionado o la URL existente
-const fileError = ref<string | null>(null); // Para errores del file input
-
-
 const { value: recomendaciones, errorMessage: recomendacionesError } = useField('recomendaciones', undefined, { initialValue: false });
 
-// Selectores de Entidades de Salud - ahora habilitados
+// Selectores de Entidades de Salud
 const { value: epsId, errorMessage: epsIdError } = useField<number | null>('epsId', [optionalNumber], { initialValue: null });
 const { value: arlId, errorMessage: arlIdError } = useField<number | null>('arlId', [optionalNumber], { initialValue: null });
 const { value: afpId, errorMessage: afpIdError } = useField<number | null>('afpId', [optionalNumber], { initialValue: null });
@@ -510,9 +471,9 @@ const roles = ref<any[]>([]);
 const razonesSociales = ref<any[]>([]);
 const sedes = ref<any[]>([]);
 const cargos = ref<any[]>([]);
-const entidadesSalud = ref<any[]>([]); // Lista completa de todas las entidades de salud
+const entidadesSalud = ref<any[]>([]);
 
-// ✅ Propiedades computadas para filtrar las entidades de salud por tipo
+// Propiedades computadas para filtrar las entidades de salud por tipo
 const filteredEps = computed(() => entidadesSalud.value.filter(e => e.tipo === 'eps'));
 const filteredArl = computed(() => entidadesSalud.value.filter(e => e.tipo === 'arl'));
 const filteredAfp = computed(() => entidadesSalud.value.filter(e => e.tipo === 'afp'));
@@ -529,7 +490,7 @@ const snackbar = ref({
 const showConfirmDialog = ref(false);
 const confirmDialogTitle = ref('');
 const confirmDialogMessage = ref('');
-  const confirmDialogConfirmText = ref('');
+const confirmDialogConfirmText = ref('');
 const confirmDialogConfirmColor = ref('');
 const currentAction = ref('');
 const userToDeleteId = ref<number | null>(null);
@@ -542,11 +503,9 @@ const sortBy = ref<Array<{ key: string; order: 'asc' | 'desc' }>>([{ key: 'id', 
 const statusFilter = ref('Todos');
 
 
-// --- Cabeceras de la tabla (Actualizadas para incluir foto de perfil y archivo adjunto) ---
+// --- Cabeceras de la tabla (Actualizadas para excluir foto de perfil y adjunto) ---
 const headers = [
   { title: 'ID', key: 'id', sortable: true },
-  { title: 'Foto', key: 'fotoPerfil', sortable: false },
-  { title: 'Adjunto', key: 'hasAttachment', sortable: false },
   { title: 'Nombres', key: 'nombres', sortable: true },
   { title: 'Apellidos', key: 'apellidos', sortable: true },
   { title: 'Correo', key: 'correo', sortable: true },
@@ -614,7 +573,7 @@ async function fetchCargos() {
 async function fetchEntidadesSalud() {
   try {
     const data = await obtenerEntidadesSalud();
-    entidadesSalud.value = data; // ✅ Se asigna la lista completa aquí
+    entidadesSalud.value = data;
   } catch (error: unknown) {
     console.error('Error al obtener las entidades de salud:', error);
     showSnackbar(`Error al cargar las entidades de salud: ${error instanceof Error ? error.message : String(error)}`, 'error');
@@ -628,19 +587,6 @@ async function cargarUsuarios() {
   } catch (err) {
     showSnackbar('Error al cargar usuarios. Consulta la consola para más detalles.', 'error');
     console.error('Error al cargar usuarios:', err);
-  }
-}
-
-function onFileSelected(event: Event) {
-  const input = event.target as HTMLInputElement;
-  if (input.files && input.files.length > 0) {
-    const file = input.files[0];
-    selectedFile.value = file;
-    imageUrl.value = URL.createObjectURL(file);
-    fileError.value = null;
-  } else {
-    selectedFile.value = null;
-    imageUrl.value = null;
   }
 }
 
@@ -678,9 +624,6 @@ function executeEditUser(user: any) {
     ccfId: user.ccfId,
   });
   password.value = '';
-
-  imageUrl.value = user.fotoPerfil || null;
-  selectedFile.value = null;
 
   nextTick(() => {
     window.scrollTo(0, 0);
@@ -746,19 +689,9 @@ async function handleConfirmAction() {
         ccfId: ccfId.value,
       };
       if (password.value) { userData.password = password.value; }
+
       const processedUser = await crearUsuario(userData);
-      let successMessage = 'Usuario creado exitosamente.';
-      if (selectedFile.value && processedUser.id) {
-        try {
-          const uploadResponse = await uploadProfilePicture(processedUser.id, selectedFile.value);
-          processedUser.fotoPerfil = uploadResponse.fotoPerfilUrl;
-          showSnackbar('Foto de perfil subida.', 'info');
-        } catch (uploadError) {
-          console.error('Error al subir la foto de perfil para el nuevo usuario:', uploadError);
-          showSnackbar(`Error al subir la foto para el nuevo usuario: ${uploadError instanceof Error ? uploadError.message : String(uploadError)}`, 'warning');
-        }
-      }
-      showSnackbar(successMessage, 'success');
+      showSnackbar('Usuario creado exitosamente.', 'success');
       await cargarUsuarios();
       resetFormAndState();
 
@@ -785,19 +718,6 @@ async function handleConfirmAction() {
       };
       if (password.value) { userData.password = password.value; }
 
-      if (selectedFile.value && editingUserId.value) {
-        try {
-          const uploadResponse = await uploadProfilePicture(editingUserId.value, selectedFile.value);
-          userData.fotoPerfil = uploadResponse.fotoPerfilUrl;
-          showSnackbar('Foto de perfil actualizada.', 'info');
-        } catch (uploadError) {
-          console.error('Error al subir la foto de perfil:', uploadError);
-          showSnackbar(`Error al subir la foto: ${uploadError instanceof Error ? uploadError.message : String(uploadError)}`, 'warning');
-        }
-      } else if (!selectedFile.value && imageUrl.value === null && editingUserId.value) {
-        userData.fotoPerfil = null;
-      }
-
       await actualizarUsuario(editingUserId.value!, userData);
       showSnackbar('Usuario actualizado correctamente.', 'success');
       await cargarUsuarios();
@@ -805,7 +725,6 @@ async function handleConfirmAction() {
 
     } else if (currentAction.value === 'delete') {
       if (userToDeleteId.value !== null) {
-        // La función eliminarUsuario se mantiene, pero el botón ha sido removido del template
         await eliminarUsuario(userToDeleteId.value);
         showSnackbar('Usuario eliminado correctamente.', 'success');
         await cargarUsuarios();
@@ -887,9 +806,6 @@ function resetFormAndState() {
   userToDeleteId.value = null;
   userToDisableId.value = null;
   userToConfirmEditId.value = null;
-  selectedFile.value = null;
-  imageUrl.value = null;
-  fileError.value = null;
 }
 
 
@@ -902,7 +818,7 @@ onMounted(async () => {
   await fetchRazonesSociales();
   await fetchSedes();
   await fetchCargos();
-  await fetchEntidadesSalud(); // Carga todas las entidades de salud
+  await fetchEntidadesSalud();
 
   await cargarUsuarios();
   setSortOrder('asc');
@@ -927,8 +843,7 @@ const filteredUsers = computed(() => {
       u.arl?.nombre?.toLowerCase().includes(searchTerm) ||
       u.afp?.nombre?.toLowerCase().includes(searchTerm) ||
       u.afc?.nombre?.toLowerCase().includes(searchTerm) ||
-      u.ccf?.nombre?.toLowerCase().includes(searchTerm) ||
-      u.fotoPerfil?.toLowerCase().includes(searchTerm)
+      u.ccf?.nombre?.toLowerCase().includes(searchTerm)
     );
   }
 

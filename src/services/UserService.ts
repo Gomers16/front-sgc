@@ -1,231 +1,267 @@
 // src/services/userService.ts
 
-const BASE_URL = 'http://localhost:3333/api/usuarios';
+// URL base para todas las peticiones a la API
+const API_BASE_URL = '/api';
 
-// Interfaz para la respuesta estándar del backend con un campo 'data'
-interface BackendResponse<T> {
-  message: string;
-  data: T;
+// --- Interfaces para tipado de datos ---
+export interface Rol {
+    id: number;
+    nombre: string;
+}
+export interface RazonSocial {
+    id: number;
+    nombre: string;
+}
+export interface Sede {
+    id: number;
+    nombre: string;
+}
+export interface Cargo {
+    id: number;
+    nombre: string;
+}
+export interface EntidadSalud {
+    id: number;
+    nombre: string;
+    tipo: string;
 }
 
-interface UsuarioPayload {
-  nombres: string;
-  apellidos: string;
-  correo: string;
-  password?: string;
-  rolId: number;
-  razonSocialId: number;
-  sedeId?: number | null;
-  cargoId?: number | null;
-  fotoPerfil?: string | null; // Esta es la URL, no el archivo en sí
-  direccion?: string | null;
-  celularPersonal?: string;
-  celularCorporativo?: string | null;
-  centroCosto?: string | null;
-  estado?: string;
-  recomendaciones?: boolean;
-  epsId?: number | null;
-  arlId?: number | null;
-  afpId?: number | null;
-  afcId?: number | null;
-  ccfId?: number | null;
+// Interfaz para la respuesta de una operación de eliminación
+export interface DeleteResponse {
+    message: string;
 }
 
-interface UsuarioResponse {
-  id: number;
-  nombres: string;
-  apellidos: string;
-  correo: string;
-  celularPersonal?: string;
-  rolId: number;
-  razonSocialId: number;
-  sedeId?: number | null;
-  cargoId?: number | null;
-  fotoPerfil?: string | null;
-  direccion?: string | null;
-  celularCorporativo?: string | null;
-  centroCosto?: string | null;
-  estado: string;
-  recomendaciones?: boolean;
-  epsId?: number | null;
-  arlId?: number | null;
-  afpId?: number | null;
-  afcId?: number | null;
-  ccf?: { id: number; nombre: string } | null;
-  rol?: { id: number; nombre: string };
-  razonSocial?: { id: number; nombre: string };
-  sede?: { id: number; nombre: string } | null;
-  cargo?: { id: number; nombre: string } | null;
-  eps?: { id: number; nombre: string } | null;
-  arl?: { id: number; nombre: string } | null;
-  afp?: { id: number; nombre: string } | null;
-  afc?: { id: number; nombre: string } | null;
-  ccfId?: number | null;
-  createdAt: string;
-  updatedAt: string;
-}
-
-interface SelectorOption {
-  id: number;
-  nombre: string;
-}
-
-interface ProfilePictureUploadResponse {
-  message: string;
-  fotoPerfilUrl: string;
+// Interfaz principal para el objeto de Usuario
+export interface User {
+    id: number;
+    nombres: string;
+    apellidos: string;
+    correo: string;
+    celularPersonal?: string;
+    celularCorporativo?: string;
+    direccion?: string;
+    centroCosto?: string;
+    recomendaciones?: boolean;
+    // La ruta de la foto ahora será una cadena de texto (ej. '/uploads/profile_pictures/image.png')
+    fotoPerfil?: string;
+    estado: 'activo' | 'inactivo';
+    rolId: number;
+    rol?: Rol;
+    razonSocialId: number;
+    razonSocial?: RazonSocial;
+    sedeId: number;
+    sede?: Sede;
+    cargoId: number;
+    cargo?: Cargo;
+    epsId?: number;
+    eps?: EntidadSalud;
+    arlId?: number;
+    arl?: EntidadSalud;
+    afpId?: number;
+    afp?: EntidadSalud;
+    afcId?: number;
+    afc?: EntidadSalud;
+    ccfId?: number;
+    ccf?: EntidadSalud;
+    password?: string;
 }
 
 /**
- * Función para obtener un token de autenticación desde sessionStorage.
- * Asegúrate de que esto coincida con cómo y dónde lo guarda tu AuthStore.
+ * Función genérica para manejar peticiones HTTP y errores.
+ * @param url La URL del endpoint de la API.
+ * @param options Opciones de la petición (método, headers, body, etc.).
+ * @returns Una promesa que resuelve con los datos JSON.
  */
-function getAuthToken(): string | null {
-  const token = sessionStorage.getItem('token');
-  return token;
-}
+async function fetchData<T>(url: string, options: RequestInit = {}): Promise<T> {
+    const isFormData = options.body instanceof FormData;
 
-/**
- * Realiza una solicitud fetch genérica a la API para JSON.
- * @param url El endpoint de la API.
- * @param method El método HTTP (GET, POST, PUT, DELETE).
- * @param data Los datos a enviar en el cuerpo de la solicitud (para POST/PUT).
- * @param requiresAuth Indica si la solicitud requiere un token de autenticación. Por defecto es true.
- * @returns La respuesta parseada en JSON.
- * @throws Error si la respuesta de la red no es exitosa.
- */
-async function apiFetch<T>(url: string, method: string, data?: object, requiresAuth: boolean = true): Promise<T> {
-  const headers: HeadersInit = {
-    'Content-Type': 'application/json',
-  };
+    // Clonamos las opciones para no mutar el objeto original
+    const fetchOptions = { ...options };
 
-  if (requiresAuth) {
-    const token = getAuthToken();
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
+    // Si no es un FormData, nos aseguramos de que el Content-Type sea JSON
+    if (!isFormData) {
+        fetchOptions.headers = {
+            ...fetchOptions.headers,
+            'Content-Type': 'application/json',
+        };
     } else {
-      console.warn(`Advertencia: La solicitud a ${url} requiere autenticación pero no se encontró un token.`);
-      throw new Error('No se encontró el token de autenticación para esta operación.');
+        // Si es FormData, eliminamos Content-Type para que el navegador lo añada correctamente
+        if (fetchOptions.headers) {
+            delete (fetchOptions.headers as Record<string, string>)['Content-Type'];
+        }
     }
-  }
 
-  const options: RequestInit = {
-    method: method,
-    headers: headers,
-    body: data ? JSON.stringify(data) : undefined,
-  };
-
-  try {
-    const response = await fetch(url, options);
+    const response = await fetch(url, fetchOptions);
 
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ message: 'Error de respuesta no JSON', details: response.statusText }));
-      throw new Error(errorData.message || `Error HTTP! Estado: ${response.status}`);
+        const errorData = await response.json().catch(() => ({ message: response.statusText }));
+        throw new Error(errorData.message || 'Error en la petición');
     }
 
-    if (response.status === 204) {
-      return null as T;
+    const contentType = response.headers.get('content-type');
+    if (contentType && contentType.includes('application/json')) {
+        const jsonResponse = await response.json();
+
+        // --- CAMBIO CLAVE PARA CORREGIR EL ERROR ---
+        // Verifica si la respuesta tiene un objeto 'data'. Si es así, lo devuelve.
+        // Si no, devuelve la respuesta completa (asumiendo que ya es un arreglo).
+        return jsonResponse.data || jsonResponse;
     }
 
-    return await response.json() as T;
-  } catch (error: unknown) {
-    console.error(`Error en la solicitud ${method} a ${url}:`, error);
-    throw error;
-  }
+    return {} as T;
+}
+
+// --- Funciones para el manejo de usuarios ---
+
+/**
+ * Obtiene una lista de todos los usuarios o filtrados por razón social.
+ */
+export async function obtenerUsuarios(razonSocialId?: number): Promise<User[]> {
+    try {
+        const url = new URL(`${API_BASE_URL}/usuarios`, window.location.origin);
+        if (razonSocialId) {
+            url.searchParams.append('razon_social_id', razonSocialId.toString());
+        }
+        const response = await fetchData<User[]>(url.href);
+        return response;
+    } catch (error) {
+        console.error('Error al obtener usuarios:', error);
+        throw error;
+    }
 }
 
 /**
- * Realiza una solicitud fetch para subir archivos (multipart/form-data).
- * @param url El endpoint de la API.
- * @param method El método HTTP (POST, PUT, PATCH).
- * @param formData Los datos FormData que contienen el archivo.
- * @param requiresAuth Indica si la solicitud requiere un token de autenticación. Por defecto es true.
- * @returns La respuesta parseada en JSON.
- * @throws Error si la respuesta de la red no es exitosa.
+ * Obtiene los detalles de un usuario específico por su ID.
  */
-async function uploadFile<T>(url: string, method: string, formData: FormData, requiresAuth: boolean = true): Promise<T> {
-  const headers: HeadersInit = {}; // No establecer 'Content-Type' para FormData, fetch lo hace automáticamente.
-
-  if (requiresAuth) {
-    const token = getAuthToken();
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
-    } else {
-      console.warn(`Advertencia: La solicitud a ${url} requiere autenticación pero no se encontró un token.`);
-      throw new Error('No se encontró el token de autenticación para esta operación.');
+export async function obtenerUsuarioPorId(id: number): Promise<User | null> {
+    try {
+        const response = await fetchData<User>(`${API_BASE_URL}/usuarios/${id}`);
+        return response;
+    } catch (error: any) {
+        if (error.message.includes('Not Found')) {
+            console.warn(`Usuario con ID ${id} no encontrado.`);
+            return null;
+        }
+        console.error(`Error al obtener usuario con ID ${id}:`, error);
+        throw error;
     }
-  }
+}
 
-  const options: RequestInit = {
-    method: method,
-    headers: headers,
-    body: formData,
-  };
-
-  try {
-    const response = await fetch(url, options);
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ message: 'Error de respuesta no JSON', details: response.statusText }));
-      throw new Error(errorData.message || `Error HTTP! Estado: ${response.status}`);
+/**
+ * Crea un nuevo usuario en la base de datos.
+ */
+export async function crearUsuario(userData: Partial<User>): Promise<User> {
+    try {
+        const response = await fetchData<User>(`${API_BASE_URL}/usuarios`, {
+            method: 'POST',
+            body: JSON.stringify(userData),
+        });
+        return response;
+    } catch (error) {
+        console.error('Error al crear usuario:', error);
+        throw error;
     }
-
-    return await response.json() as T;
-  } catch (error: unknown) {
-    console.error(`Error en la solicitud ${method} a ${url} (upload):`, error);
-    throw error;
-  }
 }
 
-
-export async function crearUsuario(userData: UsuarioPayload): Promise<UsuarioResponse> {
-  return apiFetch<UsuarioResponse>(BASE_URL, 'POST', userData, false);
+/**
+ * Actualiza los datos de un usuario existente.
+ */
+export async function actualizarUsuario(id: number, userData: Partial<User>): Promise<User> {
+    try {
+        const response = await fetchData<User>(`${API_BASE_URL}/usuarios/${id}`, {
+            method: 'PUT',
+            body: JSON.stringify(userData),
+        });
+        return response;
+    } catch (error) {
+        console.error(`Error al actualizar usuario con ID ${id}:`, error);
+        throw error;
+    }
 }
 
-export async function obtenerUsuarios(): Promise<UsuarioResponse[]> {
-  return apiFetch<UsuarioResponse[]>(BASE_URL, 'GET', undefined, false);
+/**
+ * Elimina un usuario por su ID.
+ */
+export async function eliminarUsuario(id: number): Promise<string> {
+    try {
+        const response = await fetchData<DeleteResponse>(`${API_BASE_URL}/usuarios/${id}`, {
+            method: 'DELETE',
+        });
+        return response.message || 'Usuario eliminado correctamente.';
+    } catch (error) {
+        console.error(`Error al eliminar usuario con ID ${id}:`, error);
+        throw error;
+    }
 }
 
-export async function actualizarUsuario(id: number, userData: UsuarioPayload): Promise<UsuarioResponse> {
-  return apiFetch<UsuarioResponse>(`${BASE_URL}/${id}`, 'PUT', userData, false);
+/**
+ * Actualiza la foto de perfil de un usuario.
+ */
+export async function uploadProfilePicture(userId: number, file: File): Promise<User> {
+    try {
+        const formData = new FormData();
+        formData.append('foto', file);
+
+        const response = await fetchData<User>(`${API_BASE_URL}/usuarios/${userId}/upload-photo`, {
+            method: 'POST',
+            body: formData,
+        });
+
+        return response;
+    } catch (error) {
+        console.error(`Error al subir la foto de perfil para el usuario ${userId}:`, error);
+        throw error;
+    }
 }
 
-export async function eliminarUsuario(id: number): Promise<void> {
-  await apiFetch<null>(`${BASE_URL}/${id}`, 'DELETE', undefined, false);
+// --- Funciones para obtener listas auxiliares ---
+
+export async function obtenerRoles(): Promise<Rol[]> {
+    try {
+        const response = await fetchData<Rol[]>(`${API_BASE_URL}/roles`);
+        return response;
+    } catch (error) {
+        console.error('Error al obtener roles:', error);
+        throw error;
+    }
 }
 
-// NUEVA FUNCIÓN PARA SUBIR FOTO DE PERFIL
-export async function uploadProfilePicture(userId: number, file: File): Promise<ProfilePictureUploadResponse> {
-  const formData = new FormData();
-  formData.append('foto', file); // 'foto' debe coincidir con el nombre esperado en el backend (request.file('foto'))
-  // La ruta corregida en el backend es `/api/usuarios/:id/profile-picture`
-  return uploadFile<ProfilePictureUploadResponse>(`${BASE_URL}/${userId}/profile-picture`, 'PUT', formData, false); // Asumimos que esta ruta NO requiere autenticación para la prueba actual
+export async function obtenerRazonesSociales(): Promise<RazonSocial[]> {
+    try {
+        const response = await fetchData<RazonSocial[]>(`${API_BASE_URL}/razones-sociales`);
+        return response;
+    } catch (error) {
+        console.error('Error al obtener razones sociales:', error);
+        throw error;
+    }
 }
 
-
-// --- Servicios para obtener opciones de selectores (NO requieren autenticación) ---
-// Estas rutas son públicas, según tu configuración en start/routes.ts
-
-export async function obtenerRoles(): Promise<SelectorOption[]> {
-  const response = await apiFetch<BackendResponse<SelectorOption[]>>('http://localhost:3333/api/roles', 'GET', undefined, false);
-  return response.data;
+export async function obtenerSedes(): Promise<Sede[]> {
+    try {
+        const response = await fetchData<Sede[]>(`${API_BASE_URL}/sedes`);
+        return response;
+    } catch (error) {
+        console.error('Error al obtener sedes:', error);
+        throw error;
+    }
 }
 
-export async function obtenerRazonesSociales(): Promise<SelectorOption[]> {
-  const response = await apiFetch<BackendResponse<SelectorOption[]>>('http://localhost:3333/api/razones-sociales', 'GET', undefined, false);
-  return response.data;
+export async function obtenerCargos(): Promise<Cargo[]> {
+    try {
+        const response = await fetchData<Cargo[]>(`${API_BASE_URL}/cargos`);
+        return response;
+    } catch (error) {
+        console.error('Error al obtener cargos:', error);
+        throw error;
+    }
 }
 
-export async function obtenerSedes(): Promise<SelectorOption[]> {
-  const response = await apiFetch<BackendResponse<SelectorOption[]>>('http://localhost:3333/api/sedes', 'GET', undefined, false);
-  return response.data;
-}
-
-export async function obtenerCargos(): Promise<SelectorOption[]> {
-  const response = await apiFetch<BackendResponse<SelectorOption[]>>('http://localhost:3333/api/cargos', 'GET', undefined, false);
-  return response.data;
-}
-
-export async function obtenerEntidadesSalud(): Promise<SelectorOption[]> {
-  const response = await apiFetch<BackendResponse<SelectorOption[]>>('http://localhost:3333/api/entidades-salud', 'GET', undefined, false);
-  return response.data;
+export async function obtenerEntidadesSalud(): Promise<EntidadSalud[]> {
+    try {
+        const response = await fetchData<EntidadSalud[]>(`${API_BASE_URL}/entidades-salud`);
+        return response;
+    } catch (error) {
+        console.error('Error al obtener entidades de salud:', error);
+        throw error;
+    }
 }

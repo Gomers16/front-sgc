@@ -15,7 +15,7 @@ interface RazonSocial {
   // Añade otras propiedades si las traes de la base de datos
 }
 
-interface Usuario {
+export interface Usuario {
   id: number;
   nombres: string;
   apellidos: string;

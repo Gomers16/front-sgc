@@ -8,8 +8,10 @@ import TurnoRtmEdit from '@/views/rtm/EditarTurno.vue'
 import EstadoDeTurnos from '@/views/rtm/EstadoDeTurnos.vue'
 import ContadorConvenios from '@/views/rtm/ContadorConvenios.vue'
 import Vistadesarrollo from '@/views/Vistadesarrollo.vue'
-import UsuariosView from '@/views/usuarios/UsuariosView.vue' // 🔧 corregido
+import UsuariosView from '@/views/usuarios/UsuariosView.vue'
 import { authSetStore } from '@/stores/AuthStore'
+import ContratosView from '@/views/gestion-documental/ContratosView.vue'
+import UserProfileView from '@/views/usuarios/UserProfileView.vue'
 
 const routes = [
   {
@@ -72,9 +74,16 @@ const routes = [
     meta: { layout: 'MainLayout', requiresAuth: true },
   },
   {
-    path: '/gestion-documental/usuarios', // 🔧 Ruta válida para el menú
+    path: '/gestion-documental/usuarios',
     name: 'Usuarios',
     component: UsuariosView,
+    meta: { layout: 'MainLayout', requiresAuth: true },
+  },
+  {
+    path: '/usuarios/:id',
+    name: 'UserProfile',
+    component: UserProfileView,
+    props: true,
     meta: { layout: 'MainLayout', requiresAuth: true },
   },
   {
@@ -82,6 +91,12 @@ const routes = [
     name: 'RazonSocialDetalle',
     component: () => import('@/views/gestion-documental/RazonSocialView.vue'),
     props: true,
+    meta: { layout: 'MainLayout', requiresAuth: true },
+  },
+  {
+    path: '/gestion-documental/contratos',
+    name: 'Contratos',
+    component: ContratosView,
     meta: { layout: 'MainLayout', requiresAuth: true },
   },
 ]

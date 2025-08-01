@@ -46,8 +46,7 @@ interface Contrato {
   rutaArchivoContratoFisico?: string;
 }
 
-// ✅ Función para obtener el token de autenticación eliminada o vacía.
-// Ahora no se utilizará para añadir el token a las cabeceras.
+// --- Funciones para interactuar con la API de Contratos usando fetch ---
 
 /**
  * Realiza una petición fetch genérica.
@@ -57,28 +56,10 @@ interface Contrato {
  * @throws Error si la respuesta no es exitosa (status 2xx).
  */
 async function fetchData<T>(url: string, options?: RequestInit): Promise<T> {
-  // const token = getAuthToken(); // ✅ Eliminado: Ya no se obtiene el token
-
-  // Combina las cabeceras existentes, pero sin la cabecera de autorización
-  const headers = {
-    ...options?.headers,
-    // Eliminado: Ya no se añade el token a las cabeceras
-    // ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
-  };
-
-  const response = await fetch(url, {
-    ...options,
-    headers, // Usa las cabeceras combinadas (sin token de auth)
-  });
+  const response = await fetch(url, options);
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({ message: response.statusText }));
-    // Si el error es 401, podrías redirigir al login o mostrar un mensaje específico
-    if (response.status === 401) {
-      console.error('Error 401: No autorizado. Por favor, inicie sesión.');
-      // Opcional: Redirigir al login
-      // window.location.href = '/login';
-    }
     throw new Error(errorData.message || 'Error en la petición');
   }
 
@@ -112,7 +93,6 @@ export async function anexarContrato(
     const response = await fetchData<Contrato>(`${API_BASE_URL}/contratos/anexar-fisico`, {
       method: 'POST',
       body: formData,
-      // No necesitas 'Content-Type': 'multipart/form-data' aquí, fetch lo establece automáticamente con FormData
     });
 
     return response;
