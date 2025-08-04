@@ -50,7 +50,6 @@
       </template>
     </v-data-table>
 
-    <!-- Modal para Confirmar Navegación a Perfil -->
     <v-dialog v-model="mostrarModalPerfil" max-width="500">
       <v-card>
         <v-card-title class="text-h6">Confirmar Navegación</v-card-title>
@@ -67,7 +66,6 @@
       </v-card>
     </v-dialog>
 
-    <!-- Nuevo Modal para Mostrar Contratos del Usuario -->
     <v-dialog v-model="modalContratosUsuario.mostrar" max-width="800">
       <v-card>
         <v-card-title class="text-h6">
@@ -326,7 +324,11 @@ function confirmarVerPerfil(usuarioId: number) {
 
 function verPerfilConfirmado() {
   if (usuarioIdParaPerfil.value !== null) {
-    router.push(`/usuarios/${usuarioIdParaPerfil.value}`);
+    // ✅ CORRECCIÓN: Usa el nombre de la ruta y un objeto de params
+    router.push({
+      name: 'UserProfile',
+      params: { id: usuarioIdParaPerfil.value.toString() }
+    });
   }
   mostrarModalPerfil.value = false;
   usuarioIdParaPerfil.value = null;

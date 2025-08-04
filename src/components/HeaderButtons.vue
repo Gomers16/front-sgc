@@ -1,55 +1,66 @@
 <template>
   <div class="header-buttons">
-    <router-link to="/login" class="btn" active-class="active"> Iniciar Sesión </router-link>
-    <router-link to="/reset-password" class="btn" active-class="active">
-      ¿Olvidó su contraseña?
-    </router-link>
+    <!-- Los botones han sido eliminados según tu solicitud -->
   </div>
 </template>
 
+<script setup lang="ts"></script>
+
 <style scoped>
-@media (max-width: 600px) {
+.header-buttons {
+  /* Mantenemos el contenedor, pero sin contenido visible */
+  position: absolute;
+  top: 1.8rem;
+  right: 2rem;
+  display: flex; /* Mantenemos flex para la estructura si se añadieran otros elementos */
+  gap: 1.2rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+  padding: 0 0.5rem;
+  box-sizing: border-box;
+  z-index: 10;
+  /* Puedes ajustar estas propiedades si necesitas que el contenedor ocupe menos espacio */
+  width: 0; /* Reducimos el ancho si no hay botones */
+  height: 0; /* Reducimos la altura si no hay botones */
+  overflow: hidden; /* Ocultamos cualquier posible contenido residual */
+}
+
+/* Los estilos para .btn, .login-button, .forgot-password-button y .active han sido eliminados
+   ya que los botones no están presentes en el template. */
+
+/* Media Queries también se han ajustado o eliminado si no son relevantes sin los botones */
+@media (min-width: 1200px) {
   .header-buttons {
-    top: 5px;
-    right: 5px;
-    gap: 5px; /* Menos separación entre botones */
+    top: 2rem;
+    right: 3rem;
+    gap: 1.5rem;
   }
 }
-.header-buttons {
-  position: absolute;
-  top: 10px;
-  right: 50px;
-  display: flex;
-  gap: 10px;
+
+@media (max-width: 1024px) {
+  .header-buttons {
+    top: 1.5rem;
+    right: 1.5rem;
+    gap: 1rem;
+  }
 }
 
-.btn {
-  padding: 5px 10px;
-  background: rgba(255, 255, 255, 0.2); /* Fondo semi-transparente */
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.5);
-  border-radius: 8px; /* Bordes redondeados */
-  color: white;
-  font-size: 14px;
-  font-weight: bold;
-  cursor: pointer;
-  transition:
-    background 0.3s,
-    border 0.3s;
-  text-decoration: none; /* Eliminar subrayado */
-  display: inline-block;
-  text-align: center;
+@media (max-width: 768px) {
+  .header-buttons {
+    flex-direction: column;
+    top: 1rem;
+    right: 1rem;
+    gap: 0.8rem;
+    align-items: flex-end;
+  }
 }
 
-.btn:hover {
-  background: rgba(255, 255, 255, 0.4);
-  border: 1px solid rgba(255, 255, 255, 0.7);
-}
-
-/* Estilos para el botón activo */
-.active {
-  background: #fcfcfc0a; /* Color de fondo verde */
-  border: 1px solid #ffffff;
-  color: white;
+@media (max-width: 480px) {
+  .header-buttons {
+    top: 0.8rem;
+    right: 0.8rem;
+    gap: 0.6rem;
+  }
 }
 </style>

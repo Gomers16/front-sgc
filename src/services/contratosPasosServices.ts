@@ -26,9 +26,10 @@ class ContratoPasosService {
     if (!response.ok) throw new Error('Error al crear paso')
     return response.json()
   }
-
-  public static async updatePaso(id: number, payload: Partial<ContratoPaso>): Promise<ContratoPaso> {
-    const response = await fetch(`${this.API_BASE_URL}/pasos/${id}`, {
+  
+  // RUTA CORREGIDA: Ahora incluye el contratoId en la URL
+  public static async updatePaso(contratoId: number, id: number, payload: Partial<ContratoPaso>): Promise<ContratoPaso> {
+    const response = await fetch(`${this.API_BASE_URL}/contratos/${contratoId}/pasos/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
@@ -37,8 +38,9 @@ class ContratoPasosService {
     return response.json()
   }
 
-  public static async deletePaso(id: number): Promise<void> {
-    const response = await fetch(`${this.API_BASE_URL}/pasos/${id}`, { method: 'DELETE' })
+  // RUTA CORREGIDA: Ahora incluye el contratoId en la URL
+  public static async deletePaso(contratoId: number, id: number): Promise<void> {
+    const response = await fetch(`${this.API_BASE_URL}/contratos/${contratoId}/pasos/${id}`, { method: 'DELETE' })
     if (!response.ok) throw new Error('Error al eliminar paso')
   }
 }

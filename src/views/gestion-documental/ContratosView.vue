@@ -89,6 +89,15 @@
           <v-alert v-if="loadingPasos" type="info" variant="tonal" class="mt-4">
             Cargando pasos...
           </v-alert>
+          <v-btn
+            color="info"
+            prepend-icon="mdi-content-save"
+            @click="guardarPasosLocally"
+            :disabled="!usuarioSeleccionado || !tipoContratoSeleccionado"
+            class="mt-4"
+          >
+            Guardar Pasos
+          </v-btn>
         </v-card>
 
         <div class="mt-8">
@@ -176,6 +185,18 @@
       </v-card>
     </v-dialog>
 
+    <!-- Diálogo de Alerta Personalizado (igual que en UserProfileView) -->
+    <v-dialog v-model="showAlertDialog" max-width="400px">
+      <v-card>
+        <v-card-title class="text-h6 bg-primary text-white">{{ alertDialogTitle }}</v-card-title>
+        <v-card-text class="py-4">{{ alertDialogMessage }}</v-card-text>
+        <v-card-actions>
+          <v-spacer></v-spacer>
+          <v-btn color="primary" @click="showAlertDialog = false">Aceptar</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
   </v-container>
 </template>
 
@@ -184,7 +205,7 @@ import { ref, computed, watch, onMounted } from 'vue';
 import { listarRazonesSociales, fetchUsuariosPorRazonSocial } from '@/services/razonSocialService';
 import type { Usuario } from '@/services/razonSocialService';
 import { anexarContrato } from '@/services/contratoService';
-import { useContratoStore } from '@/stores/contrato'; // ✅ Corregido: Importación del store singular
+import { useContratoStore } from '@/stores/contrato';
 
 // --- Interfaces para tipado ---
 interface RazonSocial {
@@ -198,46 +219,47 @@ interface Paso {
   observacion?: string;
   nombreArchivo?: string;
   fechaCompletado?: string;
+  archivoFile?: File | null;
+  fase: string;
 }
 
-// Interfaz extendida para Usuario que incluye nombreCompleto
 interface UsuarioExtendida extends Usuario {
   nombreCompleto: string;
 }
 
-// Interfaz de ContratoFinal (se mantiene local para la vista)
 interface ContratoFinal {
   nombre: string;
   ruta: string;
 }
 
-// --- Tipos de contrato y pasos (ahora como ref para resolver el error de TS) ---
-const tiposContrato = ref([ // ✅ Corregido: Envuelto en ref
+// --- Tipos de contrato y pasos ---
+const tiposContrato = ref([
   { nombre: 'Prestación de Servicios', valor: 'prestacion' },
   { nombre: 'Temporal', valor: 'temporal' },
   { nombre: 'Laboral', valor: 'laboral' },
 ]);
 
 const pasosPrestacion: Paso[] = [
-  { nombre: 'Inicio', completado: false },
-  { nombre: 'Desarrollo', completado: false },
-  { nombre: 'Fin', completado: false },
+  { nombre: 'Inicio Contrato', completado: false, fase: 'Inicio' },
+  { nombre: 'Firma Documentos', completado: false, fase: 'Inicio' },
+  { nombre: 'Afiliación Seguridad Social', completado: false, fase: 'Inicio' },
 ];
 const pasosTemporal: Paso[] = [
-  { nombre: 'Solicitud', completado: false },
-  { nombre: 'Pruebas', completado: false },
-  { nombre: 'Visto Bueno Empresa', completado: false },
-  { nombre: 'Examen Médico', completado: false },
-  { nombre: 'Contratación', completado: false },
+  { nombre: 'Solicitud Personal', completado: false, fase: 'Inicio' },
+  { nombre: 'Entrevista Inicial', completado: false, fase: 'Inicio' },
+  { nombre: 'Pruebas Psicotécnicas', completado: false, fase: 'Inicio' },
+  { nombre: 'Examen Médico Pre-ocupacional', completado: false, fase: 'Inicio' },
+  { nombre: 'Contratación y Documentación', completado: false, fase: 'Inicio' },
 ];
 const pasosLaboral: Paso[] = [
-  { nombre: 'Reclutamiento / Selección', completado: false },
-  { nombre: 'Referencias', completado: false },
-  { nombre: 'Pruebas', completado: false },
-  { nombre: 'Examen Médico', completado: false },
-  { nombre: 'Contrato', completado: false },
-  { nombre: 'Afiliaciones', completado: false },
+  { nombre: 'Proceso de Selección', completado: false, fase: 'Inicio' },
+  { nombre: 'Verificación de Referencias', completado: false, fase: 'Inicio' },
+  { nombre: 'Entrevista Final', completado: false, fase: 'Inicio' },
+  { nombre: 'Examen Médico de Ingreso', completado: false, fase: 'Inicio' },
+  { nombre: 'Firma de Contrato', completado: false, fase: 'Inicio' },
+  { nombre: 'Inducción y Bienvenida', completado: false, fase: 'Inicio' },
 ];
+
 
 // --- Estado de la vista ---
 const razonSocialSeleccionada = ref<number | null>(null);
@@ -265,7 +287,18 @@ const archivoContrato = ref<File | null>(null);
 const contratoFinal = ref<ContratoFinal | null>(null);
 
 // --- Inicializa el store de Pinia ---
-const contratoStore = useContratoStore(); // ✅ Corregido: Uso del store singular
+const contratoStore = useContratoStore();
+
+// --- Diálogo de Alerta Personalizado ---
+const showAlertDialog = ref(false);
+const alertDialogTitle = ref('');
+const alertDialogMessage = ref('');
+
+const showAlert = (title: string, message: string) => {
+  alertDialogTitle.value = title;
+  alertDialogMessage.value = message;
+  showAlertDialog.value = true;
+};
 
 // --- Propiedades computadas ---
 const pasosInicio = computed(() => {
@@ -277,7 +310,7 @@ const pasosInicio = computed(() => {
 
 const usuarioSeleccionadoNombreCompleto = computed(() => {
   const usuario = usuarios.value.find(u => u.id === usuarioSeleccionado.value);
-  return usuario ? usuario.nombreCompleto : 'el usuario';
+  return usuario ? usuario.nombres + ' ' + usuario.apellidos : 'el usuario';
 });
 
 // --- Métodos de la vista ---
@@ -317,6 +350,7 @@ function abrirModalPaso(paso: Paso) {
 
   if (paso.completado) {
     modalPaso.value.form.observacion = paso.observacion || '';
+    modalPaso.value.form.archivo = paso.archivoFile || null;
   } else {
     modalPaso.value.form = { observacion: '', archivo: null };
   }
@@ -339,16 +373,11 @@ async function completarPasoConfirmado() {
   const pasoACompletar = pasosInicio.value.find(p => p.nombre === modalPaso.value.paso?.nombre);
 
   if (pasoACompletar) {
-    const observacion = modalPaso.value.form.observacion;
-    const archivo = modalPaso.value.form.archivo;
-
-    // Simulación de la actualización local
     pasoACompletar.completado = true;
-    pasoACompletar.observacion = observacion;
-    pasoACompletar.fechaCompletado = new Date().toLocaleDateString('es-CO');
-    if (archivo) {
-      pasoACompletar.nombreArchivo = archivo.name;
-    }
+    pasoACompletar.observacion = modalPaso.value.form.observacion;
+    pasoACompletar.fechaCompletado = new Date().toISOString().split('T')[0];
+    pasoACompletar.archivoFile = modalPaso.value.form.archivo;
+    pasoACompletar.nombreArchivo = modalPaso.value.form.archivo?.name || undefined;
 
     console.log(`Guardando/completando paso "${pasoACompletar.nombre}" para el usuario ${usuarioSeleccionado.value}.`);
   }
@@ -370,41 +399,104 @@ function onFileChange(event: Event) {
   }
 }
 
+// ✅ Nuevo método para "Guardar Pasos" localmente
+function guardarPasosLocally() {
+  if (!usuarioSeleccionado.value || !tipoContratoSeleccionado.value) {
+    showAlert('Advertencia', 'Por favor, seleccione un usuario y un tipo de contrato primero.');
+    return;
+  }
+
+  const allStepsCompleted = pasosInicio.value.every(paso => paso.completado);
+
+  if (allStepsCompleted) {
+    showAlert('Éxito', '¡Todos los pasos han sido completados y guardados localmente!');
+  } else {
+    showAlert('Información', 'Los pasos incompletos se guardarán localmente. Asegúrese de completar todos los pasos antes de anexar el contrato.');
+  }
+  // No se realiza ninguna llamada al backend aquí. Los pasos se envían con anexarContratoFinal.
+}
+
+
 async function anexarContratoFinal() {
   if (usuarioSeleccionado.value && archivoContrato.value && tipoContratoSeleccionado.value) {
-    try {
-      // Obtener fechas para el contrato (puedes añadir campos de fecha en tu UI si son dinámicas)
-      const fechaInicio = new Date().toISOString().substr(0, 10); // Ejemplo: fecha actual
-      // const fechaFin = 'YYYY-MM-DD'; // Si tienes una fecha de fin, obténla de tu UI
-
-      // Llama al servicio para enviar los datos al backend
-      const nuevoContrato = await anexarContrato(
-        usuarioSeleccionado.value,
-        archivoContrato.value,
-        tipoContratoSeleccionado.value,
-        fechaInicio
-        // fechaFin // Pasa la fecha de fin si la tienes
+    // Opcional: Puedes añadir una validación aquí para asegurar que todos los pasos importantes estén completados
+    // antes de permitir anexar el contrato final.
+    const allStepsCompleted = pasosInicio.value.every(paso => paso.completado);
+    if (!allStepsCompleted) {
+      const confirm = await showConfirm(
+        'Pasos Incompletos',
+        'No todos los pasos están marcados como completados. ¿Desea continuar de todos modos?'
       );
+      if (!confirm) {
+        return;
+      }
+    }
 
-      // ✅ IMPORTANTE: Añade el nuevo contrato al store de Pinia
-      contratoStore.addContrato(nuevoContrato); // ✅ Corregido: Uso del store singular
+
+    try {
+      const fechaInicio = new Date().toISOString().split('T')[0];
+
+      const payload = {
+        usuarioId: usuarioSeleccionado.value,
+        archivoContrato: archivoContrato.value,
+        tipoContrato: tipoContratoSeleccionado.value,
+        fechaInicio: fechaInicio,
+        pasos: pasosInicio.value // Send the current state of the steps
+      };
+
+      const nuevoContrato = await anexarContrato(payload);
+
+      contratoStore.addContrato(nuevoContrato);
 
       contratoFinal.value = {
         nombre: nuevoContrato.nombreArchivoContratoFisico || '',
         ruta: nuevoContrato.rutaArchivoContratoFisico || ''
       };
 
-      console.log(`El contrato ${contratoFinal.value.nombre} ha sido anexado correctamente al usuario ${usuarioSeleccionadoNombreCompleto.value}.`);
-      // Aquí puedes mostrar una notificación de éxito al usuario (ej. con un snackbar de Vuetify)
+      showAlert('Éxito', `El contrato ${contratoFinal.value.nombre} ha sido anexado correctamente al usuario ${usuarioSeleccionadoNombreCompleto.value}.`);
 
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error al anexar el contrato:', error);
-      alert('Hubo un error al anexar el contrato. Inténtelo de nuevo.'); // Usar un snackbar real en producción
+      showAlert('Error', `Hubo un error al anexar el contrato: ${error.message || 'error desconocido'}.`);
     }
   } else {
-    alert('Por favor, seleccione un usuario, un tipo de contrato y adjunte un archivo.');
+    showAlert('Advertencia', 'Por favor, seleccione un usuario, un tipo de contrato y adjunte un archivo.');
   }
 }
+
+// Helper para mostrar confirmaciones personalizadas (añadido para la validación de pasos)
+const showConfirm = (title: string, message: string): Promise<boolean> => {
+  return new Promise((resolve) => {
+    const confirmDialog = document.createElement('div');
+    confirmDialog.innerHTML = `
+      <div style="padding: 20px; text-align: center;">
+        <h3 style="margin-bottom: 10px;">${title}</h3>
+        <p style="margin-bottom: 20px;">${message}</p>
+        <button id="confirmBtn" style="background-color: #1976D2; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; margin-right: 10px;">Confirmar</button>
+        <button id="cancelBtn" style="background-color: #B0BEC5; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer;">Cancelar</button>
+      </div>
+    `;
+    confirmDialog.style.cssText = `
+      position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+      background-color: white; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+      z-index: 1000; width: 90%; max-width: 400px;
+    `;
+    document.body.appendChild(confirmDialog);
+
+    const confirmBtn = confirmDialog.querySelector('#confirmBtn');
+    const cancelBtn = confirmDialog.querySelector('#cancelBtn');
+
+    confirmBtn?.addEventListener('click', () => {
+      document.body.removeChild(confirmDialog);
+      resolve(true);
+    });
+    cancelBtn?.addEventListener('click', () => {
+      document.body.removeChild(confirmDialog);
+      resolve(false);
+    });
+  });
+};
+
 
 // --- Watchers y ciclo de vida ---
 watch(razonSocialSeleccionada, (newId) => {
@@ -413,10 +505,16 @@ watch(razonSocialSeleccionada, (newId) => {
   } else {
     usuarios.value = [];
     usuarioSeleccionado.value = null;
-    pasosInicio.value.forEach(p => p.completado = false);
+    pasosInicio.value.forEach(p => {
+      p.completado = false;
+      p.observacion = undefined;
+      p.nombreArchivo = undefined;
+      p.fechaCompletado = undefined;
+      p.archivoFile = null;
+    });
     archivoContrato.value = null;
     contratoFinal.value = null;
-    contratoStore.resetState(); // ✅ Corregido: Uso del store singular
+    contratoStore.resetState();
   }
 });
 
@@ -424,19 +522,31 @@ watch(usuarioSeleccionado, (newId) => {
   if (newId) {
     console.log(`Usuario ${newId} seleccionado. Iniciando nuevo proceso de contrato...`);
     // Reiniciar el estado para el nuevo usuario
-    pasosInicio.value.forEach(p => p.completado = false);
+    pasosInicio.value.forEach(p => {
+      p.completado = false;
+      p.observacion = undefined;
+      p.nombreArchivo = undefined;
+      p.fechaCompletado = undefined;
+      p.archivoFile = null;
+    });
     archivoContrato.value = null;
     contratoFinal.value = null;
-    contratoStore.resetState(); // ✅ Corregido: Uso del store singular
+    contratoStore.resetState();
   }
 });
 
 watch(tipoContratoSeleccionado, () => {
     // Reiniciar pasos al cambiar el tipo de contrato
-    pasosInicio.value.forEach(p => p.completado = false);
+    pasosInicio.value.forEach(p => {
+      p.completado = false;
+      p.observacion = undefined;
+      p.nombreArchivo = undefined;
+      p.fechaCompletado = undefined;
+      p.archivoFile = null;
+    });
     archivoContrato.value = null;
     contratoFinal.value = null;
-    contratoStore.resetState(); // ✅ Corregido: Uso del store singular
+    contratoStore.resetState();
 });
 
 onMounted(() => {
