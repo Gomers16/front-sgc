@@ -32,6 +32,25 @@ export interface DeleteResponse {
 }
 
 /**
+ * Interfaz para un paso de contrato.
+ * Agregada para ser utilizada en el componente.
+ */
+export interface ContratoPaso {
+  id: number
+  contratoId: number
+  fase: 'inicio' | 'desarrollo' | 'fin'
+  nombrePaso: string
+  fecha?: string
+  archivoUrl?: string
+  observacion?: string
+  orden: number
+  completado: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+
+/**
  * Interfaz para un evento de contrato.
  */
 export interface ContratoEvento {
@@ -66,9 +85,11 @@ export interface Contrato {
   estado: 'activo' | 'inactivo'
   fechaInicio: string
   fechaFin?: string
+  motivoFinalizacion?: string; // Aseguramos que la interfaz tenga esta propiedad
   nombreArchivoContratoFisico?: string
   rutaArchivoContratoFisico?: string
   eventos?: ContratoEvento[] // ✅ Agregamos la relación con eventos
+  pasos?: ContratoPaso[] // ✅ Agregamos la relación con pasos
 }
 
 // Interfaz principal para el objeto de Usuario
@@ -123,7 +144,7 @@ export async function fetchData<T>(url: string, options: RequestInit = {}): Prom
     fetchOptions.headers = {
       ...fetchOptions.headers,
       'Content-Type': 'application/json',
-    }
+    } as HeadersInit;
   } else {
     // Si es FormData, eliminamos Content-Type para que el navegador lo añada correctamente
     if (fetchOptions.headers) {
@@ -253,6 +274,41 @@ export async function uploadProfilePicture(userId: number, file: File): Promise<
     throw error
   }
 }
+
+// --- Funciones para el manejo de contratos ---
+
+/**
+ * Actualiza los datos de un contrato existente, incluyendo su estado.
+ */
+export async function actualizarContrato(contratoId: number, data: Partial<Contrato>): Promise<Contrato> {
+  try {
+    const response = await fetchData<Contrato>(`${API_BASE_URL}/contratos/${contratoId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    })
+    return response
+  } catch (error) {
+    console.error(`Error al actualizar contrato con ID ${contratoId}:`, error)
+    throw error
+  }
+}
+
+/**
+ * Crea un nuevo evento para un contrato.
+ */
+export async function crearEventoDeContrato(contratoId: number, data: FormData | Partial<ContratoEvento>): Promise<ContratoEvento> {
+  try {
+    const response = await fetchData<ContratoEvento>(`${API_BASE_URL}/contratos/${contratoId}/eventos`, {
+      method: 'POST',
+      body: data instanceof FormData ? data : JSON.stringify(data),
+    })
+    return response
+  } catch (error) {
+    console.error(`Error al crear evento para el contrato ${contratoId}:`, error)
+    throw error
+  }
+}
+
 
 // --- Funciones para obtener listas auxiliares ---
 

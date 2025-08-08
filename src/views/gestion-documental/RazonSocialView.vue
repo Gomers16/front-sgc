@@ -108,13 +108,14 @@
 
               <v-divider class="my-2"></v-divider>
 
-              <h4 class="text-subtitle-1 mt-2 mb-1">Pasos de Trazabilidad:</h4>
+              <h4 class="text-subtitle-1 mt-2 mb-1">Trazabilidad del Contrato:</h4>
               <div v-for="stageName in ['Inicio', 'Desarrollo', 'Fin']" :key="stageName" class="mb-2">
                 <h5 class="text-subtitle-2 font-weight-medium ml-2">{{ stageName }}:</h5>
-                <template v-if="getPasosByStage(contrato.pasos, stageName, contrato.tipoContrato).length > 0">
+
+                <template v-if="getPasosByStage(contrato.pasos, stageName).length > 0">
                   <v-list-item
-                    v-for="paso in getPasosByStage(contrato.pasos, stageName, contrato.tipoContrato)"
-                    :key="paso.id"
+                    v-for="paso in getPasosByStage(contrato.pasos, stageName)"
+                    :key="`paso-${paso.id}`"
                     density="compact"
                     class="ml-4"
                   >
@@ -122,25 +123,77 @@
                       <v-icon :color="paso.completado ? 'success' : 'grey'" size="small" class="mr-2">
                         {{ paso.completado ? 'mdi-check-circle' : 'mdi-circle-outline' }}
                       </v-icon>
-                      {{ paso.nombre }}
+                      {{ paso.nombrePaso }}
                     </v-list-item-title>
                     <v-list-item-subtitle v-if="paso.observacion">
                       Observación: {{ paso.observacion }}
                     </v-list-item-subtitle>
-                    <v-list-item-subtitle v-if="paso.nombreArchivo">
+                    <v-list-item-subtitle v-if="paso.archivoUrl">
                       Adjunto:
-                      <a :href="paso.rutaArchivo" target="_blank" class="text-primary">
-                        {{ paso.nombreArchivo }}
+                      <a :href="paso.archivoUrl" target="_blank" class="text-primary">
+                        Ver archivo
                         <v-icon size="x-small" class="ml-1">mdi-file-document</v-icon>
                       </a>
                     </v-list-item-subtitle>
-                    <v-list-item-subtitle v-if="paso.fechaCompletado">
-                      Completado: {{ new Date(paso.fechaCompletado).toLocaleDateString() }}
+                    <v-list-item-subtitle v-if="paso.fecha">
+                      Completado: {{ new Date(paso.fecha).toLocaleDateString() }}
                     </v-list-item-subtitle>
                   </v-list-item>
                 </template>
-                <v-list-item v-else density="compact" class="ml-4 text-grey">
-                  Sin eventos para este paso.
+
+                <template v-if="getEventsByStage(contrato.eventos, stageName).length > 0">
+                  <v-list-item
+                    v-for="evento in getEventsByStage(contrato.eventos, stageName)"
+                    :key="`evento-${evento.id}`"
+                    density="compact"
+                    class="ml-4"
+                  >
+                    <v-list-item-title class="font-weight-medium">
+                      <v-icon size="small" class="mr-2">mdi-calendar-alert</v-icon>
+                      Evento: {{ evento.tipo }}
+                    </v-list-item-title>
+                    <v-list-item-subtitle>
+                      Inicio: {{ new Date(evento.fechaInicio).toLocaleDateString() }}
+                      <span v-if="evento.fechaFin"> - Fin: {{ new Date(evento.fechaFin).toLocaleDateString() }}</span>
+                    </v-list-item-subtitle>
+                    <v-list-item-subtitle v-if="evento.descripcion">
+                      Descripción: {{ evento.descripcion }}
+                    </v-list-item-subtitle>
+                    <v-list-item-subtitle v-if="evento.documentoUrl">
+                      Documento:
+                      <a :href="evento.documentoUrl" target="_blank" class="text-primary">
+                        Ver Documento
+                        <v-icon size="x-small" class="ml-1">mdi-file-document</v-icon>
+                      </a>
+                    </v-list-item-subtitle>
+                  </v-list-item>
+                </template>
+
+                <template v-if="stageName === 'Fin' && contrato.estado === 'inactivo'">
+                  <v-list-item density="compact" class="ml-4">
+                    <v-list-item-title class="font-weight-medium text-error">
+                      <v-icon size="small" class="mr-2 text-error">mdi-close-circle</v-icon>
+                      Contrato finalizado
+                    </v-list-item-title>
+                    <v-list-item-subtitle>
+                      Fecha de finalización: {{ new Date(contrato.fechaFin!).toLocaleDateString() }}
+                    </v-list-item-subtitle>
+                    <v-list-item-subtitle>
+                      Motivo: {{ contrato.motivoFinalizacion || 'No especificado' }}
+                    </v-list-item-subtitle>
+                  </v-list-item>
+                </template>
+
+                <v-list-item
+                  v-if="
+                    getPasosByStage(contrato.pasos, stageName).length === 0 &&
+                    getEventsByStage(contrato.eventos, stageName).length === 0 &&
+                    !(stageName === 'Fin' && contrato.estado === 'inactivo')
+                  "
+                  density="compact"
+                  class="ml-4 text-grey"
+                >
+                  Sin ítems para esta etapa.
                 </v-list-item>
               </div>
 
@@ -177,35 +230,48 @@ import { useRoute, useRouter } from 'vue-router';
 import { fetchUsuariosPorRazonSocial } from '@/services/razonSocialService';
 import { useContratoStore } from '@/stores/contrato';
 
-// --- Interfaces para tipado ---
-interface RazonSocial {
-  id: number;
-  nombre: string;
-}
 
+// ✅ CORREGIDO: Adaptar la interfaz para que coincida con tu servicio
 interface ContratoPaso {
   id: number;
   contratoId: number;
-  nombre: string;
-  completado: boolean;
+  fase: string;
+  nombrePaso: string; // <-- Usamos nombrePaso para que coincida con el backend
+  fecha?: string;
+  archivoUrl?: string; // <-- Usamos archivoUrl
   observacion?: string;
-  nombreArchivo?: string;
-  rutaArchivo?: string;
-  fechaCompletado?: string;
+  orden: number;
+  completado: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+
+interface ContratoEvento {
+  id: number;
+  contratoId: number;
+  tipo: string;
+  subtipo?: string;
+  fechaInicio: string;
+  fechaFin?: string;
+  descripcion?: string;
+  documentoUrl?: string;
   createdAt: string;
   updatedAt: string;
 }
 
 interface Contrato {
   id: number;
-  tipoContrato: 'prestacion' | 'temporal' | 'laboral'; // Definir tipos específicos
+  tipoContrato: 'prestacion' | 'temporal' | 'laboral';
   estado: string;
   fechaInicio: string;
   fechaFin?: string;
+  motivoFinalizacion?: string;
   nombreArchivoContratoFisico?: string;
   rutaArchivoContratoFisico?: string;
   usuarioId: number;
   pasos?: ContratoPaso[];
+  eventos?: ContratoEvento[];
 }
 
 interface UsuarioConContratos {
@@ -260,44 +326,38 @@ const headers = [
 const contratosDelUsuarioSeleccionado = computed(() => {
   if (modalContratosUsuario.value.usuarioId) {
     return contratoStore.getContratosByUsuarioId(modalContratosUsuario.value.usuarioId)
-      .sort((a, b) => new Date(b.fechaInicio).getTime() - new Date(a.fechaInicio).getTime());
+      .sort((a: { fechaInicio: string | number | Date; }, b: { fechaInicio: string | number | Date; }) => new Date(b.fechaInicio).getTime() - new Date(a.fechaInicio).getTime());
   }
   return [];
 });
 
 /**
- * Filtra los pasos de un contrato por su etapa (Inicio, Desarrollo, Fin)
- * basándose en el tipo de contrato y los nombres de los pasos.
+ * Filtra los pasos de un contrato por su etapa (Inicio, Desarrollo, Fin).
  * @param pasos Todos los pasos del contrato.
  * @param stage El nombre de la etapa ('Inicio', 'Desarrollo', 'Fin').
- * @param tipoContrato El tipo de contrato ('prestacion', 'temporal', 'laboral').
  * @returns Un array de ContratoPaso que pertenecen a la etapa especificada.
  */
-function getPasosByStage(pasos: ContratoPaso[] | undefined, stage: string, tipoContrato: Contrato['tipoContrato']): ContratoPaso[] {
+function getPasosByStage(pasos: ContratoPaso[] | undefined, stage: string): ContratoPaso[] {
   if (!pasos) return [];
+  return pasos.filter(paso => paso.fase.toLowerCase() === stage.toLowerCase());
+}
 
-  // Define el mapeo de nombres de pasos a etapas para cada tipo de contrato
-  const stageMapping: Record<Contrato['tipoContrato'], Record<string, string[]>> = {
-    'prestacion': {
-      'Inicio': ['Inicio'],
-      'Desarrollo': ['Desarrollo'],
-      'Fin': ['Fin'],
-    },
-    'temporal': {
-      'Inicio': ['Solicitud'],
-      'Desarrollo': ['Pruebas', 'Visto Bueno Empresa', 'Examen Médico', 'Contratación'],
-      'Fin': [], // Puedes añadir pasos específicos si existen para el fin de contratos temporales
-    },
-    'laboral': {
-      'Inicio': ['Reclutamiento / Selección'],
-      'Desarrollo': ['Referencias', 'Pruebas', 'Examen Médico', 'Contrato', 'Afiliaciones'],
-      'Fin': [], // Puedes añadir pasos específicos si existen para el fin de contratos laborales
-    }
-  };
-
-  const relevantStepNames = stageMapping[tipoContrato]?.[stage] || [];
-
-  return pasos.filter(paso => relevantStepNames.includes(paso.nombre));
+/**
+ * Filtra los eventos de un contrato y los asigna a una etapa lógica.
+ * @param eventos Los eventos del contrato.
+ * @param stage El nombre de la etapa ('Inicio', 'Desarrollo', 'Fin').
+ * @returns Un array de ContratoEvento que pertenecen a la etapa especificada.
+ */
+function getEventsByStage(eventos: ContratoEvento[] | undefined, stage: string): ContratoEvento[] {
+  if (!eventos) return [];
+  if (stage.toLowerCase() === 'desarrollo') {
+    const desarrolloEventos = ['incapacidad', 'suspension', 'licencia', 'permiso', 'vacaciones', 'cesantias', 'disciplinario'];
+    return eventos.filter(evento => desarrolloEventos.includes(evento.tipo));
+  }
+  if (stage.toLowerCase() === 'fin') {
+    return eventos.filter(evento => evento.tipo === 'terminacion');
+  }
+  return [];
 }
 
 async function cargarUsuarios() {
@@ -324,7 +384,6 @@ function confirmarVerPerfil(usuarioId: number) {
 
 function verPerfilConfirmado() {
   if (usuarioIdParaPerfil.value !== null) {
-    // ✅ CORRECCIÓN: Usa el nombre de la ruta y un objeto de params
     router.push({
       name: 'UserProfile',
       params: { id: usuarioIdParaPerfil.value.toString() }

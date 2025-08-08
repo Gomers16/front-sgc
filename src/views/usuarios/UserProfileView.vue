@@ -262,6 +262,7 @@
                         <v-tab value="inicio">Inicio</v-tab>
                         <v-tab value="desarrollo">Desarrollo</v-tab>
                         <v-tab value="fin">Fin</v-tab>
+                        <v-tab value="historial">Historial</v-tab> <!-- Nueva pestaña para historial -->
                       </v-tabs>
 
                       <v-window v-model="contrato.activeSubTab" class="pa-2">
@@ -401,6 +402,58 @@
                             </v-card-actions>
                           </v-form>
                         </v-window-item>
+
+                        <!-- Nueva pestaña para el Historial de Estados -->
+                        <v-window-item value="historial">
+  <h4 class="text-h6 font-weight-bold mb-3 text-blue-grey-darken-2">Historial de Estados del Contrato</h4>
+  <div v-if="contrato.historialEstados && contrato.historialEstados.length > 0">
+    <v-timeline side="end" density="compact">
+      <v-timeline-item
+        v-for="registro in contrato.historialEstados"
+        :key="registro.id"
+        :dot-color="registro.newEstado === 'activo' ? 'success' : 'error'"
+        size="small"
+      >
+        <div class="d-flex justify-space-between align-center mb-1">
+          <span class="font-weight-bold text-subtitle-1">
+            Cambio de Estado: {{ getEstadoNombre(registro.oldEstado) }} → {{ getEstadoNombre(registro.newEstado) }}
+          </span>
+          <span class="text-caption text-grey-darken-1">
+            {{ formatDate(registro.fechaCambio) }}
+          </span>
+        </div>
+
+        <v-list density="compact" class="pl-0">
+          <v-list-item v-if="registro.fechaInicioContrato">
+            <v-list-item-title class="text-caption font-weight-bold">Inicio del Contrato:</v-list-item-title>
+            <v-list-item-subtitle class="text-caption">
+              {{ formatDate(registro.fechaInicioContrato) }}
+            </v-list-item-subtitle>
+          </v-list-item>
+
+          <v-list-item v-if="registro.motivo">
+            <v-list-item-title class="text-caption font-weight-bold">Motivo del Cambio:</v-list-item-title>
+            <v-list-item-subtitle class="text-caption">
+              {{ registro.motivo }}
+            </v-list-item-subtitle>
+          </v-list-item>
+
+          <v-list-item>
+  <v-list-item-title class="text-caption font-weight-bold" style="visibility: hidden">Realizado por:</v-list-item-title>
+  <v-list-item-subtitle class="text-caption" style="visibility: hidden">
+    Texto oculto
+  </v-list-item-subtitle>
+</v-list-item>
+
+        </v-list>
+      </v-timeline-item>
+    </v-timeline>
+  </div>
+  <div v-else class="text-center text-subtitle-1 text-grey-darken-1 pa-4">
+    No hay historial de estados registrado para este contrato.
+  </div>
+</v-window-item>
+
                       </v-window>
                     </v-window-item>
                   </v-window>
@@ -693,16 +746,18 @@ import {
   crearEventoDeContrato,
   type ContratoEvento
 } from '@/services/contratoEventosService';
-import type { ContratoPaso } from '@/services/contratoPasosService'; // Import ContratoPaso type
+import type { ContratoPaso } from '@/services/contratoPasosService';
+import type { ContratoHistorialEstado } from '@/services/contratoHistorialEstadosService'; // Importa el tipo para el historial
 
 // Interfaces de tipado
 interface ContratoWithTabs extends Contrato {
   activeTab?: string;
-  activeSubTab?: string; // New: for sub-tabs within 'eventos'
+  activeSubTab?: string;
   eventos?: ContratoEvento[];
-  pasos?: ContratoPaso[]; // Add pasos to the interface
-  fechaFinalizacion?: string; // Assuming these fields exist in your backend Contrato model
-  motivoFinalizacion?: string; // Assuming these fields exist in your backend Contrato model
+  pasos?: ContratoPaso[];
+  historialEstados?: ContratoHistorialEstado[]; // ✅ Añadido: Propiedad para el historial de estados
+  fechaFinalizacion?: string;
+  motivoFinalizacion?: string;
 }
 
 interface UserProfile extends User {
@@ -805,9 +860,10 @@ const loadUser = async () => {
           activeTab: 'detalles',
           activeSubTab: 'inicio', // Initialize sub-tab
           eventos: contrato.eventos || [],
-          pasos: contrato.pasos || [], // Ensure pasos exist
-          fechaFinalizacion: contrato.fechaFin ? contrato.fechaFin.split('T')[0] : null, // Pre-fill if contract is inactive
-          motivoFinalizacion: (contrato as ContratoWithTabs).motivoFinalizacion || null, // Pre-fill if contract is inactive
+          pasos: contrato.pasos || [],
+          historialEstados: contrato.historialEstados || [], // ✅ Inicializa historialEstados
+          fechaFinalizacion: contrato.fechaFin ? contrato.fechaFin.split('T')[0] : null,
+          motivoFinalizacion: (contrato as ContratoWithTabs).motivoFinalizacion || null,
         }));
       }
       user.value = fetchedUser;
@@ -826,6 +882,10 @@ const loadUser = async () => {
 const formatDate = (dateString: string) => {
   const date = new Date(dateString);
   return date.toLocaleDateString('es-CO', { year: 'numeric', month: 'long', day: 'numeric' });
+};
+
+const getEstadoNombre = (estado: 'activo' | 'inactivo') => {
+  return estado === 'activo' ? 'Activo' : 'Inactivo';
 };
 
 // Lógica para abrir diálogos
@@ -1009,17 +1069,11 @@ const submitContractFinalization = async (contratoId: number) => {
 
   isLoadingAction.value = true;
   try {
-    // ✅ Necesitas un servicio para actualizar el contrato con la fecha y motivo de finalización
-    // y cambiar su estado a 'inactivo' si aún no lo está.
-    // Ejemplo: await actualizarContrato(contratoId, { estado: 'inactivo', fechaFin: finalizationDate.value, motivoFinalizacion: finalizationReason.value });
-    
-    // Por ahora, simulamos la actualización y recargamos el usuario
     await actualizarContrato(contratoId, { 
       estado: 'inactivo', 
       fechaFin: finalizationDate.value, 
       motivoFinalizacion: finalizationReason.value 
     });
-
 
     showAlert('Éxito', 'Contrato finalizado correctamente.');
     await loadUser(); // Recargar para mostrar los cambios y deshabilitar el formulario

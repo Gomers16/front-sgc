@@ -1,9 +1,9 @@
 // src/services/contratoService.ts
 
-// Define la URL base de tu API. Asegúrate de que coincida con la configuración de tu proxy de Vite.
-const API_BASE_URL = '/api';
+// Define la URL base de tu API.
+const API_BASE_URL = 'http://localhost:3333/api';
 
-// --- Interfaces para tipado de datos (deben coincidir con tus modelos de AdonisJS) ---
+// --- Interfaces Unificadas para tipado de datos ---
 
 interface Usuario {
   id: number;
@@ -18,18 +18,31 @@ interface Sede {
 }
 
 interface ContratoPaso {
-  id?: number; // ID puede ser opcional al crear
-  contratoId?: number; // Contrato ID puede ser opcional al crear el paso individualmente
+  id?: number;
+  contratoId?: number;
   nombre: string;
   completado: boolean;
   observacion?: string;
   nombreArchivo?: string;
   fechaCompletado?: string;
-  archivoUrl?: string; // URL del archivo después de subir
-  archivoFile?: File | null; // El objeto File para envío desde el frontend
+  archivoUrl?: string;
+  archivoFile?: File | null;
   fase: string;
+  orden?: number;
   createdAt?: string;
   updatedAt?: string;
+}
+
+interface HistorialEstadoContrato {
+  id: number;
+  contratoId: number;
+  usuarioId: number | null;
+  usuario?: Usuario;
+  oldEstado: 'activo' | 'inactivo';
+  newEstado: 'activo' | 'inactivo';
+  fechaCambio: string;
+  fechaInicioContrato: string;
+  motivo?: string | null;
 }
 
 interface Contrato {
@@ -47,37 +60,19 @@ interface Contrato {
   updatedAt: string;
   nombreArchivoContratoFisico?: string;
   rutaArchivoContratoFisico?: string;
-  fechaFinalizacion?: string; // Para la finalización del contrato
-  motivoFinalizacion?: string; // Para la finalización del contrato
+  fechaFinalizacion?: string;
+  motivoFinalizacion?: string;
+  historial?: HistorialEstadoContrato[];
 }
 
-// Define el payload para la actualización del contrato.
 export interface ContratoUpdatePayload {
   estado?: 'activo' | 'inactivo';
   fechaFin?: string;
   motivoFinalizacion?: string;
-  // Puedes agregar otros campos aquí si los necesitas en el futuro
+  usuarioId?: number;
 }
 
-// Define la interfaz para el payload que se envía al backend para anexar un contrato
-export interface AnexarContratoPayload {
-  usuarioId: number;
-  archivoContrato: File;
-  tipoContrato: string;
-  fechaInicio: string;
-  fechaFin?: string; // Opcional, si se anexa con fecha de fin
-  pasos: ContratoPaso[]; // Array de pasos con sus datos y posibles archivos
-}
-
-// --- Funciones para interactuar con la API de Contratos usando fetch ---
-
-/**
- * Realiza una petición fetch genérica.
- * @param url La URL a la que hacer la petición.
- * @param options Opciones de la petición fetch.
- * @returns La respuesta parseada como JSON.
- * @throws Error si la respuesta no es exitosa (status 2xx).
- */
+// --- Función genérica de fetch ---
 async function fetchData<T>(url: string, options?: RequestInit): Promise<T> {
   const response = await fetch(url, options);
 
@@ -89,44 +84,17 @@ async function fetchData<T>(url: string, options?: RequestInit): Promise<T> {
   return response.json();
 }
 
+// --- Funciones del Servicio de Contrato Unificado ---
+
 /**
- * Anexa un contrato físico a un usuario, incluyendo los pasos y sus archivos.
- * @param payload Los datos completos para anexar el contrato.
- * @returns El objeto del contrato creado/actualizado.
+ * Anexa un contrato físico a un usuario.
  */
-export async function anexarContrato(payload: AnexarContratoPayload): Promise<Contrato> {
+export async function anexarContrato(payload: FormData): Promise<Contrato> {
   try {
-    const formData = new FormData();
-    formData.append('usuarioId', String(payload.usuarioId));
-    formData.append('tipoContrato', payload.tipoContrato);
-    formData.append('fechaInicio', payload.fechaInicio);
-    if (payload.fechaFin) formData.append('fechaFin', payload.fechaFin);
-    // ✅ CORRECCIÓN: Cambiado 'contratoFisico' a 'archivo' para que coincida con el backend
-    formData.append('archivo', payload.archivoContrato, payload.archivoContrato.name); // Main contract file
-
-    // Append steps data and their files
-    payload.pasos.forEach((paso, index) => {
-      formData.append(`pasos[${index}][nombre]`, paso.nombre);
-      formData.append(`pasos[${index}][completado]`, String(paso.completado));
-      formData.append(`pasos[${index}][fase]`, paso.fase);
-
-      if (paso.observacion) {
-        formData.append(`pasos[${index}][observacion]`, paso.observacion);
-      }
-      if (paso.fechaCompletado) {
-        formData.append(`pasos[${index}][fecha]`, paso.fechaCompletado);
-      }
-      if (paso.archivoFile) {
-        // Append the file itself with a unique name for each step
-        formData.append(`pasos[${index}][archivo]`, paso.archivoFile, paso.archivoFile.name);
-      }
-    });
-
     const response = await fetchData<Contrato>(`${API_BASE_URL}/contratos/anexar-fisico`, {
       method: 'POST',
-      body: formData,
+      body: payload,
     });
-
     return response;
   } catch (error) {
     console.error('Error al anexar el contrato físico:', error);
@@ -135,9 +103,7 @@ export async function anexarContrato(payload: AnexarContratoPayload): Promise<Co
 }
 
 /**
- * Crea un nuevo contrato en el backend.
- * @param payload Los datos del contrato a crear.
- * @returns El contrato creado.
+ * Crea un nuevo contrato en el backend (sin archivo físico).
  */
 export async function crearContrato(payload: {
   usuarioId: number;
@@ -162,15 +128,12 @@ export async function crearContrato(payload: {
 }
 
 /**
- * Actualiza los datos de un contrato existente, incluyendo su estado y campos de finalización.
- * @param contratoId El ID del contrato a actualizar.
- * @param payload Los datos a actualizar.
- * @returns El contrato actualizado.
+ * Actualiza un contrato existente.
  */
 export async function actualizarContrato(contratoId: number, payload: ContratoUpdatePayload): Promise<Contrato> {
   try {
     const response = await fetchData<Contrato>(`${API_BASE_URL}/contratos/${contratoId}`, {
-      method: 'PATCH', // Usar PATCH para actualizaciones parciales
+      method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
       },
@@ -184,9 +147,7 @@ export async function actualizarContrato(contratoId: number, payload: ContratoUp
 }
 
 /**
- * Obtiene un contrato específico por su ID, precargando usuario, sede, pasos y eventos.
- * @param id El ID del contrato.
- * @returns El objeto del contrato.
+ * Obtiene un contrato específico por su ID.
  */
 export async function obtenerContratoPorId(id: number): Promise<Contrato> {
   try {
@@ -200,14 +161,11 @@ export async function obtenerContratoPorId(id: number): Promise<Contrato> {
 
 /**
  * Obtiene la lista de contratos para un usuario específico.
- * @param usuarioId El ID del usuario.
- * @returns Un array de contratos.
  */
 export async function obtenerContratosPorUsuario(usuarioId: number): Promise<Contrato[]> {
   try {
-    // Nota: Esta función filtra en el cliente. Lo ideal sería que la API te diera los contratos del usuario directamente.
-    const response = await fetchData<Contrato[]>(`${API_BASE_URL}/contratos`);
-    return response.filter(c => c.usuarioId === usuarioId);
+    const response = await fetchData<Contrato[]>(`${API_BASE_URL}/usuarios/${usuarioId}/contratos`);
+    return response;
   } catch (error) {
     console.error(`Error al obtener contratos para el usuario ${usuarioId}:`, error);
     throw error;
@@ -216,11 +174,9 @@ export async function obtenerContratosPorUsuario(usuarioId: number): Promise<Con
 
 /**
  * Actualiza el estado de un paso de contrato.
- * @param pasoId El ID del paso a actualizar.
- * @param payload Los datos a actualizar (ej. { completado: true, observacion: '...', archivo?: File }).
- * @returns El paso actualizado.
  */
 export async function actualizarPasoContrato(
+  contratoId: number,
   pasoId: number,
   payload: { completado: boolean; observacion?: string; archivo?: File }
 ): Promise<ContratoPaso> {
@@ -228,10 +184,10 @@ export async function actualizarPasoContrato(
     const formData = new FormData();
     formData.append('completado', String(payload.completado));
     if (payload.observacion) formData.append('observacion', payload.observacion);
-    if (payload.archivo) formData.append('archivo', payload.archivo, payload.archivo.name); // Adjunta el archivo
+    if (payload.archivo) formData.append('archivo', payload.archivo, payload.archivo.name);
 
-    const response = await fetchData<ContratoPaso>(`${API_BASE_URL}/pasos/${pasoId}`, {
-      method: 'PUT', // O PATCH, según tu API
+    const response = await fetchData<ContratoPaso>(`${API_BASE_URL}/contratos/${contratoId}/pasos/${pasoId}`, {
+      method: 'PUT',
       body: formData,
     });
     return response;
@@ -243,8 +199,6 @@ export async function actualizarPasoContrato(
 
 /**
  * Obtiene los pasos de un contrato específico.
- * @param contratoId El ID del contrato.
- * @returns Un array de pasos de contrato.
  */
 export async function obtenerPasosContrato(contratoId: number): Promise<ContratoPaso[]> {
   try {
