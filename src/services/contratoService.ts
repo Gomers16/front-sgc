@@ -1,211 +1,309 @@
 // src/services/contratoService.ts
 
-// Define la URL base de tu API.
-const API_BASE_URL = 'http://localhost:3333/api';
+const API_BASE_URL = 'http://localhost:3333/api'
 
-// --- Interfaces Unificadas para tipado de datos ---
+/* =========
+   Tipos
+=========== */
 
-interface Usuario {
-  id: number;
-  nombres: string;
-  apellidos: string;
-  correo: string;
+export interface Usuario {
+  id: number
+  nombres: string
+  apellidos: string
+  correo?: string
+  nombreCompleto?: string
 }
 
-interface Sede {
-  id: number;
-  nombre: string;
+export interface Sede { id: number; nombre: string }
+export interface Cargo { id: number; nombre: string }
+
+export type EstadoContrato = 'activo' | 'inactivo'
+export type TipoContrato = 'prestacion' | 'temporal' | 'laboral'
+/**
+ * En el front usamos "obra_o_labor_determinada". El backend podría esperar "obra_o_labor".
+ * Más abajo normalizamos antes de enviar.
+ */
+export type TerminoContrato = 'fijo' | 'obra_o_labor' | 'obra_o_labor_determinada' | 'indefinido' | null
+
+export interface ContratoPaso {
+  id?: number
+  contratoId?: number
+  nombrePaso?: string             // backend guarda como nombrePaso
+  nombre?: string                 // alias en front
+  completado: boolean
+  observacion?: string
+  nombreArchivo?: string
+  fecha?: string                  // backend usa fecha (no fechaCompletado)
+  archivoUrl?: string
+  archivoFile?: File | null
+  fase: 'inicio' | 'desarrollo' | 'fin'
+  orden?: number
+  createdAt?: string
+  updatedAt?: string
 }
 
-interface ContratoPaso {
-  id?: number;
-  contratoId?: number;
-  nombre: string;
-  completado: boolean;
-  observacion?: string;
-  nombreArchivo?: string;
-  fechaCompletado?: string;
-  archivoUrl?: string;
-  archivoFile?: File | null;
-  fase: string;
-  orden?: number;
-  createdAt?: string;
-  updatedAt?: string;
+export interface ContratoSalarioPayload {
+  contratoId: number
+  salarioBasico: number
+  bonoSalarial: number
+  auxilioTransporte: number
+  auxilioNoSalarial: number
+  /** ISO, ej: '2025-08-11T00:00:00' */
+  fechaEfectiva?: string
 }
 
-interface HistorialEstadoContrato {
-  id: number;
-  contratoId: number;
-  usuarioId: number | null;
-  usuario?: Usuario;
-  oldEstado: 'activo' | 'inactivo';
-  newEstado: 'activo' | 'inactivo';
-  fechaCambio: string;
-  fechaInicioContrato: string;
-  motivo?: string | null;
+export interface HistorialEstadoContrato {
+  id: number
+  contratoId: number
+  usuarioId: number | null
+  usuario?: Usuario
+  oldEstado: EstadoContrato
+  newEstado: EstadoContrato
+  fechaCambio: string
+  fechaInicioContrato: string
+  motivo?: string | null
 }
 
-interface Contrato {
-  id: number;
-  usuarioId: number;
-  usuario?: Usuario;
-  sedeId: number;
-  sede?: Sede;
-  tipoContrato: 'prestacion' | 'temporal' | 'laboral';
-  estado: 'activo' | 'inactivo';
-  fechaInicio: string;
-  fechaFin?: string;
-  pasos?: ContratoPaso[];
-  createdAt: string;
-  updatedAt: string;
-  nombreArchivoContratoFisico?: string;
-  rutaArchivoContratoFisico?: string;
-  fechaFinalizacion?: string;
-  motivoFinalizacion?: string;
-  historial?: HistorialEstadoContrato[];
+export interface Contrato {
+  id: number
+  usuarioId: number
+  razonSocialId: number
+
+  identificacion?: string | null
+  sedeId?: number | null
+  sede?: Sede | null
+
+  cargoId?: number | null
+  cargo?: Cargo | null
+
+  funcionesCargo?: string | null
+
+  tipoContrato: TipoContrato
+  terminoContrato?: TerminoContrato
+
+  estado: EstadoContrato
+
+  fechaInicio: string            // ISO desde backend
+  fechaTerminacion?: string | null
+
+  periodoPrueba?: number | null
+  horarioTrabajo?: string | null
+  centroCosto?: string | null
+
+  epsId?: number | null
+  arlId?: number | null
+  afpId?: number | null
+  afcId?: number | null
+  ccfId?: number | null
+
+  nombreArchivoContratoFisico?: string | null
+  rutaArchivoContratoFisico?: string | null
+
+  tieneRecomendacionesMedicas?: boolean
+  rutaArchivoRecomendacionMedica?: string | null
+
+  pasos?: ContratoPaso[]
+  historialEstados?: HistorialEstadoContrato[]
+
+  createdAt: string
+  updatedAt: string
 }
 
-export interface ContratoUpdatePayload {
-  estado?: 'activo' | 'inactivo';
-  fechaFin?: string;
-  motivoFinalizacion?: string;
-  usuarioId?: number;
+export interface ContratoCreatePayload {
+  usuarioId: number
+  razonSocialId: number
+
+  identificacion?: string | null
+
+  sedeId?: number | null
+  cargoId?: number | null
+  funcionesCargo?: string | null
+
+  /** 'YYYY-MM-DD' */
+  fechaInicio: string
+  /** 'YYYY-MM-DD' | null */
+  fechaTerminacion?: string | null
+
+  tipoContrato: TipoContrato
+  terminoContrato?: TerminoContrato
+
+  estado: EstadoContrato
+
+  periodoPrueba?: number | null
+  horarioTrabajo?: string | null
+  centroCosto?: string | null
+
+  epsId?: number | null
+  arlId?: number | null
+  afpId?: number | null
+  afcId?: number | null
+  ccfId?: number | null
+
+  tieneRecomendacionesMedicas?: boolean
 }
 
-// --- Función genérica de fetch ---
+export interface ContratoUpdatePayload extends Partial<ContratoCreatePayload> {
+  motivoFinalizacion?: string | null
+}
+
+export interface AnexarContratoResponse {
+  message: string
+  contrato: Contrato
+}
+
+/* ==================
+   Helpers
+=================== */
+
 async function fetchData<T>(url: string, options?: RequestInit): Promise<T> {
-  const response = await fetch(url, options);
-
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({ message: response.statusText }));
-    throw new Error(errorData.message || 'Error en la petición');
+  const resp = await fetch(url, options)
+  if (!resp.ok) {
+    let errorMsg = resp.statusText
+    try {
+      const data = await resp.json()
+      errorMsg = data?.message || data?.error || errorMsg
+    } catch {
+      /* ignore */
+    }
+    throw new Error(errorMsg)
   }
-
-  return response.json();
-}
-
-// --- Funciones del Servicio de Contrato Unificado ---
-
-/**
- * Anexa un contrato físico a un usuario.
- */
-export async function anexarContrato(payload: FormData): Promise<Contrato> {
-  try {
-    const response = await fetchData<Contrato>(`${API_BASE_URL}/contratos/anexar-fisico`, {
-      method: 'POST',
-      body: payload,
-    });
-    return response;
-  } catch (error) {
-    console.error('Error al anexar el contrato físico:', error);
-    throw error;
-  }
+  if (resp.status === 204) return {} as T
+  return resp.json()
 }
 
 /**
- * Crea un nuevo contrato en el backend (sin archivo físico).
+ * Asegura que el término que viaja al backend sea el que espera.
+ * Front puede usar 'obra_o_labor_determinada', normalizamos a 'obra_o_labor'
+ * Si ya viene bien, lo deja igual.
  */
-export async function crearContrato(payload: {
-  usuarioId: number;
-  tipoContrato: 'prestacion' | 'temporal' | 'laboral';
-  estado: 'activo' | 'inactivo';
-  fechaInicio: string;
-  fechaFin?: string;
-}): Promise<Contrato> {
-  try {
-    const response = await fetchData<Contrato>(`${API_BASE_URL}/contratos`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(payload),
-    });
-    return response;
-  } catch (error) {
-    console.error('Error al crear contrato:', error);
-    throw error;
+function normalizeTerminoContrato(t: TerminoContrato): TerminoContrato {
+  if (t === 'obra_o_labor_determinada') return 'obra_o_labor'
+  return t ?? null
+}
+
+/* ==================
+   Contratos (CRUD)
+=================== */
+
+export async function crearContrato(payload: ContratoCreatePayload): Promise<Contrato> {
+  // Clon + normalización de término
+  const toSend: ContratoCreatePayload = {
+    ...payload,
+    terminoContrato: payload.terminoContrato
+      ? normalizeTerminoContrato(payload.terminoContrato)
+      : null,
   }
+
+  return fetchData<Contrato>(`${API_BASE_URL}/contratos`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(toSend),
+  })
 }
 
 /**
- * Actualiza un contrato existente.
+ * Dual mode: anexar archivo(s) a contrato existente.
+ * Requiere:
+ *  - contratoId
+ *  - archivo (PDF)
+ * Opcional:
+ *  - razonSocialId (para ajustar el contrato)
+ *  - tieneRecomendacionesMedicas = true y archivoRecomendacionMedica
  */
-export async function actualizarContrato(contratoId: number, payload: ContratoUpdatePayload): Promise<Contrato> {
-  try {
-    const response = await fetchData<Contrato>(`${API_BASE_URL}/contratos/${contratoId}`, {
-      method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(payload),
-    });
-    return response;
-  } catch (error) {
-    console.error(`Error al actualizar el contrato ${contratoId}:`, error);
-    throw error;
+export async function anexarContrato(form: {
+  contratoId: number
+  archivo: File
+  razonSocialId?: number
+  tieneRecomendacionesMedicas?: boolean
+  archivoRecomendacionMedica?: File
+}): Promise<AnexarContratoResponse> {
+  const fd = new FormData()
+  fd.append('contratoId', String(form.contratoId))
+  fd.append('archivo', form.archivo, form.archivo.name)
+
+  if (form.razonSocialId != null) {
+    fd.append('razonSocialId', String(form.razonSocialId))
   }
+
+  if (form.tieneRecomendacionesMedicas && form.archivoRecomendacionMedica) {
+    fd.append('tieneRecomendacionesMedicas', 'true')
+    fd.append(
+      'archivoRecomendacionMedica',
+      form.archivoRecomendacionMedica,
+      form.archivoRecomendacionMedica.name
+    )
+  }
+
+  return fetchData<AnexarContratoResponse>(`${API_BASE_URL}/contratos/anexar-fisico`, {
+    method: 'POST',
+    body: fd,
+  })
 }
 
-/**
- * Obtiene un contrato específico por su ID.
- */
+export async function actualizarContrato(
+  contratoId: number,
+  payload: ContratoUpdatePayload
+): Promise<Contrato> {
+  const toSend: ContratoUpdatePayload = {
+    ...payload,
+    terminoContrato: payload.terminoContrato
+      ? normalizeTerminoContrato(payload.terminoContrato)
+      : payload.terminoContrato,
+  }
+
+  return fetchData<Contrato>(`${API_BASE_URL}/contratos/${contratoId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(toSend),
+  })
+}
+
 export async function obtenerContratoPorId(id: number): Promise<Contrato> {
-  try {
-    const response = await fetchData<Contrato>(`${API_BASE_URL}/contratos/${id}`);
-    return response;
-  } catch (error) {
-    console.error(`Error al obtener contrato con ID ${id}:`, error);
-    throw error;
-  }
+  return fetchData<Contrato>(`${API_BASE_URL}/contratos/${id}`)
 }
 
-/**
- * Obtiene la lista de contratos para un usuario específico.
- */
 export async function obtenerContratosPorUsuario(usuarioId: number): Promise<Contrato[]> {
-  try {
-    const response = await fetchData<Contrato[]>(`${API_BASE_URL}/usuarios/${usuarioId}/contratos`);
-    return response;
-  } catch (error) {
-    console.error(`Error al obtener contratos para el usuario ${usuarioId}:`, error);
-    throw error;
-  }
+  return fetchData<Contrato[]>(`${API_BASE_URL}/usuarios/${usuarioId}/contratos`)
 }
 
-/**
- * Actualiza el estado de un paso de contrato.
- */
+export async function eliminarContrato(id: number): Promise<{ message: string }> {
+  return fetchData<{ message: string }>(`${API_BASE_URL}/contratos/${id}`, {
+    method: 'DELETE',
+  })
+}
+
+/* =========================
+   Salarios (coincide con ruta)
+========================== */
+
+export async function crearContratoSalario(payload: ContratoSalarioPayload): Promise<any> {
+  return fetchData<any>(`${API_BASE_URL}/contratos/${payload.contratoId}/salarios`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  })
+}
+
+/* ======================
+   Pasos (opcional)
+====================== */
+
 export async function actualizarPasoContrato(
   contratoId: number,
   pasoId: number,
   payload: { completado: boolean; observacion?: string; archivo?: File }
 ): Promise<ContratoPaso> {
-  try {
-    const formData = new FormData();
-    formData.append('completado', String(payload.completado));
-    if (payload.observacion) formData.append('observacion', payload.observacion);
-    if (payload.archivo) formData.append('archivo', payload.archivo, payload.archivo.name);
+  const fd = new FormData()
+  fd.append('completado', String(payload.completado))
+  if (payload.observacion) fd.append('observacion', payload.observacion)
+  if (payload.archivo) fd.append('archivo', payload.archivo, payload.archivo.name)
 
-    const response = await fetchData<ContratoPaso>(`${API_BASE_URL}/contratos/${contratoId}/pasos/${pasoId}`, {
-      method: 'PUT',
-      body: formData,
-    });
-    return response;
-  } catch (error) {
-    console.error(`Error al actualizar el paso ${pasoId}:`, error);
-    throw error;
-  }
+  return fetchData<ContratoPaso>(`${API_BASE_URL}/contratos/${contratoId}/pasos/${pasoId}`, {
+    method: 'PUT',
+    body: fd,
+  })
 }
 
-/**
- * Obtiene los pasos de un contrato específico.
- */
 export async function obtenerPasosContrato(contratoId: number): Promise<ContratoPaso[]> {
-  try {
-    const response = await fetchData<ContratoPaso[]>(`${API_BASE_URL}/contratos/${contratoId}/pasos`);
-    return response;
-  } catch (error) {
-    console.error(`Error al obtener pasos para el contrato ${contratoId}:`, error);
-    throw error;
-  }
+  return fetchData<ContratoPaso[]>(`${API_BASE_URL}/contratos/${contratoId}/pasos`)
 }

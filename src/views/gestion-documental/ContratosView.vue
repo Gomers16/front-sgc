@@ -368,26 +368,7 @@
                       @click="abrirModalPaso(paso)"
                     ></v-btn>
                   </div>
-                  <div v-if="paso.nombre === 'Recomendaciones Médicas' && paso.completado" class="mt-2">
-                    <v-file-input
-                      label="Adjuntar Recomendación Médica (Seguimiento)"
-                      variant="outlined"
-                      density="compact"
-                      show-size
-                      prepend-icon="mdi-file-upload"
-                      @change="onFileRecomendacionChange($event, paso)"
-                    ></v-file-input>
-                    <v-btn
-                      v-if="paso.archivoUrl"
-                      class="mt-2"
-                      :href="paso.archivoUrl"
-                      target="_blank"
-                      color="info"
-                      size="small"
-                    >
-                      Ver Adjunto Actual
-                    </v-btn>
-                  </div>
+                  <!-- Eliminado el bloque especial para 'Recomendaciones Médicas' en los pasos -->
                 </v-timeline-item>
               </v-timeline>
               <v-alert v-if="loadingPasos" type="info" variant="tonal" class="mt-4">
@@ -438,6 +419,69 @@
         </v-card-actions>
       </v-card-text>
     </v-card>
+
+    <!-- Historial de contratos del usuario -->
+    <v-card elevation="2" v-if="usuarioSeleccionado" class="mt-6">
+      <v-card-title class="text-h6 font-weight-bold bg-blue-grey-lighten-5">
+        Historial de Contratos del Usuario
+      </v-card-title>
+      <v-card-text>
+        <v-alert v-if="loadingContratos" type="info" variant="tonal" class="mb-4">
+          Cargando historial de contratos...
+        </v-alert>
+
+        <v-alert v-else-if="!loadingContratos && contratosUsuario.length === 0" type="warning" variant="tonal" class="mb-4">
+          Este usuario no tiene contratos registrados.
+        </v-alert>
+
+        <v-table v-else density="comfortable">
+          <thead>
+            <tr>
+              <th class="text-left">#</th>
+              <th class="text-left">Tipo</th>
+              <th class="text-left">Término</th>
+              <th class="text-left">Estado</th>
+              <th class="text-left">Inicio</th>
+              <th class="text-left">Terminación</th>
+              <th class="text-left">Sede</th>
+              <th class="text-left">Cargo</th>
+              <th class="text-left">Archivo</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="c in contratosUsuario" :key="c.id">
+              <td>{{ c.id }}</td>
+              <td class="text-capitalize">{{ c.tipoContrato }}</td>
+              <td class="text-capitalize">{{ (c.terminoContrato || '—').replaceAll('_',' ') }}</td>
+              <td>
+                <v-chip :color="c.estado === 'activo' ? 'success' : 'grey'" size="small" variant="flat">
+                  {{ c.estado }}
+                </v-chip>
+              </td>
+              <td>{{ (c.fechaInicio || '').slice(0,10) }}</td>
+              <td>{{ c.fechaTerminacion ? String(c.fechaTerminacion).slice(0,10) : '—' }}</td>
+              <td>{{ c.sede?.nombre || '—' }}</td>
+              <td>{{ c.cargo?.nombre || '—' }}</td>
+              <td>
+                <v-btn
+                  v-if="c.rutaArchivoContratoFisico"
+                  :href="c.rutaArchivoContratoFisico"
+                  target="_blank"
+                  size="x-small"
+                  color="primary"
+                  variant="tonal"
+                  prepend-icon="mdi-file-pdf-box"
+                >
+                  Ver PDF
+                </v-btn>
+                <span v-else>—</span>
+              </td>
+            </tr>
+          </tbody>
+        </v-table>
+      </v-card-text>
+    </v-card>
+
     <v-dialog v-model="modalPaso.mostrar" max-width="600px">
       <v-card>
         <v-card-title class="text-h6">
@@ -509,7 +553,7 @@ import { ref, computed, watch, onMounted } from 'vue';
 import { useForm, useField } from 'vee-validate';
 import { listarRazonesSociales, fetchUsuariosPorRazonSocial } from '@/services/razonSocialService';
 import { obtenerSedes, obtenerCargos, obtenerEntidadesSalud } from '@/services/UserService';
-import { anexarContrato, crearContrato } from '@/services/contratoService';
+import { anexarContrato, crearContrato, crearContratoSalario, obtenerContratosPorUsuario } from '@/services/contratoService';
 import { useContratoStore } from '@/stores/contrato';
 
 // --- Interfaces para tipado ---
@@ -548,7 +592,7 @@ const tiposContratoSelectItems = ref([
   { nombre: 'Laboral', valor: 'laboral' },
 ]);
 
-// Definición de los pasos base por tipo de contrato (SIN "Recomendaciones Médicas" inicialmente)
+// Definición de los pasos base por tipo de contrato (SIN "Recomendaciones Médicas" en pasos)
 const basePasosPrestacion: Paso[] = [
   { nombre: 'Inicio Contrato', completado: false, fase: 'inicio', orden: 1 },
   { nombre: 'Firma Documentos', completado: false, fase: 'inicio', orden: 2 },
@@ -572,7 +616,6 @@ const basePasosLaboral: Paso[] = [
 
 // Función para formatear los términos de contrato para la visualización
 const formatTermForDisplay = (term: string) => {
-  // Reemplaza guiones bajos con espacios y capitaliza la primera letra de cada palabra
   return term.replace(/_/g, ' ').split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
 };
 
@@ -588,10 +631,10 @@ const terminosContratoLaboral = computed(() => [
 
 // --- Estado de la vista ---
 const razonSocialSeleccionada = ref<number | null>(null);
-const usuarioSeleccionado = ref<number | null>(null); // Contiene solo el ID del usuario seleccionado en el v-select
-const tipoContratoSeleccionado = ref('prestacion'); // Valor inicial para el tipo de contrato
+const usuarioSeleccionado = ref<number | null>(null);
+const tipoContratoSeleccionado = ref('prestacion');
 const razonesSociales = ref<RazonSocial[]>([]);
-const usuarios = ref<UsuarioExtendida[]>([]); // Lista completa de usuarios con sus propiedades
+const usuarios = ref<UsuarioExtendida[]>([]);
 const sedes = ref<any[]>([]);
 const cargos = ref<any[]>([]);
 const entidadesSalud = ref<any[]>([]);
@@ -615,7 +658,7 @@ const modalPaso = ref({
 // --- Estado del contrato final ---
 const archivoContrato = ref<File | null>(null);
 const contratoFinal = ref<ContratoFinal | null>(null);
-const fileInputRef = ref(null); // Referencia al v-file-input
+const fileInputRef = ref(null);
 
 // Nuevos estados para Recomendaciones Médicas en el formulario principal
 const tieneRecomendacionesMedicas = ref(false);
@@ -629,7 +672,7 @@ const showAlertDialog = ref(false);
 const alertDialogTitle = ref('');
 const alertDialogMessage = ref('');
 const showAlert = (title: string, message: string) => {
-  console.log(`Alerta: ${title} - ${message}`); // Agregado para depuración
+  console.log(`Alerta: ${title} - ${message}`);
   alertDialogTitle.value = title;
   alertDialogMessage.value = message;
   showAlertDialog.value = true;
@@ -637,20 +680,17 @@ const showAlert = (title: string, message: string) => {
 
 // --- Nuevo: Modal de Confirmación ---
 const showConfirmDialog = ref(false);
-// Se obtiene la función `validate` del `useForm` para la validación explícita
 const { handleSubmit, resetForm, validate } = useForm();
 
 const handleConfirmacion = async () => {
-  // 🚀 Paso 1: Validar todos los campos del formulario usando VeeValidate
   const { valid, errors } = await validate();
 
   if (!valid) {
     console.error('Errores de validación detectados:', errors);
     showAlert('Error de Validación', 'Por favor, corrija los errores en el formulario antes de continuar. Revise los campos marcados en rojo.');
-    return; // Detiene la ejecución si hay errores de validación
+    return;
   }
 
-  // 🚀 Paso 2: Validaciones adicionales que no son cubiertas por VeeValidate directamente
   if (!usuarioSeleccionado.value || !tipoContratoSeleccionado.value) {
     showAlert('Advertencia', 'Por favor, seleccione un usuario y un tipo de contrato.');
     return;
@@ -659,31 +699,26 @@ const handleConfirmacion = async () => {
     showAlert('Advertencia', 'Por favor, adjunte un archivo de contrato para continuar.');
     return;
   }
-  // Validación para Recomendaciones Médicas si el checkbox está marcado
   if (tieneRecomendacionesMedicas.value && !archivoRecomendacionMedica.value) {
     showAlert('Advertencia', 'Por favor, adjunte el archivo de Recomendación Médica o desmarque la opción.');
     return;
   }
 
-  // 🚀 Paso 3: Si todas las validaciones pasan, mostrar el modal de confirmación
-  console.log('Todas las validaciones pasaron. Mostrando modal de confirmación...'); // Agregado para depuración
+  console.log('Todas las validaciones pasaron. Mostrando modal de confirmación...');
   showConfirmDialog.value = true;
 };
 
 const submitForm = handleSubmit(async (values) => {
-  // Esta parte solo se ejecuta si el formulario es válido según las reglas de VeeValidate
-  console.log('Formulario válido. Procediendo a crear y anexar contrato...'); // Agregado para depuración
+  console.log('Formulario válido. Procediendo a crear y anexar contrato...');
   showConfirmDialog.value = false;
   await crearYAnexarContrato(values);
 });
 
 // --- Propiedades computadas ---
-// Obtiene el objeto completo del usuario seleccionado para acceder a sus propiedades (ej. 'recomendaciones')
 const selectedUserObject = computed(() => {
   return usuarios.value.find(u => u.id === usuarioSeleccionado.value) || null;
 });
 
-// Define los pasos del contrato dinámicamente según el tipo de contrato y las recomendaciones del usuario
 const pasosContrato = computed(() => {
   let currentPasos: Paso[] = [];
   if (tipoContratoSeleccionado.value === 'prestacion') {
@@ -694,27 +729,8 @@ const pasosContrato = computed(() => {
     currentPasos = [...basePasosLaboral];
   }
 
-  // Añade el paso de "Recomendaciones Médicas" solo si el usuario seleccionado tiene la propiedad 'recomendaciones' en true
-  // Este paso es para la línea de tiempo de seguimiento, no para el campo de adjunto inicial.
-  if (selectedUserObject.value && selectedUserObject.value.recomendaciones) {
-    // Crea una copia del paso para evitar mutaciones directas en los arrays base
-    const recomendacionPaso: Paso = {
-      nombre: 'Recomendaciones Médicas',
-      completado: false, // Se reinicia al seleccionar un nuevo usuario/contrato
-      fase: 'inicio',
-      orden: 99, // Un orden alto para que aparezca al final de los pasos iniciales
-    };
-    // Busca si ya existe un paso similar para evitar duplicados y mantener el estado si ya fue completado
-    const existingPaso = currentPasos.find(p => p.nombre === 'Recomendaciones Médicas');
-    if (!existingPaso) {
-      currentPasos.push(recomendacionPaso);
-    } else {
-      // Si ya existe, actualiza su estado con el de la plantilla (ej. reinicia 'completado')
-      Object.assign(existingPaso, recomendacionPaso);
-    }
-  }
+  // Eliminada la inserción del paso "Recomendaciones Médicas" en los pasos del contrato
 
-  // Reordena los pasos por su propiedad 'orden'
   return currentPasos.map((p, index) => ({ ...p, orden: index + 1 })).sort((a, b) => (a.orden || 0) - (b.orden || 0));
 });
 
@@ -722,14 +738,12 @@ const usuarioSeleccionadoNombreCompleto = computed(() => {
   return selectedUserObject.value ? selectedUserObject.value.nombreCompleto : 'el usuario';
 });
 
-// Propiedades computadas para filtrar las entidades de salud por tipo
 const filteredEps = computed(() => entidadesSalud.value.filter(e => e.tipo === 'eps'));
 const filteredArl = computed(() => entidadesSalud.value.filter(e => e.tipo === 'arl'));
 const filteredAfp = computed(() => entidadesSalud.value.filter(e => e.tipo === 'afp'));
 const filteredAfc = computed(() => entidadesSalud.value.filter(e => e.tipo === 'afc'));
 const filteredCcf = computed(() => entidadesSalud.value.filter(e => e.tipo === 'ccf'));
 
-// Cálculo de Salario Total
 const salarioTotalCalculado = computed(() => {
   const sb = Number(salarioBasico.value) || 0;
   const bs = Number(bonoSalarial.value) || 0;
@@ -750,21 +764,17 @@ const { value: sedeId, errorMessage: sedeIdError } = useField<number | null>('se
 const { value: cargoId, errorMessage: cargoIdError } = useField<number | null>('cargoId', [required], { initialValue: null });
 const { value: funcionesCargo, errorMessage: funcionesCargoError } = useField('funcionesCargo', [required], { initialValue: '' });
 const { value: salarioBasico, errorMessage: salarioBasicoError } = useField('salarioBasico', [required, optionalNumber], { initialValue: null });
-// Campos de salario adicionales con validación
 const { value: bonoSalarial, errorMessage: bonoSalarialError } = useField('bonoSalarial', [optionalNumber], { initialValue: 0 });
 const { value: auxilioTransporte, errorMessage: auxilioTransporteError } = useField('auxilioTransporte', [optionalNumber], { initialValue: 0 });
 const { value: auxilioNoSalarial, errorMessage: auxilioNoSalarialError } = useField('auxilioNoSalarial', [optionalNumber], { initialValue: 0 });
-// Fin de campos de salario adicionales
 
 const { value: fechaInicio, errorMessage: fechaInicioError } = useField('fechaInicio', [required], { initialValue: '' });
 const { value: fechaTerminacion, errorMessage: fechaTerminacionError } = useField('fechaTerminacion', undefined, { initialValue: '' });
 
-// **LA CORRECCIÓN ESTÁ AQUÍ:** Dinamizar la regla de validación de terminoContrato
 const terminoContratoRules = computed(() => {
   return tipoContratoSeleccionado.value !== 'prestacion' ? [required] : [];
 });
 const { value: terminoContrato, errorMessage: terminoContratoError } = useField('terminoContrato', terminoContratoRules, { initialValue: null });
-// **FIN DE LA CORRECCIÓN**
 
 const { value: centroCosto, errorMessage: centroCostoError } = useField('centroCosto', undefined, { initialValue: '' });
 const { value: epsId, errorMessage: epsIdError } = useField<number | null>('epsId', [required], { initialValue: null });
@@ -772,6 +782,27 @@ const { value: arlId, errorMessage: arlIdError } = useField<number | null>('arlI
 const { value: afpId, errorMessage: afpIdError } = useField<number | null>('afpId', [required], { initialValue: null });
 const { value: afcId, errorMessage: afcIdError } = useField<number | null>('afcId', undefined, { initialValue: null });
 const { value: ccfId, errorMessage: ccfIdError } = useField<number | null>('ccfId', [required], { initialValue: null });
+
+// --- Historial de contratos del usuario ---
+const contratosUsuario = ref<any[]>([])
+const loadingContratos = ref(false)
+
+async function cargarHistorialContratos() {
+  if (!usuarioSeleccionado.value) {
+    contratosUsuario.value = []
+    return
+  }
+  loadingContratos.value = true
+  try {
+    const data = await obtenerContratosPorUsuario(Number(usuarioSeleccionado.value))
+    contratosUsuario.value = data
+  } catch (err) {
+    console.error('Error al cargar historial de contratos:', err)
+    contratosUsuario.value = []
+  } finally {
+    loadingContratos.value = false
+  }
+}
 
 // --- Métodos de la vista ---
 async function cargarRazonesSociales() {
@@ -788,16 +819,15 @@ async function cargarRazonesSociales() {
 
 async function cargarUsuariosPorRazonSocial() {
   loadingUsuarios.value = true;
-  usuarios.value = []; // Limpia la lista de usuarios
-  usuarioSeleccionado.value = null; // Limpia el ID del usuario seleccionado
+  usuarios.value = [];
+  usuarioSeleccionado.value = null;
   if (razonSocialSeleccionada.value) {
     try {
       const data = await fetchUsuariosPorRazonSocial(razonSocialSeleccionada.value);
-      // Asegúrate de que la propiedad 'recomendaciones' esté presente en los datos del usuario
       usuarios.value = data.map((u: any) => ({
         ...u,
         nombreCompleto: `${u.nombres} ${u.apellidos}`,
-        recomendaciones: u.recomendaciones || false, // Asegura que siempre exista esta propiedad
+        recomendaciones: u.recomendaciones || false,
       }));
     } catch (error) {
       console.error('Error al cargar usuarios:', error);
@@ -844,72 +874,100 @@ async function cargarEntidadesSalud() {
 }
 
 async function crearYAnexarContrato(formData: any) {
-  if (!usuarioSeleccionado.value || !archivoContrato.value) {
-    console.error('Falta el ID de usuario o el archivo del contrato.');
+  if (!usuarioSeleccionado.value || !archivoContrato.value || !razonSocialSeleccionada.value) {
+    console.error('Falta el ID de usuario, el ID de razón social o el archivo del contrato.');
     showAlert('Error', 'No se puede crear el contrato. Falta información clave.');
     return;
   }
 
-  try {
-    // Llama al servicio para crear el contrato en la base de datos
-    const nuevoContrato = await crearContrato({
-      usuarioId: usuarioSeleccionado.value,
-      tipoContrato: tipoContratoSeleccionado.value,
-      identificacion: formData.identificacion,
-      sedeId: formData.sedeId,
-      cargoId: formData.cargoId,
-      funcionesCargo: formData.funcionesCargo,
-      salarioBasico: formData.salarioBasico,
-      bonoSalarial: formData.bonoSalarial,
-      auxilioTransporte: formData.auxilioTransporte,
-      auxilioNoSalarial: formData.auxilioNoSalarial,
-      fechaInicio: formData.fechaInicio,
-      fechaTerminacion: formData.fechaTerminacion,
-      terminoContrato: formData.terminoContrato,
-      centroCosto: formData.centroCosto,
-      epsId: formData.epsId,
-      arlId: formData.arlId,
-      afpId: formData.afpId,
-      afcId: formData.afcId,
-      ccfId: formData.ccfId,
-      tieneRecomendacionesMedicas: tieneRecomendacionesMedicas.value,
-    });
+  // ¿Se requiere fechaTerminacion según el tipo/termino?
+  const requiresEndDate =
+    tipoContratoSeleccionado.value === 'temporal' ||
+    (tipoContratoSeleccionado.value === 'laboral' && terminoContrato.value !== 'indefinido');
 
+  // Solo columnas que existen en el modelo Contrato
+  const payloadContrato = {
+    usuarioId: Number(usuarioSeleccionado.value),
+    razonSocialId: Number(razonSocialSeleccionada.value),
+
+    identificacion: (identificacion.value || '').trim(),
+
+    sedeId: sedeId.value ? Number(sedeId.value) : null,
+    cargoId: cargoId.value ? Number(cargoId.value) : null,
+    funcionesCargo: (funcionesCargo.value || '').trim() || null,
+
+    fechaInicio: formData.fechaInicio,
+    fechaTerminacion: requiresEndDate ? (formData.fechaTerminacion || null) : null,
+
+    tipoContrato: tipoContratoSeleccionado.value as 'prestacion' | 'temporal' | 'laboral',
+    terminoContrato:
+      tipoContratoSeleccionado.value !== 'prestacion'
+        ? (terminoContrato.value as 'fijo' | 'obra_o_labor' | 'indefinido' | null)
+        : null,
+
+    estado: 'activo',
+
+    periodoPrueba: null,
+    horarioTrabajo: null,
+    centroCosto: (centroCosto.value || '').trim() || null,
+
+    epsId: epsId.value ? Number(epsId.value) : null,
+    arlId: arlId.value ? Number(arlId.value) : null,
+    afpId: afpId.value ? Number(afpId.value) : null,
+    afcId: afcId.value ? Number(afcId.value) : null,
+    ccfId: ccfId.value ? Number(ccfId.value) : null,
+
+    tieneRecomendacionesMedicas: !!tieneRecomendacionesMedicas.value,
+  };
+
+  try {
+    console.log('Payload crearContrato =>', payloadContrato);
+    const nuevoContrato = await crearContrato(payloadContrato);
     console.log('Contrato creado exitosamente:', nuevoContrato);
 
-    // Si se creó el contrato, ahora anexa el archivo físico
-    const idContrato = nuevoContrato.id;
-
-    const anexarResponse = await anexarContrato(idContrato, archivoContrato.value);
-    console.log('Archivo anexado exitosamente:', anexarResponse);
-
-    // Si el usuario tiene recomendaciones médicas y se adjuntó un archivo, anéxalo también
-    if (tieneRecomendacionesMedicas.value && archivoRecomendacionMedica.value) {
-      await anexarArchivoRecomendacion(idContrato, archivoRecomendacionMedica.value);
+    // Crear registro de salario (opcional según reglas, aquí lo hacemos si NO es prestación)
+    if (payloadContrato.tipoContrato !== 'prestacion') {
+      const payloadSalario = {
+        contratoId: Number(nuevoContrato.id),
+        salarioBasico: Number(salarioBasico.value) || 0,
+        bonoSalarial: Number(bonoSalarial.value) || 0,
+        auxilioTransporte: Number(auxilioTransporte.value) || 0,
+        auxilioNoSalarial: Number(auxilioNoSalarial.value) || 0,
+        fechaEfectiva: `${formData.fechaInicio}T00:00:00`,
+      };
+      console.log('Payload crearContratoSalario =>', payloadSalario);
+      await crearContratoSalario(payloadSalario);
     }
 
-    showAlert('Contrato Creado', `El contrato para ${usuarioSeleccionadoNombreCompleto.value} ha sido creado y anexado correctamente.`);
-    resetForm();
-    archivoContrato.value = null; // Limpiar el archivo subido
-    archivoRecomendacionMedica.value = null; // Limpiar el archivo de recomendación
-    if (fileInputRef.value) {
-      (fileInputRef.value as any).reset(); // Restablece el componente v-file-input
-    }
+    // Anexar archivo(s) al contrato existente (PDF obligatorio)
+    await anexarContrato({
+      contratoId: Number(nuevoContrato.id),
+      archivo: archivoContrato.value!,
+      razonSocialId: Number(razonSocialSeleccionada.value),
+      tieneRecomendacionesMedicas: !!tieneRecomendacionesMedicas.value && !!archivoRecomendacionMedica.value,
+      archivoRecomendacionMedica: archivoRecomendacionMedica.value || undefined,
+    });
 
-  } catch (error) {
+    showAlert('Éxito', 'Contrato creado y archivos anexados correctamente.');
+  } catch (error: any) {
     console.error('Error al crear o anexar el contrato:', error);
-    showAlert('Error', 'Hubo un problema al crear o anexar el contrato. Por favor, inténtelo de nuevo.');
+    showAlert('Error', error.message || 'Hubo un problema al crear o anexar el contrato.');
   }
 }
 
-// Función para anexar el archivo de recomendación médica
+// CORRECCIÓN: construir FormData incluyendo razonSocialId
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 async function anexarArchivoRecomendacion(contratoId: number, archivo: File) {
   try {
-    const response = await anexarContrato(contratoId, archivo, 'recomendacion_medica');
-    console.log('Archivo de recomendación médica anexado:', response);
+    const fdRec = new FormData();
+    fdRec.append('contratoId', String(contratoId));
+    fdRec.append('razonSocialId', String(razonSocialSeleccionada.value!)); // ✅ importante
+    fdRec.append('archivo', archivo, archivo.name);
+    fdRec.append('tipo', 'recomendacion_medica'); // si el backend lo usa
+    await anexarContrato(fdRec);
+    console.log('Archivo de recomendación médica anexado');
   } catch (error) {
     console.error('Error al anexar el archivo de recomendación médica:', error);
-    // Manejar el error apropiadamente
   }
 }
 
@@ -956,27 +1014,22 @@ const completarPasoConfirmado = async () => {
     return;
   }
 
-  // Lógica para actualizar el estado del paso
   paso.completado = true;
   paso.observacion = observacion;
   paso.fechaCompletado = new Date().toISOString().slice(0, 10);
 
   if (archivo) {
-    // Aquí podrías tener la lógica para subir el archivo y obtener su URL
     paso.nombreArchivo = archivo.name;
     paso.archivoFile = archivo;
-    // Simulación de una URL del archivo
     paso.archivoUrl = URL.createObjectURL(archivo);
   }
 
-  // Lógica para persistir el cambio en la base de datos si fuera necesario
   console.log(`Paso '${paso.nombre}' actualizado con éxito.`, paso);
 
   cerrarModalPaso();
 };
 
-
-// --- Watchers para lógica de la vista ---
+// --- Watchers ---
 watch(razonSocialSeleccionada, (newVal) => {
   if (newVal) {
     cargarUsuariosPorRazonSocial();
@@ -985,22 +1038,20 @@ watch(razonSocialSeleccionada, (newVal) => {
 
 watch(usuarioSeleccionado, (newVal) => {
   if (newVal) {
-    // Si se selecciona un nuevo usuario, reinicia el formulario
     resetForm();
-    // Limpia el archivo de contrato
     archivoContrato.value = null;
-    // Carga los datos específicos del usuario si es necesario
+    cargarHistorialContratos(); // <-- carga historial al seleccionar usuario
+  } else {
+    contratosUsuario.value = [];
   }
 });
 
-watch(tipoContratoSeleccionado, (newVal, oldVal) => {
-  // Limpiar el campo terminoContrato si se cambia a 'prestacion'
+watch(tipoContratoSeleccionado, (newVal) => {
   if (newVal === 'prestacion') {
     terminoContrato.value = null;
   }
 });
 
-// Watcher para sincronizar el estado de la validación de Recomendaciones Médicas
 watch(tieneRecomendacionesMedicas, (newVal) => {
   if (!newVal) {
     archivoRecomendacionMedica.value = null;
