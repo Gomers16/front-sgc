@@ -1,6 +1,10 @@
 // src/services/contratoService.ts
 
-const API_BASE_URL = 'http://localhost:3333/api'
+/* =========================
+   Base URL (con VITE_API_URL)
+========================== */
+const API_BASE_URL =
+  ((import.meta as any)?.env?.VITE_API_URL?.replace(/\/+$/, '') || 'http://localhost:3333') + '/api'
 
 /* =========
    Tipos
@@ -33,7 +37,7 @@ export interface ContratoPaso {
   completado: boolean
   observacion?: string
   nombreArchivo?: string
-  fecha?: string                  // backend usa fecha (no fechaCompletado)
+  fecha?: string                  // backend usa 'fecha'
   archivoUrl?: string
   archivoFile?: File | null
   fase: 'inicio' | 'desarrollo' | 'fin'
@@ -158,12 +162,18 @@ export interface AnexarContratoResponse {
 async function fetchData<T>(url: string, options?: RequestInit): Promise<T> {
   const resp = await fetch(url, options)
   if (!resp.ok) {
+    // Intenta leer JSON, luego texto, luego statusText
     let errorMsg = resp.statusText
     try {
       const data = await resp.json()
       errorMsg = data?.message || data?.error || errorMsg
     } catch {
-      /* ignore */
+      try {
+        const t = await resp.text()
+        if (t) errorMsg = t
+      } catch {
+        /* ignore */
+      }
     }
     throw new Error(errorMsg)
   }
@@ -174,7 +184,6 @@ async function fetchData<T>(url: string, options?: RequestInit): Promise<T> {
 /**
  * Asegura que el término que viaja al backend sea el que espera.
  * Front puede usar 'obra_o_labor_determinada', normalizamos a 'obra_o_labor'
- * Si ya viene bien, lo deja igual.
  */
 function normalizeTerminoContrato(t: TerminoContrato): TerminoContrato {
   if (t === 'obra_o_labor_determinada') return 'obra_o_labor'
@@ -186,7 +195,6 @@ function normalizeTerminoContrato(t: TerminoContrato): TerminoContrato {
 =================== */
 
 export async function crearContrato(payload: ContratoCreatePayload): Promise<Contrato> {
-  // Clon + normalización de término
   const toSend: ContratoCreatePayload = {
     ...payload,
     terminoContrato: payload.terminoContrato
@@ -198,45 +206,6 @@ export async function crearContrato(payload: ContratoCreatePayload): Promise<Con
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(toSend),
-  })
-}
-
-/**
- * Dual mode: anexar archivo(s) a contrato existente.
- * Requiere:
- *  - contratoId
- *  - archivo (PDF)
- * Opcional:
- *  - razonSocialId (para ajustar el contrato)
- *  - tieneRecomendacionesMedicas = true y archivoRecomendacionMedica
- */
-export async function anexarContrato(form: {
-  contratoId: number
-  archivo: File
-  razonSocialId?: number
-  tieneRecomendacionesMedicas?: boolean
-  archivoRecomendacionMedica?: File
-}): Promise<AnexarContratoResponse> {
-  const fd = new FormData()
-  fd.append('contratoId', String(form.contratoId))
-  fd.append('archivo', form.archivo, form.archivo.name)
-
-  if (form.razonSocialId != null) {
-    fd.append('razonSocialId', String(form.razonSocialId))
-  }
-
-  if (form.tieneRecomendacionesMedicas && form.archivoRecomendacionMedica) {
-    fd.append('tieneRecomendacionesMedicas', 'true')
-    fd.append(
-      'archivoRecomendacionMedica',
-      form.archivoRecomendacionMedica,
-      form.archivoRecomendacionMedica.name
-    )
-  }
-
-  return fetchData<AnexarContratoResponse>(`${API_BASE_URL}/contratos/anexar-fisico`, {
-    method: 'POST',
-    body: fd,
   })
 }
 
@@ -258,12 +227,12 @@ export async function actualizarContrato(
   })
 }
 
-export async function obtenerContratoPorId(id: number): Promise<Contrato> {
-  return fetchData<Contrato>(`${API_BASE_URL}/contratos/${id}`)
-}
-
-export async function obtenerContratosPorUsuario(usuarioId: number): Promise<Contrato[]> {
-  return fetchData<Contrato[]>(`${API_BASE_URL}/usuarios/${usuarioId}/contratos`)
+/** Activar/Inactivar contrato rápidamente (usa PATCH /contratos/:id) */
+export async function cambiarEstadoContrato(
+  contratoId: number,
+  estado: EstadoContrato
+): Promise<Contrato> {
+  return actualizarContrato(contratoId, { estado })
 }
 
 export async function eliminarContrato(id: number): Promise<{ message: string }> {
@@ -272,8 +241,58 @@ export async function eliminarContrato(id: number): Promise<{ message: string }>
   })
 }
 
+export async function obtenerContratoPorId(id: number): Promise<Contrato> {
+  return fetchData<Contrato>(`${API_BASE_URL}/contratos/${id}`)
+}
+
+export async function obtenerContratosPorUsuario(usuarioId: number): Promise<Contrato[]> {
+  return fetchData<Contrato[]>(`${API_BASE_URL}/usuarios/${usuarioId}/contratos`)
+}
+
 /* =========================
-   Salarios (coincide con ruta)
+   Anexar contrato / archivos
+========================== */
+
+/**
+ * Dual mode: anexar archivo(s) a contrato existente.
+ * Requiere:
+ *  - contratoId
+ *  - archivo (PDF)
+ * Opcional:
+ *  - razonSocialId
+ *  - tieneRecomendacionesMedicas y archivoRecomendacionMedica
+ */
+export async function anexarContrato(form: {
+  contratoId: number
+  archivo: File
+  razonSocialId?: number
+  tieneRecomendacionesMedicas?: boolean
+  archivoRecomendacionMedica?: File
+}): Promise<AnexarContratoResponse> {
+  const fd = new FormData()
+  fd.append('contratoId', String(form.contratoId))
+  fd.append('archivo', form.archivo, form.archivo.name)
+
+  if (form.razonSocialId != null) {
+    fd.append('razonSocialId', String(form.razonSocialId))
+  }
+  if (form.tieneRecomendacionesMedicas && form.archivoRecomendacionMedica) {
+    fd.append('tieneRecomendacionesMedicas', 'true')
+    fd.append(
+      'archivoRecomendacionMedica',
+      form.archivoRecomendacionMedica,
+      form.archivoRecomendacionMedica.name
+    )
+  }
+
+  return fetchData<AnexarContratoResponse>(`${API_BASE_URL}/contratos/anexar-fisico`, {
+    method: 'POST',
+    body: fd,
+  })
+}
+
+/* =========================
+   Salarios
 ========================== */
 
 export async function crearContratoSalario(payload: ContratoSalarioPayload): Promise<any> {
@@ -285,7 +304,7 @@ export async function crearContratoSalario(payload: ContratoSalarioPayload): Pro
 }
 
 /* ======================
-   Pasos (opcional)
+   Pasos (mínimos)
 ====================== */
 
 export async function actualizarPasoContrato(
