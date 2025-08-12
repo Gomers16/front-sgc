@@ -454,7 +454,7 @@
               <td class="text-capitalize">{{ c.tipoContrato }}</td>
               <td class="text-capitalize">{{ (c.terminoContrato || '—').replaceAll('_',' ') }}</td>
               <td>
-                <v-chip :color="c.estado === 'activo' ? 'success' : 'grey'" size="small" variant="flat">
+                <v-chip :color="c.estado === 'activo' ? 'success' : 'grey' " size="small" variant="flat">
                   {{ c.estado }}
                 </v-chip>
               </td>
@@ -555,6 +555,8 @@ import { listarRazonesSociales, fetchUsuariosPorRazonSocial } from '@/services/r
 import { obtenerSedes, obtenerCargos, obtenerEntidadesSalud } from '@/services/UserService';
 import { anexarContrato, crearContrato, crearContratoSalario, obtenerContratosPorUsuario } from '@/services/contratoService';
 import { useContratoStore } from '@/stores/contrato';
+// ⬇️ NUEVO: importar el servicio para crear pasos
+import { crearPasoContrato } from '@/services/contratosPasosService';
 
 // --- Interfaces para tipado ---
 interface RazonSocial {
@@ -768,7 +770,7 @@ const { value: bonoSalarial, errorMessage: bonoSalarialError } = useField('bonoS
 const { value: auxilioTransporte, errorMessage: auxilioTransporteError } = useField('auxilioTransporte', [optionalNumber], { initialValue: 0 });
 const { value: auxilioNoSalarial, errorMessage: auxilioNoSalarialError } = useField('auxilioNoSalarial', [optionalNumber], { initialValue: 0 });
 
-const { value: fechaInicio, errorMessage: fechaInicioError } = useField('fechaInicio', [required], { initialValue: '' });
+const { value: fechaInicio } = useField('fechaInicio', [required], { initialValue: '' });
 const { value: fechaTerminacion, errorMessage: fechaTerminacionError } = useField('fechaTerminacion', undefined, { initialValue: '' });
 
 const terminoContratoRules = computed(() => {
@@ -948,7 +950,28 @@ async function crearYAnexarContrato(formData: any) {
       archivoRecomendacionMedica: archivoRecomendacionMedica.value || undefined,
     });
 
-    showAlert('Éxito', 'Contrato creado y archivos anexados correctamente.');
+    // ⬇️ NUEVO: Crear los pasos base del contrato en el backend
+    try {
+      const creates = pasosContrato.value.map((p) => {
+        const fd = new FormData();
+        fd.append('fase', p.fase); // 'inicio' | 'desarrollo' | 'fin'
+        fd.append('nombrePaso', p.nombre);
+        if (p.observacion) fd.append('observacion', p.observacion);
+        if (p.orden != null) fd.append('orden', String(p.orden));
+        fd.append('completado', p.completado ? 'true' : 'false');
+        if (p.fechaCompletado) fd.append('fecha', p.fechaCompletado); // yyyy-mm-dd
+        if (p.archivoFile) fd.append('archivo', p.archivoFile, p.archivoFile.name);
+        return crearPasoContrato(Number(nuevoContrato.id), fd);
+      });
+
+      await Promise.all(creates);
+      console.log('Pasos de contrato creados para el contrato', nuevoContrato.id);
+    } catch (e) {
+      console.error('Error creando pasos del contrato:', e);
+      // No interrumpimos: contrato ya creado y anexado.
+    }
+
+    showAlert('Éxito', 'Contrato creado, archivos anexados y pasos registrados correctamente.');
   } catch (error: any) {
     console.error('Error al crear o anexar el contrato:', error);
     showAlert('Error', error.message || 'Hubo un problema al crear o anexar el contrato.');

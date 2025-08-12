@@ -23,8 +23,16 @@
         </v-btn>
       </template>
 
+      <!-- 👇 Ahora muestra TODOS los cargos (únicos) en vertical -->
       <template #item.cargo="{ item }">
-        {{ item.cargo?.nombre || 'Sin cargo' }}
+        <div v-if="cargosDelUsuario(item).length">
+          <div v-for="(cargo, index) in cargosDelUsuario(item)" :key="index">
+            {{ cargo }}
+          </div>
+        </div>
+        <div v-else>
+          Sin cargo
+        </div>
       </template>
 
       <template #item.contratos="{ item }">
@@ -50,6 +58,7 @@
       </template>
     </v-data-table>
 
+    <!-- Modal confirmación perfil -->
     <v-dialog v-model="mostrarModalPerfil" max-width="500">
       <v-card>
         <v-card-title class="text-h6">Confirmar Navegación</v-card-title>
@@ -66,6 +75,7 @@
       </v-card>
     </v-dialog>
 
+    <!-- Modal contratos -->
     <v-dialog v-model="modalContratosUsuario.mostrar" max-width="800">
       <v-card>
         <v-card-title class="text-h6">
@@ -95,6 +105,11 @@
                 Inicio: {{ new Date(contrato.fechaInicio).toLocaleDateString() }}
                 <span v-if="contrato.fechaFin"> - Fin: {{ new Date(contrato.fechaFin).toLocaleDateString() }}</span>
               </v-list-item-subtitle>
+
+              <v-list-item-subtitle v-if="contrato.cargo?.nombre">
+                Cargo: <strong>{{ contrato.cargo.nombre }}</strong>
+              </v-list-item-subtitle>
+
               <v-list-item-subtitle v-if="contrato.nombreArchivoContratoFisico">
                 Archivo:
                 <a :href="contrato.rutaArchivoContratoFisico" target="_blank" class="text-primary">
@@ -108,6 +123,7 @@
 
               <v-divider class="my-2"></v-divider>
 
+              <!-- Trazabilidad -->
               <h4 class="text-subtitle-1 mt-2 mb-1">Trazabilidad del Contrato:</h4>
               <div v-for="stageName in ['Inicio', 'Desarrollo', 'Fin']" :key="stageName" class="mb-2">
                 <h5 class="text-subtitle-2 font-weight-medium ml-2">{{ stageName }}:</h5>
@@ -230,22 +246,19 @@ import { useRoute, useRouter } from 'vue-router';
 import { fetchUsuariosPorRazonSocial } from '@/services/razonSocialService';
 import { useContratoStore } from '@/stores/contrato';
 
-
-// ✅ CORREGIDO: Adaptar la interfaz para que coincida con tu servicio
 interface ContratoPaso {
   id: number;
   contratoId: number;
   fase: string;
-  nombrePaso: string; // <-- Usamos nombrePaso para que coincida con el backend
+  nombrePaso: string;
   fecha?: string;
-  archivoUrl?: string; // <-- Usamos archivoUrl
+  archivoUrl?: string;
   observacion?: string;
   orden: number;
   completado: boolean;
   createdAt: string;
   updatedAt: string;
 }
-
 
 interface ContratoEvento {
   id: number;
@@ -272,6 +285,9 @@ interface Contrato {
   usuarioId: number;
   pasos?: ContratoPaso[];
   eventos?: ContratoEvento[];
+  cargo?: {
+    nombre: string;
+  };
 }
 
 interface UsuarioConContratos {
@@ -279,12 +295,8 @@ interface UsuarioConContratos {
   nombres: string;
   apellidos: string;
   correo: string;
-  cargo?: {
-    nombre: string;
-  };
-  rol?: {
-    nombre: string;
-  };
+  cargo?: { nombre: string };
+  rol?: { nombre: string };
   contratos?: Contrato[];
   nombreCompleto: string;
 }
@@ -293,13 +305,11 @@ const route = useRoute();
 const router = useRouter();
 const contratoStore = useContratoStore();
 
-// Estado de la data
 const razonSocialId = ref(route.params.id as string);
 const razonSocialNombre = ref('');
 const loading = ref(true);
 const usuarios = ref<UsuarioConContratos[]>([]);
 
-// Estado de los modales
 const mostrarModalPerfil = ref(false);
 const usuarioIdParaPerfil = ref<number | null>(null);
 
@@ -325,37 +335,26 @@ const headers = [
 
 const contratosDelUsuarioSeleccionado = computed(() => {
   if (modalContratosUsuario.value.usuarioId) {
-    return contratoStore.getContratosByUsuarioId(modalContratosUsuario.value.usuarioId)
-      .sort((a: { fechaInicio: string | number | Date; }, b: { fechaInicio: string | number | Date; }) => new Date(b.fechaInicio).getTime() - new Date(a.fechaInicio).getTime());
+    return contratoStore
+      .getContratosByUsuarioId(modalContratosUsuario.value.usuarioId)
+      .sort((a, b) => new Date(b.fechaInicio).getTime() - new Date(a.fechaInicio).getTime());
   }
   return [];
 });
 
-/**
- * Filtra los pasos de un contrato por su etapa (Inicio, Desarrollo, Fin).
- * @param pasos Todos los pasos del contrato.
- * @param stage El nombre de la etapa ('Inicio', 'Desarrollo', 'Fin').
- * @returns Un array de ContratoPaso que pertenecen a la etapa especificada.
- */
 function getPasosByStage(pasos: ContratoPaso[] | undefined, stage: string): ContratoPaso[] {
   if (!pasos) return [];
-  return pasos.filter(paso => paso.fase.toLowerCase() === stage.toLowerCase());
+  return pasos.filter((paso) => paso.fase.toLowerCase() === stage.toLowerCase());
 }
 
-/**
- * Filtra los eventos de un contrato y los asigna a una etapa lógica.
- * @param eventos Los eventos del contrato.
- * @param stage El nombre de la etapa ('Inicio', 'Desarrollo', 'Fin').
- * @returns Un array de ContratoEvento que pertenecen a la etapa especificada.
- */
 function getEventsByStage(eventos: ContratoEvento[] | undefined, stage: string): ContratoEvento[] {
   if (!eventos) return [];
   if (stage.toLowerCase() === 'desarrollo') {
     const desarrolloEventos = ['incapacidad', 'suspension', 'licencia', 'permiso', 'vacaciones', 'cesantias', 'disciplinario'];
-    return eventos.filter(evento => desarrolloEventos.includes(evento.tipo));
+    return eventos.filter((evento) => desarrolloEventos.includes(evento.tipo));
   }
   if (stage.toLowerCase() === 'fin') {
-    return eventos.filter(evento => evento.tipo === 'terminacion');
+    return eventos.filter((evento) => evento.tipo === 'terminacion');
   }
   return [];
 }
@@ -364,11 +363,10 @@ async function cargarUsuarios() {
   loading.value = true;
   try {
     const data = await fetchUsuariosPorRazonSocial(razonSocialId.value);
-    usuarios.value = data.map(u => ({
+    usuarios.value = data.map((u: any) => ({
       ...u,
       nombreCompleto: `${u.nombres} ${u.apellidos}`,
     })) as UsuarioConContratos[];
-    console.log('Usuarios cargados:', usuarios.value);
   } catch (error: unknown) {
     console.error('Error al cargar usuarios:', error instanceof Error ? error.message : error);
     usuarios.value = [];
@@ -384,10 +382,7 @@ function confirmarVerPerfil(usuarioId: number) {
 
 function verPerfilConfirmado() {
   if (usuarioIdParaPerfil.value !== null) {
-    router.push({
-      name: 'UserProfile',
-      params: { id: usuarioIdParaPerfil.value.toString() }
-    });
+    router.push({ name: 'UserProfile', params: { id: usuarioIdParaPerfil.value.toString() } });
   }
   mostrarModalPerfil.value = false;
   usuarioIdParaPerfil.value = null;
@@ -400,7 +395,6 @@ async function abrirModalContratos(usuarioId: number, nombreUsuario: string) {
 
   try {
     await contratoStore.fetchContratosPorUsuario(usuarioId);
-    console.log(`Contratos del usuario ${usuarioId} cargados en el store.`);
   } catch (error) {
     console.error('Error al cargar contratos para el usuario:', error);
   }
@@ -409,6 +403,26 @@ async function abrirModalContratos(usuarioId: number, nombreUsuario: string) {
 function irAEditarPasos(contratoId: number) {
   router.push(`/gestion-documental/contrato/${contratoId}/editar-pasos`);
   modalContratosUsuario.value.mostrar = false;
+}
+
+/**
+ * Devuelve todos los cargos únicos en un arreglo para mostrarlos en vertical.
+ */
+function cargosDelUsuario(user: UsuarioConContratos): string[] {
+  const contratos = user.contratos || [];
+  if (!contratos.length) {
+    return user.cargo?.nombre ? [user.cargo.nombre] : [];
+  }
+
+  const cargosContratos = contratos
+    .map((c) => c.cargo?.nombre)
+    .filter((nombre): nombre is string => !!nombre && nombre.trim() !== '');
+
+  if (cargosContratos.length > 0) {
+    return [...new Set(cargosContratos)];
+  }
+
+  return user.cargo?.nombre ? [user.cargo.nombre] : [];
 }
 
 onMounted(() => {
