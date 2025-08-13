@@ -110,7 +110,7 @@
               </v-card>
             </v-col>
 
-            <!-- Seguridad Social (desde contrato prioritario, con fallback a usuario) -->
+            <!-- Seguridad Social -->
             <v-col cols="12" md="6">
               <v-card class="elevation-4 rounded-lg mt-6 h-100">
                 <v-card-title class="text-h6 font-weight-bold text-white bg-blue-grey-darken-2 pa-4">
@@ -231,9 +231,9 @@
                           <v-list-item-subtitle>{{ formatDate(contrato.fechaInicio) }}</v-list-item-subtitle>
                         </v-list-item>
 
-                        <v-list-item prepend-icon="mdi-calendar-end" class="mb-2" v-if="contrato.fechaFin">
+                        <v-list-item prepend-icon="mdi-calendar-end" class="mb-2" v-if="contrato.fechaTerminacion">
                           <v-list-item-title class="font-weight-bold">Fecha de Finalización:</v-list-item-title>
-                          <v-list-item-subtitle>{{ formatDate(contrato.fechaFin) }}</v-list-item-subtitle>
+                          <v-list-item-subtitle>{{ formatDate(contrato.fechaTerminacion) }}</v-list-item-subtitle>
                         </v-list-item>
 
                         <v-list-item prepend-icon="mdi-city" class="mb-2">
@@ -290,7 +290,7 @@
                       </v-tabs>
 
                       <v-window v-model="contrato.activeSubTab" class="pa-2">
-                        <!-- Inicio (ACTUALIZADO) -->
+                        <!-- Inicio -->
                         <v-window-item value="inicio">
                           <h4 class="text-h6 font-weight-bold mb-3 text-blue-grey-darken-2">
                             Pasos de Inicio del Contrato
@@ -324,7 +324,6 @@
                                   </a>
                                 </div>
 
-                                <!-- NUEVOS CONTROLES -->
                                 <div class="mt-2 d-flex justify-end">
                                   <v-btn
                                     v-if="paso.archivoUrl"
@@ -433,7 +432,7 @@
                             <v-list dense>
                               <v-list-item>
                                 <v-list-item-title class="font-weight-bold">Fecha de Finalización:</v-list-item-title>
-                                <v-list-item-subtitle>{{ contrato.fechaFin ? formatDate(contrato.fechaFin) : 'N/A' }}</v-list-item-subtitle>
+                                <v-list-item-subtitle>{{ contrato.fechaTerminacion ? formatDate(contrato.fechaTerminacion) : 'N/A' }}</v-list-item-subtitle>
                               </v-list-item>
 
                               <v-list-item>
@@ -480,56 +479,94 @@
                           </v-form>
                         </v-window-item>
 
-                        <!-- Historial -->
+                        <!-- Historial (estados + cambios) -->
                         <v-window-item value="historial">
                           <h4 class="text-h6 font-weight-bold mb-3 text-blue-grey-darken-2">
-                            Historial de Estados del Contrato
+                            Historial del Contrato (estados y cambios)
                           </h4>
 
-                          <div v-if="contrato.historialEstados && contrato.historialEstados.length > 0">
+                          <div v-if="contrato.timeline?.length">
                             <v-timeline side="end" density="compact">
                               <v-timeline-item
-                                v-for="registro in contrato.historialEstados"
-                                :key="registro.id"
-                                :dot-color="registro.newEstado === 'activo' ? 'success' : 'error'"
+                                v-for="item in contrato.timeline"
+                                :key="item.kind + '-' + item.id"
+                                :dot-color="item.kind === 'estado'
+                                  ? (item.newEstado === 'activo' ? 'success' : 'error')
+                                  : 'secondary'"
                                 size="small"
                               >
-                                <div class="d-flex justify-space-between align-center mb-1">
-                                  <span class="font-weight-bold text-subtitle-1">
-                                    Cambio de Estado: {{ getEstadoNombre(registro.oldEstado) }} → {{ getEstadoNombre(registro.newEstado) }}
-                                  </span>
-                                  <span class="text-caption text-grey-darken-1">
-                                    {{ formatDate(registro.fechaCambio) }}
-                                  </span>
-                                </div>
+                                <!-- ITEM: CAMBIO DE ESTADO -->
+                                <template v-if="item.kind === 'estado'">
+                                  <div class="d-flex justify-space-between align-center mb-1">
+                                    <span class="font-weight-bold text-subtitle-1">
+                                      Cambio de Estado: {{ getEstadoNombre(item.oldEstado) }} → {{ getEstadoNombre(item.newEstado) }}
+                                    </span>
+                                    <span class="text-caption text-grey-darken-1">{{ formatDate(item.fechaCambio) }}</span>
+                                  </div>
 
-                                <v-list density="compact" class="pl-0">
-                                  <v-list-item v-if="registro.fechaInicioContrato">
-                                    <v-list-item-title class="text-caption font-weight-bold">Inicio del Contrato:</v-list-item-title>
-                                    <v-list-item-subtitle class="text-caption">
-                                      {{ formatDate(registro.fechaInicioContrato) }}
-                                    </v-list-item-subtitle>
-                                  </v-list-item>
+                                  <v-list density="compact" class="pl-0">
+                                    <v-list-item v-if="item.fechaInicioContrato">
+                                      <v-list-item-title class="text-caption font-weight-bold">Inicio del Contrato:</v-list-item-title>
+                                      <v-list-item-subtitle class="text-caption">
+                                        {{ formatDate(item.fechaInicioContrato) }}
+                                      </v-list-item-subtitle>
+                                    </v-list-item>
 
-                                  <v-list-item v-if="registro.motivo">
-                                    <v-list-item-title class="text-caption font-weight-bold">Motivo del Cambio:</v-list-item-title>
-                                    <v-list-item-subtitle class="text-caption">
-                                      {{ registro.motivo }}
-                                    </v-list-item-subtitle>
-                                  </v-list-item>
+                                    <v-list-item v-if="item.motivo">
+                                      <v-list-item-title class="text-caption font-weight-bold">Motivo del Cambio:</v-list-item-title>
+                                      <v-list-item-subtitle class="text-caption">
+                                        {{ item.motivo }}
+                                      </v-list-item-subtitle>
+                                    </v-list-item>
 
-                                  <!-- Placeholder oculto para mantener layout -->
-                                  <v-list-item>
-                                    <v-list-item-title class="text-caption font-weight-bold" style="visibility: hidden">Realizado por:</v-list-item-title>
-                                    <v-list-item-subtitle class="text-caption" style="visibility: hidden">Texto oculto</v-list-item-subtitle>
-                                  </v-list-item>
-                                </v-list>
+                                    <v-list-item>
+                                      <v-list-item-title class="text-caption font-weight-bold">Realizado por:</v-list-item-title>
+                                      <v-list-item-subtitle class="text-caption">
+                                        <v-chip v-if="item.usuario" size="x-small" color="primary" label>
+                                          {{ fullName(item.usuario) }}
+                                        </v-chip>
+                                        <span v-else>Sistema</span>
+                                      </v-list-item-subtitle>
+                                    </v-list-item>
+                                  </v-list>
+                                </template>
+
+                                <!-- ITEM: CAMBIO DE CAMPO -->
+                                <template v-else>
+                                  <div class="d-flex justify-space-between align-center mb-1">
+                                    <span class="font-weight-bold text-subtitle-1">
+                                      {{ labelCampo(item.campo) }}
+                                    </span>
+                                    <span class="text-caption text-grey-darken-1">{{ formatDate(item.createdAt) }}</span>
+                                  </div>
+
+                                  <div class="text-body-2 text-grey-darken-2">
+                                    <div class="mb-1">
+                                      <strong>De:</strong>
+                                      <span>{{ renderValor(item.campo, item.oldValue, contrato) }}</span>
+                                    </div>
+                                    <div>
+                                      <strong>A:</strong>
+                                      <span>{{ renderValor(item.campo, item.newValue, contrato) }}</span>
+                                    </div>
+                                  </div>
+
+                                  <div class="mt-2">
+                                    <small class="text-grey-darken-1">
+                                      Por:
+                                      <v-chip v-if="item.usuario" size="x-small" color="primary" label>
+                                        {{ fullName(item.usuario) }}
+                                      </v-chip>
+                                      <span v-else>Sistema</span>
+                                    </small>
+                                  </div>
+                                </template>
                               </v-timeline-item>
                             </v-timeline>
                           </div>
 
                           <div v-else class="text-center text-subtitle-1 text-grey-darken-1 pa-4">
-                            No hay historial de estados registrado para este contrato.
+                            No hay historial registrado para este contrato.
                           </div>
                         </v-window-item>
                       </v-window>
@@ -734,7 +771,7 @@
         </v-card>
       </v-dialog>
 
-      <!-- Diálogo EDITAR PASO (nuevo) -->
+      <!-- Diálogo EDITAR PASO -->
       <v-dialog v-model="showEditPasoDialog" max-width="600px">
         <v-card>
           <v-card-title class="text-h5 bg-primary text-white">
@@ -823,13 +860,36 @@ import {
   fetchPasosInicio,
   type ContratoPaso
 } from "@/services/contratosPasosService";
-
 import type { ContratoHistorialEstado } from '@/services/contratoHistorialEstadosService'
 
-// ===== Tipos ampliados para que el template no rompa =====
+// ===== Tipos ampliados
 interface Rel { id: number; nombre: string }
+
+interface CambioUsuario {
+  id: number
+  nombres: string
+  apellidos: string
+  correo?: string
+}
+
+interface ContratoCambio {
+  id: number
+  contratoId: number
+  usuarioId: number | null
+  usuario?: CambioUsuario | null
+  campo: string
+  oldValue: any
+  newValue: any
+  createdAt: string
+}
+
+type TimelineItemEstado = (ContratoHistorialEstado & { usuario?: CambioUsuario | null }) & {
+  kind: 'estado'
+}
+type TimelineItemCambio = (ContratoCambio) & { kind: 'cambio' }
+type TimelineItem = TimelineItemEstado | TimelineItemCambio
+
 interface Contrato extends BaseContrato {
-  // relaciones del contrato (opcional según backend)
   cargo?: Rel | null
   sede?: Rel | null
   eps?: Rel | null
@@ -837,19 +897,19 @@ interface Contrato extends BaseContrato {
   afp?: Rel | null
   afc?: Rel | null
   ccf?: Rel | null
-
+  fechaTerminacion?: string | null
   activeTab?: string
   activeSubTab?: string
   eventos?: ContratoEvento[]
   pasos?: ContratoPaso[]
-  historialEstados?: ContratoHistorialEstado[]
+  historialEstados?: (ContratoHistorialEstado & { usuario?: CambioUsuario | null })[]
+  cambios?: ContratoCambio[]
+  timeline?: TimelineItem[]
   fechaFinalizacion?: string
   motivoFinalizacion?: string
 }
 
-interface UserProfile extends User {
-  contratos?: Contrato[]
-}
+interface UserProfile extends User { contratos?: Contrato[] }
 
 interface UserEditForm {
   nombres: string
@@ -867,6 +927,21 @@ const user = ref<UserProfile | null>(null)
 const isLoadingUser = ref(true)
 const error = ref<string | null>(null)
 const isLoadingAction = ref(false)
+
+/** ========= Actor logueado =========
+ *  Si usas Pinia/Store, reemplaza este bloque por la lectura real de tu usuario
+ *  p.ej. const { user: me } = useAuthStore(); const actorId = computed(()=> me?.id ?? null)
+ */
+const actorId = computed<number | null>(() => {
+  const tryNum = (k: string) => {
+    const v = localStorage.getItem(k) ?? sessionStorage.getItem(k)
+    const n = Number(v)
+    return Number.isFinite(n) ? n : null
+  }
+  // posibles claves donde guardes el id del autenticado
+  return tryNum('actorId') ?? tryNum('authUserId') ?? tryNum('userId') ?? null
+})
+// ===================================
 
 // Diálogos
 const showPhotoDialog = ref(false)
@@ -898,7 +973,7 @@ const finalizationDate = ref<string | null>(null)
 const finalizationReason = ref<string | null>(null)
 const finalizationForm = ref<any>(null)
 
-// ===== NUEVO: edición de pasos de inicio =====
+// Edición de pasos de inicio
 const showEditPasoDialog = ref(false)
 const editPasoForm = ref<any>(null)
 const editPasoFileRef = ref<any>(null)
@@ -906,7 +981,7 @@ const pasoEditData = ref<{ observacion?: string }>({})
 const contratoIdForPasoEdit = ref<number | null>(null)
 const pasoIdForEdit = ref<number | null>(null)
 
-// ===== Contrato prioritario (activo o más reciente) =====
+// Contrato prioritario
 const primaryContrato = computed<Contrato | null>(() => {
   const cs = user.value?.contratos || []
   if (!cs.length) return null
@@ -917,7 +992,7 @@ const primaryContrato = computed<Contrato | null>(() => {
     .sort((a, b) => new Date(b.fechaInicio).getTime() - new Date(a.fechaInicio).getTime())[0] || null
 })
 
-// ===== Helpers =====
+// ===== Helpers UI
 const showAlert = (title: string, message: string) => {
   alertDialogTitle.value = title
   alertDialogMessage.value = message
@@ -936,14 +1011,128 @@ const showConfirm = (title: string, message: string): Promise<boolean> => {
   })
 }
 
-const formatDate = (dateString: string) => {
-  const date = new Date(dateString)
+const formatDate = (dateString: string | null | undefined) => {
+  if (!dateString) return 'N/A'
+  const date = new Date(dateString as string)
+  if (Number.isNaN(date.getTime())) return String(dateString)
   return date.toLocaleDateString('es-CO', { year: 'numeric', month: 'long', day: 'numeric' })
 }
 
 const getEstadoNombre = (estado: 'activo' | 'inactivo') => (estado === 'activo' ? 'Activo' : 'Inactivo')
+const fullName = (u?: {nombres?: string; apellidos?: string | null} | null) =>
+  u ? [u.nombres, u.apellidos].filter(Boolean).join(' ') : '—'
 
-// ===== Carga de datos =====
+// Mapeo etiquetas
+const CAMPO_LABELS: Record<string, string> = {
+  razonSocialId: 'Empresa',
+  sedeId: 'Sede',
+  cargoId: 'Cargo',
+  funcionesCargo: 'Funciones',
+  tipoContrato: 'Tipo de Contrato',
+  terminoContrato: 'Término',
+  fechaInicio: 'Fecha de Inicio',
+  fechaTerminacion: 'Fecha de Terminación',
+  periodoPrueba: 'Periodo de Prueba',
+  horarioTrabajo: 'Horario de Trabajo',
+  centroCosto: 'Centro de Costo',
+  epsId: 'EPS',
+  arlId: 'ARL',
+  afpId: 'AFP',
+  afcId: 'AFC',
+  ccfId: 'CCF',
+  estado: 'Estado',
+  motivoFinalizacion: 'Motivo de Finalización',
+  tieneRecomendacionesMedicas: 'Recomendaciones médicas',
+  salarioBasico: 'Salario básico',
+  bonoSalarial: 'Bono salarial',
+  auxilioTransporte: 'Auxilio transporte',
+  auxilioNoSalarial: 'Auxilio no salarial',
+  creacion: 'Creación',
+}
+const labelCampo = (campo: string) => CAMPO_LABELS[campo] || campo
+
+const parseMaybeJson = (v: any) => {
+  if (v === null || v === undefined) return v
+  if (typeof v === 'string') {
+    try { return JSON.parse(v) } catch { return v }
+  }
+  return v
+}
+
+const isNamedRel = (val: any): val is { id?: number | string; nombre?: string } =>
+  !!val && typeof val === 'object' && ('nombre' in val || 'id' in val)
+
+const renderValor = (campo: string, raw: any, contrato?: Contrato) => {
+  const v = parseMaybeJson(raw)
+  if (v === null || v === undefined || v === '') return 'N/A'
+
+  // Soporta objetos { id, nombre } guardados en historial/cambios
+  if (campo.endsWith('Id') && isNamedRel(v)) {
+    return v.nombre ?? `#${v.id ?? ''}`
+  }
+
+  // Compat: si vino sólo ID numérico, resuelve con relaciones del contrato
+  if (campo.endsWith('Id')) {
+    const id = typeof v === 'number' ? v : Number(v)
+    const nameMatch = (() => {
+      if (campo === 'epsId' && contrato?.eps && contrato.eps.id === id) return contrato.eps.nombre
+      if (campo === 'arlId' && contrato?.arl && contrato.arl.id === id) return contrato.arl.nombre
+      if (campo === 'afpId' && contrato?.afp && contrato.afp.id === id) return contrato.afp.nombre
+      if (campo === 'afcId' && contrato?.afc && contrato.afc.id === id) return contrato.afc.nombre
+      if (campo === 'ccfId' && contrato?.ccf && contrato.ccf.id === id) return contrato.ccf.nombre
+      if (campo === 'sedeId' && contrato?.sede && contrato.sede.id === id) return contrato.sede.nombre
+      if (campo === 'cargoId' && contrato?.cargo && contrato.cargo.id === id) return contrato.cargo.nombre
+      if (campo === 'razonSocialId' && (contrato as any)?.razonSocial && (contrato as any).razonSocial.id === id) return (contrato as any).razonSocial.nombre
+      return null
+    })()
+    return nameMatch ? nameMatch : `#${isNaN(id) ? String(v) : id}`
+  }
+
+  if (campo.startsWith('fecha')) {
+    return typeof v === 'string' ? formatDate(v) : formatDate(String(v))
+  }
+
+  if (campo === 'estado') {
+    return v === 'activo' ? 'Activo' : (v === 'inactivo' ? 'Inactivo' : String(v))
+  }
+
+  if (typeof v === 'boolean') return v ? 'Sí' : 'No'
+  if (typeof v === 'number') return new Intl.NumberFormat('es-CO').format(v)
+  if (typeof v === 'object') {
+    if ('estado' in v && (v.estado === 'activo' || v.estado === 'inactivo')) {
+      return getEstadoNombre(v.estado)
+    }
+    return JSON.stringify(v)
+  }
+  return String(v)
+}
+
+// Construye timeline combinado
+const buildTimeline = (c: Contrato): TimelineItem[] => {
+  const items: TimelineItem[] = []
+
+  ;(c.historialEstados || []).forEach((h: any) => {
+    items.push({ ...h, kind: 'estado' })
+  })
+
+  ;(c.cambios || []).forEach((chg: any) => {
+    items.push({
+      ...chg,
+      oldValue: parseMaybeJson(chg.oldValue),
+      newValue: parseMaybeJson(chg.newValue),
+      kind: 'cambio',
+    })
+  })
+
+  // Orden descendente por fecha
+  return items.sort((a, b) => {
+    const da = new Date(a.kind === 'estado' ? (a as any).fechaCambio : (a as any).createdAt).getTime()
+    const db = new Date(b.kind === 'estado' ? (b as any).fechaCambio : (b as any).createdAt).getTime()
+    return db - da
+  })
+}
+
+// ===== Carga de datos
 const loadUser = async () => {
   isLoadingUser.value = true
   error.value = null
@@ -960,23 +1149,31 @@ const loadUser = async () => {
     const fetchedUser = await obtenerUsuarioPorId(userIdFromRoute) as UserProfile
     if (fetchedUser) {
       if (fetchedUser.contratos) {
-        fetchedUser.contratos = fetchedUser.contratos.map((contrato: any) => ({
-          ...contrato,
-          activeTab: 'detalles',
-          activeSubTab: 'inicio',
-          eventos: contrato.eventos || [],
-          pasos: contrato.pasos || [],
-          historialEstados: contrato.historialEstados || [],
-          fechaFinalizacion: contrato.fechaFin ? String(contrato.fechaFin).split('T')[0] : null,
-          motivoFinalizacion: contrato.motivoFinalizacion || null,
-        }))
+        fetchedUser.contratos = await Promise.all(
+          fetchedUser.contratos.map(async (contrato: any) => {
+            const c: Contrato = {
+              ...contrato,
+              activeTab: 'detalles',
+              activeSubTab: 'inicio',
+              eventos: contrato.eventos || [],
+              pasos: contrato.pasos || [],
+              historialEstados: contrato.historialEstados || [],
+              cambios: (contrato.cambios || []).map((x: any) => ({
+                ...x,
+                oldValue: parseMaybeJson(x.oldValue),
+                newValue: parseMaybeJson(x.newValue),
+              })),
+              fechaFinalizacion: contrato.fechaTerminacion ? String(contrato.fechaTerminacion).split('T')[0] : null,
+              motivoFinalizacion: contrato.motivoFinalizacion || null,
+            }
 
-        // 🔽 Traer pasos de la fase 'inicio' si no vinieron desde el backend
-        await Promise.all(
-          fetchedUser.contratos.map(async (c: any) => {
+            // Traer pasos de la fase 'inicio' si no vinieron
             if (!c.pasos || c.pasos.length === 0) {
               c.pasos = await fetchPasosInicio(c.id)
             }
+
+            c.timeline = buildTimeline(c)
+            return c
           })
         )
       }
@@ -992,7 +1189,7 @@ const loadUser = async () => {
   }
 }
 
-// ===== Acciones =====
+// ===== Acciones
 const openEditUserDialog = () => {
   if (user.value) {
     editedUser.value = {
@@ -1076,7 +1273,8 @@ const confirmarCambioEstadoContrato = async (contratoId: number, nuevoEstado: 'a
   if (confirmed) {
     isLoadingAction.value = true
     try {
-      await actualizarContrato(contratoId, { estado: nuevoEstado })
+      // 👇 enviamos actorId (evita "Sistema")
+      await actualizarContrato(contratoId, { estado: nuevoEstado, actorId: actorId.value ?? undefined })
       showAlert('Éxito', nuevoEstado === 'activo' ? 'Contrato activado correctamente.' : 'Contrato desactivado correctamente.')
       await loadUser()
     } catch (err: any) {
@@ -1109,6 +1307,8 @@ const submitNewEvent = async () => {
   if (newEvent.value.fechaFin) payload.append('fechaFin', newEvent.value.fechaFin as string)
   if (newEvent.value.descripcion) payload.append('descripcion', newEvent.value.descripcion as string)
   if (fileToUpload) payload.append('documento', fileToUpload)
+  // 👇 actorId para registrar quién crea el evento
+  if (actorId.value != null) payload.append('actorId', String(actorId.value))
 
   try {
     const createdEvent = await crearEventoDeContrato(contratoIdForNewEvent.value, payload)
@@ -1149,10 +1349,12 @@ const submitContractFinalization = async (contratoId: number) => {
 
   isLoadingAction.value = true
   try {
+    // 👇 actorId para que el historial muestre al usuario real
     await actualizarContrato(contratoId, {
       estado: 'inactivo',
-      fechaFin: finalizationDate.value,
-      motivoFinalizacion: finalizationReason.value
+      fechaTerminacion: finalizationDate.value,
+      motivoFinalizacion: finalizationReason.value,
+      actorId: actorId.value ?? undefined,
     })
     showAlert('Éxito', 'Contrato finalizado correctamente.')
     await loadUser()
@@ -1164,7 +1366,7 @@ const submitContractFinalization = async (contratoId: number) => {
   }
 }
 
-// ===== NUEVO: handlers de edición de paso =====
+// Edición de paso
 const openEditPasoDialog = (contratoId: number, paso: ContratoPaso) => {
   contratoIdForPasoEdit.value = contratoId
   pasoIdForEdit.value = paso.id || null
@@ -1185,8 +1387,9 @@ const submitEditPaso = async () => {
   const fileToUpload = editPasoFileRef.value?.files?.[0]
   const payload = new FormData()
   payload.append('observacion', pasoEditData.value.observacion || '')
-  // Ajusta el nombre del campo si tu backend espera otro (p.ej. 'documento')
   if (fileToUpload) payload.append('archivo', fileToUpload)
+  // 👇 actorId por si tu endpoint de pasos lo registra
+  if (actorId.value != null) payload.append('actorId', String(actorId.value))
 
   try {
     await actualizarPasoContrato(contratoIdForPasoEdit.value, pasoIdForEdit.value, payload)

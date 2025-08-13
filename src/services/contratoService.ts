@@ -211,14 +211,76 @@ export async function crearContrato(payload: ContratoCreatePayload): Promise<Con
 
 export async function actualizarContrato(
   contratoId: number,
-  payload: ContratoUpdatePayload
+  payload: ContratoUpdatePayload & {
+    // alias que podrías estar enviando desde la vista
+    fechaFin?: string | Date | null
+    fechaFinalizacion?: string | Date | null
+  }
 ): Promise<Contrato> {
-  const toSend: ContratoUpdatePayload = {
-    ...payload,
+  // Normaliza una fecha a 'YYYY-MM-DD'
+  const toYMD = (v: any): string | undefined => {
+    if (!v) return undefined
+    if (typeof v === 'string') {
+      // si ya viene 'YYYY-MM-DD', úsalo tal cual
+      if (/^\d{4}-\d{2}-\d{2}$/.test(v)) return v
+      const d = new Date(v)
+      if (Number.isNaN(d.getTime())) return undefined
+      const yyyy = d.getFullYear()
+      const mm = String(d.getMonth() + 1).padStart(2, '0')
+      const dd = String(d.getDate()).padStart(2, '0')
+      return `${yyyy}-${mm}-${dd}`
+    }
+    const d = v instanceof Date ? v : new Date(v)
+    if (Number.isNaN(d.getTime())) return undefined
+    const yyyy = d.getFullYear()
+    const mm = String(d.getMonth() + 1).padStart(2, '0')
+    const dd = String(d.getDate()).padStart(2, '0')
+    return `${yyyy}-${mm}-${dd}`
+  }
+
+  // Soporta alias usados en el front
+  const fechaTerminacion =
+    payload.fechaTerminacion ?? (payload as any).fechaFin ?? (payload as any).fechaFinalizacion
+
+  // Coerce de boolean por si viniera como string
+  const toBool = (v: any): boolean | undefined => {
+    if (typeof v === 'boolean') return v
+    if (v === 'true') return true
+    if (v === 'false') return false
+    return undefined
+  }
+
+  const toSend: any = {
+    identificacion: payload.identificacion,
+    sedeId: payload.sedeId,
+    cargoId: payload.cargoId,
+    funcionesCargo: payload.funcionesCargo,
+    tipoContrato: payload.tipoContrato,
     terminoContrato: payload.terminoContrato
       ? normalizeTerminoContrato(payload.terminoContrato)
-      : payload.terminoContrato,
+      : payload.terminoContrato, // puede ser null/undefined
+    fechaInicio: toYMD(payload.fechaInicio as any),
+    fechaTerminacion: toYMD(fechaTerminacion as any),
+    periodoPrueba: payload.periodoPrueba,
+    horarioTrabajo: payload.horarioTrabajo,
+    centroCosto: payload.centroCosto,
+    epsId: payload.epsId,
+    arlId: payload.arlId,
+    afpId: payload.afpId,
+    afcId: payload.afcId,
+    ccfId: payload.ccfId,
+    estado: payload.estado,
+    motivoFinalizacion: payload.motivoFinalizacion,
+    salarioBasico: (payload as any).salarioBasico,
+    bonoSalarial: (payload as any).bonoSalarial,
+    auxilioTransporte: (payload as any).auxilioTransporte,
+    auxilioNoSalarial: (payload as any).auxilioNoSalarial,
+    tieneRecomendacionesMedicas: toBool(payload.tieneRecomendacionesMedicas as any),
+    razonSocialId: payload.razonSocialId,
   }
+
+  // Quita claves undefined para no ensuciar el PATCH
+  Object.keys(toSend).forEach((k) => toSend[k] === undefined && delete toSend[k])
 
   return fetchData<Contrato>(`${API_BASE_URL}/contratos/${contratoId}`, {
     method: 'PATCH',

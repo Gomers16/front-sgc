@@ -49,7 +49,6 @@ export interface ContratoPaso {
   updatedAt: string
 }
 
-
 /**
  * Interfaz para un evento de contrato.
  */
@@ -85,11 +84,11 @@ export interface Contrato {
   estado: 'activo' | 'inactivo'
   fechaInicio: string
   fechaFin?: string
-  motivoFinalizacion?: string; // Aseguramos que la interfaz tenga esta propiedad
+  motivoFinalizacion?: string
   nombreArchivoContratoFisico?: string
   rutaArchivoContratoFisico?: string
-  eventos?: ContratoEvento[] // ✅ Agregamos la relación con eventos
-  pasos?: ContratoPaso[] // ✅ Agregamos la relación con pasos
+  eventos?: ContratoEvento[]     // relación con eventos
+  pasos?: ContratoPaso[]         // relación con pasos
 }
 
 // Interfaz principal para el objeto de Usuario
@@ -124,7 +123,7 @@ export interface User {
   ccfId?: number
   ccf?: EntidadSalud
   password?: string
-  contratos?: Contrato[] // ✅ Agregamos la relación con contratos
+  contratos?: Contrato[]         // relación con contratos
 }
 
 /**
@@ -144,7 +143,7 @@ export async function fetchData<T>(url: string, options: RequestInit = {}): Prom
     fetchOptions.headers = {
       ...fetchOptions.headers,
       'Content-Type': 'application/json',
-    } as HeadersInit;
+    } as HeadersInit
   } else {
     // Si es FormData, eliminamos Content-Type para que el navegador lo añada correctamente
     if (fetchOptions.headers) {
@@ -162,10 +161,7 @@ export async function fetchData<T>(url: string, options: RequestInit = {}): Prom
   const contentType = response.headers.get('content-type')
   if (contentType && contentType.includes('application/json')) {
     const jsonResponse = await response.json()
-
-    // --- CAMBIO CLAVE PARA CORREGIR EL ERROR ---
-    // Verifica si la respuesta tiene un objeto 'data'. Si es así, lo devuelve.
-    // Si no, devuelve la respuesta completa (asumiendo que ya es un arreglo).
+    // Devuelve jsonResponse.data si existe; si no, la respuesta completa
     return jsonResponse.data || jsonResponse
   }
 
@@ -309,7 +305,6 @@ export async function crearEventoDeContrato(contratoId: number, data: FormData |
   }
 }
 
-
 // --- Funciones para obtener listas auxiliares ---
 
 export async function obtenerRoles(): Promise<Rol[]> {
@@ -360,4 +355,99 @@ export async function obtenerEntidadesSalud(): Promise<EntidadSalud[]> {
     console.error('Error al obtener entidades de salud:', error)
     throw error
   }
+}
+
+/* ============================================================================================
+   NUEVO: Historial de ESTADOS del contrato (activo/inactivo) y CAMBIOS campo-a-campo
+   Endpoints esperados en backend:
+     - GET  /api/contratos/:contratoId/historial-estados
+     - POST /api/contratos/:contratoId/historial-estados
+     - GET  /api/contratos/:contratoId/historial-cambios
+     - POST /api/contratos/:contratoId/historial-cambios
+   ============================================================================================ */
+
+// ===== Historial de ESTADOS de contrato =====
+export interface ContratoHistorialEstado {
+  id: number
+  contratoId: number
+  oldEstado: 'activo' | 'inactivo' | string
+  newEstado: 'activo' | 'inactivo' | string
+  fechaCambio: string           // ISO
+  motivo?: string | null
+  // opcionales (si backend los provee)
+  usuarioId?: number | null
+  realizadoPor?: string | null
+}
+
+/** GET /api/contratos/:contratoId/historial-estados */
+export async function obtenerHistorialEstadosContrato(
+  contratoId: number
+): Promise<ContratoHistorialEstado[]> {
+  return fetchData<ContratoHistorialEstado[]>(
+    `${API_BASE_URL}/contratos/${contratoId}/historial-estados`
+  )
+}
+
+/** POST /api/contratos/:contratoId/historial-estados */
+export async function crearHistorialEstadoContrato(
+  contratoId: number,
+  payload: {
+    oldEstado: string
+    newEstado: string
+    fechaCambio?: string
+    motivo?: string | null
+    usuarioId?: number | null
+  }
+): Promise<ContratoHistorialEstado> {
+  return fetchData<ContratoHistorialEstado>(
+    `${API_BASE_URL}/contratos/${contratoId}/historial-estados`,
+    {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }
+  )
+}
+
+// ===== Historial de CAMBIOS (campo a campo) =====
+export interface ContratoCambio {
+  id: number
+  contratoId: number
+  usuarioId?: number | null
+  campo: string                       // p.ej. 'epsId', 'salarioBasico', 'sedeId'
+  valorAnterior?: string | number | null
+  valorNuevo?: string | number | null
+  fechaCambio: string                 // ISO
+  ip?: string | null
+  userAgent?: string | null
+  // si tu backend lo envía:
+  usuario?: { id: number; nombres: string; apellidos: string } | null
+}
+
+/** GET /api/contratos/:contratoId/historial-cambios */
+export async function obtenerHistorialCambiosContrato(
+  contratoId: number
+): Promise<ContratoCambio[]> {
+  return fetchData<ContratoCambio[]>(
+    `${API_BASE_URL}/contratos/${contratoId}/historial-cambios`
+  )
+}
+
+/** POST /api/contratos/:contratoId/historial-cambios (opcional/manual) */
+export async function crearCambioContrato(
+  contratoId: number,
+  payload: {
+    campo: string
+    valorAnterior?: string | number | null
+    valorNuevo?: string | number | null
+    fechaCambio?: string
+    usuarioId?: number | null
+  }
+): Promise<ContratoCambio> {
+  return fetchData<ContratoCambio>(
+    `${API_BASE_URL}/contratos/${contratoId}/historial-cambios`,
+    {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }
+  )
 }
