@@ -84,7 +84,7 @@ export interface Contrato {
 
   estado: EstadoContrato
 
-  fechaInicio: string            // ISO desde backend
+  fechaInicio: string
   fechaTerminacion?: string | null
 
   periodoPrueba?: number | null
@@ -162,7 +162,6 @@ function getActorId(): number | null {
     return Number.isFinite(n) && n > 0 ? n : null
   }
 
-  // directos más comunes
   const direct =
     tryNum(localStorage.getItem('actorId')) ??
     tryNum(sessionStorage.getItem('actorId')) ??
@@ -170,7 +169,6 @@ function getActorId(): number | null {
     tryNum(sessionStorage.getItem('userId'))
   if (direct) return direct
 
-  // objetos serializados típicos
   const keys = ['user', 'usuario', 'authUser', 'currentUser', 'sessionUser']
   for (const k of keys) {
     const raw = localStorage.getItem(k) ?? sessionStorage.getItem(k)
@@ -185,23 +183,34 @@ function getActorId(): number | null {
   return null
 }
 
+// ▶ Mejor manejo de errores
 async function fetchData<T>(url: string, options?: RequestInit): Promise<T> {
   const resp = await fetch(url, options)
-  if (!resp.ok) {
-    let errorMsg = resp.statusText
-    try {
-      const data = await resp.json()
-      errorMsg = data?.message || data?.error || errorMsg
-    } catch {
-      try {
-        const t = await resp.text()
-        if (t) errorMsg = t
-      } catch {}
+
+  const readBody = async () => {
+    try { return await resp.clone().json() } catch {
+      try { return await resp.text() } catch { return null }
     }
-    throw new Error(errorMsg)
   }
+
+  if (!resp.ok) {
+    const body = await readBody()
+    const data = typeof body === 'string' ? { text: body } : (body || {})
+    const errorMsg =
+      data.error ||
+      data.message ||
+      data.text ||
+      resp.statusText ||
+      `HTTP ${resp.status}`
+
+    const err = new Error(errorMsg)
+    ;(err as any).status = resp.status
+    ;(err as any).raw = data
+    throw err
+  }
+
   if (resp.status === 204) return {} as T
-  return resp.json()
+  return (await resp.json()) as T
 }
 
 /** Normaliza término: 'obra_o_labor_determinada' -> 'obra_o_labor' */
@@ -217,19 +226,18 @@ function omitUndefined<T extends Record<string, any>>(obj: T): T {
   return out
 }
 
-/** Construye opciones JSON con actor (header + body.actorId) */
+/** Construye opciones JSON con actor (solo header; NO body.actorId) */
 function jsonOptions(method: string, data: any): RequestInit {
   const actorId = getActorId()
   const headers: Record<string, string> = { 'Content-Type': 'application/json' }
   if (actorId) headers['x-actor-id'] = String(actorId)
-  const body = JSON.stringify({ ...(data ?? {}), actorId: actorId ?? null })
+  const body = JSON.stringify({ ...(data ?? {}) })
   return { method, headers, body, credentials: 'include' }
 }
 
-/** Construye opciones FormData con actor (header + form.append) */
+/** Construye opciones FormData con actor (solo header; NO form.append('actorId')) */
 function formOptions(method: string, form: FormData): RequestInit {
   const actorId = getActorId()
-  if (actorId && !form.has('actorId')) form.append('actorId', String(actorId))
   const headers: Record<string, string> = {}
   if (actorId) headers['x-actor-id'] = String(actorId)
   return { method, headers, body: form, credentials: 'include' }
@@ -240,8 +248,10 @@ function formOptions(method: string, form: FormData): RequestInit {
 =================== */
 
 export async function crearContrato(payload: ContratoCreatePayload): Promise<Contrato> {
-  const toSend: ContratoCreatePayload = {
+  // Enviamos alias fechaFin por compatibilidad con controladores antiguos
+  const toSend: any = {
     ...payload,
+    fechaFin: payload.fechaTerminacion ?? null,
     terminoContrato:
       payload.tipoContrato === 'prestacion' || payload.tipoContrato === 'aprendizaje'
         ? null
@@ -256,12 +266,10 @@ export async function crearContrato(payload: ContratoCreatePayload): Promise<Con
 export async function actualizarContrato(
   contratoId: number,
   payload: ContratoUpdatePayload & {
-    // alias posibles desde la vista
     fechaFin?: string | Date | null
     fechaFinalizacion?: string | Date | null
   }
 ): Promise<Contrato> {
-  // Normaliza una fecha a 'YYYY-MM-DD'
   const toYMD = (v: any): string | undefined => {
     if (!v) return undefined
     if (typeof v === 'string') {
@@ -300,9 +308,7 @@ export async function actualizarContrato(
     terminoContrato:
       (payload.tipoContrato === 'prestacion' || payload.tipoContrato === 'aprendizaje')
         ? null
-        : (payload.terminoContrato === undefined
-            ? undefined // en PATCH, si no vino, no tocar
-            : normalizeTerminoContrato(payload.terminoContrato)),
+        : (payload.terminoContrato === undefined ? undefined : normalizeTerminoContrato(payload.terminoContrato)),
     fechaInicio: toYMD(payload.fechaInicio as any),
     fechaTerminacion: toYMD(fechaTerminacion as any),
     periodoPrueba: payload.periodoPrueba,
@@ -324,7 +330,6 @@ export async function actualizarContrato(
   }
 
   const toSend = omitUndefined(raw)
-
   return fetchData<Contrato>(`${API_BASE_URL}/contratos/${contratoId}`, jsonOptions('PATCH', toSend))
 }
 
@@ -349,28 +354,19 @@ export async function eliminarContrato(id: number): Promise<{ message: string }>
 }
 
 export async function obtenerContratoPorId(id: number): Promise<Contrato> {
-  return fetchData<Contrato>(`${API_BASE_URL}/contratos/${id}`, { credentials: 'include' })
+  return fetchData<Contrato>(`${API_BASE_URL}/contratos/${id}`, { credentials: 'include' } as any)
 }
 
 export async function obtenerContratosPorUsuario(usuarioId: number): Promise<Contrato[]> {
   return fetchData<Contrato[]>(`${API_BASE_URL}/usuarios/${usuarioId}/contratos`, {
     credentials: 'include',
-  })
+  } as any)
 }
 
 /* =========================
    Anexar contrato / archivos
 ========================== */
 
-/**
- * Dual mode: anexar archivo(s) a contrato existente.
- * Requiere:
- *  - contratoId
- *  - archivo (PDF)
- * Opcional:
- *  - razonSocialId
- *  - tieneRecomendacionesMedicas y archivoRecomendacionMedica
- */
 export async function anexarContrato(form: {
   contratoId: number
   archivo: File

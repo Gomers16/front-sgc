@@ -587,18 +587,42 @@
               <td>{{ c.fechaTerminacion ? String(c.fechaTerminacion).slice(0,10) : '—' }}</td>
               <td>{{ c.sede?.nombre || '—' }}</td>
               <td>{{ c.cargo?.nombre || '—' }}</td>
+
+              <!-- ⬇️ VER / DESCARGAR ARCHIVOS DEL CONTRATO -->
               <td>
-                <v-btn
-                  v-if="c.rutaArchivoContratoFisico"
-                  :href="c.rutaArchivoContratoFisico"
-                  target="_blank"
-                  size="x-small"
-                  color="primary"
-                  variant="tonal"
-                  prepend-icon="mdi-file-pdf-box"
-                >Ver PDF</v-btn>
+                <div v-if="c.rutaArchivoContratoFisico" class="d-flex flex-wrap ga-2">
+                  <v-btn
+                    size="x-small"
+                    color="primary"
+                    variant="tonal"
+                    prepend-icon="mdi-file-pdf-box"
+                    @click="verArchivo(c.rutaArchivoContratoFisico)"
+                  >Ver</v-btn>
+
+                  <v-btn
+                    size="x-small"
+                    variant="tonal"
+                    prepend-icon="mdi-download"
+                    @click="descargarArchivo(c.rutaArchivoContratoFisico, `contrato_${c.id}.pdf`)"
+                  >Descargar</v-btn>
+
+                  <!-- Opcional: si tu backend expone la ruta de recomendación médica -->
+                  <v-tooltip v-if="c.rutaArchivoRecomendacionMedica" text="Descargar recomendación">
+                    <template #activator="{ props }">
+                      <v-btn
+                        v-bind="props"
+                        size="x-small"
+                        color="teal"
+                        variant="tonal"
+                        prepend-icon="mdi-file-document-outline"
+                        @click="descargarArchivo(c.rutaArchivoRecomendacionMedica!, `recomendacion_${c.id}.pdf`)"
+                      >Recom.</v-btn>
+                    </template>
+                  </v-tooltip>
+                </div>
                 <span v-else>—</span>
               </td>
+
               <td class="d-flex ga-2">
                 <v-btn
                   size="x-small"
@@ -727,6 +751,8 @@ interface ContratoRow {
   sede?: any
   cargo?: any
   rutaArchivoContratoFisico?: string | null
+  /* opcional si tu API lo envía */
+  rutaArchivoRecomendacionMedica?: string | null
   identificacion?: string
   funcionesCargo?: string | null
   centroCosto?: string | null
@@ -1185,6 +1211,57 @@ const onFileChange = (event: Event) => {
   archivoContrato.value = target.files && target.files.length ? target.files[0] : null
 }
 const onFilePasoChange = () => { /* noop */ }
+
+/* ===========================
+   VER / DESCARGAR ARCHIVOS
+   =========================== */
+function verArchivo(url?: string | null) {
+  if (!url) return showAlert('Archivo no disponible', 'Este contrato no tiene un archivo asociado.')
+  window.open(url, '_blank', 'noopener')
+}
+
+function nombreSugeridoDesdeUrl(url: string, fallback = 'archivo.pdf') {
+  try {
+    const u = new URL(url, window.location.origin)
+    const last = u.pathname.split('/').filter(Boolean).pop()
+    return last || fallback
+  } catch { return fallback }
+}
+
+function parseFilenameFromContentDisposition(header: string | null): string | null {
+  if (!header) return null
+  // Content-Disposition: attachment; filename="contrato_123.pdf"
+  const match = /filename\*?=(?:UTF-8''|")?([^\";]+)/i.exec(header)
+  if (match && match[1]) {
+    try { return decodeURIComponent(match[1].replace(/\"/g, '')) } catch { return match[1].replace(/\"/g, '') }
+  }
+  return null
+}
+
+async function descargarArchivo(url?: string | null, sugerido?: string) {
+  if (!url) return showAlert('Archivo no disponible', 'No se encontró la ruta del archivo para este contrato.')
+  try {
+    const resp = await fetch(url, { credentials: 'include' })
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
+    const blob = await resp.blob()
+
+    let filename = parseFilenameFromContentDisposition(resp.headers.get('content-disposition'))
+    if (!filename) filename = sugerido || nombreSugeridoDesdeUrl(url)
+
+    const link = document.createElement('a')
+    const objectUrl = URL.createObjectURL(blob)
+    link.href = objectUrl
+    link.download = filename
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    URL.revokeObjectURL(objectUrl)
+  } catch (e) {
+    console.error('Descarga directa falló, abriendo en nueva pestaña como fallback:', e)
+    // Fallback: abrir en nueva pestaña si no tenemos permisos para descargar como blob
+    window.open(url, '_blank', 'noopener')
+  }
+}
 
 // watchers
 watch(razonSocialSeleccionada, (newVal) => { if (newVal) cargarUsuariosPorRazonSocial() })
