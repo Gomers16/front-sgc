@@ -9,6 +9,8 @@
 // ✔ Base URL por VITE_API_URL si existe
 // ✔ Exporta funciones con los mismos nombres que ya usas
 // ✔ Añadido: mapPaso() para normalizar y filtro en cliente por fase
+// ✔ Añadido: x-actor-id en headers + actorId dentro de FormData
+// ✔ credentials: 'include' para sesiones con cookies
 
 export interface ContratoPaso {
   id: number
@@ -37,6 +39,65 @@ async function ensureOk<T>(res: Response): Promise<T> {
   return res.json() as Promise<T>
 }
 
+// Lee actorId de storage (varios posibles lugares)
+function getActorId(): number | null {
+  const tryNum = (v: any) => {
+    const n = Number(v)
+    return Number.isFinite(n) && n > 0 ? n : null
+  }
+
+  // directos
+  const direct =
+    tryNum(localStorage.getItem('actorId')) ??
+    tryNum(sessionStorage.getItem('actorId')) ??
+    tryNum(localStorage.getItem('userId')) ??
+    tryNum(sessionStorage.getItem('userId'))
+  if (direct) return direct
+
+  // objetos serializados típicos
+  const keys = ['user', 'usuario', 'authUser', 'currentUser', 'sessionUser']
+  for (const k of keys) {
+    const raw = localStorage.getItem(k) ?? sessionStorage.getItem(k)
+    if (!raw) continue
+    try {
+      const obj = JSON.parse(raw)
+      const id = obj?.id ?? obj?.user?.id ?? obj?.data?.id
+      const n = tryNum(id)
+      if (n) return n
+    } catch {}
+  }
+  return null
+}
+
+// Agrega header x-actor-id si existe
+function withActorHeaders(base?: HeadersInit): HeadersInit {
+  const actorId = getActorId()
+  const headers: Record<string, string> = { ...(base as any) }
+  if (actorId) headers['x-actor-id'] = String(actorId)
+  return headers
+}
+
+// Asegura que el FormData tenga actorId y añade headers con x-actor-id
+function formOptions(method: 'POST' | 'PUT' | 'DELETE', form?: FormData): RequestInit {
+  const fd = form ?? new FormData()
+  const actorId = getActorId()
+  if (actorId && !fd.has('actorId')) fd.append('actorId', String(actorId))
+  return {
+    method,
+    headers: withActorHeaders(),
+    body: fd,
+    credentials: 'include',
+  }
+}
+
+// GET options con headers de actor
+function getOptions(): RequestInit {
+  return {
+    headers: withActorHeaders(),
+    credentials: 'include',
+  }
+}
+
 // Normaliza snake_case -> camelCase y asegura tipos
 function mapPaso(raw: any): ContratoPaso {
   return {
@@ -56,14 +117,14 @@ function mapPaso(raw: any): ContratoPaso {
 
 /** GET /api/contratos/:contratoId/pasos (todas las fases) */
 export async function fetchPasosContrato(contratoId: number): Promise<ContratoPaso[]> {
-  const res = await fetch(`${API_BASE}/contratos/${contratoId}/pasos`)
+  const res = await fetch(`${API_BASE}/contratos/${contratoId}/pasos`, getOptions())
   const data = await ensureOk<any[]>(res)
   return Array.isArray(data) ? data.map(mapPaso) : []
 }
 
 /** 🔽 GET /api/contratos/:contratoId/pasos?fase=inicio (con filtro de respaldo en cliente) */
 export async function fetchPasosInicio(contratoId: number): Promise<ContratoPaso[]> {
-  const res = await fetch(`${API_BASE}/contratos/${contratoId}/pasos?fase=inicio`)
+  const res = await fetch(`${API_BASE}/contratos/${contratoId}/pasos?fase=inicio`, getOptions())
   const data = await ensureOk<any[]>(res)
   const pasos = Array.isArray(data) ? data.map(mapPaso) : []
   // Si el backend ignora el query param, filtramos aquí
@@ -75,7 +136,7 @@ export async function fetchPasosPorFase(
   contratoId: number,
   fase: 'inicio' | 'desarrollo' | 'fin'
 ): Promise<ContratoPaso[]> {
-  const res = await fetch(`${API_BASE}/contratos/${contratoId}/pasos?fase=${fase}`)
+  const res = await fetch(`${API_BASE}/contratos/${contratoId}/pasos?fase=${fase}`, getOptions())
   const data = await ensureOk<any[]>(res)
   const pasos = Array.isArray(data) ? data.map(mapPaso) : []
   return pasos.filter((p) => p.fase === fase)
@@ -96,10 +157,10 @@ export async function crearPasoContrato(
   contratoId: number,
   data: FormData
 ): Promise<ContratoPaso> {
-  const res = await fetch(`${API_BASE}/contratos/${contratoId}/pasos`, {
-    method: 'POST',
-    body: data,
-  })
+  const res = await fetch(
+    `${API_BASE}/contratos/${contratoId}/pasos`,
+    formOptions('POST', data)
+  )
   const paso = await ensureOk<any>(res)
   return mapPaso(paso)
 }
@@ -114,10 +175,10 @@ export async function actualizarPasoContrato(
   pasoId: number,
   data: FormData
 ): Promise<ContratoPaso> {
-  const res = await fetch(`${API_BASE}/contratos/${contratoId}/pasos/${pasoId}`, {
-    method: 'PUT',
-    body: data,
-  })
+  const res = await fetch(
+    `${API_BASE}/contratos/${contratoId}/pasos/${pasoId}`,
+    formOptions('PUT', data)
+  )
   const paso = await ensureOk<any>(res)
   return mapPaso(paso)
 }
@@ -127,8 +188,11 @@ export async function eliminarPasoContrato(
   contratoId: number,
   pasoId: number
 ): Promise<void> {
+  // Para DELETE sin body, enviamos headers con x-actor-id igualmente
   const res = await fetch(`${API_BASE}/contratos/${contratoId}/pasos/${pasoId}`, {
     method: 'DELETE',
+    headers: withActorHeaders(),
+    credentials: 'include',
   })
   await ensureOk<unknown>(res)
 }

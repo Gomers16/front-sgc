@@ -23,21 +23,18 @@ export interface Cargo { id: number; nombre: string }
 
 export type EstadoContrato = 'activo' | 'inactivo'
 export type TipoContrato = 'prestacion' | 'temporal' | 'laboral'
-/**
- * En el front usamos "obra_o_labor_determinada". El backend podría esperar "obra_o_labor".
- * Más abajo normalizamos antes de enviar.
- */
+/** En el front podemos usar 'obra_o_labor_determinada'. Normalizamos a 'obra_o_labor' al enviar. */
 export type TerminoContrato = 'fijo' | 'obra_o_labor' | 'obra_o_labor_determinada' | 'indefinido' | null
 
 export interface ContratoPaso {
   id?: number
   contratoId?: number
-  nombrePaso?: string             // backend guarda como nombrePaso
-  nombre?: string                 // alias en front
+  nombrePaso?: string
+  nombre?: string
   completado: boolean
   observacion?: string
   nombreArchivo?: string
-  fecha?: string                  // backend usa 'fecha'
+  fecha?: string
   archivoUrl?: string
   archivoFile?: File | null
   fase: 'inicio' | 'desarrollo' | 'fin'
@@ -159,10 +156,38 @@ export interface AnexarContratoResponse {
    Helpers
 =================== */
 
+function getActorId(): number | null {
+  const tryNum = (v: any) => {
+    const n = Number(v)
+    return Number.isFinite(n) && n > 0 ? n : null
+  }
+
+  // directos más comunes
+  const direct =
+    tryNum(localStorage.getItem('actorId')) ??
+    tryNum(sessionStorage.getItem('actorId')) ??
+    tryNum(localStorage.getItem('userId')) ??
+    tryNum(sessionStorage.getItem('userId'))
+  if (direct) return direct
+
+  // objetos serializados típicos
+  const keys = ['user', 'usuario', 'authUser', 'currentUser', 'sessionUser']
+  for (const k of keys) {
+    const raw = localStorage.getItem(k) ?? sessionStorage.getItem(k)
+    if (!raw) continue
+    try {
+      const obj = JSON.parse(raw)
+      const id = obj?.id ?? obj?.user?.id ?? obj?.data?.id
+      const n = tryNum(id)
+      if (n) return n
+    } catch {}
+  }
+  return null
+}
+
 async function fetchData<T>(url: string, options?: RequestInit): Promise<T> {
   const resp = await fetch(url, options)
   if (!resp.ok) {
-    // Intenta leer JSON, luego texto, luego statusText
     let errorMsg = resp.statusText
     try {
       const data = await resp.json()
@@ -171,9 +196,7 @@ async function fetchData<T>(url: string, options?: RequestInit): Promise<T> {
       try {
         const t = await resp.text()
         if (t) errorMsg = t
-      } catch {
-        /* ignore */
-      }
+      } catch {}
     }
     throw new Error(errorMsg)
   }
@@ -181,13 +204,35 @@ async function fetchData<T>(url: string, options?: RequestInit): Promise<T> {
   return resp.json()
 }
 
-/**
- * Asegura que el término que viaja al backend sea el que espera.
- * Front puede usar 'obra_o_labor_determinada', normalizamos a 'obra_o_labor'
- */
+/** Normaliza término: 'obra_o_labor_determinada' -> 'obra_o_labor' */
 function normalizeTerminoContrato(t: TerminoContrato): TerminoContrato {
   if (t === 'obra_o_labor_determinada') return 'obra_o_labor'
   return t ?? null
+}
+
+/** Quita propiedades undefined (para PATCH limpios) */
+function omitUndefined<T extends Record<string, any>>(obj: T): T {
+  const out = { ...obj }
+  Object.keys(out).forEach((k) => out[k] === undefined && delete out[k])
+  return out
+}
+
+/** Construye opciones JSON con actor (header + body.actorId) */
+function jsonOptions(method: string, data: any): RequestInit {
+  const actorId = getActorId()
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+  if (actorId) headers['x-actor-id'] = String(actorId)
+  const body = JSON.stringify({ ...(data ?? {}), actorId: actorId ?? null })
+  return { method, headers, body, credentials: 'include' }
+}
+
+/** Construye opciones FormData con actor (header + form.append) */
+function formOptions(method: string, form: FormData): RequestInit {
+  const actorId = getActorId()
+  if (actorId && !form.has('actorId')) form.append('actorId', String(actorId))
+  const headers: Record<string, string> = {}
+  if (actorId) headers['x-actor-id'] = String(actorId)
+  return { method, headers, body: form, credentials: 'include' }
 }
 
 /* ==================
@@ -202,17 +247,13 @@ export async function crearContrato(payload: ContratoCreatePayload): Promise<Con
       : null,
   }
 
-  return fetchData<Contrato>(`${API_BASE_URL}/contratos`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(toSend),
-  })
+  return fetchData<Contrato>(`${API_BASE_URL}/contratos`, jsonOptions('POST', toSend))
 }
 
 export async function actualizarContrato(
   contratoId: number,
   payload: ContratoUpdatePayload & {
-    // alias que podrías estar enviando desde la vista
+    // alias posibles desde la vista
     fechaFin?: string | Date | null
     fechaFinalizacion?: string | Date | null
   }
@@ -221,7 +262,6 @@ export async function actualizarContrato(
   const toYMD = (v: any): string | undefined => {
     if (!v) return undefined
     if (typeof v === 'string') {
-      // si ya viene 'YYYY-MM-DD', úsalo tal cual
       if (/^\d{4}-\d{2}-\d{2}$/.test(v)) return v
       const d = new Date(v)
       if (Number.isNaN(d.getTime())) return undefined
@@ -238,11 +278,9 @@ export async function actualizarContrato(
     return `${yyyy}-${mm}-${dd}`
   }
 
-  // Soporta alias usados en el front
   const fechaTerminacion =
     payload.fechaTerminacion ?? (payload as any).fechaFin ?? (payload as any).fechaFinalizacion
 
-  // Coerce de boolean por si viniera como string
   const toBool = (v: any): boolean | undefined => {
     if (typeof v === 'boolean') return v
     if (v === 'true') return true
@@ -250,7 +288,7 @@ export async function actualizarContrato(
     return undefined
   }
 
-  const toSend: any = {
+  const raw: any = {
     identificacion: payload.identificacion,
     sedeId: payload.sedeId,
     cargoId: payload.cargoId,
@@ -258,7 +296,7 @@ export async function actualizarContrato(
     tipoContrato: payload.tipoContrato,
     terminoContrato: payload.terminoContrato
       ? normalizeTerminoContrato(payload.terminoContrato)
-      : payload.terminoContrato, // puede ser null/undefined
+      : payload.terminoContrato,
     fechaInicio: toYMD(payload.fechaInicio as any),
     fechaTerminacion: toYMD(fechaTerminacion as any),
     periodoPrueba: payload.periodoPrueba,
@@ -279,14 +317,9 @@ export async function actualizarContrato(
     razonSocialId: payload.razonSocialId,
   }
 
-  // Quita claves undefined para no ensuciar el PATCH
-  Object.keys(toSend).forEach((k) => toSend[k] === undefined && delete toSend[k])
+  const toSend = omitUndefined(raw)
 
-  return fetchData<Contrato>(`${API_BASE_URL}/contratos/${contratoId}`, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(toSend),
-  })
+  return fetchData<Contrato>(`${API_BASE_URL}/contratos/${contratoId}`, jsonOptions('PATCH', toSend))
 }
 
 /** Activar/Inactivar contrato rápidamente (usa PATCH /contratos/:id) */
@@ -298,17 +331,25 @@ export async function cambiarEstadoContrato(
 }
 
 export async function eliminarContrato(id: number): Promise<{ message: string }> {
+  const actorId = getActorId()
+  const headers: Record<string, string> = {}
+  if (actorId) headers['x-actor-id'] = String(actorId)
+
   return fetchData<{ message: string }>(`${API_BASE_URL}/contratos/${id}`, {
     method: 'DELETE',
+    headers,
+    credentials: 'include',
   })
 }
 
 export async function obtenerContratoPorId(id: number): Promise<Contrato> {
-  return fetchData<Contrato>(`${API_BASE_URL}/contratos/${id}`)
+  return fetchData<Contrato>(`${API_BASE_URL}/contratos/${id}`, { credentials: 'include' })
 }
 
 export async function obtenerContratosPorUsuario(usuarioId: number): Promise<Contrato[]> {
-  return fetchData<Contrato[]>(`${API_BASE_URL}/usuarios/${usuarioId}/contratos`)
+  return fetchData<Contrato[]>(`${API_BASE_URL}/usuarios/${usuarioId}/contratos`, {
+    credentials: 'include',
+  })
 }
 
 /* =========================
@@ -347,10 +388,7 @@ export async function anexarContrato(form: {
     )
   }
 
-  return fetchData<AnexarContratoResponse>(`${API_BASE_URL}/contratos/anexar-fisico`, {
-    method: 'POST',
-    body: fd,
-  })
+  return fetchData<AnexarContratoResponse>(`${API_BASE_URL}/contratos/anexar-fisico`, formOptions('POST', fd))
 }
 
 /* =========================
@@ -358,33 +396,5 @@ export async function anexarContrato(form: {
 ========================== */
 
 export async function crearContratoSalario(payload: ContratoSalarioPayload): Promise<any> {
-  return fetchData<any>(`${API_BASE_URL}/contratos/${payload.contratoId}/salarios`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-  })
-}
-
-/* ======================
-   Pasos (mínimos)
-====================== */
-
-export async function actualizarPasoContrato(
-  contratoId: number,
-  pasoId: number,
-  payload: { completado: boolean; observacion?: string; archivo?: File }
-): Promise<ContratoPaso> {
-  const fd = new FormData()
-  fd.append('completado', String(payload.completado))
-  if (payload.observacion) fd.append('observacion', payload.observacion)
-  if (payload.archivo) fd.append('archivo', payload.archivo, payload.archivo.name)
-
-  return fetchData<ContratoPaso>(`${API_BASE_URL}/contratos/${contratoId}/pasos/${pasoId}`, {
-    method: 'PUT',
-    body: fd,
-  })
-}
-
-export async function obtenerPasosContrato(contratoId: number): Promise<ContratoPaso[]> {
-  return fetchData<ContratoPaso[]>(`${API_BASE_URL}/contratos/${contratoId}/pasos`)
+  return fetchData<any>(`${API_BASE_URL}/contratos/${payload.contratoId}/salarios`, jsonOptions('POST', payload))
 }

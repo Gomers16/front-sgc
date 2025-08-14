@@ -1,94 +1,118 @@
-import { fetchData } from './UserService'; // Importamos la función genérica
+// src/services/contratoEventosService.ts
 
-// URL base para las peticiones de eventos de contrato
-const API_BASE_URL = '/api';
+const API_BASE_URL =
+  ((import.meta as any)?.env?.VITE_API_URL?.replace(/\/+$/, '') || 'http://localhost:3333') + '/api'
 
-// --- Interfaces para tipado de datos ---
+/* ===== Helpers ===== */
 
-/**
- * Interfaz para un evento de contrato.
- */
+function getActorId(): number | null {
+  const v = localStorage.getItem('actorId') ?? sessionStorage.getItem('actorId')
+  const n = Number(v)
+  return Number.isFinite(n) && n > 0 ? n : null
+}
+
+async function fetchData<T>(url: string, options?: RequestInit): Promise<T> {
+  const resp = await fetch(url, options)
+  if (!resp.ok) {
+    let msg = resp.statusText
+    try {
+      const j = await resp.json()
+      msg = j?.message || j?.error || msg
+    } catch {
+      try {
+        const t = await resp.text()
+        if (t) msg = t
+      } catch {}
+    }
+    throw new Error(msg)
+  }
+  if (resp.status === 204) return {} as T
+  return resp.json()
+}
+
+function jsonOptions(method: string, data: any): RequestInit {
+  const actorId = getActorId()
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+  if (actorId) headers['x-actor-id'] = String(actorId)
+  const body = JSON.stringify({ ...(data ?? {}), actorId: actorId ?? null })
+  return { method, headers, body, credentials: 'include' }
+}
+
+function formOptions(method: string, form: FormData): RequestInit {
+  const actorId = getActorId()
+  if (actorId && !form.has('actorId')) form.append('actorId', String(actorId))
+  const headers: Record<string, string> = {}
+  if (actorId) headers['x-actor-id'] = String(actorId)
+  return { method, headers, body: form, credentials: 'include' }
+}
+
+/* ===== Tipos ===== */
+
 export interface ContratoEvento {
-    id: number;
-    contratoId: number;
-    tipo: 'incapacidad' | 'suspension' | 'licencia' | 'permiso' | 'vacaciones' | 'cesantias' | 'disciplinario' | 'terminacion';
-    subtipo?: string;
-    fechaInicio: string; // Formato ISO 8601 (YYYY-MM-DD)
-    fechaFin?: string; // Formato ISO 8601 (YYYY-MM-DD)
-    descripcion?: string;
-    documentoUrl?: string; // Ruta al archivo adjunto
-    createdAt: string;
-    updatedAt: string;
+  id: number
+  contratoId: number
+  tipo:
+    | 'incapacidad'
+    | 'suspension'
+    | 'licencia'
+    | 'permiso'
+    | 'vacaciones'
+    | 'cesantias'
+    | 'disciplinario'
+    | 'terminacion'
+  subtipo?: string
+  fechaInicio: string // YYYY-MM-DD
+  fechaFin?: string
+  descripcion?: string
+  documentoUrl?: string
+  createdAt: string
+  updatedAt: string
 }
 
-/**
- * Función para obtener todos los eventos de un contrato específico.
- * @param contratoId El ID del contrato.
- * @returns Una promesa que resuelve con un arreglo de eventos.
- */
+/* ===== API ===== */
+
 export async function obtenerEventosDeContrato(contratoId: number): Promise<ContratoEvento[]> {
-    try {
-        return await fetchData<ContratoEvento[]>(`${API_BASE_URL}/contratos/${contratoId}/eventos`);
-    } catch (error) {
-        console.error('Error al obtener los eventos de contrato:', error);
-        throw error;
-    }
+  return fetchData<ContratoEvento[]>(`${API_BASE_URL}/contratos/${contratoId}/eventos`, {
+    credentials: 'include',
+  })
 }
 
-/**
- * Función para crear un nuevo evento para un contrato.
- * @param contratoId El ID del contrato.
- * @param eventData Los datos del evento, incluyendo el archivo si aplica.
- * @returns Una promesa que resuelve con el evento creado.
- */
-export async function crearEventoDeContrato(contratoId: number, eventData: Partial<ContratoEvento> | FormData): Promise<ContratoEvento> {
-    const isFormData = eventData instanceof FormData;
-    const body = isFormData ? eventData : JSON.stringify(eventData);
-
-    try {
-        return await fetchData<ContratoEvento>(`${API_BASE_URL}/contratos/${contratoId}/eventos`, {
-            method: 'POST',
-            body: body,
-            headers: isFormData ? undefined : { 'Content-Type': 'application/json' },
-        });
-    } catch (error) {
-        console.error('Error al crear el evento de contrato:', error);
-        throw error;
-    }
+export async function crearEventoDeContrato(
+  contratoId: number,
+  eventData: Partial<ContratoEvento> | FormData
+): Promise<ContratoEvento> {
+  // Permite JSON o FormData
+  if (eventData instanceof FormData) {
+    return fetchData<ContratoEvento>(
+      `${API_BASE_URL}/contratos/${contratoId}/eventos`,
+      formOptions('POST', eventData)
+    )
+  }
+  return fetchData<ContratoEvento>(
+    `${API_BASE_URL}/contratos/${contratoId}/eventos`,
+    jsonOptions('POST', eventData)
+  )
 }
 
-/**
- * Función para actualizar un evento de contrato existente.
- * @param contratoId El ID del contrato al que pertenece el evento.
- * @param eventId El ID del evento a actualizar.
- * @param eventData Los datos del evento a actualizar.
- * @returns Una promesa que resuelve con el evento actualizado.
- */
-export async function actualizarEventoDeContrato(contratoId: number, eventId: number, eventData: Partial<ContratoEvento>): Promise<ContratoEvento> {
-    try {
-        return await fetchData<ContratoEvento>(`${API_BASE_URL}/contratos/${contratoId}/eventos/${eventId}`, {
-            method: 'PUT',
-            body: JSON.stringify(eventData),
-        });
-    } catch (error) {
-        console.error('Error al actualizar el evento de contrato:', error);
-        throw error;
-    }
+export async function actualizarEventoDeContrato(
+  contratoId: number,
+  eventId: number,
+  eventData: Partial<ContratoEvento>
+): Promise<ContratoEvento> {
+  return fetchData<ContratoEvento>(
+    `${API_BASE_URL}/contratos/${contratoId}/eventos/${eventId}`,
+    jsonOptions('PUT', eventData)
+  )
 }
 
-/**
- * Función para eliminar un evento de contrato.
- * @param contratoId El ID del contrato al que pertenece el evento.
- * @param eventId El ID del evento a eliminar.
- * @returns Una promesa que resuelve al finalizar la eliminación.
- */
 export async function eliminarEventoDeContrato(contratoId: number, eventId: number): Promise<void> {
-    try {
-        await fetchData<void>(`${API_BASE_URL}/contratos/${contratoId}/eventos/${eventId}`, {
-            method: 'DELETE',
-        });
-    } catch (error) {
-        console.error('Error al eliminar el evento de contrato:', error);
-        throw error;
-    }
+  const actorId = getActorId()
+  const headers: Record<string, string> = {}
+  if (actorId) headers['x-actor-id'] = String(actorId)
+
+  await fetchData<void>(`${API_BASE_URL}/contratos/${contratoId}/eventos/${eventId}`, {
+    method: 'DELETE',
+    headers,
+    credentials: 'include',
+  })
 }

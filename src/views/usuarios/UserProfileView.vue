@@ -132,7 +132,7 @@
                   </v-col>
                   <v-col cols="12" sm="6" v-if="primaryContrato?.afp || user.afp">
                     <v-list-item prepend-icon="mdi-piggy-bank">
-                      <v-list-item-title class="font-weight-bold">AFP:</v-list-item-title>
+                      <v-list-item-title class="font-weight-bold">AFP :</v-list-item-title>
                       <v-list-item-subtitle>{{ primaryContrato?.afp?.nombre || user.afp?.nombre }}</v-list-item-subtitle>
                     </v-list-item>
                   </v-col>
@@ -928,17 +928,13 @@ const isLoadingUser = ref(true)
 const error = ref<string | null>(null)
 const isLoadingAction = ref(false)
 
-/** ========= Actor logueado =========
- *  Si usas Pinia/Store, reemplaza este bloque por la lectura real de tu usuario
- *  p.ej. const { user: me } = useAuthStore(); const actorId = computed(()=> me?.id ?? null)
- */
+/** ========= Actor logueado ========= */
 const actorId = computed<number | null>(() => {
   const tryNum = (k: string) => {
     const v = localStorage.getItem(k) ?? sessionStorage.getItem(k)
     const n = Number(v)
     return Number.isFinite(n) ? n : null
   }
-  // posibles claves donde guardes el id del autenticado
   return tryNum('actorId') ?? tryNum('authUserId') ?? tryNum('userId') ?? null
 })
 // ===================================
@@ -1062,6 +1058,59 @@ const parseMaybeJson = (v: any) => {
 const isNamedRel = (val: any): val is { id?: number | string; nombre?: string } =>
   !!val && typeof val === 'object' && ('nombre' in val || 'id' in val)
 
+// === Normalizadores para comparar valores y filtrar cambios “no reales”
+const toNumberLoose = (v: any): number | null => {
+  if (v === null || v === undefined || v === '') return null
+  if (typeof v === 'number') return Number.isFinite(v) ? v : null
+  if (typeof v === 'string') {
+    const s = v.replace(/\./g, '').replace(/,/g, '.').trim()
+    const n = Number(s)
+    return Number.isFinite(n) ? n : null
+  }
+  return null
+}
+
+const toBoolLoose = (v: any): boolean | null => {
+  if (v === null || v === undefined || v === '') return null
+  if (typeof v === 'boolean') return v
+  if (typeof v === 'string') {
+    const s = v.toLowerCase().trim()
+    if (s === 'true' || s === '1' || s === 'si' || s === 'sí') return true
+    if (s === 'false' || s === '0' || s === 'no') return false
+  }
+  return null
+}
+
+const equalForField = (campo: string, a: any, b: any): boolean => {
+  const va = parseMaybeJson(a)
+  const vb = parseMaybeJson(b)
+
+  // booleans (recomendaciones médicas)
+  if (campo === 'tieneRecomendacionesMedicas') {
+    const ba = toBoolLoose(va)
+    const bb = toBoolLoose(vb)
+    return ba === bb
+  }
+
+  // salarios
+  if (['salarioBasico','bonoSalarial','auxilioTransporte','auxilioNoSalarial'].includes(campo)) {
+    const na = toNumberLoose(va)
+    const nb = toNumberLoose(vb)
+    return na === nb
+  }
+
+  // relaciones *_Id
+  if (campo.endsWith('Id')) {
+    const idA = isNamedRel(va) ? Number(va.id) : Number(va)
+    const idB = isNamedRel(vb) ? Number(vb.id) : Number(vb)
+    if (!Number.isNaN(idA) && !Number.isNaN(idB)) return idA === idB
+    return JSON.stringify(va) === JSON.stringify(vb)
+  }
+
+  // fechas / strings / otros
+  return (va ?? null) === (vb ?? null)
+}
+
 const renderValor = (campo: string, raw: any, contrato?: Contrato) => {
   const v = parseMaybeJson(raw)
   if (v === null || v === undefined || v === '') return 'N/A'
@@ -1107,7 +1156,7 @@ const renderValor = (campo: string, raw: any, contrato?: Contrato) => {
   return String(v)
 }
 
-// Construye timeline combinado
+// Construye timeline combinado (filtrando cambios “no reales”)
 const buildTimeline = (c: Contrato): TimelineItem[] => {
   const items: TimelineItem[] = []
 
@@ -1115,14 +1164,16 @@ const buildTimeline = (c: Contrato): TimelineItem[] => {
     items.push({ ...h, kind: 'estado' })
   })
 
-  ;(c.cambios || []).forEach((chg: any) => {
-    items.push({
-      ...chg,
-      oldValue: parseMaybeJson(chg.oldValue),
-      newValue: parseMaybeJson(chg.newValue),
-      kind: 'cambio',
+  ;(c.cambios || [])
+    .filter((chg: any) => !equalForField(chg.campo, chg.oldValue, chg.newValue))
+    .forEach((chg: any) => {
+      items.push({
+        ...chg,
+        oldValue: parseMaybeJson(chg.oldValue),
+        newValue: parseMaybeJson(chg.newValue),
+        kind: 'cambio',
+      })
     })
-  })
 
   // Orden descendente por fecha
   return items.sort((a, b) => {
@@ -1273,7 +1324,6 @@ const confirmarCambioEstadoContrato = async (contratoId: number, nuevoEstado: 'a
   if (confirmed) {
     isLoadingAction.value = true
     try {
-      // 👇 enviamos actorId (evita "Sistema")
       await actualizarContrato(contratoId, { estado: nuevoEstado, actorId: actorId.value ?? undefined })
       showAlert('Éxito', nuevoEstado === 'activo' ? 'Contrato activado correctamente.' : 'Contrato desactivado correctamente.')
       await loadUser()
@@ -1307,7 +1357,6 @@ const submitNewEvent = async () => {
   if (newEvent.value.fechaFin) payload.append('fechaFin', newEvent.value.fechaFin as string)
   if (newEvent.value.descripcion) payload.append('descripcion', newEvent.value.descripcion as string)
   if (fileToUpload) payload.append('documento', fileToUpload)
-  // 👇 actorId para registrar quién crea el evento
   if (actorId.value != null) payload.append('actorId', String(actorId.value))
 
   try {
@@ -1349,7 +1398,6 @@ const submitContractFinalization = async (contratoId: number) => {
 
   isLoadingAction.value = true
   try {
-    // 👇 actorId para que el historial muestre al usuario real
     await actualizarContrato(contratoId, {
       estado: 'inactivo',
       fechaTerminacion: finalizationDate.value,
@@ -1388,7 +1436,6 @@ const submitEditPaso = async () => {
   const payload = new FormData()
   payload.append('observacion', pasoEditData.value.observacion || '')
   if (fileToUpload) payload.append('archivo', fileToUpload)
-  // 👇 actorId por si tu endpoint de pasos lo registra
   if (actorId.value != null) payload.append('actorId', String(actorId.value))
 
   try {
@@ -1425,3 +1472,4 @@ onMounted(() => {
 .v-card-title, .v-card-subtitle { white-space: normal; word-wrap: break-word; }
 .v-list-item-title, .v-list-item-subtitle { word-break: break-word; }
 </style>
+
