@@ -588,37 +588,17 @@
               <td>{{ c.sede?.nombre || '—' }}</td>
               <td>{{ c.cargo?.nombre || '—' }}</td>
 
-              <!-- ⬇️ VER / DESCARGAR ARCHIVOS DEL CONTRATO -->
+              <!-- ⬇️ SOLO DESCARGAR ARCHIVO DEL CONTRATO -->
               <td>
                 <div v-if="c.rutaArchivoContratoFisico" class="d-flex flex-wrap ga-2">
                   <v-btn
                     size="x-small"
-                    color="primary"
-                    variant="tonal"
-                    prepend-icon="mdi-file-pdf-box"
-                    @click="verArchivo(c.rutaArchivoContratoFisico)"
-                  >Ver</v-btn>
-
-                  <v-btn
-                    size="x-small"
                     variant="tonal"
                     prepend-icon="mdi-download"
-                    @click="descargarArchivo(c.rutaArchivoContratoFisico, `contrato_${c.id}.pdf`)"
-                  >Descargar</v-btn>
-
-                  <!-- Opcional: si tu backend expone la ruta de recomendación médica -->
-                  <v-tooltip v-if="c.rutaArchivoRecomendacionMedica" text="Descargar recomendación">
-                    <template #activator="{ props }">
-                      <v-btn
-                        v-bind="props"
-                        size="x-small"
-                        color="teal"
-                        variant="tonal"
-                        prepend-icon="mdi-file-document-outline"
-                        @click="descargarArchivo(c.rutaArchivoRecomendacionMedica!, `recomendacion_${c.id}.pdf`)"
-                      >Recom.</v-btn>
-                    </template>
-                  </v-tooltip>
+                    @click="descargarArchivo(`/api/contratos/${c.id}/archivo`)"
+                  >
+                    Descargar
+                  </v-btn>
                 </div>
                 <span v-else>—</span>
               </td>
@@ -1213,24 +1193,12 @@ const onFileChange = (event: Event) => {
 const onFilePasoChange = () => { /* noop */ }
 
 /* ===========================
-   VER / DESCARGAR ARCHIVOS
+   DESCARGAR ARCHIVO
    =========================== */
-function verArchivo(url?: string | null) {
-  if (!url) return showAlert('Archivo no disponible', 'Este contrato no tiene un archivo asociado.')
-  window.open(url, '_blank', 'noopener')
-}
-
-function nombreSugeridoDesdeUrl(url: string, fallback = 'archivo.pdf') {
-  try {
-    const u = new URL(url, window.location.origin)
-    const last = u.pathname.split('/').filter(Boolean).pop()
-    return last || fallback
-  } catch { return fallback }
-}
 
 function parseFilenameFromContentDisposition(header: string | null): string | null {
   if (!header) return null
-  // Content-Disposition: attachment; filename="contrato_123.pdf"
+  // Content-Disposition: attachment; filename="cuid_original.pdf"
   const match = /filename\*?=(?:UTF-8''|")?([^\";]+)/i.exec(header)
   if (match && match[1]) {
     try { return decodeURIComponent(match[1].replace(/\"/g, '')) } catch { return match[1].replace(/\"/g, '') }
@@ -1246,7 +1214,7 @@ async function descargarArchivo(url?: string | null, sugerido?: string) {
     const blob = await resp.blob()
 
     let filename = parseFilenameFromContentDisposition(resp.headers.get('content-disposition'))
-    if (!filename) filename = sugerido || nombreSugeridoDesdeUrl(url)
+    if (!filename) filename = sugerido || 'archivo.pdf'
 
     const link = document.createElement('a')
     const objectUrl = URL.createObjectURL(blob)
@@ -1257,9 +1225,8 @@ async function descargarArchivo(url?: string | null, sugerido?: string) {
     link.remove()
     URL.revokeObjectURL(objectUrl)
   } catch (e) {
-    console.error('Descarga directa falló, abriendo en nueva pestaña como fallback:', e)
-    // Fallback: abrir en nueva pestaña si no tenemos permisos para descargar como blob
-    window.open(url, '_blank', 'noopener')
+    console.error('Descarga falló, abriendo como fallback:', e)
+    window.open(url!, '_blank', 'noopener')
   }
 }
 
