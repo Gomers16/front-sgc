@@ -1,11 +1,17 @@
 <template>
   <v-container class="py-8">
     <v-card class="elevation-12 rounded-xl pa-8">
-      <div v-if="isLoadingUser" class="d-flex justify-center align-center" style="min-height: 400px;">
-        <v-progress-circular indeterminate color="primary" size="64"></v-progress-circular>
+      <!-- Loading -->
+      <div
+        v-if="isLoadingUser"
+        class="d-flex justify-center align-center"
+        style="min-height: 400px;"
+      >
+        <v-progress-circular indeterminate color="primary" size="64" />
         <div class="ml-4 text-h6 text-grey-darken-1">Cargando perfil...</div>
       </div>
 
+      <!-- Error -->
       <div v-else-if="error" class="text-center py-10">
         <v-icon size="80" color="error">mdi-alert-circle-outline</v-icon>
         <h3 class="text-h5 font-weight-bold mt-4 text-error">Error al cargar el perfil</h3>
@@ -16,7 +22,9 @@
         <v-btn color="primary" class="mt-4" @click="loadUser">Reintentar</v-btn>
       </div>
 
+      <!-- Content -->
       <div v-else-if="user">
+        <!-- Header -->
         <v-row align="center" justify="center" class="mb-8">
           <v-col cols="12" md="auto" class="d-flex justify-center">
             <div class="avatar-container">
@@ -43,14 +51,14 @@
             <v-card-title class="text-h2 font-weight-black text-blue-grey-darken-3 mb-1">
               {{ user.nombres }} {{ user.apellidos }}
             </v-card-title>
-            <v-card-subtitle class="text-h5 text-blue-grey-darken-1">
-              <v-icon left>mdi-briefcase-account</v-icon>
+            <v-card-subtitle class="text-h5 text-blue-grey-darken-1 d-flex align-center">
+              <v-icon class="mr-1">mdi-briefcase-account</v-icon>
               {{ primaryContrato?.cargo?.nombre || user.cargo?.nombre || 'Sin Cargo' }}
             </v-card-subtitle>
           </v-col>
         </v-row>
 
-        <v-divider class="my-6"></v-divider>
+        <v-divider class="my-6" />
 
         <v-card-text>
           <v-row>
@@ -58,7 +66,7 @@
             <v-col cols="12" md="6">
               <v-card class="elevation-4 rounded-lg h-100">
                 <v-card-title class="text-h6 font-weight-bold text-white bg-blue-grey-darken-2 pa-4">
-                  <v-icon left>mdi-account-details</v-icon>
+                  <v-icon class="mr-1">mdi-account-details</v-icon>
                   Información de Contacto
                 </v-card-title>
                 <v-list dense class="pa-4">
@@ -82,11 +90,11 @@
               </v-card>
             </v-col>
 
-            <!-- Detalles de Empleo (desde contrato prioritario) -->
+            <!-- Detalles de Empleo -->
             <v-col cols="12" md="6">
               <v-card class="elevation-4 rounded-lg h-100">
                 <v-card-title class="text-h6 font-weight-bold text-white bg-blue-grey-darken-2 pa-4">
-                  <v-icon left>mdi-briefcase</v-icon>
+                  <v-icon class="mr-1">mdi-briefcase</v-icon>
                   Detalles de Empleo
                 </v-card-title>
                 <v-list dense class="pa-4">
@@ -110,41 +118,115 @@
               </v-card>
             </v-col>
 
-            <!-- Seguridad Social -->
+            <!-- Seguridad Social (con tooltips) -->
             <v-col cols="12" md="6">
               <v-card class="elevation-4 rounded-lg mt-6 h-100">
                 <v-card-title class="text-h6 font-weight-bold text-white bg-blue-grey-darken-2 pa-4">
-                  <v-icon left>mdi-security</v-icon>
+                  <v-icon class="mr-1">mdi-security</v-icon>
                   Información de Seguridad Social
                 </v-card-title>
                 <v-row class="pa-4">
+                  <!-- EPS -->
                   <v-col cols="12" sm="6" v-if="primaryContrato?.eps || user.eps">
                     <v-list-item prepend-icon="mdi-hospital-building">
-                      <v-list-item-title class="font-weight-bold">EPS:</v-list-item-title>
+                      <v-list-item-title class="font-weight-bold d-flex align-center">
+                        EPS
+                        <v-tooltip text="ENTIDAD PRESTADORA DE SERVICIOS DE SALUD" location="top">
+                          <template #activator="{ props }">
+                            <v-icon
+                              v-bind="props"
+                              icon="mdi-help-circle-outline"
+                              size="16"
+                              class="ml-1 text-medium-emphasis"
+                              aria-label="¿Qué es EPS?"
+                            />
+                          </template>
+                        </v-tooltip>:
+                      </v-list-item-title>
                       <v-list-item-subtitle>{{ primaryContrato?.eps?.nombre || user.eps?.nombre }}</v-list-item-subtitle>
                     </v-list-item>
                   </v-col>
+
+                  <!-- ARL -->
                   <v-col cols="12" sm="6" v-if="primaryContrato?.arl || user.arl">
                     <v-list-item prepend-icon="mdi-account-injury">
-                      <v-list-item-title class="font-weight-bold">ARL:</v-list-item-title>
+                      <v-list-item-title class="font-weight-bold d-flex align-center">
+                        ARL
+                        <v-tooltip text="ADMINISTRADORA DE RIESGOS LABORALES" location="top">
+                          <template #activator="{ props }">
+                            <v-icon
+                              v-bind="props"
+                              icon="mdi-help-circle-outline"
+                              size="16"
+                              class="ml-1 text-medium-emphasis"
+                              aria-label="¿Qué es ARL?"
+                            />
+                          </template>
+                        </v-tooltip>:
+                      </v-list-item-title>
                       <v-list-item-subtitle>{{ primaryContrato?.arl?.nombre || user.arl?.nombre }}</v-list-item-subtitle>
                     </v-list-item>
                   </v-col>
+
+                  <!-- AFP -->
                   <v-col cols="12" sm="6" v-if="primaryContrato?.afp || user.afp">
                     <v-list-item prepend-icon="mdi-piggy-bank">
-                      <v-list-item-title class="font-weight-bold">AFP :</v-list-item-title>
+                      <v-list-item-title class="font-weight-bold d-flex align-center">
+                        AFP
+                        <v-tooltip text="ADMINISTRADORA DE FONDO DE PENSIONES" location="top">
+                          <template #activator="{ props }">
+                            <v-icon
+                              v-bind="props"
+                              icon="mdi-help-circle-outline"
+                              size="16"
+                              class="ml-1 text-medium-emphasis"
+                              aria-label="¿Qué es AFP?"
+                            />
+                          </template>
+                        </v-tooltip>:
+                      </v-list-item-title>
                       <v-list-item-subtitle>{{ primaryContrato?.afp?.nombre || user.afp?.nombre }}</v-list-item-subtitle>
                     </v-list-item>
                   </v-col>
+
+                  <!-- AFC -->
                   <v-col cols="12" sm="6" v-if="primaryContrato?.afc || user.afc">
                     <v-list-item prepend-icon="mdi-bank-transfer">
-                      <v-list-item-title class="font-weight-bold">AFC:</v-list-item-title>
+                      <v-list-item-title class="font-weight-bold d-flex align-center">
+                        AFC
+                        <v-tooltip text="ADMINISTRADORA DE FONDO DE CESANTÍAS" location="top">
+                          <template #activator="{ props }">
+                            <v-icon
+                              v-bind="props"
+                              icon="mdi-help-circle-outline"
+                              size="16"
+                              class="ml-1 text-medium-emphasis"
+                              aria-label="¿Qué es AFC?"
+                            />
+                          </template>
+                        </v-tooltip>:
+                      </v-list-item-title>
                       <v-list-item-subtitle>{{ primaryContrato?.afc?.nombre || user.afc?.nombre }}</v-list-item-subtitle>
                     </v-list-item>
                   </v-col>
+
+                  <!-- CCF -->
                   <v-col cols="12" sm="6" v-if="primaryContrato?.ccf || user.ccf">
                     <v-list-item prepend-icon="mdi-family-tree">
-                      <v-list-item-title class="font-weight-bold">CCF:</v-list-item-title>
+                      <v-list-item-title class="font-weight-bold d-flex align-center">
+                        CCF
+                        <v-tooltip text="CAJA DE COMPENSACIÓN FAMILIAR" location="top">
+                          <template #activator="{ props }">
+                            <v-icon
+                              v-bind="props"
+                              icon="mdi-help-circle-outline"
+                              size="16"
+                              class="ml-1 text-medium-emphasis"
+                              aria-label="¿Qué es CCF?"
+                            />
+                          </template>
+                        </v-tooltip>:
+                      </v-list-item-title>
                       <v-list-item-subtitle>{{ primaryContrato?.ccf?.nombre || user.ccf?.nombre }}</v-list-item-subtitle>
                     </v-list-item>
                   </v-col>
@@ -162,7 +244,7 @@
             <v-col cols="12" md="6">
               <v-card class="elevation-4 rounded-lg mt-6 h-100">
                 <v-card-title class="text-h6 font-weight-bold text-white bg-blue-grey-darken-2 pa-4">
-                  <v-icon left>mdi-account-cog</v-icon>
+                  <v-icon class="mr-1">mdi-account-cog</v-icon>
                   Configuraciones
                 </v-card-title>
                 <v-row class="pa-4">
@@ -192,11 +274,11 @@
           </v-row>
         </v-card-text>
 
-        <v-divider class="my-6"></v-divider>
+        <v-divider class="my-6" />
 
         <!-- Contratos -->
-        <v-card-title class="text-h5 font-weight-bold text-blue-grey-darken-3 mb-4">
-          <v-icon left>mdi-file-document-outline</v-icon>
+        <v-card-title class="text-h5 font-weight-bold text-blue-grey-darken-3 mb-4 d-flex align-center">
+          <v-icon class="mr-1">mdi-file-document-outline</v-icon>
           Información de Contratos
         </v-card-title>
 
@@ -210,8 +292,12 @@
               >
                 <v-expansion-panel-title>
                   Contrato #{{ contrato.id }} - Tipo: {{ contrato.tipoContrato }}
-                  <v-spacer></v-spacer>
-                  <v-chip :color="(contrato.estado || '').toLowerCase() === 'activo' ? 'success' : 'error'" class="font-weight-bold" small>
+                  <v-spacer />
+                  <v-chip
+                    :color="(contrato.estado || '').toLowerCase() === 'activo' ? 'success' : 'error'"
+                    class="font-weight-bold"
+                    small
+                  >
                     {{ contrato.estado }}
                   </v-chip>
                 </v-expansion-panel-title>
@@ -220,6 +306,8 @@
                   <v-tabs v-model="contrato.activeTab" color="primary" align-tabs="center">
                     <v-tab value="detalles">Detalles</v-tab>
                     <v-tab value="eventos">Eventos</v-tab>
+                    <v-tab value="fin">Fin</v-tab>
+                    <v-tab value="historial">Historial</v-tab>
                   </v-tabs>
 
                   <v-window v-model="contrato.activeTab" class="pa-4">
@@ -285,8 +373,6 @@
                       <v-tabs v-model="contrato.activeSubTab" color="secondary" align-tabs="center" class="mb-4">
                         <v-tab value="inicio">Inicio</v-tab>
                         <v-tab value="desarrollo">Desarrollo</v-tab>
-                        <v-tab value="fin">Fin</v-tab>
-                        <v-tab value="historial">Historial</v-tab>
                       </v-tabs>
 
                       <v-window v-model="contrato.activeSubTab" class="pa-2">
@@ -305,8 +391,12 @@
                                 size="small"
                               >
                                 <div class="d-flex justify-space-between align-center mb-1">
-                                  <span class="font-weight-bold text-subtitle-1">{{ paso.nombrePaso }} ({{ paso.fase }})</span>
-                                  <span class="text-caption text-grey-darken-1">{{ paso.fecha ? formatDate(paso.fecha) : 'Sin fecha' }}</span>
+                                  <span class="font-weight-bold text-subtitle-1">
+                                    {{ paso.nombrePaso }} ({{ paso.fase }})
+                                  </span>
+                                  <span class="text-caption text-grey-darken-1">
+                                    {{ paso.fecha ? formatDate(paso.fecha) : 'Sin fecha' }}
+                                  </span>
                                 </div>
 
                                 <div class="text-body-2 text-grey-darken-2">
@@ -380,7 +470,7 @@
                               >
                                 <div class="d-flex justify-space-between align-center mb-1">
                                   <span class="font-weight-bold text-subtitle-1">{{ evento.tipo }}</span>
-                                  <v-spacer></v-spacer>
+                                  <v-spacer />
                                   <span class="text-caption text-grey-darken-1">{{ formatDate(evento.createdAt) }}</span>
                                 </div>
 
@@ -417,159 +507,174 @@
                             No hay eventos registrados para este contrato.
                           </div>
                         </v-window-item>
-
-                        <!-- Fin -->
-                        <v-window-item value="fin">
-                          <h4 class="text-h6 font-weight-bold mb-3 text-blue-grey-darken-2">
-                            Finalización del Contrato
-                          </h4>
-
-                          <div v-if="(contrato.estado || '').toLowerCase() === 'inactivo'">
-                            <v-alert type="info" variant="tonal" class="mb-4">
-                              Este contrato ha sido finalizado.
-                            </v-alert>
-
-                            <v-list dense>
-                              <v-list-item>
-                                <v-list-item-title class="font-weight-bold">Fecha de Finalización:</v-list-item-title>
-                                <v-list-item-subtitle>{{ contrato.fechaTerminacion ? formatDate(contrato.fechaTerminacion) : 'N/A' }}</v-list-item-subtitle>
-                              </v-list-item>
-
-                              <v-list-item>
-                                <v-list-item-title class="font-weight-bold">Motivo de Finalización:</v-list-item-title>
-                                <v-list-item-subtitle>{{ contrato.motivoFinalizacion || 'N/A' }}</v-list-item-subtitle>
-                              </v-list-item>
-                            </v-list>
-                          </div>
-
-                          <v-form ref="finalizationForm" v-else>
-                            <v-row>
-                              <v-col cols="12" md="6">
-                                <v-text-field
-                                  v-model="finalizationDate"
-                                  label="Fecha de Finalización"
-                                  type="date"
-                                  variant="outlined"
-                                  :rules="[v => !!v || 'La fecha de finalización es obligatoria']"
-                                  required
-                                />
-                              </v-col>
-                              <v-col cols="12">
-                                <v-textarea
-                                  v-model="finalizationReason"
-                                  label="Motivo de Finalización"
-                                  variant="outlined"
-                                  :rules="[v => !!v || 'El motivo de finalización es obligatorio']"
-                                  required
-                                />
-                              </v-col>
-                            </v-row>
-
-                            <v-card-actions class="justify-end pa-0 mt-4">
-                              <v-btn
-                                color="error"
-                                variant="elevated"
-                                prepend-icon="mdi-flag-checkered"
-                                @click="confirmFinalizeContract(contrato.id)"
-                                :loading="isLoadingAction"
-                              >
-                                Finalizar Contrato
-                              </v-btn>
-                            </v-card-actions>
-                          </v-form>
-                        </v-window-item>
-
-                        <!-- Historial (estados + cambios) -->
-                        <v-window-item value="historial">
-                          <h4 class="text-h6 font-weight-bold mb-3 text-blue-grey-darken-2">
-                            Historial del Contrato (estados y cambios)
-                          </h4>
-
-                          <div v-if="contrato.timeline?.length">
-                            <v-timeline side="end" density="compact">
-                              <v-timeline-item
-                                v-for="item in contrato.timeline"
-                                :key="item.kind + '-' + item.id"
-                                :dot-color="item.kind === 'estado'
-                                  ? (item.newEstado === 'activo' ? 'success' : 'error')
-                                  : 'secondary'"
-                                size="small"
-                              >
-                                <!-- ITEM: CAMBIO DE ESTADO -->
-                                <template v-if="item.kind === 'estado'">
-                                  <div class="d-flex justify-space-between align-center mb-1">
-                                    <span class="font-weight-bold text-subtitle-1">
-                                      Cambio de Estado: {{ getEstadoNombre(item.oldEstado) }} → {{ getEstadoNombre(item.newEstado) }}
-                                    </span>
-                                    <span class="text-caption text-grey-darken-1">{{ formatDate(item.fechaCambio) }}</span>
-                                  </div>
-
-                                  <v-list density="compact" class="pl-0">
-                                    <v-list-item v-if="item.fechaInicioContrato">
-                                      <v-list-item-title class="text-caption font-weight-bold">Inicio del Contrato:</v-list-item-title>
-                                      <v-list-item-subtitle class="text-caption">
-                                        {{ formatDate(item.fechaInicioContrato) }}
-                                      </v-list-item-subtitle>
-                                    </v-list-item>
-
-                                    <v-list-item v-if="item.motivo">
-                                      <v-list-item-title class="text-caption font-weight-bold">Motivo del Cambio:</v-list-item-title>
-                                      <v-list-item-subtitle class="text-caption">
-                                        {{ item.motivo }}
-                                      </v-list-item-subtitle>
-                                    </v-list-item>
-
-                                    <v-list-item>
-                                      <v-list-item-title class="text-caption font-weight-bold">Realizado por:</v-list-item-title>
-                                      <v-list-item-subtitle class="text-caption">
-                                        <v-chip v-if="item.usuario" size="x-small" color="primary" label>
-                                          {{ fullName(item.usuario) }}
-                                        </v-chip>
-                                        <span v-else>Sistema</span>
-                                      </v-list-item-subtitle>
-                                    </v-list-item>
-                                  </v-list>
-                                </template>
-
-                                <!-- ITEM: CAMBIO DE CAMPO -->
-                                <template v-else>
-                                  <div class="d-flex justify-space-between align-center mb-1">
-                                    <span class="font-weight-bold text-subtitle-1">
-                                      {{ labelCampo(item.campo) }}
-                                    </span>
-                                    <span class="text-caption text-grey-darken-1">{{ formatDate(item.createdAt) }}</span>
-                                  </div>
-
-                                  <div class="text-body-2 text-grey-darken-2">
-                                    <div class="mb-1">
-                                      <strong>De:</strong>
-                                      <span>{{ renderValor(item.campo, item.oldValue, contrato) }}</span>
-                                    </div>
-                                    <div>
-                                      <strong>A:</strong>
-                                      <span>{{ renderValor(item.campo, item.newValue, contrato) }}</span>
-                                    </div>
-                                  </div>
-
-                                  <div class="mt-2">
-                                    <small class="text-grey-darken-1">
-                                      Por:
-                                      <v-chip v-if="item.usuario" size="x-small" color="primary" label>
-                                        {{ fullName(item.usuario) }}
-                                      </v-chip>
-                                      <span v-else>Sistema</span>
-                                    </small>
-                                  </div>
-                                </template>
-                              </v-timeline-item>
-                            </v-timeline>
-                          </div>
-
-                          <div v-else class="text-center text-subtitle-1 text-grey-darken-1 pa-4">
-                            No hay historial registrado para este contrato.
-                          </div>
-                        </v-window-item>
                       </v-window>
+                    </v-window-item>
+
+                    <!-- Fin -->
+                    <v-window-item value="fin">
+                      <h4 class="text-h6 font-weight-bold mb-3 text-blue-grey-darken-2">
+                        Finalización del Contrato
+                      </h4>
+
+                      <div v-if="(contrato.estado || '').toLowerCase() === 'inactivo'">
+                        <v-alert type="info" variant="tonal" class="mb-4">
+                          Este contrato ha sido finalizado.
+                        </v-alert>
+
+                        <v-list dense>
+                          <v-list-item>
+                            <v-list-item-title class="font-weight-bold">Fecha de Finalización:</v-list-item-title>
+                            <v-list-item-subtitle>{{ contrato.fechaTerminacion ? formatDate(contrato.fechaTerminacion) : 'N/A' }}</v-list-item-subtitle>
+                          </v-list-item>
+
+                          <v-list-item>
+                            <v-list-item-title class="font-weight-bold">Motivo de Finalización:</v-list-item-title>
+                            <v-list-item-subtitle>{{ contrato.motivoFinalizacion || 'N/A' }}</v-list-item-subtitle>
+                          </v-list-item>
+                        </v-list>
+                      </div>
+
+                      <v-form ref="finalizationForm" v-else>
+                        <v-row>
+                          <v-col cols="12" md="6">
+                            <v-text-field
+                              v-model="finalizationDate"
+                              label="Fecha de Finalización"
+                              type="date"
+                              variant="outlined"
+                              :rules="[v => !!v || 'La fecha de finalización es obligatoria']"
+                              required
+                            />
+                          </v-col>
+                          <v-col cols="12">
+                            <v-textarea
+                              v-model="finalizationReason"
+                              label="Motivo de Finalización"
+                              variant="outlined"
+                              :rules="[v => !!v || 'El motivo de finalización es obligatorio']"
+                              required
+                            />
+                          </v-col>
+                        </v-row>
+
+                        <v-card-actions class="justify-end pa-0 mt-4">
+                          <v-btn
+                            color="error"
+                            variant="elevated"
+                            prepend-icon="mdi-flag-checkered"
+                            @click="confirmFinalizeContract(contrato.id)"
+                            :loading="isLoadingAction"
+                          >
+                            Finalizar Contrato
+                          </v-btn>
+                        </v-card-actions>
+                      </v-form>
+                    </v-window-item>
+
+                    <!-- Historial (estados + cambios) -->
+                    <v-window-item value="historial">
+                      <h4 class="text-h6 font-weight-bold mb-3 text-blue-grey-darken-2">
+                        Historial del Contrato (estados y cambios)
+                      </h4>
+
+                      <div v-if="contrato.timeline?.length">
+                        <v-timeline side="end" density="compact">
+                          <v-timeline-item
+                            v-for="item in contrato.timeline"
+                            :key="item.kind + '-' + item.id"
+                            :dot-color="item.kind === 'estado'
+                              ? (item.newEstado === 'activo' ? 'success' : 'error')
+                              : 'secondary'"
+                            size="small"
+                          >
+                            <!-- ITEM: CAMBIO DE ESTADO -->
+                            <template v-if="item.kind === 'estado'">
+                              <div class="d-flex justify-space-between align-center mb-1">
+                                <span class="font-weight-bold text-subtitle-1">
+                                  Cambio de Estado: {{ getEstadoNombre(item.oldEstado) }} → {{ getEstadoNombre(item.newEstado) }}
+                                </span>
+                                <span class="text-caption text-grey-darken-1">{{ formatDate(item.fechaCambio) }}</span>
+                              </div>
+
+                              <v-list density="compact" class="pl-0">
+                                <v-list-item v-if="item.fechaInicioContrato">
+                                  <v-list-item-title class="text-caption font-weight-bold">Inicio del Contrato:</v-list-item-title>
+                                  <v-list-item-subtitle class="text-caption">
+                                    {{ formatDate(item.fechaInicioContrato) }}
+                                  </v-list-item-subtitle>
+                                </v-list-item>
+
+                                <v-list-item v-if="item.motivo">
+                                  <v-list-item-title class="text-caption font-weight-bold">Motivo del Cambio:</v-list-item-title>
+                                  <v-list-item-subtitle class="text-caption">
+                                    {{ item.motivo }}
+                                  </v-list-item-subtitle>
+                                </v-list-item>
+
+                                <v-list-item>
+                                  <v-list-item-title class="text-caption font-weight-bold">Realizado por:</v-list-item-title>
+                                  <v-list-item-subtitle class="text-caption">
+                                    <v-chip v-if="item.usuario" size="x-small" color="primary" label>
+                                      {{ fullName(item.usuario) }}
+                                    </v-chip>
+                                    <span v-else>Sistema</span>
+                                  </v-list-item-subtitle>
+                                </v-list-item>
+                              </v-list>
+                            </template>
+
+                            <!-- ITEM: CAMBIO DE CAMPO -->
+                            <template v-else>
+                              <div class="d-flex justify-space-between align-center mb-1">
+                                <span class="font-weight-bold text-subtitle-1 d-flex align-center">
+                                  {{ labelCampo(item.campo) }}
+                                  <v-tooltip
+                                    v-if="ABBREV_TOOLTIPS[item.campo]"
+                                    :text="ABBREV_TOOLTIPS[item.campo]"
+                                    location="top"
+                                  >
+                                    <template #activator="{ props }">
+                                      <v-icon
+                                        v-bind="props"
+                                        icon="mdi-help-circle-outline"
+                                        size="16"
+                                        class="ml-1 text-medium-emphasis"
+                                        :aria-label="`¿Qué es ${labelCampo(item.campo)}?`"
+                                      />
+                                    </template>
+                                  </v-tooltip>
+                                </span>
+                                <span class="text-caption text-grey-darken-1">{{ formatDate(item.createdAt) }}</span>
+                              </div>
+
+                              <div class="text-body-2 text-grey-darken-2">
+                                <div class="mb-1">
+                                  <strong>De:</strong>
+                                  <span>{{ renderValor(item.campo, item.oldValue, contrato) }}</span>
+                                </div>
+                                <div>
+                                  <strong>A:</strong>
+                                  <span>{{ renderValor(item.campo, item.newValue, contrato) }}</span>
+                                </div>
+                              </div>
+
+                              <div class="mt-2">
+                                <small class="text-grey-darken-1">
+                                  Por:
+                                  <v-chip v-if="item.usuario" size="x-small" color="primary" label>
+                                    {{ fullName(item.usuario) }}
+                                  </v-chip>
+                                  <span v-else>Sistema</span>
+                                </small>
+                              </div>
+                            </template>
+                          </v-timeline-item>
+                        </v-timeline>
+                      </div>
+
+                      <div v-else class="text-center text-subtitle-1 text-grey-darken-1 pa-4">
+                        No hay historial registrado para este contrato.
+                      </div>
                     </v-window-item>
                   </v-window>
                 </v-expansion-panel-text>
@@ -583,12 +688,24 @@
         </v-card-text>
 
         <v-card-actions class="justify-end pt-8">
-          <v-btn color="blue-grey-darken-2" @click="goBack" class="mr-4 text-white rounded-pill" size="large" elevation="4">
-            <v-icon left>mdi-arrow-left</v-icon>
+          <v-btn
+            color="blue-grey-darken-2"
+            @click="goBack"
+            class="mr-4 text-white rounded-pill"
+            size="large"
+            elevation="4"
+          >
+            <v-icon class="mr-1">mdi-arrow-left</v-icon>
             Volver
           </v-btn>
-          <v-btn color="primary" @click="openEditUserDialog" class="rounded-pill" size="large" elevation="4">
-            <v-icon left>mdi-pencil</v-icon>
+          <v-btn
+            color="primary"
+            @click="openEditUserDialog"
+            class="rounded-pill"
+            size="large"
+            elevation="4"
+          >
+            <v-icon class="mr-1">mdi-pencil</v-icon>
             Editar Perfil
           </v-btn>
         </v-card-actions>
@@ -598,7 +715,7 @@
       <v-dialog v-model="showPhotoDialog" max-width="500px">
         <v-card>
           <v-card-title class="text-h5 bg-primary text-white">
-            <v-icon left>mdi-camera</v-icon>
+            <v-icon class="mr-1">mdi-camera</v-icon>
             Cambiar Foto de Perfil
           </v-card-title>
           <v-card-text class="py-4">
@@ -614,7 +731,7 @@
             />
           </v-card-text>
           <v-card-actions>
-            <v-spacer></v-spacer>
+            <v-spacer />
             <v-btn color="blue-grey-darken-2" variant="text" @click="closePhotoDialog" :disabled="isLoadingAction">
               Cancelar
             </v-btn>
@@ -629,7 +746,7 @@
       <v-dialog v-model="showEditUserDialog" max-width="800px">
         <v-card>
           <v-card-title class="text-h5 bg-primary text-white">
-            <v-icon left>mdi-pencil</v-icon>
+            <v-icon class="mr-1">mdi-pencil</v-icon>
             Editar Perfil
           </v-card-title>
           <v-card-text class="py-4">
@@ -657,7 +774,7 @@
             </v-form>
           </v-card-text>
           <v-card-actions>
-            <v-spacer></v-spacer>
+            <v-spacer />
             <v-btn color="blue-grey-darken-2" variant="text" @click="closeEditUserDialog" :disabled="isLoadingAction">Cancelar</v-btn>
             <v-btn color="primary" variant="elevated" @click="submitEditUser" :loading="isLoadingAction">Guardar Cambios</v-btn>
           </v-card-actions>
@@ -668,7 +785,7 @@
       <v-dialog v-model="showAddEventDialogForContrato" max-width="600px">
         <v-card>
           <v-card-title class="text-h5 bg-primary text-white">
-            <v-icon left>mdi-plus-circle</v-icon>
+            <v-icon class="mr-1">mdi-plus-circle</v-icon>
             Agregar Evento a Contrato #{{ contratoIdForNewEvent }}
           </v-card-title>
           <v-card-text class="py-4">
@@ -716,7 +833,7 @@
             </v-form>
           </v-card-text>
           <v-card-actions>
-            <v-spacer></v-spacer>
+            <v-spacer />
             <v-btn color="blue-grey-darken-2" variant="text" @click="closeAddEventDialog" :disabled="isLoadingAction">Cancelar</v-btn>
             <v-btn color="primary" variant="elevated" @click="submitNewEvent" :loading="isLoadingAction">Guardar Evento</v-btn>
           </v-card-actions>
@@ -727,7 +844,7 @@
       <v-dialog v-model="showEventDetailsDialog" max-width="500px">
         <v-card v-if="selectedEvent">
           <v-card-title class="text-h5 bg-primary text-white">
-            <v-icon left>mdi-information-outline</v-icon>
+            <v-icon class="mr-1">mdi-information-outline</v-icon>
             Detalles del Evento: {{ selectedEvent.tipo }}
           </v-card-title>
           <v-card-text class="py-4">
@@ -765,7 +882,7 @@
             </v-list>
           </v-card-text>
           <v-card-actions>
-            <v-spacer></v-spacer>
+            <v-spacer />
             <v-btn color="blue-grey-darken-2" variant="text" @click="showEventDetailsDialog = false">Cerrar</v-btn>
           </v-card-actions>
         </v-card>
@@ -775,7 +892,7 @@
       <v-dialog v-model="showEditPasoDialog" max-width="600px">
         <v-card>
           <v-card-title class="text-h5 bg-primary text-white">
-            <v-icon left>mdi-pencil</v-icon>
+            <v-icon class="mr-1">mdi-pencil</v-icon>
             Editar Paso de Inicio
           </v-card-title>
           <v-card-text class="py-4">
@@ -801,7 +918,7 @@
             </v-form>
           </v-card-text>
           <v-card-actions>
-            <v-spacer></v-spacer>
+            <v-spacer />
             <v-btn color="blue-grey-darken-2" variant="text" @click="closeEditPasoDialog" :disabled="isLoadingAction">
               Cancelar
             </v-btn>
@@ -818,7 +935,7 @@
           <v-card-title class="text-h6 bg-primary text-white">{{ alertDialogTitle }}</v-card-title>
           <v-card-text class="py-4">{{ alertDialogMessage }}</v-card-text>
           <v-card-actions>
-            <v-spacer></v-spacer>
+            <v-spacer />
             <v-btn color="primary" @click="showAlertDialog = false">Aceptar</v-btn>
           </v-card-actions>
         </v-card>
@@ -830,7 +947,7 @@
           <v-card-title class="text-h6 bg-warning text-white">{{ confirmDialogTitle }}</v-card-title>
           <v-card-text class="py-4">{{ confirmDialogMessage }}</v-card-text>
           <v-card-actions>
-            <v-spacer></v-spacer>
+            <v-spacer />
             <v-btn color="blue-grey-darken-2" variant="text" @click="confirmDialogCallback(false)">Cancelar</v-btn>
             <v-btn color="primary" @click="confirmDialogCallback(true)">Confirmar</v-btn>
           </v-card-actions>
@@ -859,10 +976,10 @@ import {
   actualizarPasoContrato,
   fetchPasosInicio,
   type ContratoPaso
-} from "@/services/contratosPasosService";
+} from '@/services/contratosPasosService'
 import type { ContratoHistorialEstado } from '@/services/contratoHistorialEstadosService'
 
-// ===== Tipos ampliados
+/* ===== Tipos ampliados ===== */
 interface Rel { id: number; nombre: string }
 
 interface CambioUsuario {
@@ -886,7 +1003,7 @@ interface ContratoCambio {
 type TimelineItemEstado = (ContratoHistorialEstado & { usuario?: CambioUsuario | null }) & {
   kind: 'estado'
 }
-type TimelineItemCambio = (ContratoCambio) & { kind: 'cambio' }
+type TimelineItemCambio = ContratoCambio & { kind: 'cambio' }
 type TimelineItem = TimelineItemEstado | TimelineItemCambio
 
 interface Contrato extends BaseContrato {
@@ -939,7 +1056,16 @@ const actorId = computed<number | null>(() => {
 })
 // ===================================
 
-// Diálogos
+/* ===== Tooltips abreviaturas ===== */
+const ABBREV_TOOLTIPS: Record<string, string> = {
+  epsId: 'ENTIDAD PRESTADORA DE SERVICIOS DE SALUD',
+  arlId: 'ADMINISTRADORA DE RIESGOS LABORALES',
+  afpId: 'ADMINISTRADORA DE FONDO DE PENSIONES',
+  afcId: 'ADMINISTRADORA DE FONDO DE CESANTÍAS',
+  ccfId: 'CAJA DE COMPENSACIÓN FAMILIAR',
+}
+
+/* ===== Diálogos / refs ===== */
 const showPhotoDialog = ref(false)
 const fileInputRef = ref<any>(null)
 
@@ -969,7 +1095,7 @@ const finalizationDate = ref<string | null>(null)
 const finalizationReason = ref<string | null>(null)
 const finalizationForm = ref<any>(null)
 
-// Edición de pasos de inicio
+/* ===== Edición de pasos de inicio ===== */
 const showEditPasoDialog = ref(false)
 const editPasoForm = ref<any>(null)
 const editPasoFileRef = ref<any>(null)
@@ -977,7 +1103,7 @@ const pasoEditData = ref<{ observacion?: string }>({})
 const contratoIdForPasoEdit = ref<number | null>(null)
 const pasoIdForEdit = ref<number | null>(null)
 
-// Contrato prioritario
+/* ===== Contrato prioritario ===== */
 const primaryContrato = computed<Contrato | null>(() => {
   const cs = user.value?.contratos || []
   if (!cs.length) return null
@@ -988,7 +1114,7 @@ const primaryContrato = computed<Contrato | null>(() => {
     .sort((a, b) => new Date(b.fechaInicio).getTime() - new Date(a.fechaInicio).getTime())[0] || null
 })
 
-// ===== Helpers UI
+/* ===== Helpers UI ===== */
 const showAlert = (title: string, message: string) => {
   alertDialogTitle.value = title
   alertDialogMessage.value = message
@@ -1018,7 +1144,7 @@ const getEstadoNombre = (estado: 'activo' | 'inactivo') => (estado === 'activo' 
 const fullName = (u?: {nombres?: string; apellidos?: string | null} | null) =>
   u ? [u.nombres, u.apellidos].filter(Boolean).join(' ') : '—'
 
-// Mapeo etiquetas
+/* ===== Etiquetas de campos ===== */
 const CAMPO_LABELS: Record<string, string> = {
   razonSocialId: 'Empresa',
   sedeId: 'Sede',
@@ -1047,6 +1173,7 @@ const CAMPO_LABELS: Record<string, string> = {
 }
 const labelCampo = (campo: string) => CAMPO_LABELS[campo] || campo
 
+/* ===== Utilidades de parseo/igualdad de cambios ===== */
 const parseMaybeJson = (v: any) => {
   if (v === null || v === undefined) return v
   if (typeof v === 'string') {
@@ -1054,11 +1181,9 @@ const parseMaybeJson = (v: any) => {
   }
   return v
 }
-
 const isNamedRel = (val: any): val is { id?: number | string; nombre?: string } =>
   !!val && typeof val === 'object' && ('nombre' in val || 'id' in val)
 
-// === Normalizadores para comparar valores y filtrar cambios “no reales”
 const toNumberLoose = (v: any): number | null => {
   if (v === null || v === undefined || v === '') return null
   if (typeof v === 'number') return Number.isFinite(v) ? v : null
@@ -1069,7 +1194,6 @@ const toNumberLoose = (v: any): number | null => {
   }
   return null
 }
-
 const toBoolLoose = (v: any): boolean | null => {
   if (v === null || v === undefined || v === '') return null
   if (typeof v === 'boolean') return v
@@ -1085,21 +1209,18 @@ const equalForField = (campo: string, a: any, b: any): boolean => {
   const va = parseMaybeJson(a)
   const vb = parseMaybeJson(b)
 
-  // booleans (recomendaciones médicas)
   if (campo === 'tieneRecomendacionesMedicas') {
     const ba = toBoolLoose(va)
     const bb = toBoolLoose(vb)
     return ba === bb
   }
 
-  // salarios
   if (['salarioBasico','bonoSalarial','auxilioTransporte','auxilioNoSalarial'].includes(campo)) {
     const na = toNumberLoose(va)
     const nb = toNumberLoose(vb)
     return na === nb
   }
 
-  // relaciones *_Id
   if (campo.endsWith('Id')) {
     const idA = isNamedRel(va) ? Number(va.id) : Number(va)
     const idB = isNamedRel(vb) ? Number(vb.id) : Number(vb)
@@ -1107,7 +1228,6 @@ const equalForField = (campo: string, a: any, b: any): boolean => {
     return JSON.stringify(va) === JSON.stringify(vb)
   }
 
-  // fechas / strings / otros
   return (va ?? null) === (vb ?? null)
 }
 
@@ -1115,12 +1235,10 @@ const renderValor = (campo: string, raw: any, contrato?: Contrato) => {
   const v = parseMaybeJson(raw)
   if (v === null || v === undefined || v === '') return 'N/A'
 
-  // Soporta objetos { id, nombre } guardados en historial/cambios
   if (campo.endsWith('Id') && isNamedRel(v)) {
     return v.nombre ?? `#${v.id ?? ''}`
   }
 
-  // Compat: si vino sólo ID numérico, resuelve con relaciones del contrato
   if (campo.endsWith('Id')) {
     const id = typeof v === 'number' ? v : Number(v)
     const nameMatch = (() => {
@@ -1156,7 +1274,7 @@ const renderValor = (campo: string, raw: any, contrato?: Contrato) => {
   return String(v)
 }
 
-// Construye timeline combinado (filtrando cambios “no reales”)
+/* ===== Timeline Combinado ===== */
 const buildTimeline = (c: Contrato): TimelineItem[] => {
   const items: TimelineItem[] = []
 
@@ -1175,7 +1293,6 @@ const buildTimeline = (c: Contrato): TimelineItem[] => {
       })
     })
 
-  // Orden descendente por fecha
   return items.sort((a, b) => {
     const da = new Date(a.kind === 'estado' ? (a as any).fechaCambio : (a as any).createdAt).getTime()
     const db = new Date(b.kind === 'estado' ? (b as any).fechaCambio : (b as any).createdAt).getTime()
@@ -1183,7 +1300,7 @@ const buildTimeline = (c: Contrato): TimelineItem[] => {
   })
 }
 
-// ===== Carga de datos
+/* ===== Carga de datos ===== */
 const loadUser = async () => {
   isLoadingUser.value = true
   error.value = null
@@ -1240,7 +1357,7 @@ const loadUser = async () => {
   }
 }
 
-// ===== Acciones
+/* ===== Acciones ===== */
 const openEditUserDialog = () => {
   if (user.value) {
     editedUser.value = {
@@ -1253,12 +1370,6 @@ const openEditUserDialog = () => {
     }
   }
   showEditUserDialog.value = true
-}
-
-const showAddEventDialog = (contratoId: number) => {
-  contratoIdForNewEvent.value = contratoId
-  newEvent.value = {}
-  showAddEventDialogForContrato.value = true
 }
 
 const closeEditUserDialog = () => {
@@ -1315,25 +1426,10 @@ const uploadProfilePhoto = async () => {
   }
 }
 
-const confirmarCambioEstadoContrato = async (contratoId: number, nuevoEstado: 'activo' | 'inactivo') => {
-  const confirmMessage = nuevoEstado === 'activo'
-    ? '¿Estás seguro de que deseas activar este contrato?'
-    : '¿Estás seguro de que deseas desactivar este contrato?'
-
-  const confirmed = await showConfirm('Confirmar Cambio de Estado', confirmMessage)
-  if (confirmed) {
-    isLoadingAction.value = true
-    try {
-      await actualizarContrato(contratoId, { estado: nuevoEstado, actorId: actorId.value ?? undefined })
-      showAlert('Éxito', nuevoEstado === 'activo' ? 'Contrato activado correctamente.' : 'Contrato desactivado correctamente.')
-      await loadUser()
-    } catch (err: any) {
-      console.error('Error al cambiar el estado del contrato:', err)
-      showAlert('Error', `Error al cambiar el estado del contrato: ${err.message || 'error desconocido'}.`)
-    } finally {
-      isLoadingAction.value = false
-    }
-  }
+const showAddEventDialog = (contratoId: number) => {
+  contratoIdForNewEvent.value = contratoId
+  newEvent.value = {}
+  showAddEventDialogForContrato.value = true
 }
 
 const closeAddEventDialog = () => {
@@ -1382,6 +1478,27 @@ const viewEventDetails = (event: ContratoEvento) => {
   showEventDetailsDialog.value = true
 }
 
+const confirmarCambioEstadoContrato = async (contratoId: number, nuevoEstado: 'activo' | 'inactivo') => {
+  const confirmMessage = nuevoEstado === 'activo'
+    ? '¿Estás seguro de que deseas activar este contrato?'
+    : '¿Estás seguro de que deseas desactivar este contrato?'
+
+  const confirmed = await showConfirm('Confirmar Cambio de Estado', confirmMessage)
+  if (confirmed) {
+    isLoadingAction.value = true
+    try {
+      await actualizarContrato(contratoId, { estado: nuevoEstado, actorId: actorId.value ?? undefined } as any)
+      showAlert('Éxito', nuevoEstado === 'activo' ? 'Contrato activado correctamente.' : 'Contrato desactivado correctamente.')
+      await loadUser()
+    } catch (err: any) {
+      console.error('Error al cambiar el estado del contrato:', err)
+      showAlert('Error', `Error al cambiar el estado del contrato: ${err.message || 'error desconocido'}.`)
+    } finally {
+      isLoadingAction.value = false
+    }
+  }
+}
+
 const confirmFinalizeContract = async (contratoId: number) => {
   const confirmed = await showConfirm(
     'Confirmar Finalización',
@@ -1403,7 +1520,7 @@ const submitContractFinalization = async (contratoId: number) => {
       fechaTerminacion: finalizationDate.value,
       motivoFinalizacion: finalizationReason.value,
       actorId: actorId.value ?? undefined,
-    })
+    } as any)
     showAlert('Éxito', 'Contrato finalizado correctamente.')
     await loadUser()
   } catch (err: any) {
@@ -1414,7 +1531,7 @@ const submitContractFinalization = async (contratoId: number) => {
   }
 }
 
-// Edición de paso
+/* ===== Edición de paso ===== */
 const openEditPasoDialog = (contratoId: number, paso: ContratoPaso) => {
   contratoIdForPasoEdit.value = contratoId
   pasoIdForEdit.value = paso.id || null
@@ -1472,4 +1589,3 @@ onMounted(() => {
 .v-card-title, .v-card-subtitle { white-space: normal; word-wrap: break-word; }
 .v-list-item-title, .v-list-item-subtitle { word-break: break-word; }
 </style>
-

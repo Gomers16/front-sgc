@@ -266,6 +266,7 @@
               <v-divider class="my-4" />
             </v-col>
 
+            <!-- EPS -->
             <v-col cols="12" md="6">
               <v-select
                 label="EPS"
@@ -278,9 +279,24 @@
                 clearable
                 density="compact"
                 :loading="loadingEntidades"
-              />
+              >
+                <template #append-inner>
+                  <v-tooltip text="ENTIDAD PRESTADORA DE SERVICIOS DE SALUD" location="top">
+                    <template #activator="{ props }">
+                      <v-icon
+                        v-bind="props"
+                        icon="mdi-help-circle-outline"
+                        size="18"
+                        class="ml-1 text-medium-emphasis"
+                        aria-label="¿Qué es EPS?"
+                      />
+                    </template>
+                  </v-tooltip>
+                </template>
+              </v-select>
             </v-col>
 
+            <!-- ARL -->
             <v-col cols="12" md="6">
               <v-select
                 label="ARL"
@@ -293,9 +309,24 @@
                 clearable
                 density="compact"
                 :loading="loadingEntidades"
-              />
+              >
+                <template #append-inner>
+                  <v-tooltip text="ADMINISTRADORA DE RIESGOS LABORALES" location="top">
+                    <template #activator="{ props }">
+                      <v-icon
+                        v-bind="props"
+                        icon="mdi-help-circle-outline"
+                        size="18"
+                        class="ml-1 text-medium-emphasis"
+                        aria-label="¿Qué es ARL?"
+                      />
+                    </template>
+                  </v-tooltip>
+                </template>
+              </v-select>
             </v-col>
 
+            <!-- AFP -->
             <v-col cols="12" md="6">
               <v-select
                 label="AFP"
@@ -308,9 +339,24 @@
                 clearable
                 density="compact"
                 :loading="loadingEntidades"
-              />
+              >
+                <template #append-inner>
+                  <v-tooltip text="ADMINISTRADORA DE FONDO DE PENSIONES" location="top">
+                    <template #activator="{ props }">
+                      <v-icon
+                        v-bind="props"
+                        icon="mdi-help-circle-outline"
+                        size="18"
+                        class="ml-1 text-medium-emphasis"
+                        aria-label="¿Qué es AFP?"
+                      />
+                    </template>
+                  </v-tooltip>
+                </template>
+              </v-select>
             </v-col>
 
+            <!-- AFC -->
             <v-col cols="12" md="6">
               <v-select
                 label="AFC"
@@ -323,9 +369,24 @@
                 clearable
                 density="compact"
                 :loading="loadingEntidades"
-              />
+              >
+                <template #append-inner>
+                  <v-tooltip text="ADMINISTRADORA DE FONDO DE CESANTÍAS" location="top">
+                    <template #activator="{ props }">
+                      <v-icon
+                        v-bind="props"
+                        icon="mdi-help-circle-outline"
+                        size="18"
+                        class="ml-1 text-medium-emphasis"
+                        aria-label="¿Qué es AFC?"
+                      />
+                    </template>
+                  </v-tooltip>
+                </template>
+              </v-select>
             </v-col>
 
+            <!-- CCF -->
             <v-col cols="12" md="6">
               <v-select
                 label="CCF"
@@ -338,7 +399,21 @@
                 clearable
                 density="compact"
                 :loading="loadingEntidades"
-              />
+              >
+                <template #append-inner>
+                  <v-tooltip text="CAJA DE COMPENSACIÓN FAMILIAR" location="top">
+                    <template #activator="{ props }">
+                      <v-icon
+                        v-bind="props"
+                        icon="mdi-help-circle-outline"
+                        size="18"
+                        class="ml-1 text-medium-emphasis"
+                        aria-label="¿Qué es CCF?"
+                      />
+                    </template>
+                  </v-tooltip>
+                </template>
+              </v-select>
             </v-col>
 
             <v-col cols="12">
@@ -504,7 +579,7 @@
               <td class="text-capitalize">{{ c.tipoContrato }}</td>
               <td class="text-capitalize">{{ (c.terminoContrato || '—').replaceAll('_',' ') }}</td>
               <td>
-                <v-chip :color="c.estado === 'activo' ? 'success' : 'grey'" size="small" variant="flat">
+                <v-chip :color="c.estado === 'activo' ? 'success' : 'grey' " size="small" variant="flat">
                   {{ c.estado }}
                 </v-chip>
               </td>
@@ -643,19 +718,30 @@ interface UsuarioExtendida {
   nombreCompleto: string; recomendaciones: boolean; razonSocialId: number
 }
 interface ContratoRow {
-  id: number; tipoContrato: 'prestacion'|'temporal'|'laboral';
-  terminoContrato: string|null; estado: 'activo'|'inactivo';
-  fechaInicio: string; fechaTerminacion: string|null;
-  sede?: any; cargo?: any; rutaArchivoContratoFisico?: string|null;
-  identificacion?: string; funcionesCargo?: string|null;
-  centroCosto?: string|null;
-  epsId?: number|null; arlId?: number|null; afpId?: number|null; afcId?: number|null; ccfId?: number|null;
+  id: number
+  tipoContrato: 'prestacion' | 'temporal' | 'laboral' | 'aprendizaje'
+  terminoContrato: string | null
+  estado: 'activo' | 'inactivo'
+  fechaInicio: string
+  fechaTerminacion: string | null
+  sede?: any
+  cargo?: any
+  rutaArchivoContratoFisico?: string | null
+  identificacion?: string
+  funcionesCargo?: string | null
+  centroCosto?: string | null
+  epsId?: number | null
+  arlId?: number | null
+  afpId?: number | null
+  afcId?: number | null
+  ccfId?: number | null
 }
 
 const tiposContratoSelectItems = ref([
   { nombre: 'Prestación de Servicios', valor: 'prestacion' },
   { nombre: 'Temporal', valor: 'temporal' },
   { nombre: 'Laboral', valor: 'laboral' },
+  { nombre: 'Contrato de Aprendizaje', valor: 'aprendizaje' },
 ])
 
 const basePasosPrestacion: Paso[] = [
@@ -680,7 +766,7 @@ const basePasosLaboral: Paso[] = [
 ]
 
 const formatTermForDisplay = (term: string) =>
-  term.replace(/_/g, ' ').split(' ').map(w => w[0]?.toUpperCase()+w.slice(1)).join(' ')
+  term.replace(/_/g, ' ').split(' ').map(w => w[0]?.toUpperCase() + w.slice(1)).join(' ')
 
 const terminosContratoTemporal = computed(() => [
   { text: formatTermForDisplay('obra_o_labor_determinada'), value: 'obra_o_labor_determinada' }
@@ -694,7 +780,7 @@ const terminosContratoLaboral = computed(() => [
 // estado general
 const razonSocialSeleccionada = ref<number | null>(null)
 const usuarioSeleccionado = ref<number | null>(null)
-const tipoContratoSeleccionado = ref<'prestacion'|'temporal'|'laboral'>('prestacion')
+const tipoContratoSeleccionado = ref<'prestacion' | 'temporal' | 'laboral' | 'aprendizaje'>('prestacion')
 const razonesSociales = ref<RazonSocial[]>([])
 const usuarios = ref<UsuarioExtendida[]>([])
 const sedes = ref<any[]>([])
@@ -720,7 +806,7 @@ const modalPaso = ref({
 
 // archivo contrato
 const archivoContrato = ref<File | null>(null)
-const fileInputRef = ref<HTMLInputElement|null>(null)
+const fileInputRef = ref<HTMLInputElement | null>(null)
 
 // recomendaciones médicas
 const tieneRecomendacionesMedicas = ref(false)
@@ -744,8 +830,8 @@ const showConfirmDialog = ref(false)
 const { handleSubmit, resetForm, validate } = useForm()
 
 // ✔ Reglas y campos (numéricos con '' para no forzar 0)
-const required = (v:any)=> (v!==null && v!==undefined && v!=='') || 'Este campo es obligatorio.'
-const optionalNumber = (v:any)=> (v==null || v==='') ? true : !isNaN(Number(v)) || 'Debe ser un número válido.'
+const required = (v: any) => (v !== null && v !== undefined && v !== '') || 'Este campo es obligatorio.'
+const optionalNumber = (v: any) => (v == null || v === '') ? true : !isNaN(Number(v)) || 'Debe ser un número válido.'
 
 const { value: identificacion, errorMessage: identificacionError } = useField('identificacion', [required, (val: string) => val.length >= 5 || 'Debe tener al menos 5 caracteres.'])
 const { value: sedeId, errorMessage: sedeIdError } = useField<number | null>('sedeId', [required], { initialValue: null })
@@ -753,15 +839,16 @@ const { value: cargoId, errorMessage: cargoIdError } = useField<number | null>('
 const { value: funcionesCargo, errorMessage: funcionesCargoError } = useField('funcionesCargo', [required], { initialValue: '' })
 
 // ⬇️ Importante: initialValue = '' para no mandar 0 por defecto
-const { value: salarioBasico, errorMessage: salarioBasicoError }       = useField('salarioBasico',      [required, optionalNumber], { initialValue: '' })
-const { value: bonoSalarial, errorMessage: bonoSalarialError }         = useField('bonoSalarial',       [optionalNumber],           { initialValue: '' })
-const { value: auxilioTransporte, errorMessage: auxilioTransporteError } = useField('auxilioTransporte',[optionalNumber],           { initialValue: '' })
-const { value: auxilioNoSalarial, errorMessage: auxilioNoSalarialError } = useField('auxilioNoSalarial',[optionalNumber],           { initialValue: '' })
+const { value: salarioBasico, errorMessage: salarioBasicoError } = useField('salarioBasico', [required, optionalNumber], { initialValue: '' })
+const { value: bonoSalarial, errorMessage: bonoSalarialError } = useField('bonoSalarial', [optionalNumber], { initialValue: '' })
+const { value: auxilioTransporte, errorMessage: auxilioTransporteError } = useField('auxilioTransporte', [optionalNumber], { initialValue: '' })
+const { value: auxilioNoSalarial, errorMessage: auxilioNoSalarialError } = useField('auxilioNoSalarial', [optionalNumber], { initialValue: '' })
 
 const { value: fechaInicio } = useField('fechaInicio', [required], { initialValue: '' })
 const { value: fechaTerminacion } = useField('fechaTerminacion', undefined, { initialValue: '' })
 
-const terminoContratoRules = computed(()=> tipoContratoSeleccionado.value!=='prestacion' ? [required] : [])
+// 👇 No requerir término cuando es prestacion **o** aprendizaje
+const terminoContratoRules = computed(() => (tipoContratoSeleccionado.value !== 'prestacion' && tipoContratoSeleccionado.value !== 'aprendizaje') ? [required] : [])
 const { value: terminoContrato, errorMessage: terminoContratoError } = useField('terminoContrato', terminoContratoRules, { initialValue: null })
 
 const { value: centroCosto, errorMessage: centroCostoError } = useField('centroCosto', undefined, { initialValue: '' })
@@ -774,31 +861,31 @@ const { value: ccfId, errorMessage: ccfIdError } = useField<number | null>('ccfI
 const contratosUsuario = ref<ContratoRow[]>([])
 const loadingContratos = ref(false)
 
-const pasosContrato = computed(()=> {
+const pasosContrato = computed(() => {
   let current: Paso[] = []
-  if (tipoContratoSeleccionado.value==='prestacion') current=[...basePasosPrestacion]
-  else if (tipoContratoSeleccionado.value==='temporal') current=[...basePasosTemporal]
-  else current=[...basePasosLaboral]
-  return current.map((p,i)=>({...p, orden:i+1})).sort((a,b)=>(a.orden||0)-(b.orden||0))
+  if (tipoContratoSeleccionado.value === 'prestacion' || tipoContratoSeleccionado.value === 'aprendizaje') current = [...basePasosPrestacion]
+  else if (tipoContratoSeleccionado.value === 'temporal') current = [...basePasosTemporal]
+  else current = [...basePasosLaboral]
+  return current.map((p, i) => ({ ...p, orden: i + 1 })).sort((a, b) => (a.orden || 0) - (b.orden || 0))
 })
 
-const filteredEps = computed(()=> entidadesSalud.value.filter(e=>e.tipo==='eps'))
-const filteredArl = computed(()=> entidadesSalud.value.filter(e=>e.tipo==='arl'))
-const filteredAfp = computed(()=> entidadesSalud.value.filter(e=>e.tipo==='afp'))
-const filteredAfc = computed(()=> entidadesSalud.value.filter(e=>e.tipo==='afc'))
-const filteredCcf = computed(()=> entidadesSalud.value.filter(e=>e.tipo==='ccf'))
+const filteredEps = computed(() => entidadesSalud.value.filter(e => e.tipo === 'eps'))
+const filteredArl = computed(() => entidadesSalud.value.filter(e => e.tipo === 'arl'))
+const filteredAfp = computed(() => entidadesSalud.value.filter(e => e.tipo === 'afp'))
+const filteredAfc = computed(() => entidadesSalud.value.filter(e => e.tipo === 'afc'))
+const filteredCcf = computed(() => entidadesSalud.value.filter(e => e.tipo === 'ccf'))
 
-const salarioTotalCalculado = computed(()=> {
-  const sb  = Number(salarioBasico.value)      || 0
-  const bs  = Number(bonoSalarial.value)       || 0
-  const at  = Number(auxilioTransporte.value)  || 0
-  const ans = Number(auxilioNoSalarial.value)  || 0
-  return (sb+bs+at+ans).toLocaleString('es-CO',{style:'currency',currency:'COP'})
+const salarioTotalCalculado = computed(() => {
+  const sb = Number(salarioBasico.value) || 0
+  const bs = Number(bonoSalarial.value) || 0
+  const at = Number(auxilioTransporte.value) || 0
+  const ans = Number(auxilioNoSalarial.value) || 0
+  return (sb + bs + at + ans).toLocaleString('es-CO', { style: 'currency', currency: 'COP' })
 })
 
 // cargar datos
 async function cargarHistorialContratos() {
-  if (!usuarioSeleccionado.value) { contratosUsuario.value=[]; return }
+  if (!usuarioSeleccionado.value) { contratosUsuario.value = []; return }
   loadingContratos.value = true
   try {
     const data = await obtenerContratosPorUsuario(Number(usuarioSeleccionado.value))
@@ -821,150 +908,152 @@ async function cargarUsuariosPorRazonSocial() {
   if (razonSocialSeleccionada.value) {
     try {
       const data = await fetchUsuariosPorRazonSocial(razonSocialSeleccionada.value)
-      usuarios.value = data.map((u:any)=>({
-        ...u, nombreCompleto:`${u.nombres} ${u.apellidos}`, recomendaciones: !!u.recomendaciones
+      usuarios.value = data.map((u: any) => ({
+        ...u, nombreCompleto: `${u.nombres} ${u.apellidos}`, recomendaciones: !!u.recomendaciones
       }))
-    } catch(e){ console.error(e) } finally { loadingUsuarios.value=false }
-  } else loadingUsuarios.value=false
+    } catch (e) { console.error(e) } finally { loadingUsuarios.value = false }
+  } else loadingUsuarios.value = false
 }
-async function cargarSedes(){ loadingSedes.value=true; try{ sedes.value=await obtenerSedes() } finally{ loadingSedes.value=false } }
-async function cargarCargos(){ loadingCargos.value=true; try{ cargos.value=await obtenerCargos() } finally{ loadingCargos.value=false } }
-async function cargarEntidadesSalud(){ loadingEntidades.value=true; try{ entidadesSalud.value=await obtenerEntidadesSalud() } finally{ loadingEntidades.value=false } }
+async function cargarSedes() { loadingSedes.value = true; try { sedes.value = await obtenerSedes() } finally { loadingSedes.value = false } }
+async function cargarCargos() { loadingCargos.value = true; try { cargos.value = await obtenerCargos() } finally { loadingCargos.value = false } }
+async function cargarEntidadesSalud() { loadingEntidades.value = true; try { entidadesSalud.value = await obtenerEntidadesSalud() } finally { loadingEntidades.value = false } }
 
 // crear nuevo
 const handleConfirmacion = async () => {
   const { valid } = await validate()
-  if (!valid) return showAlert('Error de Validación','Revisa los campos en rojo.')
-  if (!usuarioSeleccionado.value || !tipoContratoSeleccionado.value) return showAlert('Advertencia','Seleccione usuario y tipo de contrato.')
-  if (!archivoContrato.value) return showAlert('Advertencia','Adjunte el PDF del contrato.')
-  if (tieneRecomendacionesMedicas.value && !archivoRecomendacionMedica.value) return showAlert('Advertencia','Adjunte Recomendación Médica o desmarque la opción.')
+  if (!valid) return showAlert('Error de Validación', 'Revisa los campos en rojo.')
+  if (!usuarioSeleccionado.value || !tipoContratoSeleccionado.value) return showAlert('Advertencia', 'Seleccione usuario y tipo de contrato.')
+  if (!archivoContrato.value) return showAlert('Advertencia', 'Adjunte el PDF del contrato.')
+  if (tieneRecomendacionesMedicas.value && !archivoRecomendacionMedica.value) return showAlert('Advertencia', 'Adjunte Recomendación Médica o desmarque la opción.')
   showConfirmDialog.value = true
 }
-const submitForm = handleSubmit(async (values)=>{ showConfirmDialog.value=false; await crearYAnexarContrato(values) })
+const submitForm = handleSubmit(async (values) => { showConfirmDialog.value = false; await crearYAnexarContrato(values) })
 
-async function crearYAnexarContrato(formData:any){
-  if (!usuarioSeleccionado.value || !archivoContrato.value || !razonSocialSeleccionada.value) return showAlert('Error','Falta información clave.')
+async function crearYAnexarContrato(formData: any) {
+  if (!usuarioSeleccionado.value || !archivoContrato.value || !razonSocialSeleccionada.value) return showAlert('Error', 'Falta información clave.')
 
   const requiresEndDate =
-    tipoContratoSeleccionado.value==='temporal' ||
-    (tipoContratoSeleccionado.value==='laboral' && terminoContrato.value!=='indefinido')
+    tipoContratoSeleccionado.value === 'temporal' ||
+    (tipoContratoSeleccionado.value === 'laboral' && terminoContrato.value !== 'indefinido')
 
   // 👉 Mandamos SIEMPRE salarios en el payload (cualquier tipo)
-  const payloadContrato:any = {
-    usuarioId:Number(usuarioSeleccionado.value),
-    razonSocialId:Number(razonSocialSeleccionada.value),
-    identificacion:(identificacion.value||'').trim(),
-    sedeId:sedeId.value?Number(sedeId.value):null,
-    cargoId:cargoId.value?Number(cargoId.value):null,
-    funcionesCargo:(funcionesCargo.value||'').trim()||null,
+  const payloadContrato: any = {
+    usuarioId: Number(usuarioSeleccionado.value),
+    razonSocialId: Number(razonSocialSeleccionada.value),
+    identificacion: (identificacion.value || '').trim(),
+    sedeId: sedeId.value ? Number(sedeId.value) : null,
+    cargoId: cargoId.value ? Number(cargoId.value) : null,
+    funcionesCargo: (funcionesCargo.value || '').trim() || null,
     fechaInicio: formData.fechaInicio,
-    fechaTerminacion: requiresEndDate ? (formData.fechaTerminacion||null) : null,
+    fechaTerminacion: requiresEndDate ? (formData.fechaTerminacion || null) : null,
     tipoContrato: tipoContratoSeleccionado.value,
-    terminoContrato: tipoContratoSeleccionado.value!=='prestacion' ? terminoContrato.value : null,
-    estado:'activo',
-    periodoPrueba:null,
-    horarioTrabajo:null,
-    centroCosto:(centroCosto.value||'').trim()||null,
-    epsId: epsId.value?Number(epsId.value):null,
-    arlId: arlId.value?Number(arlId.value):null,
-    afpId: afpId.value?Number(afpId.value):null,
-    afcId: afcId.value?Number(afcId.value):null,
-    ccfId: ccfId.value?Number(ccfId.value):null,
+    // 👇 aprendizaje = prestación (sin término)
+    terminoContrato: (tipoContratoSeleccionado.value !== 'prestacion' && tipoContratoSeleccionado.value !== 'aprendizaje') ? terminoContrato.value : null,
+    estado: 'activo',
+    periodoPrueba: null,
+    horarioTrabajo: null,
+    centroCosto: (centroCosto.value || '').trim() || null,
+    epsId: epsId.value ? Number(epsId.value) : null,
+    arlId: arlId.value ? Number(arlId.value) : null,
+    afpId: afpId.value ? Number(afpId.value) : null,
+    afcId: afcId.value ? Number(afcId.value) : null,
+    ccfId: ccfId.value ? Number(ccfId.value) : null,
     tieneRecomendacionesMedicas: !!tieneRecomendacionesMedicas.value,
 
     // 💸 salarios SIEMPRE
-    salarioBasico:       Number(salarioBasico.value)      || 0,
-    bonoSalarial:        Number(bonoSalarial.value)       || 0,
-    auxilioTransporte:   Number(auxilioTransporte.value)  || 0,
-    auxilioNoSalarial:   Number(auxilioNoSalarial.value)  || 0,
+    salarioBasico: Number(salarioBasico.value) || 0,
+    bonoSalarial: Number(bonoSalarial.value) || 0,
+    auxilioTransporte: Number(auxilioTransporte.value) || 0,
+    auxilioNoSalarial: Number(auxilioNoSalarial.value) || 0,
   }
 
-  try{
+  try {
     // 1) Crea contrato
-    const nuevoContrato:any = await crearContrato(payloadContrato)
+    const nuevoContrato: any = await crearContrato(payloadContrato)
 
     // 1.1) Garantía: si el backend NO creó salario, lo creamos aquí.
     const salarioViene = Array.isArray(nuevoContrato.salarios) && nuevoContrato.salarios.length > 0
     if (!salarioViene) {
       const payloadSalario = {
-        contratoId:Number(nuevoContrato.id),
-        salarioBasico:       Number(salarioBasico.value)      || 0,
-        bonoSalarial:        Number(bonoSalarial.value)       || 0,
-        auxilioTransporte:   Number(auxilioTransporte.value)  || 0,
-        auxilioNoSalarial:   Number(auxilioNoSalarial.value)  || 0,
-        fechaEfectiva:`${formData.fechaInicio}T00:00:00`,
+        contratoId: Number(nuevoContrato.id),
+        salarioBasico: Number(salarioBasico.value) || 0,
+        bonoSalarial: Number(bonoSalarial.value) || 0,
+        auxilioTransporte: Number(auxilioTransporte.value) || 0,
+        auxilioNoSalarial: Number(auxilioNoSalarial.value) || 0,
+        fechaEfectiva: `${formData.fechaInicio}T00:00:00`,
       }
       await crearContratoSalario(payloadSalario)
     }
 
     // 2) Anexar PDF (y recomendación si aplica)
     await anexarContrato({
-      contratoId:Number(nuevoContrato.id),
-      archivo:archivoContrato.value!,
-      razonSocialId:Number(razonSocialSeleccionada.value),
+      contratoId: Number(nuevoContrato.id),
+      archivo: archivoContrato.value!,
+      razonSocialId: Number(razonSocialSeleccionada.value),
       tieneRecomendacionesMedicas: !!tieneRecomendacionesMedicas.value && !!archivoRecomendacionMedica.value,
       archivoRecomendacionMedica: archivoRecomendacionMedica.value || undefined,
     })
 
     // 3) Crear pasos base
-    try{
-      const creates = pasosContrato.value.map(p=>{
+    try {
+      const creates = pasosContrato.value.map(p => {
         const fd = new FormData()
         fd.append('fase', p.fase)
         fd.append('nombrePaso', p.nombre)
         if (p.observacion) fd.append('observacion', p.observacion)
-        if (p.orden!=null) fd.append('orden', String(p.orden))
-        fd.append('completado', p.completado?'true':'false')
+        if (p.orden != null) fd.append('orden', String(p.orden))
+        fd.append('completado', p.completado ? 'true' : 'false')
         if (p.fechaCompletado) fd.append('fecha', p.fechaCompletado)
         if (p.archivoFile) fd.append('archivo', p.archivoFile, p.archivoFile.name)
         return crearPasoContrato(Number(nuevoContrato.id), fd)
       })
       await Promise.all(creates)
-    }catch(e){ console.error('Pasos base', e) }
+    } catch (e) { console.error('Pasos base', e) }
 
-    showAlert('Éxito','Contrato creado, salario inicial, archivos y pasos registrados.')
+    showAlert('Éxito', 'Contrato creado, salario inicial, archivos y pasos registrados.')
     await cargarHistorialContratos()
     limpiarFormulario()
-  }catch(e:any){
+  } catch (e: any) {
     console.error(e)
     showAlert('Error', e?.message || 'No fue posible crear el contrato.')
   }
 }
 
 // edición
-async function editarContrato(c:ContratoRow){
+async function editarContrato(c: ContratoRow) {
   isEditing.value = true
   contratoEditId.value = c.id
 
-  let full:any = null
-  try{
+  let full: any = null
+  try {
     full = await obtenerContratoPorId(c.id)
-  }catch(e){
+  } catch (e) {
     console.error('No se pudo cargar el contrato completo, uso fila de la tabla:', e)
   }
   const src = full || c
 
   tipoContratoSeleccionado.value = src.tipoContrato ?? c.tipoContrato
 
-  identificacion.value   = src.identificacion ?? c.identificacion ?? ''
-  sedeId.value           = src.sede?.id ?? src.sedeId ?? c.sede?.id ?? null
-  cargoId.value          = src.cargo?.id ?? src.cargoId ?? c.cargo?.id ?? null
-  funcionesCargo.value   = src.funcionesCargo ?? c.funcionesCargo ?? ''
-  centroCosto.value      = src.centroCosto ?? c.centroCosto ?? ''
+  identificacion.value = src.identificacion ?? c.identificacion ?? ''
+  sedeId.value = src.sede?.id ?? src.sedeId ?? c.sede?.id ?? null
+  cargoId.value = src.cargo?.id ?? src.cargoId ?? c.cargo?.id ?? null
+  funcionesCargo.value = src.funcionesCargo ?? c.funcionesCargo ?? ''
+  centroCosto.value = src.centroCosto ?? c.centroCosto ?? ''
 
-  fechaInicio.value      = (src.fechaInicio || c.fechaInicio || '').slice(0,10)
-  fechaTerminacion.value = (src.fechaTerminacion || c.fechaTerminacion) ? String(src.fechaTerminacion || c.fechaTerminacion).slice(0,10) : ''
+  fechaInicio.value = (src.fechaInicio || c.fechaInicio || '').slice(0, 10)
+  fechaTerminacion.value = (src.fechaTerminacion || c.fechaTerminacion) ? String(src.fechaTerminacion || c.fechaTerminacion).slice(0, 10) : ''
 
-  terminoContrato.value  = (src.tipoContrato === 'prestacion') ? null : (src.terminoContrato ?? c.terminoContrato ?? null)
+  // 👇 aprendizaje = prestación (sin término)
+  terminoContrato.value = (src.tipoContrato === 'prestacion' || src.tipoContrato === 'aprendizaje') ? null : (src.terminoContrato ?? c.terminoContrato ?? null)
 
-  epsId.value            = src.epsId ?? c.epsId ?? null
-  arlId.value            = src.arlId ?? c.arlId ?? null
-  afpId.value            = src.afpId ?? c.afpId ?? null
-  afcId.value            = src.afcId ?? c.afcId ?? null
-  ccfId.value            = src.ccfId ?? c.ccfId ?? null
+  epsId.value = src.epsId ?? c.epsId ?? null
+  arlId.value = src.arlId ?? c.arlId ?? null
+  afpId.value = src.afpId ?? c.afpId ?? null
+  afcId.value = src.afcId ?? c.afcId ?? null
+  ccfId.value = src.ccfId ?? c.ccfId ?? null
 
   tieneRecomendacionesMedicas.value = !!(src.tieneRecomendacionesMedicas ?? false)
-  archivoRecomendacionMedica.value  = null
+  archivoRecomendacionMedica.value = null
 
   // 💸 salario vigente
   const salarioSrc =
@@ -972,39 +1061,40 @@ async function editarContrato(c:ContratoRow){
     src.salario ??
     (Array.isArray(src.salarios) ? src.salarios[0] : null) ?? {}
 
-  if (salarioSrc.salarioBasico != null)      salarioBasico.value      = String(salarioSrc.salarioBasico)
-  if (salarioSrc.bonoSalarial != null)       bonoSalarial.value       = String(salarioSrc.bonoSalarial)
-  if (salarioSrc.auxilioTransporte != null)  auxilioTransporte.value  = String(salarioSrc.auxilioTransporte)
-  if (salarioSrc.auxilioNoSalarial != null)  auxilioNoSalarial.value  = String(salarioSrc.auxilioNoSalarial)
+  if (salarioSrc.salarioBasico != null) salarioBasico.value = String(salarioSrc.salarioBasico)
+  if (salarioSrc.bonoSalarial != null) bonoSalarial.value = String(salarioSrc.bonoSalarial)
+  if (salarioSrc.auxilioTransporte != null) auxilioTransporte.value = String(salarioSrc.auxilioTransporte)
+  if (salarioSrc.auxilioNoSalarial != null) auxilioNoSalarial.value = String(salarioSrc.auxilioNoSalarial)
 
   archivoContrato.value = null
 
   await nextTick()
   window.scrollTo({ top: 0, behavior: 'smooth' })
-  ;(identificacionRef.value as any)?.focus?.()
+  ; (identificacionRef.value as any)?.focus?.()
 }
 
-async function guardarCambiosContrato(){
+async function guardarCambiosContrato() {
   if (!contratoEditId.value) return
 
   const { valid } = await validate()
-  if (!valid) return showAlert('Error de Validación','Revisa los campos obligatorios.')
+  if (!valid) return showAlert('Error de Validación', 'Revisa los campos obligatorios.')
 
   const requiresEndDate =
-    tipoContratoSeleccionado.value==='temporal' ||
-    (tipoContratoSeleccionado.value==='laboral' && terminoContrato.value!=='indefinido')
+    tipoContratoSeleccionado.value === 'temporal' ||
+    (tipoContratoSeleccionado.value === 'laboral' && terminoContrato.value !== 'indefinido')
 
   // ⬇️ En edición: enviar salarios SOLO si el campo tiene valor; si está vacío => undefined => backend NO lo toca
-  const payload:any = {
+  const payload: any = {
     tipoContrato: tipoContratoSeleccionado.value,
-    terminoContrato: tipoContratoSeleccionado.value!=='prestacion' ? terminoContrato.value : null,
-    identificacion: (identificacion.value||'').trim(),
+    // 👇 aprendizaje = prestación (sin término)
+    terminoContrato: (tipoContratoSeleccionado.value !== 'prestacion' && tipoContratoSeleccionado.value !== 'aprendizaje') ? terminoContrato.value : null,
+    identificacion: (identificacion.value || '').trim(),
     sedeId: sedeId.value ? Number(sedeId.value) : null,
     cargoId: cargoId.value ? Number(cargoId.value) : null,
-    funcionesCargo: (funcionesCargo.value||'').trim() || null,
+    funcionesCargo: (funcionesCargo.value || '').trim() || null,
     fechaInicio: fechaInicio.value,
     fechaTerminacion: requiresEndDate ? (fechaTerminacion.value || null) : null,
-    centroCosto: (centroCosto.value||'').trim() || null,
+    centroCosto: (centroCosto.value || '').trim() || null,
     epsId: epsId.value ?? null,
     arlId: arlId.value ?? null,
     afpId: afpId.value ?? null,
@@ -1013,18 +1103,18 @@ async function guardarCambiosContrato(){
     tieneRecomendacionesMedicas: !!tieneRecomendacionesMedicas.value,
 
     // 💸 Condicionales (no pisar con 0)
-    salarioBasico:      salarioBasico.value      !== '' ? Number(salarioBasico.value)      : undefined,
-    bonoSalarial:       bonoSalarial.value       !== '' ? Number(bonoSalarial.value)       : undefined,
-    auxilioTransporte:  auxilioTransporte.value  !== '' ? Number(auxilioTransporte.value)  : undefined,
-    auxilioNoSalarial:  auxilioNoSalarial.value  !== '' ? Number(auxilioNoSalarial.value)  : undefined,
+    salarioBasico: salarioBasico.value !== '' ? Number(salarioBasico.value) : undefined,
+    bonoSalarial: bonoSalarial.value !== '' ? Number(bonoSalarial.value) : undefined,
+    auxilioTransporte: auxilioTransporte.value !== '' ? Number(auxilioTransporte.value) : undefined,
+    auxilioNoSalarial: auxilioNoSalarial.value !== '' ? Number(auxilioNoSalarial.value) : undefined,
   }
 
-  try{
+  try {
     await actualizarContrato(Number(contratoEditId.value), payload)
 
-    if (archivoContrato.value){
+    if (archivoContrato.value) {
       await anexarContrato({
-        contratoId:Number(contratoEditId.value),
+        contratoId: Number(contratoEditId.value),
         archivo: archivoContrato.value,
         razonSocialId: Number(razonSocialSeleccionada.value),
         tieneRecomendacionesMedicas: !!tieneRecomendacionesMedicas.value && !!archivoRecomendacionMedica.value,
@@ -1032,22 +1122,22 @@ async function guardarCambiosContrato(){
       })
     }
 
-    showAlert('Éxito','Contrato actualizado correctamente.')
+    showAlert('Éxito', 'Contrato actualizado correctamente.')
     await cargarHistorialContratos()
     cancelarEdicion()
-  }catch(e:any){
+  } catch (e: any) {
     console.error(e)
     showAlert('Error', e?.message || 'No fue posible actualizar el contrato.')
   }
 }
 
-function cancelarEdicion(){
+function cancelarEdicion() {
   isEditing.value = false
   contratoEditId.value = null
   limpiarFormulario()
 }
 
-function limpiarFormulario(){
+function limpiarFormulario() {
   resetForm()
   archivoContrato.value = null
   archivoRecomendacionMedica.value = null
@@ -1056,32 +1146,32 @@ function limpiarFormulario(){
 }
 
 // activar/inactivar
-async function toggleEstadoContrato(c:ContratoRow){
+async function toggleEstadoContrato(c: ContratoRow) {
   const nuevoEstado = c.estado === 'activo' ? 'inactivo' : 'activo'
-  try{
+  try {
     await cambiarEstadoContrato(c.id, nuevoEstado)
     showAlert('Listo', `Contrato ${c.id} ahora está ${nuevoEstado}.`)
     await cargarHistorialContratos()
-    if (isEditing.value && contratoEditId.value === c.id && nuevoEstado==='inactivo') {
+    if (isEditing.value && contratoEditId.value === c.id && nuevoEstado === 'inactivo') {
       cancelarEdicion()
     }
-  }catch(e:any){
+  } catch (e: any) {
     console.error(e)
     showAlert('Error', e?.message || 'No fue posible cambiar el estado.')
   }
 }
 
 // modal pasos (local, UI)
-const abrirModalPaso = (paso:Paso)=>{ modalPaso.value.paso = paso; modalPaso.value.form.observacion = paso.observacion || ''; modalPaso.value.form.archivo = paso.archivoFile || null; modalPaso.value.mostrar = true }
-const cerrarModalPaso = ()=>{ modalPaso.value.mostrar=false; modalPaso.value.paso=null; modalPaso.value.form={observacion:'', archivo:null} }
-const completarPasoConfirmado = async ()=>{
+const abrirModalPaso = (paso: Paso) => { modalPaso.value.paso = paso; modalPaso.value.form.observacion = paso.observacion || ''; modalPaso.value.form.archivo = paso.archivoFile || null; modalPaso.value.mostrar = true }
+const cerrarModalPaso = () => { modalPaso.value.mostrar = false; modalPaso.value.paso = null; modalPaso.value.form = { observacion: '', archivo: null } }
+const completarPasoConfirmado = async () => {
   if (!modalPaso.value.paso) return
   const paso = modalPaso.value.paso
-  if (!modalPaso.value.form.observacion) return showAlert('Error','La observación es obligatoria.')
+  if (!modalPaso.value.form.observacion) return showAlert('Error', 'La observación es obligatoria.')
   paso.completado = true
   paso.observacion = modalPaso.value.form.observacion
-  paso.fechaCompletado = new Date().toISOString().slice(0,10)
-  if (modalPaso.value.form.archivo){
+  paso.fechaCompletado = new Date().toISOString().slice(0, 10)
+  if (modalPaso.value.form.archivo) {
     paso.nombreArchivo = modalPaso.value.form.archivo.name
     paso.archivoFile = modalPaso.value.form.archivo
     paso.archivoUrl = URL.createObjectURL(modalPaso.value.form.archivo)
@@ -1094,16 +1184,17 @@ const onFileChange = (event: Event) => {
   const target = event.target as HTMLInputElement
   archivoContrato.value = target.files && target.files.length ? target.files[0] : null
 }
-const onFilePasoChange = ()=>{/* noop */}
+const onFilePasoChange = () => { /* noop */ }
 
 // watchers
-watch(razonSocialSeleccionada, (newVal)=>{ if (newVal) cargarUsuariosPorRazonSocial() })
-watch(usuarioSeleccionado, async (newVal)=>{ if (newVal){ resetForm(); archivoContrato.value=null; await cargarHistorialContratos() } else contratosUsuario.value=[] })
-watch(tipoContratoSeleccionado, (newVal)=>{ if (newVal==='prestacion') terminoContrato.value = null })
-watch(tieneRecomendacionesMedicas, (newVal)=>{ if (!newVal) archivoRecomendacionMedica.value = null })
+watch(razonSocialSeleccionada, (newVal) => { if (newVal) cargarUsuariosPorRazonSocial() })
+watch(usuarioSeleccionado, async (newVal) => { if (newVal) { resetForm(); archivoContrato.value = null; await cargarHistorialContratos() } else contratosUsuario.value = [] })
+// 👇 aprendizaje también limpia término como prestación
+watch(tipoContratoSeleccionado, (newVal) => { if (newVal === 'prestacion' || newVal === 'aprendizaje') terminoContrato.value = null })
+watch(tieneRecomendacionesMedicas, (newVal) => { if (!newVal) archivoRecomendacionMedica.value = null })
 
 // mount
-onMounted(()=>{ cargarRazonesSociales(); cargarSedes(); cargarCargos(); cargarEntidadesSalud() })
+onMounted(() => { cargarRazonesSociales(); cargarSedes(); cargarCargos(); cargarEntidadesSalud() })
 </script>
 
 <style scoped>

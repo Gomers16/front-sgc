@@ -22,7 +22,7 @@ export interface Sede { id: number; nombre: string }
 export interface Cargo { id: number; nombre: string }
 
 export type EstadoContrato = 'activo' | 'inactivo'
-export type TipoContrato = 'prestacion' | 'temporal' | 'laboral'
+export type TipoContrato = 'prestacion' | 'temporal' | 'laboral' | 'aprendizaje'
 /** En el front podemos usar 'obra_o_labor_determinada'. Normalizamos a 'obra_o_labor' al enviar. */
 export type TerminoContrato = 'fijo' | 'obra_o_labor' | 'obra_o_labor_determinada' | 'indefinido' | null
 
@@ -242,9 +242,12 @@ function formOptions(method: string, form: FormData): RequestInit {
 export async function crearContrato(payload: ContratoCreatePayload): Promise<Contrato> {
   const toSend: ContratoCreatePayload = {
     ...payload,
-    terminoContrato: payload.terminoContrato
-      ? normalizeTerminoContrato(payload.terminoContrato)
-      : null,
+    terminoContrato:
+      payload.tipoContrato === 'prestacion' || payload.tipoContrato === 'aprendizaje'
+        ? null
+        : payload.terminoContrato
+          ? normalizeTerminoContrato(payload.terminoContrato)
+          : null,
   }
 
   return fetchData<Contrato>(`${API_BASE_URL}/contratos`, jsonOptions('POST', toSend))
@@ -294,9 +297,12 @@ export async function actualizarContrato(
     cargoId: payload.cargoId,
     funcionesCargo: payload.funcionesCargo,
     tipoContrato: payload.tipoContrato,
-    terminoContrato: payload.terminoContrato
-      ? normalizeTerminoContrato(payload.terminoContrato)
-      : payload.terminoContrato,
+    terminoContrato:
+      (payload.tipoContrato === 'prestacion' || payload.tipoContrato === 'aprendizaje')
+        ? null
+        : (payload.terminoContrato === undefined
+            ? undefined // en PATCH, si no vino, no tocar
+            : normalizeTerminoContrato(payload.terminoContrato)),
     fechaInicio: toYMD(payload.fechaInicio as any),
     fechaTerminacion: toYMD(fechaTerminacion as any),
     periodoPrueba: payload.periodoPrueba,
