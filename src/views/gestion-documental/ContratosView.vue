@@ -189,17 +189,17 @@
               />
             </v-col>
 
+            <!-- ⬇️ Visible/obligatoria según tipo -->
             <v-col
               cols="12"
               md="6"
-              v-if="
-                tipoContratoSeleccionado === 'temporal' ||
-                (tipoContratoSeleccionado === 'laboral' && terminoContrato !== 'indefinido')
-              "
+              v-if="isFechaTerminacionVisible"
             >
               <v-text-field
                 label="Fecha de Terminación"
                 v-model="fechaTerminacion"
+                :error-messages="fechaTerminacionError"
+                :required="isFechaTerminacionRequired"
                 type="date"
                 variant="outlined"
                 clearable
@@ -731,7 +731,6 @@ interface ContratoRow {
   sede?: any
   cargo?: any
   rutaArchivoContratoFisico?: string | null
-  /* opcional si tu API lo envía */
   rutaArchivoRecomendacionMedica?: string | null
   identificacion?: string
   funcionesCargo?: string | null
@@ -741,6 +740,13 @@ interface ContratoRow {
   afpId?: number | null
   afcId?: number | null
   ccfId?: number | null
+  // opcionales que podrían venir
+  salarios?: Array<{ salarioBasico:number; bonoSalarial:number; auxilioTransporte:number; auxilioNoSalarial:number }>
+  salario?: number
+  salarioBasico?: number
+  bonoSalarial?: number
+  auxilioTransporte?: number
+  auxilioNoSalarial?: number
 }
 
 const tiposContratoSelectItems = ref([
@@ -851,11 +857,24 @@ const { value: auxilioTransporte, errorMessage: auxilioTransporteError } = useFi
 const { value: auxilioNoSalarial, errorMessage: auxilioNoSalarialError } = useField('auxilioNoSalarial', [optionalNumber], { initialValue: '' })
 
 const { value: fechaInicio } = useField('fechaInicio', [required], { initialValue: '' })
-const { value: fechaTerminacion } = useField('fechaTerminacion', undefined, { initialValue: '' })
 
 // 👇 No requerir término cuando es prestacion **o** aprendizaje
-const terminoContratoRules = computed(() => (tipoContratoSeleccionado.value !== 'prestacion' && tipoContratoSeleccionado.value !== 'aprendizaje') ? [required] : [])
+const terminoContratoRules = computed(() =>
+  (tipoContratoSeleccionado.value !== 'prestacion' && tipoContratoSeleccionado.value !== 'aprendizaje') ? [required] : []
+)
 const { value: terminoContrato, errorMessage: terminoContratoError } = useField('terminoContrato', terminoContratoRules, { initialValue: null })
+
+// ✅ Requerimiento/visibilidad dinámica de FECHA DE TERMINACIÓN
+const isFechaTerminacionRequired = computed(() => {
+  const t = tipoContratoSeleccionado.value
+  if (t === 'prestacion' || t === 'aprendizaje' || t === 'temporal') return true
+  if (t === 'laboral') return terminoContrato.value !== 'indefinido'
+  return false
+})
+const isFechaTerminacionVisible = isFechaTerminacionRequired
+
+const fechaTerminacionRules = computed(() => isFechaTerminacionRequired.value ? [required] : [])
+const { value: fechaTerminacion, errorMessage: fechaTerminacionError } = useField('fechaTerminacion', fechaTerminacionRules, { initialValue: '' })
 
 const { value: centroCosto, errorMessage: centroCostoError } = useField('centroCosto', undefined, { initialValue: '' })
 const { value: epsId, errorMessage: epsIdError } = useField<number | null>('epsId', [required], { initialValue: null })
@@ -889,7 +908,9 @@ const salarioTotalCalculado = computed(() => {
   return (sb + bs + at + ans).toLocaleString('es-CO', { style: 'currency', currency: 'COP' })
 })
 
-// cargar datos
+/* ===========================
+   Cargar datos
+   =========================== */
 async function cargarHistorialContratos() {
   if (!usuarioSeleccionado.value) { contratosUsuario.value = []; return }
   loadingContratos.value = true
@@ -924,11 +945,14 @@ async function cargarSedes() { loadingSedes.value = true; try { sedes.value = aw
 async function cargarCargos() { loadingCargos.value = true; try { cargos.value = await obtenerCargos() } finally { loadingCargos.value = false } }
 async function cargarEntidadesSalud() { loadingEntidades.value = true; try { entidadesSalud.value = await obtenerEntidadesSalud() } finally { loadingEntidades.value = false } }
 
-// crear nuevo
+/* ===========================
+   Crear nuevo
+   =========================== */
 const handleConfirmacion = async () => {
   const { valid } = await validate()
   if (!valid) return showAlert('Error de Validación', 'Revisa los campos en rojo.')
   if (!usuarioSeleccionado.value || !tipoContratoSeleccionado.value) return showAlert('Advertencia', 'Seleccione usuario y tipo de contrato.')
+  if (isFechaTerminacionRequired.value && !fechaTerminacion.value) return showAlert('Advertencia', 'La fecha de terminación es obligatoria para este tipo de contrato.')
   if (!archivoContrato.value) return showAlert('Advertencia', 'Adjunte el PDF del contrato.')
   if (tieneRecomendacionesMedicas.value && !archivoRecomendacionMedica.value) return showAlert('Advertencia', 'Adjunte Recomendación Médica o desmarque la opción.')
   showConfirmDialog.value = true
@@ -938,9 +962,7 @@ const submitForm = handleSubmit(async (values) => { showConfirmDialog.value = fa
 async function crearYAnexarContrato(formData: any) {
   if (!usuarioSeleccionado.value || !archivoContrato.value || !razonSocialSeleccionada.value) return showAlert('Error', 'Falta información clave.')
 
-  const requiresEndDate =
-    tipoContratoSeleccionado.value === 'temporal' ||
-    (tipoContratoSeleccionado.value === 'laboral' && terminoContrato.value !== 'indefinido')
+  const requiresEndDate = isFechaTerminacionRequired.value
 
   // 👉 Mandamos SIEMPRE salarios en el payload (cualquier tipo)
   const payloadContrato: any = {
@@ -1025,7 +1047,9 @@ async function crearYAnexarContrato(formData: any) {
   }
 }
 
-// edición
+/* ===========================
+   Edición
+   =========================== */
 async function editarContrato(c: ContratoRow) {
   isEditing.value = true
   contratoEditId.value = c.id
@@ -1061,16 +1085,28 @@ async function editarContrato(c: ContratoRow) {
   tieneRecomendacionesMedicas.value = !!(src.tieneRecomendacionesMedicas ?? false)
   archivoRecomendacionMedica.value = null
 
-  // 💸 salario vigente
-  const salarioSrc =
-    src.salarioVigente ??
-    src.salario ??
-    (Array.isArray(src.salarios) ? src.salarios[0] : null) ?? {}
+  // 💸 salario vigente (robusto: campos planos, array[0], o legacy "salario" numérico)
+  const sb =
+    (src.salarioBasico as number | undefined) ??
+    (Array.isArray(src.salarios) ? src.salarios[0]?.salarioBasico : undefined) ??
+    (typeof src.salario === 'number' ? src.salario : undefined)
 
-  if (salarioSrc.salarioBasico != null) salarioBasico.value = String(salarioSrc.salarioBasico)
-  if (salarioSrc.bonoSalarial != null) bonoSalarial.value = String(salarioSrc.bonoSalarial)
-  if (salarioSrc.auxilioTransporte != null) auxilioTransporte.value = String(salarioSrc.auxilioTransporte)
-  if (salarioSrc.auxilioNoSalarial != null) auxilioNoSalarial.value = String(salarioSrc.auxilioNoSalarial)
+  const bs =
+    (src.bonoSalarial as number | undefined) ??
+    (Array.isArray(src.salarios) ? src.salarios[0]?.bonoSalarial : undefined)
+
+  const at =
+    (src.auxilioTransporte as number | undefined) ??
+    (Array.isArray(src.salarios) ? src.salarios[0]?.auxilioTransporte : undefined)
+
+  const ans =
+    (src.auxilioNoSalarial as number | undefined) ??
+    (Array.isArray(src.salarios) ? src.salarios[0]?.auxilioNoSalarial : undefined)
+
+  if (sb != null) salarioBasico.value = String(sb)
+  if (bs != null) bonoSalarial.value = String(bs)
+  if (at != null) auxilioTransporte.value = String(at)
+  if (ans != null) auxilioNoSalarial.value = String(ans)
 
   archivoContrato.value = null
 
@@ -1085,9 +1121,10 @@ async function guardarCambiosContrato() {
   const { valid } = await validate()
   if (!valid) return showAlert('Error de Validación', 'Revisa los campos obligatorios.')
 
-  const requiresEndDate =
-    tipoContratoSeleccionado.value === 'temporal' ||
-    (tipoContratoSeleccionado.value === 'laboral' && terminoContrato.value !== 'indefinido')
+  const requiresEndDate = isFechaTerminacionRequired.value
+  if (requiresEndDate && !fechaTerminacion.value) {
+    return showAlert('Advertencia', 'La fecha de terminación es obligatoria para este tipo de contrato.')
+  }
 
   // ⬇️ En edición: enviar salarios SOLO si el campo tiene valor; si está vacío => undefined => backend NO lo toca
   const payload: any = {
@@ -1198,7 +1235,6 @@ const onFilePasoChange = () => { /* noop */ }
 
 function parseFilenameFromContentDisposition(header: string | null): string | null {
   if (!header) return null
-  // Content-Disposition: attachment; filename="cuid_original.pdf"
   const match = /filename\*?=(?:UTF-8''|")?([^\";]+)/i.exec(header)
   if (match && match[1]) {
     try { return decodeURIComponent(match[1].replace(/\"/g, '')) } catch { return match[1].replace(/\"/g, '') }
