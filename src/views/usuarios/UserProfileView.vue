@@ -70,6 +70,12 @@
                   Información de Contacto
                 </v-card-title>
                 <v-list dense class="pa-4">
+                  <!-- NUEVO: Cédula en tarjeta de contacto -->
+                  <v-list-item prepend-icon="mdi-card-account-details-outline" class="mb-2">
+                    <v-list-item-title class="font-weight-bold">Número de Cédula:</v-list-item-title>
+                    <v-list-item-subtitle>{{ primaryContrato?.identificacion || 'N/A' }}</v-list-item-subtitle>
+                  </v-list-item>
+
                   <v-list-item prepend-icon="mdi-email" class="mb-2">
                     <v-list-item-title class="font-weight-bold">Correo Electrónico:</v-list-item-title>
                     <v-list-item-subtitle>{{ user.correo }}</v-list-item-subtitle>
@@ -334,10 +340,20 @@
                           <v-list-item-subtitle>{{ contrato.cargo?.nombre }}</v-list-item-subtitle>
                         </v-list-item>
 
+                        <!-- Número de Cédula (identificación) en Detalles -->
+                        <v-list-item prepend-icon="mdi-card-account-details-outline" class="mb-2">
+                          <v-list-item-title class="font-weight-bold">Número de Cédula:</v-list-item-title>
+                          <v-list-item-subtitle>{{ contrato.identificacion || 'N/A' }}</v-list-item-subtitle>
+                        </v-list-item>
+
                         <v-list-item prepend-icon="mdi-file-download" class="mb-2" v-if="contrato.rutaArchivoContratoFisico">
                           <v-list-item-title class="font-weight-bold">Contrato Físico:</v-list-item-title>
                           <v-list-item-subtitle>
-                            <a :href="`http://localhost:3333${contrato.rutaArchivoContratoFisico}`" target="_blank">
+                            <a
+                              :href="`http://localhost:3333${contrato.rutaArchivoContratoFisico}`"
+                              target="_blank"
+                              class="contrato-link"
+                            >
                               {{ contrato.nombreArchivoContratoFisico }}
                             </a>
                           </v-list-item-subtitle>
@@ -401,6 +417,15 @@
 
                                 <div class="text-body-2 text-grey-darken-2">
                                   {{ paso.observacion || 'Sin observación' }}
+                                </div>
+
+                                <!-- 👇 Por: quién lo realizó -->
+                                <div class="mt-1 text-caption text-grey-darken-1">
+                                  Por:
+                                  <v-chip v-if="paso.usuario" size="x-small" color="primary" label>
+                                    {{ fullName(paso.usuario) }}
+                                  </v-chip>
+                                  <span v-else>Sistema</span>
                                 </div>
 
                                 <div v-if="paso.archivoUrl" class="mt-2">
@@ -476,6 +501,15 @@
 
                                 <div class="text-body-2 text-grey-darken-2">
                                   {{ evento.descripcion || 'Sin descripción' }}
+                                </div>
+
+                                <!-- 👇 Por: quién creó el evento -->
+                                <div class="mt-1 text-caption text-grey-darken-1">
+                                  Por:
+                                  <v-chip v-if="evento.usuario" size="x-small" color="primary" label>
+                                    {{ fullName(evento.usuario) }}
+                                  </v-chip>
+                                  <span v-else>Sistema</span>
                                 </div>
 
                                 <div class="mt-2 d-flex justify-end">
@@ -879,6 +913,16 @@
                 <v-list-item-title class="font-weight-bold">Creado el:</v-list-item-title>
                 <v-list-item-subtitle>{{ formatDate(selectedEvent.createdAt) }}</v-list-item-subtitle>
               </v-list-item>
+              <!-- (opcional) mostrar creador también en el modal -->
+              <v-list-item>
+                <v-list-item-title class="font-weight-bold">Creado por:</v-list-item-title>
+                <v-list-item-subtitle>
+                  <v-chip v-if="(selectedEvent as any).usuario" size="x-small" color="primary" label>
+                    {{ fullName((selectedEvent as any).usuario) }}
+                  </v-chip>
+                  <span v-else>Sistema</span>
+                </v-list-item-subtitle>
+              </v-list-item>
             </v-list>
           </v-card-text>
           <v-card-actions>
@@ -1000,6 +1044,10 @@ interface ContratoCambio {
   createdAt: string
 }
 
+/* 👇 Extiendo localmente para permitir 'usuario' en eventos y pasos */
+type ContratoEventoExt = ContratoEvento & { usuario?: CambioUsuario | null }
+type ContratoPasoExt = ContratoPaso & { usuario?: CambioUsuario | null }
+
 type TimelineItemEstado = (ContratoHistorialEstado & { usuario?: CambioUsuario | null }) & {
   kind: 'estado'
 }
@@ -1007,6 +1055,7 @@ type TimelineItemCambio = ContratoCambio & { kind: 'cambio' }
 type TimelineItem = TimelineItemEstado | TimelineItemCambio
 
 interface Contrato extends BaseContrato {
+  identificacion?: string        // 👈 para mostrar cédula
   cargo?: Rel | null
   sede?: Rel | null
   eps?: Rel | null
@@ -1017,8 +1066,8 @@ interface Contrato extends BaseContrato {
   fechaTerminacion?: string | null
   activeTab?: string
   activeSubTab?: string
-  eventos?: ContratoEvento[]
-  pasos?: ContratoPaso[]
+  eventos?: ContratoEventoExt[]
+  pasos?: ContratoPasoExt[]
   historialEstados?: (ContratoHistorialEstado & { usuario?: CambioUsuario | null })[]
   cambios?: ContratoCambio[]
   timeline?: TimelineItem[]
@@ -1089,7 +1138,7 @@ const confirmDialogMessage = ref('')
 const confirmDialogCallback = ref((confirmed: boolean) => {})
 
 const showEventDetailsDialog = ref(false)
-const selectedEvent = ref<ContratoEvento | null>(null)
+const selectedEvent = ref<ContratoEventoExt | null>(null)
 
 const finalizationDate = ref<string | null>(null)
 const finalizationReason = ref<string | null>(null)
@@ -1337,7 +1386,7 @@ const loadUser = async () => {
 
             // Traer pasos de la fase 'inicio' si no vinieron
             if (!c.pasos || c.pasos.length === 0) {
-              c.pasos = await fetchPasosInicio(c.id)
+              c.pasos = await fetchPasosInicio(c.id) as unknown as ContratoPasoExt[]
             }
 
             c.timeline = buildTimeline(c)
@@ -1456,7 +1505,7 @@ const submitNewEvent = async () => {
   if (actorId.value != null) payload.append('actorId', String(actorId.value))
 
   try {
-    const createdEvent = await crearEventoDeContrato(contratoIdForNewEvent.value, payload)
+    const createdEvent = await crearEventoDeContrato(contratoIdForNewEvent.value, payload) as ContratoEventoExt
     showAlert('Éxito', 'Evento creado correctamente.')
     closeAddEventDialog()
 
@@ -1473,7 +1522,7 @@ const submitNewEvent = async () => {
   }
 }
 
-const viewEventDetails = (event: ContratoEvento) => {
+const viewEventDetails = (event: ContratoEventoExt) => {
   selectedEvent.value = event
   showEventDetailsDialog.value = true
 }
@@ -1532,9 +1581,9 @@ const submitContractFinalization = async (contratoId: number) => {
 }
 
 /* ===== Edición de paso ===== */
-const openEditPasoDialog = (contratoId: number, paso: ContratoPaso) => {
+const openEditPasoDialog = (contratoId: number, paso: ContratoPasoExt) => {
   contratoIdForPasoEdit.value = contratoId
-  pasoIdForEdit.value = paso.id || null
+  pasoIdForEdit.value = (paso as any).id || null
   pasoEditData.value = { observacion: paso.observacion || '' }
   showEditPasoDialog.value = true
 }
@@ -1588,4 +1637,10 @@ onMounted(() => {
 }
 .v-card-title, .v-card-subtitle { white-space: normal; word-wrap: break-word; }
 .v-list-item-title, .v-list-item-subtitle { word-break: break-word; }
+
+/* NUEVO: estilo del hipervínculo del Contrato Físico */
+.contrato-link {
+  color: #0d47a1 !important; /* azul oscuro */
+  text-decoration: underline;
+}
 </style>
