@@ -70,7 +70,7 @@
             <v-col cols="12" md="6">
               <v-text-field
                 ref="identificacionRef"
-                label="Número de Identificación"
+                label="Número de Identificación (Número de cédula)"
                 v-model="identificacion"
                 :error-messages="identificacionError"
                 required
@@ -237,10 +237,12 @@
               />
             </v-col>
 
+            <!-- 🔽 CAMBIO: TextField -> Select fijo -->
             <v-col cols="12" md="6">
-              <v-text-field
-                label="Centro de Costo"
+              <v-select
+                label="Centro de Costo (Área)"
                 v-model="centroCosto"
+                :items="centrosCostoOptions"
                 :error-messages="centroCostoError"
                 variant="outlined"
                 clearable
@@ -740,7 +742,6 @@ interface ContratoRow {
   afpId?: number | null
   afcId?: number | null
   ccfId?: number | null
-  // opcionales que podrían venir
   salarios?: Array<{ salarioBasico:number; bonoSalarial:number; auxilioTransporte:number; auxilioNoSalarial:number }>
   salario?: number
   salarioBasico?: number
@@ -886,6 +887,17 @@ const { value: ccfId, errorMessage: ccfIdError } = useField<number | null>('ccfI
 const contratosUsuario = ref<ContratoRow[]>([])
 const loadingContratos = ref(false)
 
+// 🔽 Opciones fijas para Centro de Costo (Área)
+const centrosCostoOptions = ref<string[]>([
+  'ADMINISTRACIÓN',
+  'TALENTO HUMANO',
+  'CONTABILIDAD',
+  'OPERACIÓN',
+  'SERVICIO AL CLIENTE',
+  'DIRECCIÓN',
+  'COMERCIAL',
+])
+
 const pasosContrato = computed(() => {
   let current: Paso[] = []
   if (tipoContratoSeleccionado.value === 'prestacion' || tipoContratoSeleccionado.value === 'aprendizaje') current = [...basePasosPrestacion]
@@ -964,7 +976,6 @@ async function crearYAnexarContrato(formData: any) {
 
   const requiresEndDate = isFechaTerminacionRequired.value
 
-  // 👉 Mandamos SIEMPRE salarios en el payload (cualquier tipo)
   const payloadContrato: any = {
     usuarioId: Number(usuarioSeleccionado.value),
     razonSocialId: Number(razonSocialSeleccionada.value),
@@ -975,7 +986,6 @@ async function crearYAnexarContrato(formData: any) {
     fechaInicio: formData.fechaInicio,
     fechaTerminacion: requiresEndDate ? (formData.fechaTerminacion || null) : null,
     tipoContrato: tipoContratoSeleccionado.value,
-    // 👇 aprendizaje = prestación (sin término)
     terminoContrato: (tipoContratoSeleccionado.value !== 'prestacion' && tipoContratoSeleccionado.value !== 'aprendizaje') ? terminoContrato.value : null,
     estado: 'activo',
     periodoPrueba: null,
@@ -988,7 +998,6 @@ async function crearYAnexarContrato(formData: any) {
     ccfId: ccfId.value ? Number(ccfId.value) : null,
     tieneRecomendacionesMedicas: !!tieneRecomendacionesMedicas.value,
 
-    // 💸 salarios SIEMPRE
     salarioBasico: Number(salarioBasico.value) || 0,
     bonoSalarial: Number(bonoSalarial.value) || 0,
     auxilioTransporte: Number(auxilioTransporte.value) || 0,
@@ -996,10 +1005,8 @@ async function crearYAnexarContrato(formData: any) {
   }
 
   try {
-    // 1) Crea contrato
     const nuevoContrato: any = await crearContrato(payloadContrato)
 
-    // 1.1) Garantía: si el backend NO creó salario, lo creamos aquí.
     const salarioViene = Array.isArray(nuevoContrato.salarios) && nuevoContrato.salarios.length > 0
     if (!salarioViene) {
       const payloadSalario = {
@@ -1013,7 +1020,6 @@ async function crearYAnexarContrato(formData: any) {
       await crearContratoSalario(payloadSalario)
     }
 
-    // 2) Anexar PDF (y recomendación si aplica)
     await anexarContrato({
       contratoId: Number(nuevoContrato.id),
       archivo: archivoContrato.value!,
@@ -1022,7 +1028,6 @@ async function crearYAnexarContrato(formData: any) {
       archivoRecomendacionMedica: archivoRecomendacionMedica.value || undefined,
     })
 
-    // 3) Crear pasos base
     try {
       const creates = pasosContrato.value.map(p => {
         const fd = new FormData()
@@ -1073,7 +1078,7 @@ async function editarContrato(c: ContratoRow) {
   fechaInicio.value = (src.fechaInicio || c.fechaInicio || '').slice(0, 10)
   fechaTerminacion.value = (src.fechaTerminacion || c.fechaTerminacion) ? String(src.fechaTerminacion || c.fechaTerminacion).slice(0, 10) : ''
 
-  // 👇 aprendizaje = prestación (sin término)
+  // aprendizaje = prestación (sin término)
   terminoContrato.value = (src.tipoContrato === 'prestacion' || src.tipoContrato === 'aprendizaje') ? null : (src.terminoContrato ?? c.terminoContrato ?? null)
 
   epsId.value = src.epsId ?? c.epsId ?? null
@@ -1085,7 +1090,7 @@ async function editarContrato(c: ContratoRow) {
   tieneRecomendacionesMedicas.value = !!(src.tieneRecomendacionesMedicas ?? false)
   archivoRecomendacionMedica.value = null
 
-  // 💸 salario vigente (robusto: campos planos, array[0], o legacy "salario" numérico)
+  // salario vigente (robusto)
   const sb =
     (src.salarioBasico as number | undefined) ??
     (Array.isArray(src.salarios) ? src.salarios[0]?.salarioBasico : undefined) ??
@@ -1112,7 +1117,7 @@ async function editarContrato(c: ContratoRow) {
 
   await nextTick()
   window.scrollTo({ top: 0, behavior: 'smooth' })
-  ; (identificacionRef.value as any)?.focus?.()
+  ;(identificacionRef.value as any)?.focus?.()
 }
 
 async function guardarCambiosContrato() {
@@ -1126,10 +1131,8 @@ async function guardarCambiosContrato() {
     return showAlert('Advertencia', 'La fecha de terminación es obligatoria para este tipo de contrato.')
   }
 
-  // ⬇️ En edición: enviar salarios SOLO si el campo tiene valor; si está vacío => undefined => backend NO lo toca
   const payload: any = {
     tipoContrato: tipoContratoSeleccionado.value,
-    // 👇 aprendizaje = prestación (sin término)
     terminoContrato: (tipoContratoSeleccionado.value !== 'prestacion' && tipoContratoSeleccionado.value !== 'aprendizaje') ? terminoContrato.value : null,
     identificacion: (identificacion.value || '').trim(),
     sedeId: sedeId.value ? Number(sedeId.value) : null,
@@ -1145,7 +1148,7 @@ async function guardarCambiosContrato() {
     ccfId: ccfId.value ?? null,
     tieneRecomendacionesMedicas: !!tieneRecomendacionesMedicas.value,
 
-    // 💸 Condicionales (no pisar con 0)
+    // Condicionales (no pisar con 0)
     salarioBasico: salarioBasico.value !== '' ? Number(salarioBasico.value) : undefined,
     bonoSalarial: bonoSalarial.value !== '' ? Number(bonoSalarial.value) : undefined,
     auxilioTransporte: auxilioTransporte.value !== '' ? Number(auxilioTransporte.value) : undefined,
@@ -1232,7 +1235,6 @@ const onFilePasoChange = () => { /* noop */ }
 /* ===========================
    DESCARGAR ARCHIVO
    =========================== */
-
 function parseFilenameFromContentDisposition(header: string | null): string | null {
   if (!header) return null
   const match = /filename\*?=(?:UTF-8''|")?([^\";]+)/i.exec(header)
@@ -1269,7 +1271,6 @@ async function descargarArchivo(url?: string | null, sugerido?: string) {
 // watchers
 watch(razonSocialSeleccionada, (newVal) => { if (newVal) cargarUsuariosPorRazonSocial() })
 watch(usuarioSeleccionado, async (newVal) => { if (newVal) { resetForm(); archivoContrato.value = null; await cargarHistorialContratos() } else contratosUsuario.value = [] })
-// 👇 aprendizaje también limpia término como prestación
 watch(tipoContratoSeleccionado, (newVal) => { if (newVal === 'prestacion' || newVal === 'aprendizaje') terminoContrato.value = null })
 watch(tieneRecomendacionesMedicas, (newVal) => { if (!newVal) archivoRecomendacionMedica.value = null })
 
