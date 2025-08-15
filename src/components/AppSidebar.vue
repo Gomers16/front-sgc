@@ -69,7 +69,7 @@
             link
           />
           <v-list-item
-            title="Activautos"
+            title="CDA Activa"
             :to="{ name: 'RazonSocialDetalle', params: { id: 2, nombre: 'Activautos' } }"
             link
           />
