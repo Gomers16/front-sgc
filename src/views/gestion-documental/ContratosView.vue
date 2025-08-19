@@ -294,6 +294,21 @@
                       />
                     </template>
                   </v-tooltip>
+
+                  <!-- Botón para certificado EPS -->
+                  <v-tooltip text="Subir/Ver certificado EPS" location="top">
+                    <template #activator="{ props }">
+                      <v-btn
+                        v-bind="props"
+                        icon="mdi-paperclip"
+                        size="small"
+                        variant="text"
+                        class="ml-1"
+                        :disabled="!epsId"
+                        @click.stop="abrirDialogoCertificado('eps')"
+                      />
+                    </template>
+                  </v-tooltip>
                 </template>
               </v-select>
             </v-col>
@@ -321,6 +336,21 @@
                         size="18"
                         class="ml-1 text-medium-emphasis"
                         aria-label="¿Qué es ARL?"
+                      />
+                    </template>
+                  </v-tooltip>
+
+                  <!-- Botón para certificado ARL -->
+                  <v-tooltip text="Subir/Ver certificado ARL" location="top">
+                    <template #activator="{ props }">
+                      <v-btn
+                        v-bind="props"
+                        icon="mdi-paperclip"
+                        size="small"
+                        variant="text"
+                        class="ml-1"
+                        :disabled="!arlId"
+                        @click.stop="abrirDialogoCertificado('arl')"
                       />
                     </template>
                   </v-tooltip>
@@ -354,6 +384,21 @@
                       />
                     </template>
                   </v-tooltip>
+
+                  <!-- Botón para certificado AFP -->
+                  <v-tooltip text="Subir/Ver certificado AFP" location="top">
+                    <template #activator="{ props }">
+                      <v-btn
+                        v-bind="props"
+                        icon="mdi-paperclip"
+                        size="small"
+                        variant="text"
+                        class="ml-1"
+                        :disabled="!afpId"
+                        @click.stop="abrirDialogoCertificado('afp')"
+                      />
+                    </template>
+                  </v-tooltip>
                 </template>
               </v-select>
             </v-col>
@@ -384,6 +429,21 @@
                       />
                     </template>
                   </v-tooltip>
+
+                  <!-- Botón para certificado AFC -->
+                  <v-tooltip text="Subir/Ver certificado AFC" location="top">
+                    <template #activator="{ props }">
+                      <v-btn
+                        v-bind="props"
+                        icon="mdi-paperclip"
+                        size="small"
+                        variant="text"
+                        class="ml-1"
+                        :disabled="!afcId"
+                        @click.stop="abrirDialogoCertificado('afc')"
+                      />
+                    </template>
+                  </v-tooltip>
                 </template>
               </v-select>
             </v-col>
@@ -411,6 +471,21 @@
                         size="18"
                         class="ml-1 text-medium-emphasis"
                         aria-label="¿Qué es CCF?"
+                      />
+                    </template>
+                  </v-tooltip>
+
+                  <!-- Botón para certificado CCF -->
+                  <v-tooltip text="Subir/Ver certificado CCF" location="top">
+                    <template #activator="{ props }">
+                      <v-btn
+                        v-bind="props"
+                        icon="mdi-paperclip"
+                        size="small"
+                        variant="text"
+                        class="ml-1"
+                        :disabled="!ccfId"
+                        @click.stop="abrirDialogoCertificado('ccf')"
                       />
                     </template>
                   </v-tooltip>
@@ -694,6 +769,104 @@
         </v-card-actions>
       </v-card>
     </v-dialog>
+
+    <!-- Dialogo de Certificado de Entidad de Salud -->
+    <v-dialog v-model="certDialog.open" max-width="640px">
+      <v-card>
+        <v-card-title class="text-h6">
+          {{ certDialog.entidadNombre ? certDialog.entidadNombre : 'Entidad' }} — Certificado ({{ certDialog.tipo?.toUpperCase() }})
+        </v-card-title>
+        <v-card-text>
+          <v-alert v-if="certDialog.loading" type="info" variant="tonal" class="mb-3">
+            Cargando información del certificado...
+          </v-alert>
+
+          <div v-else>
+            <v-alert
+              v-if="certTieneArchivo"
+              type="success"
+              variant="tonal"
+              class="mb-3"
+            >
+              <div class="d-flex flex-wrap align-center ga-2">
+                <div>
+                  <strong>Actual:</strong>
+                  {{ certDialog.meta?.certificadoNombreOriginal || 'Archivo cargado' }}
+                </div>
+                <div v-if="certDialog.meta?.certificadoFechaEmision">
+                  • Emisión: {{ formatFechaOrFechaHora(certDialog.meta.certificadoFechaEmision) }}
+                </div>
+                <div v-if="certDialog.meta?.certificadoFechaExpiracion">
+                  • Expira: {{ formatFechaOrFechaHora(certDialog.meta.certificadoFechaExpiracion) }}
+                </div>
+              </div>
+            </v-alert>
+
+            <v-file-input
+              v-model="certDialog.file"
+              label="Seleccionar archivo (PDF/JPG/PNG/WEBP)"
+              accept=".pdf,.jpg,.jpeg,.png,.webp,application/pdf,image/jpeg,image/png,image/webp"
+              variant="outlined"
+              density="compact"
+              prepend-icon="mdi-paperclip"
+              show-size
+              class="mb-3"
+            />
+
+            <v-row dense>
+              <v-col cols="12" md="6">
+                <v-text-field
+                  v-model="certDialog.fechaEmision"
+                  label="Fecha de Emisión (opcional)"
+                  type="date"
+                  variant="outlined"
+                  density="compact"
+                  clearable
+                />
+              </v-col>
+              <v-col cols="12" md="6">
+                <v-text-field
+                  v-model="certDialog.fechaExpiracion"
+                  label="Fecha de Expiración (opcional)"
+                  type="date"
+                  variant="outlined"
+                  density="compact"
+                  clearable
+                />
+              </v-col>
+            </v-row>
+          </div>
+        </v-card-text>
+
+        <v-card-actions>
+          <v-spacer />
+          <v-btn variant="text" color="grey-darken-1" @click="cerrarCertDialog">Cerrar</v-btn>
+
+          <v-btn
+            v-if="certTieneArchivo"
+            variant="tonal"
+            prepend-icon="mdi-download"
+            @click="descargarCertificadoSeleccionado"
+          >Descargar</v-btn>
+
+          <v-btn
+            v-if="certTieneArchivo"
+            variant="tonal"
+            color="error"
+            prepend-icon="mdi-delete"
+            @click="eliminarCertificadoSeleccionado"
+          >Eliminar</v-btn>
+
+          <v-btn
+            color="primary"
+            variant="flat"
+            prepend-icon="mdi-upload"
+            :disabled="!certDialog.file || certDialog.loading"
+            @click="subirCertificadoSeleccionado"
+          >{{ certTieneArchivo ? 'Reemplazar' : 'Subir' }}</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
   </v-container>
 </template>
 
@@ -701,7 +874,17 @@
 import { ref, computed, watch, onMounted, nextTick } from 'vue'
 import { useForm, useField } from 'vee-validate'
 import { listarRazonesSociales, fetchUsuariosPorRazonSocial } from '@/services/razonSocialService'
-import { obtenerSedes, obtenerCargos, obtenerEntidadesSalud } from '@/services/UserService'
+import {
+  obtenerSedes,
+  obtenerCargos,
+  obtenerEntidadesSalud,
+  // ⬇️ NUEVO: funciones para certificados desde UserService
+  obtenerEntidadSaludPorId,
+  subirCertificadoEntidadSalud,
+  descargarCertificadoEntidadSalud,
+  eliminarCertificadoEntidadSalud,
+  entidadTieneCertificado,
+} from '@/services/UserService'
 import {
   anexarContrato,
   crearContrato,
@@ -712,6 +895,38 @@ import {
   obtenerContratoPorId,
 } from '@/services/contratoService'
 import { crearPasoContrato } from '@/services/contratosPasosService'
+
+/* ======= Helpers de fecha/hora para mostrar bonito (es-CO) ======= */
+function parseYMDLocal(s: string): Date | null {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec((s || '').trim())
+  return m ? new Date(+m[1], +m[2] - 1, +m[3], 0, 0, 0) : null
+}
+function coerceToDate(v: any): Date | null {
+  if (!v) return null
+  if (v instanceof Date) return isNaN(v.getTime()) ? null : v
+  if (typeof v === 'string') {
+    return parseYMDLocal(v) ?? (isNaN(new Date(v).getTime()) ? null : new Date(v))
+  }
+  return null
+}
+const fmtFecha = new Intl.DateTimeFormat('es-CO', { day: '2-digit', month: '2-digit', year: 'numeric' })
+const fmtFechaHora = new Intl.DateTimeFormat('es-CO', {
+  day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true,
+})
+function formatFecha(v: any): string {
+  const d = coerceToDate(v)
+  return d ? fmtFecha.format(d) : '—'
+}
+function formatFechaHora(v: any): string {
+  const d = coerceToDate(v)
+  return d ? fmtFechaHora.format(d).replace(',', '') : '—'
+}
+/** Si la cadena trae hora (ISO/T), muestra fecha+hora; si no, solo fecha */
+function formatFechaOrFechaHora(v: any): string {
+  const hasTime = typeof v === 'string' && (/[T ]\d{2}:\d{2}/.test(v))
+  return hasTime ? formatFechaHora(v) : formatFecha(v)
+}
+/* ================================================================ */
 
 interface RazonSocial { id: number; nombre: string }
 interface Paso {
@@ -749,6 +964,8 @@ interface ContratoRow {
   auxilioTransporte?: number
   auxilioNoSalarial?: number
 }
+
+type AfiliacionTipo = 'eps' | 'arl' | 'afp' | 'afc' | 'ccf'
 
 const tiposContratoSelectItems = ref([
   { nombre: 'Prestación de Servicios', valor: 'prestacion' },
@@ -906,11 +1123,11 @@ const pasosContrato = computed(() => {
   return current.map((p, i) => ({ ...p, orden: i + 1 })).sort((a, b) => (a.orden || 0) - (b.orden || 0))
 })
 
-const filteredEps = computed(() => entidadesSalud.value.filter(e => e.tipo === 'eps'))
-const filteredArl = computed(() => entidadesSalud.value.filter(e => e.tipo === 'arl'))
-const filteredAfp = computed(() => entidadesSalud.value.filter(e => e.tipo === 'afp'))
-const filteredAfc = computed(() => entidadesSalud.value.filter(e => e.tipo === 'afc'))
-const filteredCcf = computed(() => entidadesSalud.value.filter(e => e.tipo === 'ccf'))
+const filteredEps = computed(() => entidadesSalud.value.filter((e: any) => e.tipo === 'eps'))
+const filteredArl = computed(() => entidadesSalud.value.filter((e: any) => e.tipo === 'arl'))
+const filteredAfp = computed(() => entidadesSalud.value.filter((e: any) => e.tipo === 'afp'))
+const filteredAfc = computed(() => entidadesSalud.value.filter((e: any) => e.tipo === 'afc'))
+const filteredCcf = computed(() => entidadesSalud.value.filter((e: any) => e.tipo === 'ccf'))
 
 const salarioTotalCalculado = computed(() => {
   const sb = Number(salarioBasico.value) || 0
@@ -919,6 +1136,118 @@ const salarioTotalCalculado = computed(() => {
   const ans = Number(auxilioNoSalarial.value) || 0
   return (sb + bs + at + ans).toLocaleString('es-CO', { style: 'currency', currency: 'COP' })
 })
+
+/* ===========================
+   Certificados de Entidad de Salud (UI)
+   =========================== */
+const certDialog = ref<{
+  open: boolean
+  tipo: AfiliacionTipo | ''
+  entidadId: number | null
+  entidadNombre: string
+  file: File | null
+  fechaEmision: string
+  fechaExpiracion: string
+  loading: boolean
+  meta: any
+}>({
+  open: false,
+  tipo: '',
+  entidadId: null,
+  entidadNombre: '',
+  file: null,
+  fechaEmision: '',
+  fechaExpiracion: '',
+  loading: false,
+  meta: null,
+})
+
+const certTieneArchivo = computed(() => entidadTieneCertificado(certDialog.value.meta))
+
+function cerrarCertDialog() {
+  certDialog.value.open = false
+  certDialog.value.tipo = ''
+  certDialog.value.entidadId = null
+  certDialog.value.entidadNombre = ''
+  certDialog.value.file = null
+  certDialog.value.fechaEmision = ''
+  certDialog.value.fechaExpiracion = ''
+  certDialog.value.loading = false
+  certDialog.value.meta = null
+}
+
+async function abrirDialogoCertificado(tipo: AfiliacionTipo) {
+  const idMap: Record<AfiliacionTipo, number | null> = {
+    eps: epsId.value,
+    arl: arlId.value,
+    afp: afpId.value,
+    afc: afcId.value,
+    ccf: ccfId.value,
+  }
+  const id = idMap[tipo]
+  if (!id) return showAlert('Selecciona una entidad', 'Debes elegir una entidad antes de gestionar su certificado.')
+
+  const ent = entidadesSalud.value.find((e: any) => e.id === id)
+  certDialog.value.tipo = tipo
+  certDialog.value.entidadId = id
+  certDialog.value.entidadNombre = ent?.nombre || `Entidad ${id}`
+  certDialog.value.open = true
+  certDialog.value.loading = true
+  try {
+    certDialog.value.meta = await obtenerEntidadSaludPorId(id)
+  } catch (e) {
+    console.error('Error cargando entidad:', e)
+    certDialog.value.meta = null
+  } finally {
+    certDialog.value.loading = false
+  }
+}
+
+async function subirCertificadoSeleccionado() {
+  if (!certDialog.value.entidadId || !certDialog.value.file) return
+  certDialog.value.loading = true
+  try {
+    const updated = await subirCertificadoEntidadSalud(
+      certDialog.value.entidadId,
+      certDialog.value.file,
+      {
+        fechaEmision: certDialog.value.fechaEmision || undefined,
+        fechaExpiracion: certDialog.value.fechaExpiracion || undefined,
+      }
+    )
+    certDialog.value.meta = updated
+    showAlert('Listo', 'Certificado cargado correctamente.')
+    certDialog.value.file = null
+  } catch (e: any) {
+    console.error(e)
+    showAlert('Error', e?.message || 'No fue posible subir el certificado.')
+  } finally {
+    certDialog.value.loading = false
+  }
+}
+
+async function descargarCertificadoSeleccionado() {
+  if (!certDialog.value.entidadId) return
+  try {
+    const sugerido = `${certDialog.value.entidadNombre.replace(/\s+/g, '_')}_certificado`
+    await descargarCertificadoEntidadSalud(certDialog.value.entidadId, sugerido)
+  } catch (e: any) {
+    console.error(e)
+    showAlert('Error', e?.message || 'No fue posible descargar el certificado.')
+  }
+}
+
+async function eliminarCertificadoSeleccionado() {
+  if (!certDialog.value.entidadId) return
+  try {
+    await eliminarCertificadoEntidadSalud(certDialog.value.entidadId)
+    certDialog.value.meta = null
+    showAlert('Listo', 'Certificado eliminado.')
+  } catch (e: any) {
+    console.error(e)
+    showAlert('Error', e?.message || 'No fue posible eliminar el certificado.')
+  }
+}
 
 /* ===========================
    Cargar datos

@@ -24,6 +24,15 @@ export interface EntidadSalud {
   id: number
   nombre: string
   tipo: string
+
+  // ───── Metadatos opcionales del certificado (si el backend los devuelve) ─────
+  certificadoNombreOriginal?: string | null
+  certificadoMime?: string | null
+  certificadoTamanio?: number | null
+  certificadoFechaEmision?: string | null
+  certificadoFechaExpiracion?: string | null
+  /** URL firmada/absoluta si el backend la expone */
+  certificadoDownloadUrl?: string | null
 }
 
 // Interfaz para la respuesta de una operación de eliminación
@@ -166,6 +175,30 @@ export async function fetchData<T>(url: string, options: RequestInit = {}): Prom
   }
 
   return {} as T
+}
+
+/* ================================
+   Helpers de descarga (Blob)
+================================ */
+async function fetchBlob(url: string, options: RequestInit = {}): Promise<Blob> {
+  const resp = await fetch(url, options)
+  if (!resp.ok) {
+    const txt = await resp.text().catch(() => '')
+    throw new Error(txt || resp.statusText || `HTTP ${resp.status}`)
+  }
+  return await resp.blob()
+}
+
+/** Dispara una descarga en el navegador */
+function triggerDownload(blob: Blob, filename: string) {
+  const link = document.createElement('a')
+  const url = URL.createObjectURL(blob)
+  link.href = url
+  link.download = filename
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  URL.revokeObjectURL(url)
 }
 
 // --- Funciones para el manejo de usuarios ---
@@ -355,6 +388,74 @@ export async function obtenerEntidadesSalud(): Promise<EntidadSalud[]> {
     console.error('Error al obtener entidades de salud:', error)
     throw error
   }
+}
+
+/* ============================================================================================
+   NUEVO: Certificados de ENTIDADES DE SALUD
+   Endpoints usados en backend:
+     - GET    /api/entidades-salud/:id
+     - POST   /api/entidades-salud/:id/certificado           (multipart: archivo, fechaEmision?, fechaExpiracion?)
+     - GET    /api/entidades-salud/:id/certificado/download  (descargar)
+     - DELETE /api/entidades-salud/:id/certificado
+   ============================================================================================ */
+
+/** GET /api/entidades-salud/:id */
+export async function obtenerEntidadSaludPorId(id: number): Promise<EntidadSalud> {
+  return fetchData<EntidadSalud>(`${API_BASE_URL}/entidades-salud/${id}`)
+}
+
+/**
+ * POST /api/entidades-salud/:id/certificado
+ * Sube o reemplaza el certificado (PDF/JPG/PNG/WEBP).
+ */
+export async function subirCertificadoEntidadSalud(
+  entidadId: number,
+  file: File,
+  meta?: { fechaEmision?: string; fechaExpiracion?: string }
+): Promise<EntidadSalud> {
+  const form = new FormData()
+  form.append('archivo', file, file.name)
+  if (meta?.fechaEmision) form.append('fechaEmision', meta.fechaEmision)
+  if (meta?.fechaExpiracion) form.append('fechaExpiracion', meta.fechaExpiracion)
+
+  return fetchData<EntidadSalud>(`${API_BASE_URL}/entidades-salud/${entidadId}/certificado`, {
+    method: 'POST',
+    body: form,
+  })
+}
+
+/**
+ * GET /api/entidades-salud/:id/certificado/download
+ * Descarga el certificado como archivo (dispara descarga en el navegador).
+ */
+export async function descargarCertificadoEntidadSalud(
+  entidadId: number,
+  nombreDescarga?: string
+): Promise<void> {
+  const blob = await fetchBlob(`${API_BASE_URL}/entidades-salud/${entidadId}/certificado/download`, {
+    method: 'GET',
+  })
+  const suggested =
+    nombreDescarga ||
+    `certificado_entidad_${entidadId}${blob.type && blob.type.includes('pdf') ? '.pdf' : ''}`
+  triggerDownload(blob, suggested)
+}
+
+/**
+ * DELETE /api/entidades-salud/:id/certificado
+ * Elimina el certificado y limpia los metadatos en la entidad.
+ */
+export async function eliminarCertificadoEntidadSalud(entidadId: number): Promise<string> {
+  const resp = await fetchData<{ message: string }>(
+    `${API_BASE_URL}/entidades-salud/${entidadId}/certificado`,
+    { method: 'DELETE' }
+  )
+  return resp?.message || 'Certificado eliminado correctamente.'
+}
+
+/** Utilidad: saber si la entidad tiene certificado cargado */
+export function entidadTieneCertificado(e: Partial<EntidadSalud> | null | undefined): boolean {
+  return !!e?.certificadoNombreOriginal || !!e?.certificadoDownloadUrl
 }
 
 /* ============================================================================================

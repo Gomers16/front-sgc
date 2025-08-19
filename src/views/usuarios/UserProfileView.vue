@@ -124,9 +124,10 @@
               </v-card>
             </v-col>
 
-            <!-- Seguridad Social (con tooltips) -->
+            <!-- Seguridad Social (con tooltips y acciones) -->
             <v-col cols="12" md="6">
-              <v-card class="elevation-4 rounded-lg mt-6 h-100">
+              <!-- 👇 se agrega la clase seg-social -->
+              <v-card class="elevation-4 rounded-lg mt-6 h-100 seg-social">
                 <v-card-title class="text-h6 font-weight-bold text-white bg-blue-grey-darken-2 pa-4">
                   <v-icon class="mr-1">mdi-security</v-icon>
                   Información de Seguridad Social
@@ -149,7 +150,33 @@
                           </template>
                         </v-tooltip>:
                       </v-list-item-title>
-                      <v-list-item-subtitle>{{ primaryContrato?.eps?.nombre || user.eps?.nombre }}</v-list-item-subtitle>
+
+                      <!-- 👇 nombre sin cortes + tooltip nativo -->
+                      <v-list-item-subtitle
+                        class="afiliacion-nombre"
+                        :title="primaryContrato?.eps?.nombre || user.eps?.nombre"
+                      >
+                        {{ primaryContrato?.eps?.nombre || user.eps?.nombre }}
+                      </v-list-item-subtitle>
+
+                      <!-- acciones -->
+                      <template #append>
+                        <v-btn
+                          icon="mdi-paperclip"
+                          variant="text"
+                          size="small"
+                          class="mr-1"
+                          :disabled="!getEntidadId('eps')"
+                          @click="abrirDialogoCertificado('eps')"
+                        />
+                        <v-btn
+                          icon="mdi-download"
+                          variant="text"
+                          size="small"
+                          :disabled="!getEntidadId('eps')"
+                          @click="descargarCertificadoDirecto('eps')"
+                        />
+                      </template>
                     </v-list-item>
                   </v-col>
 
@@ -170,7 +197,31 @@
                           </template>
                         </v-tooltip>:
                       </v-list-item-title>
-                      <v-list-item-subtitle>{{ primaryContrato?.arl?.nombre || user.arl?.nombre }}</v-list-item-subtitle>
+
+                      <v-list-item-subtitle
+                        class="afiliacion-nombre"
+                        :title="primaryContrato?.arl?.nombre || user.arl?.nombre"
+                      >
+                        {{ primaryContrato?.arl?.nombre || user.arl?.nombre }}
+                      </v-list-item-subtitle>
+
+                      <template #append>
+                        <v-btn
+                          icon="mdi-paperclip"
+                          variant="text"
+                          size="small"
+                          class="mr-1"
+                          :disabled="!getEntidadId('arl')"
+                          @click="abrirDialogoCertificado('arl')"
+                        />
+                        <v-btn
+                          icon="mdi-download"
+                          variant="text"
+                          size="small"
+                          :disabled="!getEntidadId('arl')"
+                          @click="descargarCertificadoDirecto('arl')"
+                        />
+                      </template>
                     </v-list-item>
                   </v-col>
 
@@ -191,7 +242,31 @@
                           </template>
                         </v-tooltip>:
                       </v-list-item-title>
-                      <v-list-item-subtitle>{{ primaryContrato?.afp?.nombre || user.afp?.nombre }}</v-list-item-subtitle>
+
+                      <v-list-item-subtitle
+                        class="afiliacion-nombre"
+                        :title="primaryContrato?.afp?.nombre || user.afp?.nombre"
+                      >
+                        {{ primaryContrato?.afp?.nombre || user.afp?.nombre }}
+                      </v-list-item-subtitle>
+
+                      <template #append>
+                        <v-btn
+                          icon="mdi-paperclip"
+                          variant="text"
+                          size="small"
+                          class="mr-1"
+                          :disabled="!getEntidadId('afp')"
+                          @click="abrirDialogoCertificado('afp')"
+                        />
+                        <v-btn
+                          icon="mdi-download"
+                          variant="text"
+                          size="small"
+                          :disabled="!getEntidadId('afp')"
+                          @click="descargarCertificadoDirecto('afp')"
+                        />
+                      </template>
                     </v-list-item>
                   </v-col>
 
@@ -212,7 +287,31 @@
                           </template>
                         </v-tooltip>:
                       </v-list-item-title>
-                      <v-list-item-subtitle>{{ primaryContrato?.afc?.nombre || user.afc?.nombre }}</v-list-item-subtitle>
+
+                      <v-list-item-subtitle
+                        class="afiliacion-nombre"
+                        :title="primaryContrato?.afc?.nombre || user.afc?.nombre"
+                      >
+                        {{ primaryContrato?.afc?.nombre || user.afc?.nombre }}
+                      </v-list-item-subtitle>
+
+                      <template #append>
+                        <v-btn
+                          icon="mdi-paperclip"
+                          variant="text"
+                          size="small"
+                          class="mr-1"
+                          :disabled="!getEntidadId('afc')"
+                          @click="abrirDialogoCertificado('afc')"
+                        />
+                        <v-btn
+                          icon="mdi-download"
+                          variant="text"
+                          size="small"
+                          :disabled="!getEntidadId('afc')"
+                          @click="descargarCertificadoDirecto('afc')"
+                        />
+                      </template>
                     </v-list-item>
                   </v-col>
 
@@ -233,7 +332,31 @@
                           </template>
                         </v-tooltip>:
                       </v-list-item-title>
-                      <v-list-item-subtitle>{{ primaryContrato?.ccf?.nombre || user.ccf?.nombre }}</v-list-item-subtitle>
+
+                      <v-list-item-subtitle
+                        class="afiliacion-nombre"
+                        :title="primaryContrato?.ccf?.nombre || user.ccf?.nombre"
+                      >
+                        {{ primaryContrato?.ccf?.nombre || user.ccf?.nombre }}
+                      </v-list-item-subtitle>
+
+                      <template #append>
+                        <v-btn
+                          icon="mdi-paperclip"
+                          variant="text"
+                          size="small"
+                          class="mr-1"
+                          :disabled="!getEntidadId('ccf')"
+                          @click="abrirDialogoCertificado('ccf')"
+                        />
+                        <v-btn
+                          icon="mdi-download"
+                          variant="text"
+                          size="small"
+                          :disabled="!getEntidadId('ccf')"
+                          @click="descargarCertificadoDirecto('ccf')"
+                        />
+                      </template>
                     </v-list-item>
                   </v-col>
 
@@ -419,7 +542,6 @@
                                   {{ paso.observacion || 'Sin observación' }}
                                 </div>
 
-                                <!-- 👇 Por: quién lo realizó -->
                                 <div class="mt-1 text-caption text-grey-darken-1">
                                   Por:
                                   <v-chip v-if="paso.usuario" size="x-small" color="primary" label>
@@ -503,7 +625,6 @@
                                   {{ evento.descripcion || 'Sin descripción' }}
                                 </div>
 
-                                <!-- 👇 Por: quién creó el evento -->
                                 <div class="mt-1 text-caption text-grey-darken-1">
                                   Por:
                                   <v-chip v-if="evento.usuario" size="x-small" color="primary" label>
@@ -621,7 +742,6 @@
                               : 'secondary'"
                             size="small"
                           >
-                            <!-- ITEM: CAMBIO DE ESTADO -->
                             <template v-if="item.kind === 'estado'">
                               <div class="d-flex justify-space-between align-center mb-1">
                                 <span class="font-weight-bold text-subtitle-1">
@@ -657,7 +777,6 @@
                               </v-list>
                             </template>
 
-                            <!-- ITEM: CAMBIO DE CAMPO -->
                             <template v-else>
                               <div class="d-flex justify-space-between align-center mb-1">
                                 <span class="font-weight-bold text-subtitle-1 d-flex align-center">
@@ -913,7 +1032,6 @@
                 <v-list-item-title class="font-weight-bold">Creado el:</v-list-item-title>
                 <v-list-item-subtitle>{{ formatDate(selectedEvent.createdAt) }}</v-list-item-subtitle>
               </v-list-item>
-              <!-- (opcional) mostrar creador también en el modal -->
               <v-list-item>
                 <v-list-item-title class="font-weight-bold">Creado por:</v-list-item-title>
                 <v-list-item-subtitle>
@@ -997,6 +1115,104 @@
           </v-card-actions>
         </v-card>
       </v-dialog>
+
+      <!-- Diálogo Certificado (EPS/ARL/AFP/AFC/CCF) -->
+      <v-dialog v-model="certDialog.open" max-width="640px">
+        <v-card>
+          <v-card-title class="text-h6">
+            {{ certDialog.entidadNombre ? certDialog.entidadNombre : 'Entidad' }} — Certificado ({{ certDialog.tipo?.toUpperCase() }})
+          </v-card-title>
+          <v-card-text>
+            <v-alert v-if="certDialog.loading" type="info" variant="tonal" class="mb-3">
+              Cargando información del certificado...
+            </v-alert>
+
+            <div v-else>
+              <v-alert
+                v-if="certTieneArchivo"
+                type="success"
+                variant="tonal"
+                class="mb-3"
+              >
+                <div class="d-flex flex-wrap align-center ga-2">
+                  <div>
+                    <strong>Actual:</strong>
+                    {{ certDialog.meta?.certificadoNombreOriginal || 'Archivo cargado' }}
+                  </div>
+                  <div v-if="certDialog.meta?.certificadoFechaEmision">
+                    • Emisión: {{ formatFechaOrFechaHora(certDialog.meta.certificadoFechaEmision) }}
+                  </div>
+                  <div v-if="certDialog.meta?.certificadoFechaExpiracion">
+                    • Expira: {{ formatFechaOrFechaHora(certDialog.meta.certificadoFechaExpiracion) }}
+                  </div>
+                </div>
+              </v-alert>
+
+              <v-file-input
+                v-model="certDialog.file"
+                label="Seleccionar archivo (PDF/JPG/PNG/WEBP)"
+                accept=".pdf,.jpg,.jpeg,.png,.webp,application/pdf,image/jpeg,image/png,image/webp"
+                variant="outlined"
+                density="compact"
+                prepend-icon="mdi-paperclip"
+                show-size
+                class="mb-3"
+              />
+
+              <v-row dense>
+                <v-col cols="12" md="6">
+                  <v-text-field
+                    v-model="certDialog.fechaEmision"
+                    label="Fecha de Emisión (opcional)"
+                    type="date"
+                    variant="outlined"
+                    density="compact"
+                    clearable
+                  />
+                </v-col>
+                <v-col cols="12" md="6">
+                  <v-text-field
+                    v-model="certDialog.fechaExpiracion"
+                    label="Fecha de Expiración (opcional)"
+                    type="date"
+                    variant="outlined"
+                    density="compact"
+                    clearable
+                  />
+                </v-col>
+              </v-row>
+            </div>
+          </v-card-text>
+
+          <v-card-actions>
+            <v-spacer />
+            <v-btn variant="text" color="grey-darken-1" @click="cerrarCertDialog">Cerrar</v-btn>
+
+            <v-btn
+              v-if="certTieneArchivo"
+              variant="tonal"
+              prepend-icon="mdi-download"
+              @click="descargarCertificadoSeleccionado"
+            >Descargar</v-btn>
+
+            <v-btn
+              v-if="certTieneArchivo"
+              variant="tonal"
+              color="error"
+              prepend-icon="mdi-delete"
+              @click="eliminarCertificadoSeleccionado"
+            >Eliminar</v-btn>
+
+            <v-btn
+              color="primary"
+              variant="flat"
+              prepend-icon="mdi-upload"
+              :disabled="!certDialog.file || certDialog.loading"
+              @click="subirCertificadoSeleccionado"
+            >{{ certTieneArchivo ? 'Reemplazar' : 'Subir' }}</v-btn>
+          </v-card-actions>
+        </v-card>
+      </v-dialog>
     </v-card>
   </v-container>
 </template>
@@ -1022,6 +1238,15 @@ import {
   type ContratoPaso
 } from '@/services/contratosPasosService'
 import type { ContratoHistorialEstado } from '@/services/contratoHistorialEstadosService'
+
+/* ⬇️ NUEVO: servicios para certificados de entidades de salud */
+import {
+  obtenerEntidadSaludPorId,
+  subirCertificadoEntidadSalud,
+  descargarCertificadoEntidadSalud,
+  eliminarCertificadoEntidadSalud,
+  entidadTieneCertificado,
+} from '@/services/UserService'
 
 /* ===== Tipos ampliados ===== */
 interface Rel { id: number; nombre: string }
@@ -1055,7 +1280,7 @@ type TimelineItemCambio = ContratoCambio & { kind: 'cambio' }
 type TimelineItem = TimelineItemEstado | TimelineItemCambio
 
 interface Contrato extends BaseContrato {
-  identificacion?: string        // 👈 para mostrar cédula
+  identificacion?: string
   cargo?: Rel | null
   sede?: Rel | null
   eps?: Rel | null
@@ -1084,6 +1309,30 @@ interface UserEditForm {
   celularCorporativo?: string
   direccion?: string
   recomendaciones?: boolean
+}
+
+/* ===== Helpers fecha/hora para el diálogo de certificado ===== */
+function parseYMDLocal(s: string): Date | null {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec((s || '').trim())
+  return m ? new Date(+m[1], +m[2] - 1, +m[3], 0, 0, 0) : null
+}
+function coerceToDate(v: any): Date | null {
+  if (!v) return null
+  if (v instanceof Date) return isNaN(v.getTime()) ? null : v
+  if (typeof v === 'string') {
+    return parseYMDLocal(v) ?? (isNaN(new Date(v).getTime()) ? null : new Date(v))
+  }
+  return null
+}
+const fmtFecha = new Intl.DateTimeFormat('es-CO', { day: '2-digit', month: '2-digit', year: 'numeric' })
+const fmtFechaHora = new Intl.DateTimeFormat('es-CO', {
+  day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true,
+})
+function formatFecha(v: any): string { const d = coerceToDate(v); return d ? fmtFecha.format(d) : '—' }
+function formatFechaHora(v: any): string { const d = coerceToDate(v); return d ? fmtFechaHora.format(d).replace(',', '') : '—' }
+function formatFechaOrFechaHora(v: any): string {
+  const hasTime = typeof v === 'string' && (/[T ]\d{2}:\d{2}/.test(v))
+  return hasTime ? formatFechaHora(v) : formatFecha(v)
 }
 
 const router = useRouter()
@@ -1222,7 +1471,7 @@ const CAMPO_LABELS: Record<string, string> = {
 }
 const labelCampo = (campo: string) => CAMPO_LABELS[campo] || campo
 
-/* ===== Utilidades de parseo/igualdad de cambios ===== */
+/* ===== Utilidades varias (timeline/render) ===== */
 const parseMaybeJson = (v: any) => {
   if (v === null || v === undefined) return v
   if (typeof v === 'string') {
@@ -1253,41 +1502,22 @@ const toBoolLoose = (v: any): boolean | null => {
   }
   return null
 }
-
 const equalForField = (campo: string, a: any, b: any): boolean => {
-  const va = parseMaybeJson(a)
-  const vb = parseMaybeJson(b)
-
-  if (campo === 'tieneRecomendacionesMedicas') {
-    const ba = toBoolLoose(va)
-    const bb = toBoolLoose(vb)
-    return ba === bb
-  }
-
-  if (['salarioBasico','bonoSalarial','auxilioTransporte','auxilioNoSalarial'].includes(campo)) {
-    const na = toNumberLoose(va)
-    const nb = toNumberLoose(vb)
-    return na === nb
-  }
-
+  const va = parseMaybeJson(a); const vb = parseMaybeJson(b)
+  if (campo === 'tieneRecomendacionesMedicas') { const ba = toBoolLoose(va); const bb = toBoolLoose(vb); return ba === bb }
+  if (['salarioBasico','bonoSalarial','auxilioTransporte','auxilioNoSalarial'].includes(campo)) { const na = toNumberLoose(va); const nb = toNumberLoose(vb); return na === nb }
   if (campo.endsWith('Id')) {
     const idA = isNamedRel(va) ? Number(va.id) : Number(va)
     const idB = isNamedRel(vb) ? Number(vb.id) : Number(vb)
     if (!Number.isNaN(idA) && !Number.isNaN(idB)) return idA === idB
     return JSON.stringify(va) === JSON.stringify(vb)
   }
-
   return (va ?? null) === (vb ?? null)
 }
-
 const renderValor = (campo: string, raw: any, contrato?: Contrato) => {
   const v = parseMaybeJson(raw)
   if (v === null || v === undefined || v === '') return 'N/A'
-
-  if (campo.endsWith('Id') && isNamedRel(v)) {
-    return v.nombre ?? `#${v.id ?? ''}`
-  }
-
+  if (campo.endsWith('Id') && isNamedRel(v)) return v.nombre ?? `#${v.id ?? ''}`
   if (campo.endsWith('Id')) {
     const id = typeof v === 'number' ? v : Number(v)
     const nameMatch = (() => {
@@ -1303,45 +1533,21 @@ const renderValor = (campo: string, raw: any, contrato?: Contrato) => {
     })()
     return nameMatch ? nameMatch : `#${isNaN(id) ? String(v) : id}`
   }
-
-  if (campo.startsWith('fecha')) {
-    return typeof v === 'string' ? formatDate(v) : formatDate(String(v))
-  }
-
-  if (campo === 'estado') {
-    return v === 'activo' ? 'Activo' : (v === 'inactivo' ? 'Inactivo' : String(v))
-  }
-
+  if (campo.startsWith('fecha')) return typeof v === 'string' ? formatDate(v) : formatDate(String(v))
+  if (campo === 'estado') return v === 'activo' ? 'Activo' : (v === 'inactivo' ? 'Inactivo' : String(v))
   if (typeof v === 'boolean') return v ? 'Sí' : 'No'
   if (typeof v === 'number') return new Intl.NumberFormat('es-CO').format(v)
-  if (typeof v === 'object') {
-    if ('estado' in v && (v.estado === 'activo' || v.estado === 'inactivo')) {
-      return getEstadoNombre(v.estado)
-    }
-    return JSON.stringify(v)
-  }
+  if (typeof v === 'object') { if ('estado' in v && (v.estado === 'activo' || v.estado === 'inactivo')) return getEstadoNombre(v.estado); return JSON.stringify(v) }
   return String(v)
 }
 
 /* ===== Timeline Combinado ===== */
-const buildTimeline = (c: Contrato): TimelineItem[] => {
-  const items: TimelineItem[] = []
-
-  ;(c.historialEstados || []).forEach((h: any) => {
-    items.push({ ...h, kind: 'estado' })
-  })
-
+const buildTimeline = (c: Contrato): any[] => {
+  const items: any[] = []
+  ;(c.historialEstados || []).forEach((h: any) => { items.push({ ...h, kind: 'estado' }) })
   ;(c.cambios || [])
     .filter((chg: any) => !equalForField(chg.campo, chg.oldValue, chg.newValue))
-    .forEach((chg: any) => {
-      items.push({
-        ...chg,
-        oldValue: parseMaybeJson(chg.oldValue),
-        newValue: parseMaybeJson(chg.newValue),
-        kind: 'cambio',
-      })
-    })
-
+    .forEach((chg: any) => { items.push({ ...chg, oldValue: parseMaybeJson(chg.oldValue), newValue: parseMaybeJson(chg.newValue), kind: 'cambio' }) })
   return items.sort((a, b) => {
     const da = new Date(a.kind === 'estado' ? (a as any).fechaCambio : (a as any).createdAt).getTime()
     const db = new Date(b.kind === 'estado' ? (b as any).fechaCambio : (b as any).createdAt).getTime()
@@ -1383,12 +1589,7 @@ const loadUser = async () => {
               fechaFinalizacion: contrato.fechaTerminacion ? String(contrato.fechaTerminacion).split('T')[0] : null,
               motivoFinalizacion: contrato.motivoFinalizacion || null,
             }
-
-            // Traer pasos de la fase 'inicio' si no vinieron
-            if (!c.pasos || c.pasos.length === 0) {
-              c.pasos = await fetchPasosInicio(c.id) as unknown as ContratoPasoExt[]
-            }
-
+            if (!c.pasos || c.pasos.length === 0) c.pasos = await fetchPasosInicio(c.id) as unknown as ContratoPasoExt[]
             c.timeline = buildTimeline(c)
             return c
           })
@@ -1420,17 +1621,11 @@ const openEditUserDialog = () => {
   }
   showEditUserDialog.value = true
 }
-
-const closeEditUserDialog = () => {
-  showEditUserDialog.value = false
-  userForm.value?.reset()
-}
-
+const closeEditUserDialog = () => { showEditUserDialog.value = false; userForm.value?.reset() }
 const submitEditUser = async () => {
   if (!user.value?.id) return
   const { valid } = await userForm.value.validate()
   if (!valid) return
-
   isLoadingAction.value = true
   try {
     const updatedUser = await actualizarUsuario(user.value.id, editedUser.value)
@@ -1444,23 +1639,11 @@ const submitEditUser = async () => {
     isLoadingAction.value = false
   }
 }
-
-const closePhotoDialog = () => {
-  showPhotoDialog.value = false
-  fileInputRef.value?.reset()
-}
-
+const closePhotoDialog = () => { showPhotoDialog.value = false; fileInputRef.value?.reset() }
 const uploadProfilePhoto = async () => {
-  if (!user.value?.id) {
-    showAlert('Error', 'No se pudo obtener el ID del usuario.')
-    return
-  }
+  if (!user.value?.id) { showAlert('Error', 'No se pudo obtener el ID del usuario.'); return }
   const fileToUpload = fileInputRef.value?.files[0]
-  if (!fileToUpload) {
-    showAlert('Advertencia', 'Debe seleccionar una imagen para subir.')
-    return
-  }
-
+  if (!fileToUpload) { showAlert('Advertencia', 'Debe seleccionar una imagen para subir.'); return }
   isLoadingAction.value = true
   try {
     const updatedUser = await uploadProfilePicture(user.value.id, fileToUpload)
@@ -1475,27 +1658,16 @@ const uploadProfilePhoto = async () => {
   }
 }
 
-const showAddEventDialog = (contratoId: number) => {
-  contratoIdForNewEvent.value = contratoId
-  newEvent.value = {}
-  showAddEventDialogForContrato.value = true
-}
-
-const closeAddEventDialog = () => {
-  showAddEventDialogForContrato.value = false
-  eventForm.value?.reset()
-  eventFileRef.value?.reset()
-}
-
+/* ===== Eventos de contrato ===== */
+const showAddEventDialog = (contratoId: number) => { contratoIdForNewEvent.value = contratoId; newEvent.value = {}; showAddEventDialogForContrato.value = true }
+const closeAddEventDialog = () => { showAddEventDialogForContrato.value = false; eventForm.value?.reset(); eventFileRef.value?.reset() }
 const submitNewEvent = async () => {
   if (!contratoIdForNewEvent.value) return
   const { valid } = await eventForm.value.validate()
   if (!valid) return
-
   isLoadingAction.value = true
   const fileToUpload = eventFileRef.value?.files[0]
   const payload = new FormData()
-
   if (newEvent.value.tipo) payload.append('tipo', newEvent.value.tipo)
   if (newEvent.value.subtipo) payload.append('subtipo', newEvent.value.subtipo as string)
   if (newEvent.value.fechaInicio) payload.append('fechaInicio', newEvent.value.fechaInicio as string)
@@ -1503,35 +1675,24 @@ const submitNewEvent = async () => {
   if (newEvent.value.descripcion) payload.append('descripcion', newEvent.value.descripcion as string)
   if (fileToUpload) payload.append('documento', fileToUpload)
   if (actorId.value != null) payload.append('actorId', String(actorId.value))
-
   try {
     const createdEvent = await crearEventoDeContrato(contratoIdForNewEvent.value, payload) as ContratoEventoExt
     showAlert('Éxito', 'Evento creado correctamente.')
     closeAddEventDialog()
-
     const targetContrato = user.value?.contratos?.find(c => c.id === contratoIdForNewEvent.value)
-    if (targetContrato) {
-      targetContrato.eventos = targetContrato.eventos || []
-      targetContrato.eventos.push(createdEvent)
-    }
+    if (targetContrato) { targetContrato.eventos = targetContrato.eventos || []; targetContrato.eventos.push(createdEvent) }
   } catch (err: any) {
     console.error('Error al crear el evento:', err)
     showAlert('Error', `Error al crear el evento: ${err.message || 'error desconocido'}.`)
-  } finally {
-    isLoadingAction.value = false
-  }
+  } finally { isLoadingAction.value = false }
 }
+const viewEventDetails = (event: ContratoEventoExt) => { selectedEvent.value = event; showEventDetailsDialog.value = true }
 
-const viewEventDetails = (event: ContratoEventoExt) => {
-  selectedEvent.value = event
-  showEventDetailsDialog.value = true
-}
-
+/* ===== Estado contrato ===== */
 const confirmarCambioEstadoContrato = async (contratoId: number, nuevoEstado: 'activo' | 'inactivo') => {
   const confirmMessage = nuevoEstado === 'activo'
     ? '¿Estás seguro de que deseas activar este contrato?'
     : '¿Estás seguro de que deseas desactivar este contrato?'
-
   const confirmed = await showConfirm('Confirmar Cambio de Estado', confirmMessage)
   if (confirmed) {
     isLoadingAction.value = true
@@ -1542,12 +1703,11 @@ const confirmarCambioEstadoContrato = async (contratoId: number, nuevoEstado: 'a
     } catch (err: any) {
       console.error('Error al cambiar el estado del contrato:', err)
       showAlert('Error', `Error al cambiar el estado del contrato: ${err.message || 'error desconocido'}.`)
-    } finally {
-      isLoadingAction.value = false
-    }
+    } finally { isLoadingAction.value = false }
   }
 }
 
+/* ===== Finalizar contrato ===== */
 const confirmFinalizeContract = async (contratoId: number) => {
   const confirmed = await showConfirm(
     'Confirmar Finalización',
@@ -1555,13 +1715,8 @@ const confirmFinalizeContract = async (contratoId: number) => {
   )
   if (confirmed) await submitContractFinalization(contratoId)
 }
-
 const submitContractFinalization = async (contratoId: number) => {
-  if (!finalizationDate.value || !finalizationReason.value) {
-    showAlert('Advertencia', 'Por favor, complete la fecha y el motivo de finalización.')
-    return
-  }
-
+  if (!finalizationDate.value || !finalizationReason.value) { showAlert('Advertencia', 'Por favor, complete la fecha y el motivo de finalización.'); return }
   isLoadingAction.value = true
   try {
     await actualizarContrato(contratoId, {
@@ -1575,9 +1730,7 @@ const submitContractFinalization = async (contratoId: number) => {
   } catch (err: any) {
     console.error('Error al finalizar el contrato:', err)
     showAlert('Error', `Error al finalizar el contrato: ${err.message || 'error desconocido'}.`)
-  } finally {
-    isLoadingAction.value = false
-  }
+  } finally { isLoadingAction.value = false }
 }
 
 /* ===== Edición de paso ===== */
@@ -1587,23 +1740,15 @@ const openEditPasoDialog = (contratoId: number, paso: ContratoPasoExt) => {
   pasoEditData.value = { observacion: paso.observacion || '' }
   showEditPasoDialog.value = true
 }
-
-const closeEditPasoDialog = () => {
-  showEditPasoDialog.value = false
-  editPasoForm.value?.reset()
-  editPasoFileRef.value?.reset()
-}
-
+const closeEditPasoDialog = () => { showEditPasoDialog.value = false; editPasoForm.value?.reset(); editPasoFileRef.value?.reset() }
 const submitEditPaso = async () => {
   if (!contratoIdForPasoEdit.value || !pasoIdForEdit.value) return
   isLoadingAction.value = true
-
   const fileToUpload = editPasoFileRef.value?.files?.[0]
   const payload = new FormData()
   payload.append('observacion', pasoEditData.value.observacion || '')
   if (fileToUpload) payload.append('archivo', fileToUpload)
   if (actorId.value != null) payload.append('actorId', String(actorId.value))
-
   try {
     await actualizarPasoContrato(contratoIdForPasoEdit.value, pasoIdForEdit.value, payload)
     showAlert('Éxito', 'Paso actualizado correctamente.')
@@ -1612,16 +1757,147 @@ const submitEditPaso = async () => {
   } catch (err: any) {
     console.error('Error al actualizar paso:', err)
     showAlert('Error', `Error al actualizar el paso: ${err.message || 'error desconocido'}.`)
-  } finally {
-    isLoadingAction.value = false
-  }
+  } finally { isLoadingAction.value = false }
 }
 
 const goBack = () => router.go(-1)
 
-onMounted(() => {
-  loadUser()
+/* ====== CERTIFICADOS — PERFIL ====== */
+type AfiliacionTipo = 'eps' | 'arl' | 'afp' | 'afc' | 'ccf'
+
+const certDialog = ref<{
+  open: boolean
+  tipo: AfiliacionTipo | ''
+  entidadId: number | null
+  entidadNombre: string
+  file: File | null
+  fechaEmision: string
+  fechaExpiracion: string
+  loading: boolean
+  meta: any
+}>({
+  open: false,
+  tipo: '',
+  entidadId: null,
+  entidadNombre: '',
+  file: null,
+  fechaEmision: '',
+  fechaExpiracion: '',
+  loading: false,
+  meta: null,
 })
+
+const certTieneArchivo = computed(() => entidadTieneCertificado(certDialog.value.meta))
+
+const getEntidadId = (tipo: AfiliacionTipo): number | null => {
+  const c = primaryContrato.value
+  switch (tipo) {
+    case 'eps': return c?.eps?.id ?? (user.value as any)?.eps?.id ?? null
+    case 'arl': return c?.arl?.id ?? (user.value as any)?.arl?.id ?? null
+    case 'afp': return c?.afp?.id ?? (user.value as any)?.afp?.id ?? null
+    case 'afc': return c?.afc?.id ?? (user.value as any)?.afc?.id ?? null
+    case 'ccf': return c?.ccf?.id ?? (user.value as any)?.ccf?.id ?? null
+  }
+}
+const getEntidadNombre = (tipo: AfiliacionTipo): string => {
+  const c = primaryContrato.value
+  switch (tipo) {
+    case 'eps': return c?.eps?.nombre ?? (user.value as any)?.eps?.nombre ?? 'EPS'
+    case 'arl': return c?.arl?.nombre ?? (user.value as any)?.arl?.nombre ?? 'ARL'
+    case 'afp': return c?.afp?.nombre ?? (user.value as any)?.afp?.nombre ?? 'AFP'
+    case 'afc': return c?.afc?.nombre ?? (user.value as any)?.afc?.nombre ?? 'AFC'
+    case 'ccf': return c?.ccf?.nombre ?? (user.value as any)?.ccf?.nombre ?? 'CCF'
+  }
+}
+
+function cerrarCertDialog() {
+  certDialog.value.open = false
+  certDialog.value.tipo = ''
+  certDialog.value.entidadId = null
+  certDialog.value.entidadNombre = ''
+  certDialog.value.file = null
+  certDialog.value.fechaEmision = ''
+  certDialog.value.fechaExpiracion = ''
+  certDialog.value.loading = false
+  certDialog.value.meta = null
+}
+
+async function abrirDialogoCertificado(tipo: AfiliacionTipo) {
+  const id = getEntidadId(tipo)
+  if (!id) { showAlert('Selecciona una entidad', 'No hay entidad asociada para gestionar su certificado.'); return }
+  certDialog.value.tipo = tipo
+  certDialog.value.entidadId = id
+  certDialog.value.entidadNombre = getEntidadNombre(tipo)
+  certDialog.value.open = true
+  certDialog.value.loading = true
+  try {
+    certDialog.value.meta = await obtenerEntidadSaludPorId(id)
+  } catch (e) {
+    console.error('Error cargando entidad:', e)
+    certDialog.value.meta = null
+  } finally {
+    certDialog.value.loading = false
+  }
+}
+
+async function subirCertificadoSeleccionado() {
+  if (!certDialog.value.entidadId || !certDialog.value.file) return
+  certDialog.value.loading = true
+  try {
+    const updated = await subirCertificadoEntidadSalud(
+      certDialog.value.entidadId,
+      certDialog.value.file,
+      {
+        fechaEmision: certDialog.value.fechaEmision || undefined,
+        fechaExpiracion: certDialog.value.fechaExpiracion || undefined,
+      }
+    )
+    certDialog.value.meta = updated
+    showAlert('Listo', 'Certificado cargado correctamente.')
+    certDialog.value.file = null
+  } catch (e: any) {
+    console.error(e)
+    showAlert('Error', e?.message || 'No fue posible subir el certificado.')
+  } finally { certDialog.value.loading = false }
+}
+
+async function descargarCertificadoSeleccionado() {
+  if (!certDialog.value.entidadId) return
+  try {
+    const sugerido = `${certDialog.value.entidadNombre.replace(/\s+/g, '_')}_certificado`
+    await descargarCertificadoEntidadSalud(certDialog.value.entidadId, sugerido)
+  } catch (e: any) {
+    console.error(e)
+    showAlert('Error', e?.message || 'No fue posible descargar el certificado.')
+  }
+}
+
+async function eliminarCertificadoSeleccionado() {
+  if (!certDialog.value.entidadId) return
+  try {
+    await eliminarCertificadoEntidadSalud(certDialog.value.entidadId)
+    certDialog.value.meta = null
+    showAlert('Listo', 'Certificado eliminado.')
+  } catch (e: any) {
+    console.error(e)
+    showAlert('Error', e?.message || 'No fue posible eliminar el certificado.')
+  }
+}
+
+/* Descarga rápida desde el listado (sin abrir diálogo) */
+async function descargarCertificadoDirecto(tipo: AfiliacionTipo) {
+  const id = getEntidadId(tipo)
+  if (!id) { showAlert('Sin entidad', 'No hay entidad configurada para esta afiliación.'); return }
+  try {
+    const sugerido = `${getEntidadNombre(tipo).replace(/\s+/g, '_')}_certificado`
+    await descargarCertificadoEntidadSalud(id, sugerido)
+  } catch (e: any) {
+    console.error(e)
+    showAlert('Sin certificado', e?.message || 'No se encontró un certificado para esta entidad.')
+  }
+}
+
+onMounted(() => { loadUser() })
 </script>
 
 <style scoped>
@@ -1640,7 +1916,28 @@ onMounted(() => {
 
 /* NUEVO: estilo del hipervínculo del Contrato Físico */
 .contrato-link {
-  color: #0d47a1 !important; /* azul oscuro */
+  color: #0d47a1 !important;
   text-decoration: underline;
 }
+
+/* ======= FIX cortes en Seguridad Social ======= */
+.seg-social .v-list-item-title,
+.seg-social .v-list-item-subtitle {
+  word-break: normal;      /* anula el break-word global dentro de esta tarjeta */
+  overflow-wrap: normal;
+}
+
+/* nombres en una sola línea con elipsis + tooltip nativo */
+.seg-social .afiliacion-nombre {
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Para que la elipsis funcione correctamente dentro de los list-items (Vuetify) */
+.seg-social .v-list-item__content { min-width: 0; }
+
+/* Los íconos a la derecha no deben comprimir el texto */
+.seg-social .v-list-item__append { flex: 0 0 auto; }
 </style>
