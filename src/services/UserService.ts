@@ -382,7 +382,8 @@ export async function obtenerCargos(): Promise<Cargo[]> {
 
 export async function obtenerEntidadesSalud(): Promise<EntidadSalud[]> {
   try {
-    const response = await fetchData<EntidadSalud[]>(`${API_BASE_URL}/entidades-salud`)
+    // 🔧 FIX: ruta correcta en el backend para el listado (plural con 's'): /api/entidades-saluds
+    const response = await fetchData<EntidadSalud[]>(`${API_BASE_URL}/entidades-saluds`)
     return response
   } catch (error) {
     console.error('Error al obtener entidades de salud:', error)

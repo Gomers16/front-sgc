@@ -119,6 +119,8 @@
                 v-model="salarioBasico"
                 :error-messages="salarioBasicoError"
                 type="number"
+                inputmode="numeric"
+                :max="MAX_MONEY"
                 prefix="$"
                 required
                 variant="outlined"
@@ -133,6 +135,8 @@
                 v-model="bonoSalarial"
                 :error-messages="bonoSalarialError"
                 type="number"
+                inputmode="numeric"
+                :max="MAX_MONEY"
                 prefix="$"
                 variant="outlined"
                 clearable
@@ -146,6 +150,8 @@
                 v-model="auxilioTransporte"
                 :error-messages="auxilioTransporteError"
                 type="number"
+                inputmode="numeric"
+                :max="MAX_MONEY"
                 prefix="$"
                 variant="outlined"
                 clearable
@@ -159,6 +165,8 @@
                 v-model="auxilioNoSalarial"
                 :error-messages="auxilioNoSalarialError"
                 type="number"
+                inputmode="numeric"
+                :max="MAX_MONEY"
                 prefix="$"
                 variant="outlined"
                 clearable
@@ -190,11 +198,7 @@
             </v-col>
 
             <!-- ⬇️ Visible/obligatoria según tipo -->
-            <v-col
-              cols="12"
-              md="6"
-              v-if="isFechaTerminacionVisible"
-            >
+            <v-col cols="12" md="6" v-if="isFechaTerminacionVisible">
               <v-text-field
                 label="Fecha de Terminación"
                 v-model="fechaTerminacion"
@@ -283,6 +287,7 @@
                 :loading="loadingEntidades"
               >
                 <template #append-inner>
+                  <!-- Definición -->
                   <v-tooltip text="ENTIDAD PRESTADORA DE SERVICIOS DE SALUD" location="top">
                     <template #activator="{ props }">
                       <v-icon
@@ -295,10 +300,45 @@
                     </template>
                   </v-tooltip>
 
-                  <!-- Botón para certificado EPS -->
-                  <v-tooltip text="Subir/Ver certificado EPS" location="top">
+                  <!-- Indicador de estado del certificado -->
+                  <v-tooltip :text="certTooltip('eps')" location="top">
                     <template #activator="{ props }">
+                      <v-icon
+                        v-bind="props"
+                        :icon="certIcon('eps')"
+                        :color="certColor('eps')"
+                        size="18"
+                        class="ml-1"
+                      />
+                    </template>
+                  </v-tooltip>
+
+                  <!-- Paperclip + badge si hay certificado -->
+                  <v-tooltip :text="hasCert('eps') ? 'Certificado cargado' : 'Subir/Ver certificado EPS'" location="top">
+                    <template #activator="{ props }">
+                      <v-badge
+                        v-if="hasCert('eps')"
+                        location="bottom end"
+                        :offset-x="2"
+                        :offset-y="2"
+                        color="success"
+                        class="ml-1"
+                      >
+                        <template #badge>
+                          <v-icon size="12">mdi-check</v-icon>
+                        </template>
+                        <v-btn
+                          icon="mdi-paperclip"
+                          size="small"
+                          variant="text"
+                          class="ml-1"
+                          :disabled="!epsId"
+                          @click.stop="abrirDialogoCertificado('eps')"
+                        />
+                      </v-badge>
+
                       <v-btn
+                        v-else
                         v-bind="props"
                         icon="mdi-paperclip"
                         size="small"
@@ -340,10 +380,45 @@
                     </template>
                   </v-tooltip>
 
-                  <!-- Botón para certificado ARL -->
-                  <v-tooltip text="Subir/Ver certificado ARL" location="top">
+                  <!-- Indicador -->
+                  <v-tooltip :text="certTooltip('arl')" location="top">
                     <template #activator="{ props }">
+                      <v-icon
+                        v-bind="props"
+                        :icon="certIcon('arl')"
+                        :color="certColor('arl')"
+                        size="18"
+                        class="ml-1"
+                      />
+                    </template>
+                  </v-tooltip>
+
+                  <!-- Paperclip -->
+                  <v-tooltip :text="hasCert('arl') ? 'Certificado cargado' : 'Subir/Ver certificado ARL'" location="top">
+                    <template #activator="{ props }">
+                      <v-badge
+                        v-if="hasCert('arl')"
+                        location="bottom end"
+                        :offset-x="2"
+                        :offset-y="2"
+                        color="success"
+                        class="ml-1"
+                      >
+                        <template #badge>
+                          <v-icon size="12">mdi-check</v-icon>
+                        </template>
+                        <v-btn
+                          icon="mdi-paperclip"
+                          size="small"
+                          variant="text"
+                          class="ml-1"
+                          :disabled="!arlId"
+                          @click.stop="abrirDialogoCertificado('arl')"
+                        />
+                      </v-badge>
+
                       <v-btn
+                        v-else
                         v-bind="props"
                         icon="mdi-paperclip"
                         size="small"
@@ -385,10 +460,45 @@
                     </template>
                   </v-tooltip>
 
-                  <!-- Botón para certificado AFP -->
-                  <v-tooltip text="Subir/Ver certificado AFP" location="top">
+                  <!-- Indicador -->
+                  <v-tooltip :text="certTooltip('afp')" location="top">
                     <template #activator="{ props }">
+                      <v-icon
+                        v-bind="props"
+                        :icon="certIcon('afp')"
+                        :color="certColor('afp')"
+                        size="18"
+                        class="ml-1"
+                      />
+                    </template>
+                  </v-tooltip>
+
+                  <!-- Paperclip -->
+                  <v-tooltip :text="hasCert('afp') ? 'Certificado cargado' : 'Subir/Ver certificado AFP'" location="top">
+                    <template #activator="{ props }">
+                      <v-badge
+                        v-if="hasCert('afp')"
+                        location="bottom end"
+                        :offset-x="2"
+                        :offset-y="2"
+                        color="success"
+                        class="ml-1"
+                      >
+                        <template #badge>
+                          <v-icon size="12">mdi-check</v-icon>
+                        </template>
+                        <v-btn
+                          icon="mdi-paperclip"
+                          size="small"
+                          variant="text"
+                          class="ml-1"
+                          :disabled="!afpId"
+                          @click.stop="abrirDialogoCertificado('afp')"
+                        />
+                      </v-badge>
+
                       <v-btn
+                        v-else
                         v-bind="props"
                         icon="mdi-paperclip"
                         size="small"
@@ -430,10 +540,45 @@
                     </template>
                   </v-tooltip>
 
-                  <!-- Botón para certificado AFC -->
-                  <v-tooltip text="Subir/Ver certificado AFC" location="top">
+                  <!-- Indicador -->
+                  <v-tooltip :text="certTooltip('afc')" location="top">
                     <template #activator="{ props }">
+                      <v-icon
+                        v-bind="props"
+                        :icon="certIcon('afc')"
+                        :color="certColor('afc')"
+                        size="18"
+                        class="ml-1"
+                      />
+                    </template>
+                  </v-tooltip>
+
+                  <!-- Paperclip -->
+                  <v-tooltip :text="hasCert('afc') ? 'Certificado cargado' : 'Subir/Ver certificado AFC'" location="top">
+                    <template #activator="{ props }">
+                      <v-badge
+                        v-if="hasCert('afc')"
+                        location="bottom end"
+                        :offset-x="2"
+                        :offset-y="2"
+                        color="success"
+                        class="ml-1"
+                      >
+                        <template #badge>
+                          <v-icon size="12">mdi-check</v-icon>
+                        </template>
+                        <v-btn
+                          icon="mdi-paperclip"
+                          size="small"
+                          variant="text"
+                          class="ml-1"
+                          :disabled="!afcId"
+                          @click.stop="abrirDialogoCertificado('afc')"
+                        />
+                      </v-badge>
+
                       <v-btn
+                        v-else
                         v-bind="props"
                         icon="mdi-paperclip"
                         size="small"
@@ -475,10 +620,45 @@
                     </template>
                   </v-tooltip>
 
-                  <!-- Botón para certificado CCF -->
-                  <v-tooltip text="Subir/Ver certificado CCF" location="top">
+                  <!-- Indicador -->
+                  <v-tooltip :text="certTooltip('ccf')" location="top">
                     <template #activator="{ props }">
+                      <v-icon
+                        v-bind="props"
+                        :icon="certIcon('ccf')"
+                        :color="certColor('ccf')"
+                        size="18"
+                        class="ml-1"
+                      />
+                    </template>
+                  </v-tooltip>
+
+                  <!-- Paperclip -->
+                  <v-tooltip :text="hasCert('ccf') ? 'Certificado cargado' : 'Subir/Ver certificado CCF'" location="top">
+                    <template #activator="{ props }">
+                      <v-badge
+                        v-if="hasCert('ccf')"
+                        location="bottom end"
+                        :offset-x="2"
+                        :offset-y="2"
+                        color="success"
+                        class="ml-1"
+                      >
+                        <template #badge>
+                          <v-icon size="12">mdi-check</v-icon>
+                        </template>
+                        <v-btn
+                          icon="mdi-paperclip"
+                          size="small"
+                          variant="text"
+                          class="ml-1"
+                          :disabled="!ccfId"
+                          @click.stop="abrirDialogoCertificado('ccf')"
+                        />
+                      </v-badge>
+
                       <v-btn
+                        v-else
                         v-bind="props"
                         icon="mdi-paperclip"
                         size="small"
@@ -513,14 +693,18 @@
               <v-file-input
                 v-model="archivoRecomendacionMedica"
                 label="Adjuntar Archivo de Recomendación Médica"
-                accept=".pdf,.doc,.docx"
+                accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                 variant="outlined"
                 density="compact"
                 prepend-icon="mdi-file-upload"
                 :disabled="!tieneRecomendacionesMedicas"
                 :rules="tieneRecomendacionesMedicas ? [(v) => !!v || 'Archivo requerido'] : []"
                 clearable
+                @change="onFileRecChange"
               />
+              <div class="text-caption text-medium-emphasis mb-3" v-if="tieneRecomendacionesMedicas">
+                Formatos permitidos: PDF, DOC, DOCX (máx {{ MAX_UPLOAD_MB }} MB)
+              </div>
             </v-col>
           </v-row>
         </v-form>
@@ -569,19 +753,24 @@
           </v-col>
 
           <v-col cols="12" md="6">
-            <h4 class="text-h6 mb-4">{{ isEditing ? 'Reemplazar Archivo de Contrato (opcional)' : 'Anexar Contrato' }}</h4>
+            <h4 class="text-h6 mb-2">{{ isEditing ? 'Reemplazar Archivo de Contrato (opcional)' : 'Anexar Contrato' }}</h4>
             <v-card class="pa-4">
               <v-file-input
+                :key="fileInputKey"
                 label="Subir archivo del contrato físico"
                 variant="outlined"
                 density="compact"
                 show-size
                 accept="application/pdf"
                 prepend-icon="mdi-file-upload"
-                class="mb-4"
+                class="mb-1"
                 @change="onFileChange"
                 ref="fileInputRef"
               />
+              <div class="text-caption text-medium-emphasis mb-3">
+                Formato permitido: PDF (máx {{ MAX_UPLOAD_MB }} MB)
+              </div>
+
               <v-alert v-if="!archivoContrato" type="info" variant="tonal">
                 {{ isEditing ? 'Si no cargas archivo, se mantiene el actual.' : 'Adjunte el archivo del contrato para anexarlo al usuario.' }}
               </v-alert>
@@ -605,7 +794,8 @@
             v-if="!isEditing"
             color="success"
             prepend-icon="mdi-content-save-check"
-            :disabled="!usuarioSeleccionado || !archivoContrato"
+            :disabled="!usuarioSeleccionado || !archivoContrato || isSaving"
+            :loading="isSaving"
             @click="handleConfirmacion"
           >Crear y Anexar Contrato</v-btn>
 
@@ -613,7 +803,8 @@
             v-else
             color="warning"
             prepend-icon="mdi-content-save"
-            :disabled="!usuarioSeleccionado"
+            :disabled="!usuarioSeleccionado || isSaving"
+            :loading="isSaving"
             @click="guardarCambiosContrato"
           >Guardar cambios</v-btn>
         </v-card-actions>
@@ -745,31 +936,6 @@
       </v-card>
     </v-dialog>
 
-    <v-dialog v-model="showAlertDialog" max-width="400px">
-      <v-card>
-        <v-card-title class="text-h6 bg-primary text-white">{{ alertDialogTitle }}</v-card-title>
-        <v-card-text class="py-4">{{ alertDialogMessage }}</v-card-text>
-        <v-card-actions>
-          <v-spacer />
-          <v-btn color="primary" @click="showAlertDialog = false">Aceptar</v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
-
-    <v-dialog v-model="showConfirmDialog" max-width="400px">
-      <v-card>
-        <v-card-title class="text-h6 bg-warning text-white">Confirmar Acción</v-card-title>
-        <v-card-text class="py-4">
-          ¿Estás seguro de que quieres crear y anexar el contrato? Esta acción es irreversible.
-        </v-card-text>
-        <v-card-actions>
-          <v-spacer />
-          <v-btn color="grey-darken-1" variant="text" @click="showConfirmDialog = false">Cancelar</v-btn>
-          <v-btn color="success" variant="flat" @click="submitForm">Confirmar</v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
-
     <!-- Dialogo de Certificado de Entidad de Salud -->
     <v-dialog v-model="certDialog.open" max-width="640px">
       <v-card>
@@ -867,6 +1033,23 @@
         </v-card-actions>
       </v-card>
     </v-dialog>
+
+    <!-- Alertas simples -->
+    <v-dialog v-model="showAlertDialog" max-width="400px">
+      <v-card>
+        <v-card-title class="text-h6 bg-primary text-white">{{ alertDialogTitle }}</v-card-title>
+        <v-card-text class="py-4">{{ alertDialogMessage }}</v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn color="primary" @click="showAlertDialog = false">Aceptar</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <!-- Snackbar de confirmación rápida -->
+    <v-snackbar v-model="snackbar.show" :timeout="snackbar.timeout" :color="snackbar.color">
+      <v-icon class="mr-2">mdi-check-circle</v-icon>{{ snackbar.text }}
+    </v-snackbar>
   </v-container>
 </template>
 
@@ -878,7 +1061,6 @@ import {
   obtenerSedes,
   obtenerCargos,
   obtenerEntidadesSalud,
-  // ⬇️ NUEVO: funciones para certificados desde UserService
   obtenerEntidadSaludPorId,
   subirCertificadoEntidadSalud,
   descargarCertificadoEntidadSalud,
@@ -896,7 +1078,7 @@ import {
 } from '@/services/contratoService'
 import { crearPasoContrato } from '@/services/contratosPasosService'
 
-/* ======= Helpers de fecha/hora para mostrar bonito (es-CO) ======= */
+/* ======= Helpers de fecha/hora ======= */
 function parseYMDLocal(s: string): Date | null {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec((s || '').trim())
   return m ? new Date(+m[1], +m[2] - 1, +m[3], 0, 0, 0) : null
@@ -913,21 +1095,14 @@ const fmtFecha = new Intl.DateTimeFormat('es-CO', { day: '2-digit', month: '2-di
 const fmtFechaHora = new Intl.DateTimeFormat('es-CO', {
   day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true,
 })
-function formatFecha(v: any): string {
-  const d = coerceToDate(v)
-  return d ? fmtFecha.format(d) : '—'
-}
-function formatFechaHora(v: any): string {
-  const d = coerceToDate(v)
-  return d ? fmtFechaHora.format(d).replace(',', '') : '—'
-}
-/** Si la cadena trae hora (ISO/T), muestra fecha+hora; si no, solo fecha */
+function formatFecha(v: any): string { const d = coerceToDate(v); return d ? fmtFecha.format(d) : '—' }
+function formatFechaHora(v: any): string { const d = coerceToDate(v); return d ? fmtFechaHora.format(d).replace(',', '') : '—' }
 function formatFechaOrFechaHora(v: any): string {
   const hasTime = typeof v === 'string' && (/[T ]\d{2}:\d{2}/.test(v))
   return hasTime ? formatFechaHora(v) : formatFecha(v)
 }
-/* ================================================================ */
 
+/* ======= Tipos ======= */
 interface RazonSocial { id: number; nombre: string }
 interface Paso {
   nombre: string; completado: boolean; observacion?: string;
@@ -940,9 +1115,9 @@ interface UsuarioExtendida {
 }
 interface ContratoRow {
   id: number
-  tipoContrato: 'prestacion' | 'temporal' | 'laboral' | 'aprendizaje'
+  tipoContrato: 'prestacion' | 'temporal' | 'laboral' | 'aprendizaje' | string
   terminoContrato: string | null
-  estado: 'activo' | 'inactivo'
+  estado: 'activo' | 'inactivo' | string
   fechaInicio: string
   fechaTerminacion: string | null
   sede?: any
@@ -967,6 +1142,39 @@ interface ContratoRow {
 
 type AfiliacionTipo = 'eps' | 'arl' | 'afp' | 'afc' | 'ccf'
 
+/* ======= Constantes de archivos y dinero ======= */
+const MAX_UPLOAD_MB = 10
+const BYTES_MB = 1024 * 1024
+const ALLOWED_CONTRATO_MIME = ['application/pdf']
+const ALLOWED_REC_EXT = ['pdf', 'doc', 'docx']
+const MAX_MONEY = 2_000_000_000 // 2 mil millones
+
+/* Evita envíos múltiples */
+const isSaving = ref(false)
+
+/* Helpers archivos */
+function extOf(name?: string) {
+  if (!name) return ''
+  const p = name.split('.')
+  return (p[p.length - 1] || '').toLowerCase()
+}
+function validateFileOrMsg(file: File | null, opts: { allowedMime?: string[], allowedExt?: string[], maxMB?: number }) {
+  if (!file) return 'Archivo requerido.'
+  if (opts.maxMB && file.size > (opts.maxMB * BYTES_MB)) return `El archivo supera ${opts.maxMB} MB.`
+  if (opts.allowedMime && !opts.allowedMime.includes(file.type)) return `Tipo no permitido (${file.type || 'desconocido'}).`
+  if (opts.allowedExt && !opts.allowedExt.includes(extOf(file.name))) return `Extensión no permitida (.${extOf(file.name)}).`
+  return null
+}
+
+/* Sanitizar dinero (acepta vacíos) */
+function sanitizeMoney(v: any) {
+  if (v === null || v === undefined || v === '') return ''
+  const n = Number(String(v).replace(/[^\d.-]/g, ''))
+  if (isNaN(n)) return ''
+  return Math.min(n, MAX_MONEY)
+}
+
+/* ======= Estado ======= */
 const tiposContratoSelectItems = ref([
   { nombre: 'Prestación de Servicios', valor: 'prestacion' },
   { nombre: 'Temporal', valor: 'temporal' },
@@ -1007,7 +1215,6 @@ const terminosContratoLaboral = computed(() => [
   { text: formatTermForDisplay('indefinido'), value: 'indefinido' }
 ])
 
-// estado general
 const razonSocialSeleccionada = ref<number | null>(null)
 const usuarioSeleccionado = ref<number | null>(null)
 const tipoContratoSeleccionado = ref<'prestacion' | 'temporal' | 'laboral' | 'aprendizaje'>('prestacion')
@@ -1023,29 +1230,26 @@ const loadingCargos = ref(false)
 const loadingEntidades = ref(false)
 const loadingPasos = ref(false)
 
-// edición
 const isEditing = ref(false)
 const contratoEditId = ref<number | null>(null)
 
-// modal paso
 const modalPaso = ref({
   mostrar: false,
   paso: null as Paso | null,
   form: { observacion: '', archivo: null as File | null }
 })
 
-// archivo contrato
 const archivoContrato = ref<File | null>(null)
+/** key para forzar reset visual del v-file-input */
+const fileInputKey = ref(0)
 const fileInputRef = ref<HTMLInputElement | null>(null)
 
-// recomendaciones médicas
 const tieneRecomendacionesMedicas = ref(false)
 const archivoRecomendacionMedica = ref<File | null>(null)
 
-// focus
 const identificacionRef = ref()
 
-// alertas
+/* Alertas / snackbar */
 const showAlertDialog = ref(false)
 const alertDialogTitle = ref('')
 const alertDialogMessage = ref('')
@@ -1054,35 +1258,46 @@ const showAlert = (title: string, message: string) => {
   alertDialogMessage.value = message
   showAlertDialog.value = true
 }
+const snackbar = ref<{ show: boolean; text: string; color: string; timeout: number }>({
+  show: false, text: '', color: 'success', timeout: 1800
+})
+const notify = (text: string, color = 'success') => {
+  snackbar.value.text = text
+  snackbar.value.color = color
+  snackbar.value.show = true
+}
 
-// confirm
+/* vee-validate */
 const showConfirmDialog = ref(false)
 const { handleSubmit, resetForm, validate } = useForm()
 
-// ✔ Reglas y campos (numéricos con '' para no forzar 0)
 const required = (v: any) => (v !== null && v !== undefined && v !== '') || 'Este campo es obligatorio.'
 const optionalNumber = (v: any) => (v == null || v === '') ? true : !isNaN(Number(v)) || 'Debe ser un número válido.'
+
+/* Reglas reforzadas dinero */
+const moneyRules = [
+  optionalNumber,
+  (v: any) => (v === '' || v === null || v === undefined || Number(v) >= 0) || 'No puede ser negativo.',
+  (v: any) => (v === '' || Number(v) <= MAX_MONEY) || `No puede superar ${MAX_MONEY.toLocaleString('es-CO')}.`,
+]
 
 const { value: identificacion, errorMessage: identificacionError } = useField('identificacion', [required, (val: string) => val.length >= 5 || 'Debe tener al menos 5 caracteres.'])
 const { value: sedeId, errorMessage: sedeIdError } = useField<number | null>('sedeId', [required], { initialValue: null })
 const { value: cargoId, errorMessage: cargoIdError } = useField<number | null>('cargoId', [required], { initialValue: null })
 const { value: funcionesCargo, errorMessage: funcionesCargoError } = useField('funcionesCargo', [required], { initialValue: '' })
 
-// ⬇️ Importante: initialValue = '' para no mandar 0 por defecto
-const { value: salarioBasico, errorMessage: salarioBasicoError } = useField('salarioBasico', [required, optionalNumber], { initialValue: '' })
-const { value: bonoSalarial, errorMessage: bonoSalarialError } = useField('bonoSalarial', [optionalNumber], { initialValue: '' })
-const { value: auxilioTransporte, errorMessage: auxilioTransporteError } = useField('auxilioTransporte', [optionalNumber], { initialValue: '' })
-const { value: auxilioNoSalarial, errorMessage: auxilioNoSalarialError } = useField('auxilioNoSalarial', [optionalNumber], { initialValue: '' })
+const { value: salarioBasico, errorMessage: salarioBasicoError } = useField('salarioBasico', [required, ...moneyRules], { initialValue: '' })
+const { value: bonoSalarial, errorMessage: bonoSalarialError } = useField('bonoSalarial', moneyRules, { initialValue: '' })
+const { value: auxilioTransporte, errorMessage: auxilioTransporteError } = useField('auxilioTransporte', moneyRules, { initialValue: '' })
+const { value: auxilioNoSalarial, errorMessage: auxilioNoSalarialError } = useField('auxilioNoSalarial', moneyRules, { initialValue: '' })
 
 const { value: fechaInicio } = useField('fechaInicio', [required], { initialValue: '' })
 
-// 👇 No requerir término cuando es prestacion **o** aprendizaje
 const terminoContratoRules = computed(() =>
   (tipoContratoSeleccionado.value !== 'prestacion' && tipoContratoSeleccionado.value !== 'aprendizaje') ? [required] : []
 )
 const { value: terminoContrato, errorMessage: terminoContratoError } = useField('terminoContrato', terminoContratoRules, { initialValue: null })
 
-// ✅ Requerimiento/visibilidad dinámica de FECHA DE TERMINACIÓN
 const isFechaTerminacionRequired = computed(() => {
   const t = tipoContratoSeleccionado.value
   if (t === 'prestacion' || t === 'aprendizaje' || t === 'temporal') return true
@@ -1090,7 +1305,6 @@ const isFechaTerminacionRequired = computed(() => {
   return false
 })
 const isFechaTerminacionVisible = isFechaTerminacionRequired
-
 const fechaTerminacionRules = computed(() => isFechaTerminacionRequired.value ? [required] : [])
 const { value: fechaTerminacion, errorMessage: fechaTerminacionError } = useField('fechaTerminacion', fechaTerminacionRules, { initialValue: '' })
 
@@ -1104,15 +1318,9 @@ const { value: ccfId, errorMessage: ccfIdError } = useField<number | null>('ccfI
 const contratosUsuario = ref<ContratoRow[]>([])
 const loadingContratos = ref(false)
 
-// 🔽 Opciones fijas para Centro de Costo (Área)
+/* Centro de costo (fijo) */
 const centrosCostoOptions = ref<string[]>([
-  'ADMINISTRACIÓN',
-  'TALENTO HUMANO',
-  'CONTABILIDAD',
-  'OPERACIÓN',
-  'SERVICIO AL CLIENTE',
-  'DIRECCIÓN',
-  'COMERCIAL',
+  'ADMINISTRACIÓN','TALENTO HUMANO','CONTABILIDAD','OPERACIÓN','SERVICIO AL CLIENTE','DIRECCIÓN','COMERCIAL',
 ])
 
 const pasosContrato = computed(() => {
@@ -1136,6 +1344,72 @@ const salarioTotalCalculado = computed(() => {
   const ans = Number(auxilioNoSalarial.value) || 0
   return (sb + bs + at + ans).toLocaleString('es-CO', { style: 'currency', currency: 'COP' })
 })
+
+/* ===== Certificados: estado por entidad ===== */
+const certStatusMap = ref<Record<number, boolean>>({})
+const entidadMetaCache = ref<Record<number, any>>({})
+
+function setCertStatus(entidadId: number, has: boolean) {
+  certStatusMap.value = { ...certStatusMap.value, [entidadId]: has }
+}
+function setEntidadMetaCache(entidadId: number, meta: any | null) {
+  const cache = { ...entidadMetaCache.value }
+  if (meta) cache[entidadId] = meta
+  else delete cache[entidadId]
+  entidadMetaCache.value = cache
+}
+
+function hasCert(tipo: AfiliacionTipo): boolean {
+  const id = ({
+    eps: epsId.value,
+    arl: arlId.value,
+    afp: afpId.value,
+    afc: afcId.value,
+    ccf: ccfId.value,
+  } as Record<AfiliacionTipo, number | null>)[tipo]
+  return !!(id && certStatusMap.value[id])
+}
+
+/* ===== Estado visual para afiliaciones (icono/color/tooltip) ===== */
+function certColor(tipo: AfiliacionTipo) {
+  const id = ({ eps: epsId.value, arl: arlId.value, afp: afpId.value, afc: afcId.value, ccf: ccfId.value } as Record<AfiliacionTipo, number | null>)[tipo]
+  if (!id) return 'warning'                 // sin entidad -> amarillo
+  const has = certStatusMap.value[id]
+  return has === true ? 'success' : 'error' // true -> verde, false/undef -> rojo
+}
+function certIcon(tipo: AfiliacionTipo) {
+  const id = ({ eps: epsId.value, arl: arlId.value, afp: afpId.value, afc: afcId.value, ccf: ccfId.value } as Record<AfiliacionTipo, number | null>)[tipo]
+  if (!id) return 'mdi-alert-circle-outline'
+  const has = certStatusMap.value[id]
+  return has === true ? 'mdi-check-circle' : 'mdi-alert-circle-outline'
+}
+function certTooltip(tipo: AfiliacionTipo) {
+  const id = ({ eps: epsId.value, arl: arlId.value, afp: afpId.value, afc: afcId.value, ccf: ccfId.value } as Record<AfiliacionTipo, number | null>)[tipo]
+  if (!id) return 'Sin entidad seleccionada'
+  const has = certStatusMap.value[id]
+  return has === true ? 'Certificado cargado' : 'No hay certificado cargado'
+}
+
+/* Forzar/actualizar estado desde backend o caché */
+async function refreshCertStatusByEntidadId(entidadId: number) {
+  const cached = entidadMetaCache.value[entidadId]
+  if (cached !== undefined) {
+    try { setCertStatus(entidadId, entidadTieneCertificado(cached)) } catch { setCertStatus(entidadId, false) }
+  }
+  try {
+    const meta = await obtenerEntidadSaludPorId(entidadId)
+    setEntidadMetaCache(entidadId, meta)
+    setCertStatus(entidadId, entidadTieneCertificado(meta))
+  } catch (e) {
+    setCertStatus(entidadId, false)
+    console.error('No se pudo refrescar estado de entidad', entidadId, e)
+  }
+}
+async function refreshCertStatusByTipo(tipo: AfiliacionTipo) {
+  const id = ({ eps: epsId.value, arl: arlId.value, afp: afpId.value, afc: afcId.value, ccf: ccfId.value } as Record<AfiliacionTipo, number | null>)[tipo]
+  if (!id) return
+  await refreshCertStatusByEntidadId(id)
+}
 
 /* ===========================
    Certificados de Entidad de Salud (UI)
@@ -1162,7 +1436,10 @@ const certDialog = ref<{
   meta: null,
 })
 
-const certTieneArchivo = computed(() => entidadTieneCertificado(certDialog.value.meta))
+const certTieneArchivo = computed(() => {
+  const meta = certDialog.value.meta
+  try { return !!meta && entidadTieneCertificado(meta) } catch { return false }
+})
 
 function cerrarCertDialog() {
   certDialog.value.open = false
@@ -1177,13 +1454,7 @@ function cerrarCertDialog() {
 }
 
 async function abrirDialogoCertificado(tipo: AfiliacionTipo) {
-  const idMap: Record<AfiliacionTipo, number | null> = {
-    eps: epsId.value,
-    arl: arlId.value,
-    afp: afpId.value,
-    afc: afcId.value,
-    ccf: ccfId.value,
-  }
+  const idMap: Record<AfiliacionTipo, number | null> = { eps: epsId.value, arl: arlId.value, afp: afpId.value, afc: afcId.value, ccf: ccfId.value }
   const id = idMap[tipo]
   if (!id) return showAlert('Selecciona una entidad', 'Debes elegir una entidad antes de gestionar su certificado.')
 
@@ -1192,12 +1463,23 @@ async function abrirDialogoCertificado(tipo: AfiliacionTipo) {
   certDialog.value.entidadId = id
   certDialog.value.entidadNombre = ent?.nombre || `Entidad ${id}`
   certDialog.value.open = true
+
+  const cached = entidadMetaCache.value[id]
+  if (cached) {
+    certDialog.value.meta = cached
+    setCertStatus(id, entidadTieneCertificado(cached))
+  } else {
+    certDialog.value.meta = null
+  }
+
   certDialog.value.loading = true
   try {
-    certDialog.value.meta = await obtenerEntidadSaludPorId(id)
+    const meta = await obtenerEntidadSaludPorId(id)
+    certDialog.value.meta = meta
+    setEntidadMetaCache(id, meta)
+    setCertStatus(id, entidadTieneCertificado(meta))
   } catch (e) {
     console.error('Error cargando entidad:', e)
-    certDialog.value.meta = null
   } finally {
     certDialog.value.loading = false
   }
@@ -1216,11 +1498,14 @@ async function subirCertificadoSeleccionado() {
       }
     )
     certDialog.value.meta = updated
-    showAlert('Listo', 'Certificado cargado correctamente.')
-    certDialog.value.file = null
+    setEntidadMetaCache(certDialog.value.entidadId, updated)
+    setCertStatus(certDialog.value.entidadId, true)
+
+    notify('Certificado guardado con éxito', 'success')
+    setTimeout(() => { cerrarCertDialog() }, 700)
   } catch (e: any) {
     console.error(e)
-    showAlert('Error', e?.message || 'No fue posible subir el certificado.')
+    notify(e?.message || 'No fue posible subir el certificado.', 'error')
   } finally {
     certDialog.value.loading = false
   }
@@ -1233,7 +1518,7 @@ async function descargarCertificadoSeleccionado() {
     await descargarCertificadoEntidadSalud(certDialog.value.entidadId, sugerido)
   } catch (e: any) {
     console.error(e)
-    showAlert('Error', e?.message || 'No fue posible descargar el certificado.')
+    notify(e?.message || 'No fue posible descargar el certificado.', 'error')
   }
 }
 
@@ -1241,11 +1526,14 @@ async function eliminarCertificadoSeleccionado() {
   if (!certDialog.value.entidadId) return
   try {
     await eliminarCertificadoEntidadSalud(certDialog.value.entidadId)
+    setCertStatus(certDialog.value.entidadId, false)
+    setEntidadMetaCache(certDialog.value.entidadId, null)
     certDialog.value.meta = null
-    showAlert('Listo', 'Certificado eliminado.')
+    notify('Certificado eliminado', 'success')
+    setTimeout(() => { cerrarCertDialog() }, 500)
   } catch (e: any) {
     console.error(e)
-    showAlert('Error', e?.message || 'No fue posible eliminar el certificado.')
+    notify(e?.message || 'No fue posible eliminar el certificado.', 'error')
   }
 }
 
@@ -1289,51 +1577,64 @@ async function cargarEntidadesSalud() { loadingEntidades.value = true; try { ent
 /* ===========================
    Crear nuevo
    =========================== */
+const submitForm = handleSubmit(async (values) => { await crearYAnexarContrato(values) })
+
 const handleConfirmacion = async () => {
+  if (isSaving.value) return
   const { valid } = await validate()
   if (!valid) return showAlert('Error de Validación', 'Revisa los campos en rojo.')
   if (!usuarioSeleccionado.value || !tipoContratoSeleccionado.value) return showAlert('Advertencia', 'Seleccione usuario y tipo de contrato.')
   if (isFechaTerminacionRequired.value && !fechaTerminacion.value) return showAlert('Advertencia', 'La fecha de terminación es obligatoria para este tipo de contrato.')
-  if (!archivoContrato.value) return showAlert('Advertencia', 'Adjunte el PDF del contrato.')
-  if (tieneRecomendacionesMedicas.value && !archivoRecomendacionMedica.value) return showAlert('Advertencia', 'Adjunte Recomendación Médica o desmarque la opción.')
-  showConfirmDialog.value = true
-}
-const submitForm = handleSubmit(async (values) => { showConfirmDialog.value = false; await crearYAnexarContrato(values) })
 
-async function crearYAnexarContrato(formData: any) {
-  if (!usuarioSeleccionado.value || !archivoContrato.value || !razonSocialSeleccionada.value) return showAlert('Error', 'Falta información clave.')
-
-  const requiresEndDate = isFechaTerminacionRequired.value
-
-  const payloadContrato: any = {
-    usuarioId: Number(usuarioSeleccionado.value),
-    razonSocialId: Number(razonSocialSeleccionada.value),
-    identificacion: (identificacion.value || '').trim(),
-    sedeId: sedeId.value ? Number(sedeId.value) : null,
-    cargoId: cargoId.value ? Number(cargoId.value) : null,
-    funcionesCargo: (funcionesCargo.value || '').trim() || null,
-    fechaInicio: formData.fechaInicio,
-    fechaTerminacion: requiresEndDate ? (formData.fechaTerminacion || null) : null,
-    tipoContrato: tipoContratoSeleccionado.value,
-    terminoContrato: (tipoContratoSeleccionado.value !== 'prestacion' && tipoContratoSeleccionado.value !== 'aprendizaje') ? terminoContrato.value : null,
-    estado: 'activo',
-    periodoPrueba: null,
-    horarioTrabajo: null,
-    centroCosto: (centroCosto.value || '').trim() || null,
-    epsId: epsId.value ? Number(epsId.value) : null,
-    arlId: arlId.value ? Number(arlId.value) : null,
-    afpId: afpId.value ? Number(afpId.value) : null,
-    afcId: afcId.value ? Number(afcId.value) : null,
-    ccfId: ccfId.value ? Number(ccfId.value) : null,
-    tieneRecomendacionesMedicas: !!tieneRecomendacionesMedicas.value,
-
-    salarioBasico: Number(salarioBasico.value) || 0,
-    bonoSalarial: Number(bonoSalarial.value) || 0,
-    auxilioTransporte: Number(auxilioTransporte.value) || 0,
-    auxilioNoSalarial: Number(auxilioNoSalarial.value) || 0,
+  const contratoMsg = validateFileOrMsg(archivoContrato.value, { allowedMime: ALLOWED_CONTRATO_MIME, maxMB: MAX_UPLOAD_MB })
+  if (contratoMsg) return showAlert('Archivo de contrato inválido', contratoMsg)
+  if (tieneRecomendacionesMedicas.value) {
+    const recMsg = validateFileOrMsg(archivoRecomendacionMedica.value, { allowedExt: ALLOWED_REC_EXT, maxMB: MAX_UPLOAD_MB })
+    if (recMsg) return showAlert('Archivo de recomendación inválido', recMsg)
   }
 
+  await submitForm()
+}
+
+async function crearYAnexarContrato(formData: any) {
+  if (isSaving.value) return
+  isSaving.value = true
   try {
+    if (!usuarioSeleccionado.value || !archivoContrato.value || !razonSocialSeleccionada.value) {
+      showAlert('Error', 'Falta información clave.')
+      return
+    }
+
+    const requiresEndDate = isFechaTerminacionRequired.value
+
+    const payloadContrato: any = {
+      usuarioId: Number(usuarioSeleccionado.value),
+      razonSocialId: Number(razonSocialSeleccionada.value),
+      identificacion: (identificacion.value || '').trim(),
+      sedeId: sedeId.value ? Number(sedeId.value) : null,
+      cargoId: cargoId.value ? Number(cargoId.value) : null,
+      funcionesCargo: (funcionesCargo.value || '').trim() || null,
+      fechaInicio: formData.fechaInicio,
+      fechaTerminacion: requiresEndDate ? (formData.fechaTerminacion || null) : null,
+      tipoContrato: tipoContratoSeleccionado.value,
+      terminoContrato: (tipoContratoSeleccionado.value !== 'prestacion' && tipoContratoSeleccionado.value !== 'aprendizaje') ? terminoContrato.value : null,
+      estado: 'activo',
+      periodoPrueba: null,
+      horarioTrabajo: null,
+      centroCosto: (centroCosto.value || '').trim() || null,
+      epsId: epsId.value ? Number(epsId.value) : null,
+      arlId: arlId.value ? Number(arlId.value) : null,
+      afpId: afpId.value ? Number(afpId.value) : null,
+      afcId: afcId.value ? Number(afcId.value) : null,
+      ccfId: ccfId.value ? Number(ccfId.value) : null,
+      tieneRecomendacionesMedicas: !!tieneRecomendacionesMedicas.value,
+
+      salarioBasico: Number(salarioBasico.value) || 0,
+      bonoSalarial: Number(bonoSalarial.value) || 0,
+      auxilioTransporte: Number(auxilioTransporte.value) || 0,
+      auxilioNoSalarial: Number(auxilioNoSalarial.value) || 0,
+    }
+
     const nuevoContrato: any = await crearContrato(payloadContrato)
 
     const salarioViene = Array.isArray(nuevoContrato.salarios) && nuevoContrato.salarios.length > 0
@@ -1372,12 +1673,14 @@ async function crearYAnexarContrato(formData: any) {
       await Promise.all(creates)
     } catch (e) { console.error('Pasos base', e) }
 
-    showAlert('Éxito', 'Contrato creado, salario inicial, archivos y pasos registrados.')
+    notify('Contrato creado y archivos anexados.', 'success')
     await cargarHistorialContratos()
-    limpiarFormulario()
+    await resetTotal()
   } catch (e: any) {
     console.error(e)
     showAlert('Error', e?.message || 'No fue posible crear el contrato.')
+  } finally {
+    isSaving.value = false
   }
 }
 
@@ -1407,7 +1710,6 @@ async function editarContrato(c: ContratoRow) {
   fechaInicio.value = (src.fechaInicio || c.fechaInicio || '').slice(0, 10)
   fechaTerminacion.value = (src.fechaTerminacion || c.fechaTerminacion) ? String(src.fechaTerminacion || c.fechaTerminacion).slice(0, 10) : ''
 
-  // aprendizaje = prestación (sin término)
   terminoContrato.value = (src.tipoContrato === 'prestacion' || src.tipoContrato === 'aprendizaje') ? null : (src.terminoContrato ?? c.terminoContrato ?? null)
 
   epsId.value = src.epsId ?? c.epsId ?? null
@@ -1419,28 +1721,24 @@ async function editarContrato(c: ContratoRow) {
   tieneRecomendacionesMedicas.value = !!(src.tieneRecomendacionesMedicas ?? false)
   archivoRecomendacionMedica.value = null
 
-  // salario vigente (robusto)
-  const sb =
-    (src.salarioBasico as number | undefined) ??
-    (Array.isArray(src.salarios) ? src.salarios[0]?.salarioBasico : undefined) ??
-    (typeof src.salario === 'number' ? src.salario : undefined)
-
-  const bs =
-    (src.bonoSalarial as number | undefined) ??
-    (Array.isArray(src.salarios) ? src.salarios[0]?.bonoSalarial : undefined)
-
-  const at =
-    (src.auxilioTransporte as number | undefined) ??
-    (Array.isArray(src.salarios) ? src.salarios[0]?.auxilioTransporte : undefined)
-
-  const ans =
-    (src.auxilioNoSalarial as number | undefined) ??
-    (Array.isArray(src.salarios) ? src.salarios[0]?.auxilioNoSalarial : undefined)
+  const sb = (src.salarioBasico as number | undefined) ?? (Array.isArray(src.salarios) ? src.salarios[0]?.salarioBasico : undefined) ?? (typeof src.salario === 'number' ? src.salario : undefined)
+  const bs = (src.bonoSalarial as number | undefined) ?? (Array.isArray(src.salarios) ? src.salarios[0]?.bonoSalarial : undefined)
+  const at = (src.auxilioTransporte as number | undefined) ?? (Array.isArray(src.salarios) ? src.salarios[0]?.auxilioTransporte : undefined)
+  const ans = (src.auxilioNoSalarial as number | undefined) ?? (Array.isArray(src.salarios) ? src.salarios[0]?.auxilioNoSalarial : undefined)
 
   if (sb != null) salarioBasico.value = String(sb)
   if (bs != null) bonoSalarial.value = String(bs)
   if (at != null) auxilioTransporte.value = String(at)
   if (ans != null) auxilioNoSalarial.value = String(ans)
+
+  // === NUEVO: sincroniza estado de certificados para cada entidad seleccionada ===
+  await Promise.all([
+    epsId.value ? refreshCertStatusByEntidadId(epsId.value) : Promise.resolve(),
+    arlId.value ? refreshCertStatusByEntidadId(arlId.value) : Promise.resolve(),
+    afpId.value ? refreshCertStatusByEntidadId(afpId.value) : Promise.resolve(),
+    afcId.value ? refreshCertStatusByEntidadId(afcId.value) : Promise.resolve(),
+    ccfId.value ? refreshCertStatusByEntidadId(ccfId.value) : Promise.resolve(),
+  ])
 
   archivoContrato.value = null
 
@@ -1450,41 +1748,52 @@ async function editarContrato(c: ContratoRow) {
 }
 
 async function guardarCambiosContrato() {
-  if (!contratoEditId.value) return
-
-  const { valid } = await validate()
-  if (!valid) return showAlert('Error de Validación', 'Revisa los campos obligatorios.')
-
-  const requiresEndDate = isFechaTerminacionRequired.value
-  if (requiresEndDate && !fechaTerminacion.value) {
-    return showAlert('Advertencia', 'La fecha de terminación es obligatoria para este tipo de contrato.')
-  }
-
-  const payload: any = {
-    tipoContrato: tipoContratoSeleccionado.value,
-    terminoContrato: (tipoContratoSeleccionado.value !== 'prestacion' && tipoContratoSeleccionado.value !== 'aprendizaje') ? terminoContrato.value : null,
-    identificacion: (identificacion.value || '').trim(),
-    sedeId: sedeId.value ? Number(sedeId.value) : null,
-    cargoId: cargoId.value ? Number(cargoId.value) : null,
-    funcionesCargo: (funcionesCargo.value || '').trim() || null,
-    fechaInicio: fechaInicio.value,
-    fechaTerminacion: requiresEndDate ? (fechaTerminacion.value || null) : null,
-    centroCosto: (centroCosto.value || '').trim() || null,
-    epsId: epsId.value ?? null,
-    arlId: arlId.value ?? null,
-    afpId: afpId.value ?? null,
-    afcId: afcId.value ?? null,
-    ccfId: ccfId.value ?? null,
-    tieneRecomendacionesMedicas: !!tieneRecomendacionesMedicas.value,
-
-    // Condicionales (no pisar con 0)
-    salarioBasico: salarioBasico.value !== '' ? Number(salarioBasico.value) : undefined,
-    bonoSalarial: bonoSalarial.value !== '' ? Number(bonoSalarial.value) : undefined,
-    auxilioTransporte: auxilioTransporte.value !== '' ? Number(auxilioTransporte.value) : undefined,
-    auxilioNoSalarial: auxilioNoSalarial.value !== '' ? Number(auxilioNoSalarial.value) : undefined,
-  }
-
+  if (isSaving.value) return
+  isSaving.value = true
   try {
+    if (!contratoEditId.value) return
+
+    const { valid } = await validate()
+    if (!valid) { showAlert('Error de Validación', 'Revisa los campos obligatorios.'); return }
+
+    const requiresEndDate = isFechaTerminacionRequired.value
+    if (requiresEndDate && !fechaTerminacion.value) {
+      showAlert('Advertencia', 'La fecha de terminación es obligatoria para este tipo de contrato.')
+      return
+    }
+
+    if (archivoContrato.value) {
+      const msg = validateFileOrMsg(archivoContrato.value, { allowedMime: ALLOWED_CONTRATO_MIME, maxMB: MAX_UPLOAD_MB })
+      if (msg) { showAlert('Archivo de contrato inválido', msg); return }
+    }
+    if (tieneRecomendacionesMedicas.value && archivoRecomendacionMedica.value) {
+      const msg = validateFileOrMsg(archivoRecomendacionMedica.value, { allowedExt: ALLOWED_REC_EXT, maxMB: MAX_UPLOAD_MB })
+      if (msg) { showAlert('Archivo de recomendación inválido', msg); return }
+    }
+
+    const payload: any = {
+      tipoContrato: tipoContratoSeleccionado.value,
+      terminoContrato: (tipoContratoSeleccionado.value !== 'prestacion' && tipoContratoSeleccionado.value !== 'aprendizaje') ? terminoContrato.value : null,
+      identificacion: (identificacion.value || '').trim(),
+      sedeId: sedeId.value ? Number(sedeId.value) : null,
+      cargoId: cargoId.value ? Number(cargoId.value) : null,
+      funcionesCargo: (funcionesCargo.value || '').trim() || null,
+      fechaInicio: fechaInicio.value,
+      fechaTerminacion: requiresEndDate ? (fechaTerminacion.value || null) : null,
+      centroCosto: (centroCosto.value || '').trim() || null,
+      epsId: epsId.value ?? null,
+      arlId: arlId.value ?? null,
+      afpId: afpId.value ?? null,
+      afcId: afcId.value ?? null,
+      ccfId: ccfId.value ?? null,
+      tieneRecomendacionesMedicas: !!tieneRecomendacionesMedicas.value,
+
+      salarioBasico: salarioBasico.value !== '' ? Number(salarioBasico.value) : undefined,
+      bonoSalarial: bonoSalarial.value !== '' ? Number(bonoSalarial.value) : undefined,
+      auxilioTransporte: auxilioTransporte.value !== '' ? Number(auxilioTransporte.value) : undefined,
+      auxilioNoSalarial: auxilioNoSalarial.value !== '' ? Number(auxilioNoSalarial.value) : undefined,
+    }
+
     await actualizarContrato(Number(contratoEditId.value), payload)
 
     if (archivoContrato.value) {
@@ -1497,12 +1806,14 @@ async function guardarCambiosContrato() {
       })
     }
 
-    showAlert('Éxito', 'Contrato actualizado correctamente.')
+    notify('Contrato actualizado correctamente.', 'success')
     await cargarHistorialContratos()
     cancelarEdicion()
   } catch (e: any) {
     console.error(e)
     showAlert('Error', e?.message || 'No fue posible actualizar el contrato.')
+  } finally {
+    isSaving.value = false
   }
 }
 
@@ -1512,37 +1823,69 @@ function cancelarEdicion() {
   limpiarFormulario()
 }
 
+/* ===== NUEVO: reset TOTAL ===== */
+async function resetTotal() {
+  resetForm()
+  archivoContrato.value = null
+  archivoRecomendacionMedica.value = null
+  fileInputKey.value++
+
+  tipoContratoSeleccionado.value = 'prestacion'
+  terminoContrato.value = null
+  razonSocialSeleccionada.value = null
+  usuarioSeleccionado.value = null
+
+  contratosUsuario.value = []
+  certStatusMap.value = {}
+  entidadMetaCache.value = {}
+
+  await nextTick()
+  window.scrollTo({ top: 0, behavior: 'smooth' })
+}
+
 function limpiarFormulario() {
   resetForm()
   archivoContrato.value = null
   archivoRecomendacionMedica.value = null
   tipoContratoSeleccionado.value = 'prestacion'
   terminoContrato.value = null
+  fileInputKey.value++
 }
 
-// activar/inactivar
+/* activar/inactivar */
 async function toggleEstadoContrato(c: ContratoRow) {
   const nuevoEstado = c.estado === 'activo' ? 'inactivo' : 'activo'
   try {
     await cambiarEstadoContrato(c.id, nuevoEstado)
-    showAlert('Listo', `Contrato ${c.id} ahora está ${nuevoEstado}.`)
+    notify(`Contrato ${c.id} ahora está ${nuevoEstado}.`, 'success')
     await cargarHistorialContratos()
     if (isEditing.value && contratoEditId.value === c.id && nuevoEstado === 'inactivo') {
       cancelarEdicion()
     }
   } catch (e: any) {
     console.error(e)
-    showAlert('Error', e?.message || 'No fue posible cambiar el estado.')
+    notify(e?.message || 'No fue posible cambiar el estado.', 'error')
   }
 }
 
-// modal pasos (local, UI)
-const abrirModalPaso = (paso: Paso) => { modalPaso.value.paso = paso; modalPaso.value.form.observacion = paso.observacion || ''; modalPaso.value.form.archivo = paso.archivoFile || null; modalPaso.value.mostrar = true }
-const cerrarModalPaso = () => { modalPaso.value.mostrar = false; modalPaso.value.paso = null; modalPaso.value.form = { observacion: '', archivo: null } }
+/* Modal pasos (UI local) */
+const abrirModalPaso = (paso: Paso) => {
+  modalPaso.value.paso = paso
+  modalPaso.value.form.observacion = paso.observacion || ''
+  modalPaso.value.form.archivo = paso.archivoFile || null
+  modalPaso.value.mostrar = true
+}
+const cerrarModalPaso = () => {
+  modalPaso.value.mostrar = false
+  modalPaso.value.paso = null
+  modalPaso.value.form = { observacion: '', archivo: null }
+}
 const completarPasoConfirmado = async () => {
   if (!modalPaso.value.paso) return
   const paso = modalPaso.value.paso
-  if (!modalPaso.value.form.observacion) return showAlert('Error', 'La observación es obligatoria.')
+  if (!modalPaso.value.form.observacion) {
+    return showAlert('Error', 'La observación es obligatoria.')
+  }
   paso.completado = true
   paso.observacion = modalPaso.value.form.observacion
   paso.fechaCompletado = new Date().toISOString().slice(0, 10)
@@ -1554,25 +1897,43 @@ const completarPasoConfirmado = async () => {
   cerrarModalPaso()
 }
 
-// file handlers
+/* File handlers */
 const onFileChange = (event: Event) => {
   const target = event.target as HTMLInputElement
-  archivoContrato.value = target.files && target.files.length ? target.files[0] : null
+  const f = target.files && target.files[0] ? target.files[0] : null
+  const msg = validateFileOrMsg(f, { allowedMime: ALLOWED_CONTRATO_MIME, maxMB: MAX_UPLOAD_MB })
+  if (msg) {
+    archivoContrato.value = null
+    showAlert('Archivo de contrato inválido', msg)
+    fileInputKey.value++
+    return
+  }
+  archivoContrato.value = f
 }
-const onFilePasoChange = () => { /* noop */ }
+const onFileRecChange = (event: Event) => {
+  const target = event.target as HTMLInputElement
+  const f = target.files && target.files[0] ? target.files[0] : null
+  if (!tieneRecomendacionesMedicas.value) { archivoRecomendacionMedica.value = null; return }
+  const msg = validateFileOrMsg(f, { allowedExt: ALLOWED_REC_EXT, maxMB: MAX_UPLOAD_MB })
+  if (msg) {
+    archivoRecomendacionMedica.value = null
+    showAlert('Archivo de recomendación inválido', msg)
+    return
+  }
+  archivoRecomendacionMedica.value = f
+}
+const onFilePasoChange = () => { /* noop, se maneja al confirmar */ }
 
-/* ===========================
-   DESCARGAR ARCHIVO
-   =========================== */
+/* Descargar archivo genérico (usado en la tabla Historial) */
 function parseFilenameFromContentDisposition(header: string | null): string | null {
   if (!header) return null
   const match = /filename\*?=(?:UTF-8''|")?([^\";]+)/i.exec(header)
   if (match && match[1]) {
-    try { return decodeURIComponent(match[1].replace(/\"/g, '')) } catch { return match[1].replace(/\"/g, '') }
+    try { return decodeURIComponent(match[1].replace(/\"/g, '')) }
+    catch { return match[1].replace(/\"/g, '') }
   }
   return null
 }
-
 async function descargarArchivo(url?: string | null, sugerido?: string) {
   if (!url) return showAlert('Archivo no disponible', 'No se encontró la ruta del archivo para este contrato.')
   try {
@@ -1597,16 +1958,46 @@ async function descargarArchivo(url?: string | null, sugerido?: string) {
   }
 }
 
-// watchers
+/* Watchers */
+watch([salarioBasico, bonoSalarial, auxilioTransporte, auxilioNoSalarial], () => {
+  salarioBasico.value = sanitizeMoney(salarioBasico.value)
+  bonoSalarial.value = sanitizeMoney(bonoSalarial.value)
+  auxilioTransporte.value = sanitizeMoney(auxilioTransporte.value)
+  auxilioNoSalarial.value = sanitizeMoney(auxilioNoSalarial.value)
+})
 watch(razonSocialSeleccionada, (newVal) => { if (newVal) cargarUsuariosPorRazonSocial() })
-watch(usuarioSeleccionado, async (newVal) => { if (newVal) { resetForm(); archivoContrato.value = null; await cargarHistorialContratos() } else contratosUsuario.value = [] })
-watch(tipoContratoSeleccionado, (newVal) => { if (newVal === 'prestacion' || newVal === 'aprendizaje') terminoContrato.value = null })
-watch(tieneRecomendacionesMedicas, (newVal) => { if (!newVal) archivoRecomendacionMedica.value = null })
+watch(usuarioSeleccionado, async (newVal) => {
+  if (newVal) {
+    resetForm()
+    archivoContrato.value = null
+    await cargarHistorialContratos()
+  } else {
+    contratosUsuario.value = []
+  }
+})
+watch(tipoContratoSeleccionado, (newVal) => {
+  if (newVal === 'prestacion' || newVal === 'aprendizaje') terminoContrato.value = null
+})
+watch(tieneRecomendacionesMedicas, (newVal) => {
+  if (!newVal) archivoRecomendacionMedica.value = null
+})
+/* NUEVO: refrescar estado cuando cambian las entidades */
+watch(epsId,  (v) => { if (v) refreshCertStatusByEntidadId(v) })
+watch(arlId,  (v) => { if (v) refreshCertStatusByEntidadId(v) })
+watch(afpId,  (v) => { if (v) refreshCertStatusByEntidadId(v) })
+watch(afcId,  (v) => { if (v) refreshCertStatusByEntidadId(v) })
+watch(ccfId,  (v) => { if (v) refreshCertStatusByEntidadId(v) })
 
-// mount
-onMounted(() => { cargarRazonesSociales(); cargarSedes(); cargarCargos(); cargarEntidadesSalud() })
+/* Mount */
+onMounted(() => {
+  cargarRazonesSociales()
+  cargarSedes()
+  cargarCargos()
+  cargarEntidadesSalud()
+})
 </script>
 
 <style scoped>
 .form .v-col { padding-top: 4px; padding-bottom: 4px; }
+.text-medium-emphasis { opacity: .8; }
 </style>
