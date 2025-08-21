@@ -1061,9 +1061,9 @@
             <div v-else>
               <v-alert v-if="certTieneArchivo" type="success" variant="tonal" class="mb-3">
                 <div class="d-flex flex-wrap align-center ga-2">
-                  <div><strong>Actual:</strong> {{ certDialog.meta?.certificadoNombreOriginal || 'Archivo cargado' }}</div>
-                  <div v-if="certDialog.meta?.certificadoFechaEmision">• Emisión: {{ formatFechaOrFechaHora(certDialog.meta.certificadoFechaEmision) }}</div>
-                  <div v-if="certDialog.meta?.certificadoFechaExpiracion">• Expira: {{ formatFechaOrFechaHora(certDialog.meta.certificadoFechaExpiracion) }}</div>
+                  <div><strong>Actual:</strong> {{ certDialog.meta?.data?.nombreOriginal || 'Archivo cargado' }}</div>
+                  <div v-if="certDialog.meta?.data?.fechaEmision">• Emisión: {{ formatFechaOrFechaHora(certDialog.meta?.data?.fechaEmision) }}</div>
+                  <div v-if="certDialog.meta?.data?.fechaExpiracion">• Expira: {{ formatFechaOrFechaHora(certDialog.meta?.data?.fechaExpiracion) }}</div>
                 </div>
               </v-alert>
 
@@ -1103,6 +1103,7 @@
     </v-card>
   </v-container>
 </template>
+
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
@@ -1125,13 +1126,12 @@ import {
 } from '@/services/contratosPasosService'
 import type { ContratoHistorialEstado } from '@/services/contratoHistorialEstadosService'
 
-/* Servicios certificados */
+/* Servicios certificados (usuario + tipo) */
 import {
-  obtenerEntidadSaludPorId,
-  subirCertificadoEntidadSalud,
-  descargarCertificadoEntidadSalud,
-  eliminarCertificadoEntidadSalud,
-  entidadTieneCertificado,
+  obtenerArchivoAfiliacionMeta,
+  subirArchivoAfiliacion,
+  eliminarArchivoAfiliacion,
+  tieneArchivoAfiliacion,
 } from '@/services/UserService'
 
 /* ===== Tipos ===== */
@@ -1315,7 +1315,7 @@ const buildTimeline = (c:Contrato)=> {
   })
 }
 
-/* ===== Estado visual de certificados ===== */
+/* ===== Estado visual de certificados (usuario + tipo) ===== */
 type AfiliacionTipo = 'eps' | 'arl' | 'afp' | 'afc' | 'ccf'
 const certs = ref<Record<AfiliacionTipo, { has: boolean; loading: boolean; meta: any | null }>>({
   eps: { has: false, loading: false, meta: null },
@@ -1339,9 +1339,37 @@ const certDialog = ref<{
   open: false, tipo: '', entidadId: null, entidadNombre: '', file: null,
   fechaEmision: '', fechaExpiracion: '', loading: false, meta: null,
 })
-const certTieneArchivo = computed(()=> entidadTieneCertificado(certDialog.value.meta))
 
-/* IDs/nombres */
+// ahora usamos el helper REAL del service
+const certTieneArchivo = computed(()=> {
+  try { return tieneArchivoAfiliacion(certDialog.value.meta) } catch { return false }
+})
+
+// Helper: id de usuario actual
+const currentUserId = () => Number(user.value?.id ?? NaN) || null
+
+// Refrescar estados (chulito) por usuario + tipo
+async function refreshCertStatusByTipo(tipo: AfiliacionTipo) {
+  const uid = currentUserId()
+  certs.value[tipo].loading = true
+  try {
+    if (!uid) { certs.value[tipo] = { has:false, loading:false, meta:null }; return }
+    const meta = await obtenerArchivoAfiliacionMeta(uid, tipo)
+    certs.value[tipo].meta = meta
+    certs.value[tipo].has = tieneArchivoAfiliacion(meta)
+  } catch (e) {
+    console.error(`No se pudo refrescar ${tipo}:`, e)
+    certs.value[tipo].meta = null
+    certs.value[tipo].has = false
+  } finally {
+    certs.value[tipo].loading = false
+  }
+}
+async function refreshAllCertStatuses() {
+  await Promise.all((['eps','arl','afp','afc','ccf'] as AfiliacionTipo[]).map(refreshCertStatusByTipo))
+}
+
+/* IDs/nombres mostrados en UI (solo para etiquetar) */
 const getEntidadId = (tipo: AfiliacionTipo): number | null => {
   const c = primaryContrato.value
   switch (tipo) {
@@ -1361,27 +1389,6 @@ const getEntidadNombre = (tipo: AfiliacionTipo): string => {
     case 'afc': return c?.afc?.nombre ?? (user.value as any)?.afc?.nombre ?? 'AFC'
     case 'ccf': return c?.ccf?.nombre ?? (user.value as any)?.ccf?.nombre ?? 'CCF'
   }
-}
-
-/* Refrescar estados (chulito) */
-async function refreshCertStatusByTipo(tipo: AfiliacionTipo) {
-  const id = getEntidadId(tipo)
-  certs.value[tipo].loading = true
-  try {
-    if (!id) { certs.value[tipo] = { has:false, loading:false, meta:null }; return }
-    const meta = await obtenerEntidadSaludPorId(id)
-    certs.value[tipo].meta = meta
-    certs.value[tipo].has = entidadTieneCertificado(meta)
-  } catch (e) {
-    console.error(`No se pudo refrescar estado de entidad (${tipo})`, e)
-    certs.value[tipo].meta = null
-    certs.value[tipo].has = false
-  } finally {
-    certs.value[tipo].loading = false
-  }
-}
-async function refreshAllCertStatuses() {
-  await Promise.all((['eps','arl','afp','afc','ccf'] as AfiliacionTipo[]).map(refreshCertStatusByTipo))
 }
 
 /* Carga de datos */
@@ -1560,20 +1567,27 @@ function cerrarCertDialog(){
   certDialog.value = { open:false, tipo:'', entidadId:null, entidadNombre:'', file:null, fechaEmision:'', fechaExpiracion:'', loading:false, meta:null }
 }
 async function abrirDialogoCertificado(tipo:AfiliacionTipo){
+  // opcional: seguimos exigiendo una entidad asociada para el UX del diálogo
   const id = getEntidadId(tipo)
-  if (!id) { showAlert('Selecciona una entidad','No hay entidad asociada para gestionar su certificado.'); return }
+  if (!id) { showAlert('Selecciona una entidad','Debes tener una entidad asociada para gestionar su archivo.'); return }
+
   certDialog.value.tipo = tipo
   certDialog.value.entidadId = id
   certDialog.value.entidadNombre = getEntidadNombre(tipo)
   certDialog.value.open = true
   certDialog.value.loading = true
+
   try {
-    const meta = await obtenerEntidadSaludPorId(id)
+    const uid = currentUserId()
+    if (!uid) throw new Error('Usuario no válido')
+
+    // META por usuario + tipo
+    const meta = await obtenerArchivoAfiliacionMeta(uid, tipo)
     certDialog.value.meta = meta
     certs.value[tipo].meta = meta
-    certs.value[tipo].has = entidadTieneCertificado(meta)
+    certs.value[tipo].has = tieneArchivoAfiliacion(meta)
   } catch (e) {
-    console.error('Error cargando entidad:', e)
+    console.error('Error cargando meta de afiliación:', e)
     certDialog.value.meta = null
     certs.value[tipo].meta = null
     certs.value[tipo].has = false
@@ -1581,51 +1595,58 @@ async function abrirDialogoCertificado(tipo:AfiliacionTipo){
 }
 
 async function subirCertificadoSeleccionado(){
-  if (!certDialog.value.entidadId || !certDialog.value.file) return
+  const t = certDialog.value.tipo as AfiliacionTipo
+  const uid = currentUserId()
+  if (!uid || !t || !certDialog.value.file) return
+
   certDialog.value.loading = true
   try {
-    const updated = await subirCertificadoEntidadSalud(
-      certDialog.value.entidadId,
-      certDialog.value.file,
-      { fechaEmision: certDialog.value.fechaEmision || undefined, fechaExpiracion: certDialog.value.fechaExpiracion || undefined }
-    )
+    // SUBIR por usuario + tipo
+    const updated = await subirArchivoAfiliacion(uid, t, certDialog.value.file, {
+      fechaEmision: certDialog.value.fechaEmision || undefined,
+      fechaExpiracion: certDialog.value.fechaExpiracion || undefined,
+    } as any)
     certDialog.value.meta = updated
     certDialog.value.file = null
-    certs.value[certDialog.value.tipo as AfiliacionTipo].meta = updated
-    certs.value[certDialog.value.tipo as AfiliacionTipo].has = entidadTieneCertificado(updated)
-    showAlert('Listo','Certificado cargado correctamente.')
+    certs.value[t].meta = updated
+    certs.value[t].has = tieneArchivoAfiliacion(updated)
+    showAlert('Listo','Archivo de afiliación guardado con éxito.')
   } catch (e:any) {
     console.error(e)
-    showAlert('Error', e?.message || 'No fue posible subir el certificado.')
+    showAlert('Error', e?.message || 'No fue posible subir el archivo.')
   } finally { certDialog.value.loading = false }
 }
-async function descargarCertificadoSeleccionado(){
-  if (!certDialog.value.entidadId) return
+
+async function eliminarCertificadoSeleccionado(){
+  const t = certDialog.value.tipo as AfiliacionTipo
+  const uid = currentUserId()
+  if (!uid || !t) return
+
   try {
-    const sugerido = `${certDialog.value.entidadNombre.replace(/\s+/g,'_')}_certificado`
-    await descargarCertificadoEntidadSalud(certDialog.value.entidadId, sugerido)
+    // ELIMINAR por usuario + tipo
+    await eliminarArchivoAfiliacion(uid, t)
+    certDialog.value.meta = null
+    certs.value[t].meta = null
+    certs.value[t].has = false
+    showAlert('Listo','Archivo eliminado.')
   } catch (e:any) {
     console.error(e)
-    showAlert('Error', e?.message || 'No fue posible descargar el certificado.')
+    showAlert('Error', e?.message || 'No fue posible eliminar el archivo.')
   }
 }
-async function eliminarCertificadoSeleccionado(){
-  if (!certDialog.value.entidadId) return
-  try {
-    await eliminarCertificadoEntidadSalud(certDialog.value.entidadId)
-    certDialog.value.meta = null
-    certs.value[certDialog.value.tipo as AfiliacionTipo].meta = null
-    certs.value[certDialog.value.tipo as AfiliacionTipo].has = false
-    showAlert('Listo','Certificado eliminado.')
-  } catch (e:any) {
-    console.error(e)
-    showAlert('Error', e?.message || 'No fue posible eliminar el certificado.')
-  }
+
+async function descargarCertificadoSeleccionado(){
+  // El service no expone descarga directa: usamos la URL pública en meta
+  const meta = certDialog.value.meta as any
+  const url = meta?.data?.url
+  if (!url) { showAlert('Sin archivo','No hay archivo para descargar.'); return }
+  window.open(url, '_blank', 'noopener')
 }
 
 /* Montaje */
 onMounted(()=>{ loadUser() })
 </script>
+
 <style scoped>
 .v-container { max-width: 1200px; }
 .avatar-container { position: relative; display: inline-block; }

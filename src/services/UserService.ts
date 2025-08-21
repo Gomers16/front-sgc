@@ -1,49 +1,22 @@
-// src/services/userService.ts
-
 // URL base para todas las peticiones a la API
 const API_BASE_URL = '/api'
 
-// --- Interfaces para tipado de datos ---
-export interface Rol {
-  id: number
-  nombre: string
-}
-export interface RazonSocial {
-  id: number
-  nombre: string
-}
-export interface Sede {
-  id: number
-  nombre: string
-}
-export interface Cargo {
-  id: number
-  nombre: string
-}
+/* =========================
+   Tipos / Interfaces
+========================= */
+export interface Rol { id: number; nombre: string }
+export interface RazonSocial { id: number; nombre: string }
+export interface Sede { id: number; nombre: string }
+export interface Cargo { id: number; nombre: string }
+
 export interface EntidadSalud {
   id: number
   nombre: string
-  tipo: string
-
-  // ───── Metadatos opcionales del certificado (si el backend los devuelve) ─────
-  certificadoNombreOriginal?: string | null
-  certificadoMime?: string | null
-  certificadoTamanio?: number | null
-  certificadoFechaEmision?: string | null
-  certificadoFechaExpiracion?: string | null
-  /** URL firmada/absoluta si el backend la expone */
-  certificadoDownloadUrl?: string | null
+  tipo: 'eps' | 'arl' | 'afp' | 'afc' | 'ccf'
 }
 
-// Interfaz para la respuesta de una operación de eliminación
-export interface DeleteResponse {
-  message: string
-}
+export interface DeleteResponse { message: string }
 
-/**
- * Interfaz para un paso de contrato.
- * Agregada para ser utilizada en el componente.
- */
 export interface ContratoPaso {
   id: number
   contratoId: number
@@ -58,9 +31,6 @@ export interface ContratoPaso {
   updatedAt: string
 }
 
-/**
- * Interfaz para un evento de contrato.
- */
 export interface ContratoEvento {
   id: number
   contratoId: number
@@ -82,9 +52,6 @@ export interface ContratoEvento {
   updatedAt: string
 }
 
-/**
- * Interfaz para un contrato.
- */
 export interface Contrato {
   id: number
   usuarioId: number
@@ -96,11 +63,26 @@ export interface Contrato {
   motivoFinalizacion?: string
   nombreArchivoContratoFisico?: string
   rutaArchivoContratoFisico?: string
-  eventos?: ContratoEvento[]     // relación con eventos
-  pasos?: ContratoPaso[]         // relación con pasos
+  eventos?: ContratoEvento[]
+  pasos?: ContratoPaso[]
 }
 
-// Interfaz principal para el objeto de Usuario
+/** Metadatos de un archivo de afiliación en usuario */
+export interface AfiliacionFileMeta {
+  url: string
+  nombreOriginal: string
+  mime: string
+  size: number
+}
+
+/** Respuesta GET /usuarios/:id/afiliacion/:tipo/archivo */
+export interface AfiliacionFileResponse {
+  userId: number
+  tipo: 'eps' | 'arl' | 'afp' | 'afc' | 'ccf'
+  tieneArchivo: boolean
+  data: AfiliacionFileMeta | null
+}
+
 export interface User {
   id: number
   nombres: string
@@ -131,55 +113,64 @@ export interface User {
   afc?: EntidadSalud
   ccfId?: number
   ccf?: EntidadSalud
+
+  // Metadatos de archivos de afiliación (si backend los serializa en show/index):
+  epsDocPath?: string | null; epsDocNombre?: string | null; epsDocMime?: string | null; epsDocSize?: number | null
+  arlDocPath?: string | null; arlDocNombre?: string | null; arlDocMime?: string | null; arlDocSize?: number | null
+  afpDocPath?: string | null; afpDocNombre?: string | null; afpDocMime?: string | null; afpDocSize?: number | null
+  afcDocPath?: string | null; afcDocNombre?: string | null; afcDocMime?: string | null; afcDocSize?: number | null
+  ccfDocPath?: string | null; ccfDocNombre?: string | null; ccfDocMime?: string | null; ccfDocSize?: number | null
+
+  // Recomendación médica
+  recomendacionMedica?: string | null
+  recoMedDocPath?: string | null
+  recoMedDocNombre?: string | null
+  recoMedDocMime?: string | null
+  recoMedDocSize?: number | null
+
   password?: string
-  contratos?: Contrato[]         // relación con contratos
+  contratos?: Contrato[]
 }
 
-/**
- * Función genérica para manejar peticiones HTTP y errores.
- * @param url La URL del endpoint de la API.
- * @param options Opciones de la petición (método, headers, body, etc.).
- * @returns Una promesa que resuelve con los datos JSON.
- */
+/* ================================
+   Core fetch + helpers de descarga
+================================ */
 export async function fetchData<T>(url: string, options: RequestInit = {}): Promise<T> {
   const isFormData = options.body instanceof FormData
+  const fetchOptions: RequestInit = { ...options }
 
-  // Clonamos las opciones para no mutar el objeto original
-  const fetchOptions = { ...options }
-
-  // Si no es un FormData, nos aseguramos de que el Content-Type sea JSON
   if (!isFormData) {
     fetchOptions.headers = {
       ...fetchOptions.headers,
       'Content-Type': 'application/json',
     } as HeadersInit
-  } else {
-    // Si es FormData, eliminamos Content-Type para que el navegador lo añada correctamente
-    if (fetchOptions.headers) {
-      delete (fetchOptions.headers as Record<string, string>)['Content-Type']
-    }
+  } else if (fetchOptions.headers) {
+    delete (fetchOptions.headers as Record<string, string>)['Content-Type']
   }
 
   const response = await fetch(url, fetchOptions)
-
   if (!response.ok) {
-    const errorData = await response.json().catch(() => ({ message: response.statusText }))
-    throw new Error(errorData.message || 'Error en la petición')
+    // intenta leer json, si no, texto plano
+    let message = response.statusText
+    try {
+      const err = await response.json()
+      message = err?.message || message
+    } catch {
+      try { message = await response.text() } catch {}
+    }
+    throw new Error(message || 'Error en la petición')
   }
 
   const contentType = response.headers.get('content-type')
   if (contentType && contentType.includes('application/json')) {
     const jsonResponse = await response.json()
-    // Devuelve jsonResponse.data si existe; si no, la respuesta completa
-    return jsonResponse.data || jsonResponse
+    // algunos controladores devuelven {data: ...}
+    return (jsonResponse?.data ?? jsonResponse) as T
   }
 
   return {} as T
 }
 
-/* ================================
-   Helpers de descarga (Blob)
-================================ */
 async function fetchBlob(url: string, options: RequestInit = {}): Promise<Blob> {
   const resp = await fetch(url, options)
   if (!resp.ok) {
@@ -189,7 +180,6 @@ async function fetchBlob(url: string, options: RequestInit = {}): Promise<Blob> 
   return await resp.blob()
 }
 
-/** Dispara una descarga en el navegador */
 function triggerDownload(blob: Blob, filename: string) {
   const link = document.createElement('a')
   const url = URL.createObjectURL(blob)
@@ -201,296 +191,274 @@ function triggerDownload(blob: Blob, filename: string) {
   URL.revokeObjectURL(url)
 }
 
-// --- Funciones para el manejo de usuarios ---
-
-/**
- * Obtiene una lista de todos los usuarios o filtrados por razón social.
- */
+/* ================================
+   Usuarios
+================================ */
 export async function obtenerUsuarios(razonSocialId?: number): Promise<User[]> {
-  try {
-    const url = new URL(`${API_BASE_URL}/usuarios`, window.location.origin)
-    if (razonSocialId) {
-      url.searchParams.append('razon_social_id', razonSocialId.toString())
-    }
-    const response = await fetchData<User[]>(url.href)
-    return response
-  } catch (error) {
-    console.error('Error al obtener usuarios:', error)
-    throw error
-  }
+  const url = new URL(`${API_BASE_URL}/usuarios`, window.location.origin)
+  if (razonSocialId) url.searchParams.append('razon_social_id', razonSocialId.toString())
+  return fetchData<User[]>(url.href)
 }
 
-/**
- * Obtiene los detalles de un usuario específico por su ID.
- */
 export async function obtenerUsuarioPorId(id: number): Promise<User | null> {
   try {
-    const response = await fetchData<User>(`${API_BASE_URL}/usuarios/${id}`)
-    return response
+    return await fetchData<User>(`${API_BASE_URL}/usuarios/${id}`)
   } catch (error: any) {
-    if (error.message.includes('Not Found')) {
+    if (error.message?.toLowerCase?.().includes('no encontrado') || error.message.includes('Not Found')) {
       console.warn(`Usuario con ID ${id} no encontrado.`)
       return null
     }
-    console.error(`Error al obtener usuario con ID ${id}:`, error)
     throw error
   }
 }
 
-/**
- * Crea un nuevo usuario en la base de datos.
- */
 export async function crearUsuario(userData: Partial<User>): Promise<User> {
-  try {
-    const response = await fetchData<User>(`${API_BASE_URL}/usuarios`, {
-      method: 'POST',
-      body: JSON.stringify(userData),
-    })
-    return response
-  } catch (error) {
-    console.error('Error al crear usuario:', error)
-    throw error
-  }
+  return fetchData<User>(`${API_BASE_URL}/usuarios`, {
+    method: 'POST',
+    body: JSON.stringify(userData),
+  })
 }
 
-/**
- * Actualiza los datos de un usuario existente.
- */
 export async function actualizarUsuario(id: number, userData: Partial<User>): Promise<User> {
-  try {
-    const response = await fetchData<User>(`${API_BASE_URL}/usuarios/${id}`, {
-      method: 'PUT',
-      body: JSON.stringify(userData),
-    })
-    return response
-  } catch (error) {
-    console.error(`Error al actualizar usuario con ID ${id}:`, error)
-    throw error
-  }
+  return fetchData<User>(`${API_BASE_URL}/usuarios/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(userData),
+  })
 }
 
-/**
- * Elimina un usuario por su ID.
- */
 export async function eliminarUsuario(id: number): Promise<string> {
-  try {
-    const response = await fetchData<DeleteResponse>(`${API_BASE_URL}/usuarios/${id}`, {
-      method: 'DELETE',
-    })
-    return response.message || 'Usuario eliminado correctamente.'
-  } catch (error) {
-    console.error(`Error al eliminar usuario con ID ${id}:`, error)
-    throw error
-  }
+  const resp = await fetchData<DeleteResponse>(`${API_BASE_URL}/usuarios/${id}`, { method: 'DELETE' })
+  return resp.message || 'Usuario eliminado correctamente.'
 }
 
-/**
- * Actualiza la foto de perfil de un usuario.
- */
 export async function uploadProfilePicture(userId: number, file: File): Promise<User> {
-  try {
-    const formData = new FormData()
-    formData.append('foto', file)
-
-    const response = await fetchData<User>(`${API_BASE_URL}/usuarios/${userId}/upload-photo`, {
-      method: 'POST',
-      body: formData,
-    })
-
-    return response
-  } catch (error) {
-    console.error(`Error al subir la foto de perfil para el usuario ${userId}:`, error)
-    throw error
-  }
+  const formData = new FormData()
+  formData.append('foto', file)
+  return fetchData<User>(`${API_BASE_URL}/usuarios/${userId}/upload-photo`, {
+    method: 'POST',
+    body: formData,
+  })
 }
 
-// --- Funciones para el manejo de contratos ---
-
-/**
- * Actualiza los datos de un contrato existente, incluyendo su estado.
- */
+/* ================================
+   Contratos (resumen)
+================================ */
 export async function actualizarContrato(contratoId: number, data: Partial<Contrato>): Promise<Contrato> {
-  try {
-    const response = await fetchData<Contrato>(`${API_BASE_URL}/contratos/${contratoId}`, {
-      method: 'PUT',
-      body: JSON.stringify(data),
-    })
-    return response
-  } catch (error) {
-    console.error(`Error al actualizar contrato con ID ${contratoId}:`, error)
-    throw error
-  }
+  return fetchData<Contrato>(`${API_BASE_URL}/contratos/${contratoId}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  })
 }
 
-/**
- * Crea un nuevo evento para un contrato.
- */
-export async function crearEventoDeContrato(contratoId: number, data: FormData | Partial<ContratoEvento>): Promise<ContratoEvento> {
-  try {
-    const response = await fetchData<ContratoEvento>(`${API_BASE_URL}/contratos/${contratoId}/eventos`, {
-      method: 'POST',
-      body: data instanceof FormData ? data : JSON.stringify(data),
-    })
-    return response
-  } catch (error) {
-    console.error(`Error al crear evento para el contrato ${contratoId}:`, error)
-    throw error
-  }
+export async function crearEventoDeContrato(
+  contratoId: number,
+  data: FormData | Partial<ContratoEvento>
+): Promise<ContratoEvento> {
+  return fetchData<ContratoEvento>(`${API_BASE_URL}/contratos/${contratoId}/eventos`, {
+    method: 'POST',
+    body: data instanceof FormData ? data : JSON.stringify(data),
+  })
 }
 
-// --- Funciones para obtener listas auxiliares ---
-
+/* ================================
+   Listas auxiliares
+================================ */
 export async function obtenerRoles(): Promise<Rol[]> {
-  try {
-    const response = await fetchData<Rol[]>(`${API_BASE_URL}/roles`)
-    return response
-  } catch (error) {
-    console.error('Error al obtener roles:', error)
-    throw error
-  }
+  return fetchData<Rol[]>(`${API_BASE_URL}/roles`)
 }
 
 export async function obtenerRazonesSociales(): Promise<RazonSocial[]> {
-  try {
-    const response = await fetchData<RazonSocial[]>(`${API_BASE_URL}/razones-sociales`)
-    return response
-  } catch (error) {
-    console.error('Error al obtener razones sociales:', error)
-    throw error
-  }
+  return fetchData<RazonSocial[]>(`${API_BASE_URL}/razones-sociales`)
 }
 
 export async function obtenerSedes(): Promise<Sede[]> {
-  try {
-    const response = await fetchData<Sede[]>(`${API_BASE_URL}/sedes`)
-    return response
-  } catch (error) {
-    console.error('Error al obtener sedes:', error)
-    throw error
-  }
+  return fetchData<Sede[]>(`${API_BASE_URL}/sedes`)
 }
 
 export async function obtenerCargos(): Promise<Cargo[]> {
-  try {
-    const response = await fetchData<Cargo[]>(`${API_BASE_URL}/cargos`)
-    return response
-  } catch (error) {
-    console.error('Error al obtener cargos:', error)
-    throw error
-  }
+  return fetchData<Cargo[]>(`${API_BASE_URL}/cargos`)
 }
 
+/** Catálogo de entidades (para selects) */
 export async function obtenerEntidadesSalud(): Promise<EntidadSalud[]> {
-  try {
-    // 🔧 FIX: ruta correcta en el backend para el listado (plural con 's'): /api/entidades-saluds
-    const response = await fetchData<EntidadSalud[]>(`${API_BASE_URL}/entidades-saluds`)
-    return response
-  } catch (error) {
-    console.error('Error al obtener entidades de salud:', error)
-    throw error
-  }
+  // backend: /api/entidades-saluds  (incluye 'tipo')
+  return fetchData<EntidadSalud[]>(`${API_BASE_URL}/entidades-saluds`)
 }
 
-/* ============================================================================================
-   NUEVO: Certificados de ENTIDADES DE SALUD
-   Endpoints usados en backend:
-     - GET    /api/entidades-salud/:id
-     - POST   /api/entidades-salud/:id/certificado           (multipart: archivo, fechaEmision?, fechaExpiracion?)
-     - GET    /api/entidades-salud/:id/certificado/download  (descargar)
-     - DELETE /api/entidades-salud/:id/certificado
-   ============================================================================================ */
-
-/** GET /api/entidades-salud/:id */
-export async function obtenerEntidadSaludPorId(id: number): Promise<EntidadSalud> {
-  return fetchData<EntidadSalud>(`${API_BASE_URL}/entidades-salud/${id}`)
-}
+/* ==========================================================
+   Archivos por afiliación (EPS/ARL/AFP/AFC/CCF)
+   Endpoints backend:
+     - POST   /api/usuarios/:id/afiliacion/:tipo/archivo
+     - GET    /api/usuarios/:id/afiliacion/:tipo/archivo
+     - DELETE /api/usuarios/:id/afiliacion/:tipo/archivo
+========================================================== */
+export type TipoAfiliacion = 'eps' | 'arl' | 'afp' | 'afc' | 'ccf'
 
 /**
- * POST /api/entidades-salud/:id/certificado
- * Sube o reemplaza el certificado (PDF/JPG/PNG/WEBP).
+ * Sube/Reemplaza archivo de afiliación. Soporta metadatos extra vía 4to parámetro.
  */
-export async function subirCertificadoEntidadSalud(
-  entidadId: number,
+export async function subirArchivoAfiliacion(
+  userId: number,
+  tipo: TipoAfiliacion,
   file: File,
-  meta?: { fechaEmision?: string; fechaExpiracion?: string }
-): Promise<EntidadSalud> {
+  extraFields?: Record<string, any>
+): Promise<AfiliacionFileResponse> {
   const form = new FormData()
   form.append('archivo', file, file.name)
-  if (meta?.fechaEmision) form.append('fechaEmision', meta.fechaEmision)
-  if (meta?.fechaExpiracion) form.append('fechaExpiracion', meta.fechaExpiracion)
+  if (extraFields && typeof extraFields === 'object') {
+    Object.entries(extraFields).forEach(([k, v]) => {
+      if (v !== undefined && v !== null) form.append(k, String(v))
+    })
+  }
 
-  return fetchData<EntidadSalud>(`${API_BASE_URL}/entidades-salud/${entidadId}/certificado`, {
+  const raw = await fetchData<any>(`${API_BASE_URL}/usuarios/${userId}/afiliacion/${tipo}/archivo`, {
     method: 'POST',
     body: form,
   })
+
+  // Normaliza (por si backend devuelve { message, data:{...} } o variaciones de nombres)
+  const srcData = raw?.data ?? raw ?? {}
+
+  const pathLike =
+    srcData.url ?? srcData.path ?? srcData.ruta ?? srcData.archivoUrl ??
+    srcData.epsDocPath ?? srcData.arlDocPath ?? srcData.afpDocPath ?? srcData.afcDocPath ?? srcData.ccfDocPath
+
+  const nombreLike =
+    srcData.nombreOriginal ?? srcData.filename ?? srcData.name ??
+    srcData.epsDocNombre ?? srcData.arlDocNombre ?? srcData.afpDocNombre ?? srcData.afcDocNombre ?? srcData.ccfDocNombre
+
+  return {
+    userId: raw.userId ?? userId,
+    tipo: raw.tipo ?? tipo,
+    tieneArchivo: !!(raw?.tieneArchivo ?? pathLike ?? nombreLike),
+    data: (pathLike || nombreLike)
+      ? {
+          url: String(pathLike || ''),
+          nombreOriginal: String(nombreLike || ''),
+          mime: srcData.mime ?? '',
+          size: Number(srcData.size ?? 0),
+        }
+      : null,
+  }
 }
 
 /**
- * GET /api/entidades-salud/:id/certificado/download
- * Descarga el certificado como archivo (dispara descarga en el navegador).
+ * Obtiene metadatos del archivo de afiliación y los normaliza a { url, nombreOriginal, mime, size }.
  */
-export async function descargarCertificadoEntidadSalud(
-  entidadId: number,
-  nombreDescarga?: string
-): Promise<void> {
-  const blob = await fetchBlob(`${API_BASE_URL}/entidades-salud/${entidadId}/certificado/download`, {
-    method: 'GET',
+export async function obtenerArchivoAfiliacionMeta(
+  userId: number,
+  tipo: TipoAfiliacion
+): Promise<AfiliacionFileResponse> {
+  // Cache-buster + no-store para evitar datos stale en el modal
+  const url = `${API_BASE_URL}/usuarios/${userId}/afiliacion/${tipo}/archivo?ts=${Date.now()}`
+  const raw = await fetchData<any>(url, { cache: 'no-store' as RequestCache })
+
+  // Puede venir como { data:{...} } o directo
+  const src = raw?.data ?? raw ?? {}
+
+  const pathLike =
+    src.url ?? src.path ?? src.ruta ?? src.archivoUrl ??
+    src.epsDocPath ?? src.arlDocPath ?? src.afpDocPath ?? src.afcDocPath ?? src.ccfDocPath
+
+  const nombreLike =
+    src.nombreOriginal ?? src.filename ?? src.name ??
+    src.epsDocNombre ?? src.arlDocNombre ?? src.afpDocNombre ?? src.afcDocNombre ?? src.ccfDocNombre
+
+  const normalized: AfiliacionFileResponse = {
+    userId: raw.userId ?? userId,
+    tipo: (raw.tipo as any) ?? tipo,
+    tieneArchivo: !!(raw?.tieneArchivo ?? pathLike ?? nombreLike),
+    data: (pathLike || nombreLike)
+      ? {
+          url: String(pathLike || ''),
+          nombreOriginal: String(nombreLike || ''),
+          mime: src.mime ?? '',
+          size: Number(src.size ?? 0),
+        }
+      : null,
+  }
+
+  return normalized
+}
+
+export async function eliminarArchivoAfiliacion(
+  userId: number,
+  tipo: TipoAfiliacion
+): Promise<string> {
+  const resp = await fetchData<DeleteResponse>(`${API_BASE_URL}/usuarios/${userId}/afiliacion/${tipo}/archivo`, {
+    method: 'DELETE',
   })
-  const suggested =
-    nombreDescarga ||
-    `certificado_entidad_${entidadId}${blob.type && blob.type.includes('pdf') ? '.pdf' : ''}`
-  triggerDownload(blob, suggested)
+  return resp.message || 'Archivo eliminado.'
 }
 
-/**
- * DELETE /api/entidades-salud/:id/certificado
- * Elimina el certificado y limpia los metadatos en la entidad.
- */
-export async function eliminarCertificadoEntidadSalud(entidadId: number): Promise<string> {
-  const resp = await fetchData<{ message: string }>(
-    `${API_BASE_URL}/entidades-salud/${entidadId}/certificado`,
+/** Helper de UI: ¿hay archivo para ese tipo? (tolerante con claves alternativas) */
+export function tieneArchivoAfiliacion(resp: AfiliacionFileResponse | null | undefined): boolean {
+  const d: any = resp?.data
+  return !!(
+    resp?.tieneArchivo ||
+    d?.url ||
+    d?.nombreOriginal ||
+    d?.path ||
+    d?.ruta ||
+    d?.archivoUrl
+  )
+}
+
+/* ==========================================================
+   Recomendación médica (texto + archivo)
+========================================================== */
+export async function upsertRecomendacionMedica(
+  userId: number,
+  recomendacionMedica: string | null
+): Promise<{ message: string; recomendacionMedica: string | null }> {
+  return fetchData<{ message: string; recomendacionMedica: string | null }>(
+    `${API_BASE_URL}/usuarios/${userId}/recomendacion-medica`,
+    { method: 'PUT', body: JSON.stringify({ recomendacionMedica }) }
+  )
+}
+
+export async function subirArchivoRecomendacionMedica(
+  userId: number,
+  file: File
+): Promise<{ message: string; url: string }> {
+  const form = new FormData()
+  form.append('archivo', file, file.name)
+  return fetchData<{ message: string; url: string }>(
+    `${API_BASE_URL}/usuarios/${userId}/recomendacion-medica/archivo`,
+    { method: 'POST', body: form }
+  )
+}
+
+export async function eliminarArchivoRecomendacionMedica(
+  userId: number
+): Promise<string> {
+  const resp = await fetchData<DeleteResponse>(
+    `${API_BASE_URL}/usuarios/${userId}/recomendacion-medica/archivo`,
     { method: 'DELETE' }
   )
-  return resp?.message || 'Certificado eliminado correctamente.'
+  return resp.message || 'Archivo de recomendación médica eliminado.'
 }
 
-/** Utilidad: saber si la entidad tiene certificado cargado */
-export function entidadTieneCertificado(e: Partial<EntidadSalud> | null | undefined): boolean {
-  return !!e?.certificadoNombreOriginal || !!e?.certificadoDownloadUrl
-}
-
-/* ============================================================================================
-   NUEVO: Historial de ESTADOS del contrato (activo/inactivo) y CAMBIOS campo-a-campo
-   Endpoints esperados en backend:
-     - GET  /api/contratos/:contratoId/historial-estados
-     - POST /api/contratos/:contratoId/historial-estados
-     - GET  /api/contratos/:contratoId/historial-cambios
-     - POST /api/contratos/:contratoId/historial-cambios
-   ============================================================================================ */
-
-// ===== Historial de ESTADOS de contrato =====
+/* ==========================================================
+   (Opcional) Historial de estados/cambios de contrato
+========================================================== */
 export interface ContratoHistorialEstado {
   id: number
   contratoId: number
   oldEstado: 'activo' | 'inactivo' | string
   newEstado: 'activo' | 'inactivo' | string
-  fechaCambio: string           // ISO
+  fechaCambio: string
   motivo?: string | null
-  // opcionales (si backend los provee)
   usuarioId?: number | null
   realizadoPor?: string | null
 }
 
-/** GET /api/contratos/:contratoId/historial-estados */
 export async function obtenerHistorialEstadosContrato(
   contratoId: number
 ): Promise<ContratoHistorialEstado[]> {
-  return fetchData<ContratoHistorialEstado[]>(
-    `${API_BASE_URL}/contratos/${contratoId}/historial-estados`
-  )
+  return fetchData<ContratoHistorialEstado[]>(`${API_BASE_URL}/contratos/${contratoId}/historial-estados`)
 }
 
-/** POST /api/contratos/:contratoId/historial-estados */
 export async function crearHistorialEstadoContrato(
   contratoId: number,
   payload: {
@@ -501,40 +469,31 @@ export async function crearHistorialEstadoContrato(
     usuarioId?: number | null
   }
 ): Promise<ContratoHistorialEstado> {
-  return fetchData<ContratoHistorialEstado>(
-    `${API_BASE_URL}/contratos/${contratoId}/historial-estados`,
-    {
-      method: 'POST',
-      body: JSON.stringify(payload),
-    }
-  )
+  return fetchData<ContratoHistorialEstado>(`${API_BASE_URL}/contratos/${contratoId}/historial-estados`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
 }
 
-// ===== Historial de CAMBIOS (campo a campo) =====
 export interface ContratoCambio {
   id: number
   contratoId: number
   usuarioId?: number | null
-  campo: string                       // p.ej. 'epsId', 'salarioBasico', 'sedeId'
+  campo: string
   valorAnterior?: string | number | null
   valorNuevo?: string | number | null
-  fechaCambio: string                 // ISO
+  fechaCambio: string
   ip?: string | null
   userAgent?: string | null
-  // si tu backend lo envía:
   usuario?: { id: number; nombres: string; apellidos: string } | null
 }
 
-/** GET /api/contratos/:contratoId/historial-cambios */
 export async function obtenerHistorialCambiosContrato(
   contratoId: number
 ): Promise<ContratoCambio[]> {
-  return fetchData<ContratoCambio[]>(
-    `${API_BASE_URL}/contratos/${contratoId}/historial-cambios`
-  )
+  return fetchData<ContratoCambio[]>(`${API_BASE_URL}/contratos/${contratoId}/historial-cambios`)
 }
 
-/** POST /api/contratos/:contratoId/historial-cambios (opcional/manual) */
 export async function crearCambioContrato(
   contratoId: number,
   payload: {
@@ -545,11 +504,8 @@ export async function crearCambioContrato(
     usuarioId?: number | null
   }
 ): Promise<ContratoCambio> {
-  return fetchData<ContratoCambio>(
-    `${API_BASE_URL}/contratos/${contratoId}/historial-cambios`,
-    {
-      method: 'POST',
-      body: JSON.stringify(payload),
-    }
-  )
+  return fetchData<ContratoCambio>(`${API_BASE_URL}/contratos/${contratoId}/historial-cambios`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
 }

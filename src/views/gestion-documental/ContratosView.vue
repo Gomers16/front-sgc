@@ -287,68 +287,37 @@
                 :loading="loadingEntidades"
               >
                 <template #append-inner>
-                  <!-- Definición -->
-                  <v-tooltip text="ENTIDAD PRESTADORA DE SERVICIOS DE SALUD" location="top">
-                    <template #activator="{ props }">
-                      <v-icon
-                        v-bind="props"
-                        icon="mdi-help-circle-outline"
-                        size="18"
-                        class="ml-1 text-medium-emphasis"
-                        aria-label="¿Qué es EPS?"
-                      />
-                    </template>
-                  </v-tooltip>
+                  <div :key="certStatusKey('eps')" class="append-icons">
+                    <v-tooltip text="ENTIDAD PRESTADORA DE SERVICIOS DE SALUD" location="top">
+                      <template #activator="{ props }">
+                        <v-icon v-bind="props" icon="mdi-help-circle-outline" size="18" class="ml-1 text-medium-emphasis" />
+                      </template>
+                    </v-tooltip>
 
-                  <!-- Indicador de estado del certificado -->
-                  <v-tooltip :text="certTooltip('eps')" location="top">
-                    <template #activator="{ props }">
-                      <v-icon
-                        v-bind="props"
-                        :icon="certIcon('eps')"
-                        :color="certColor('eps')"
-                        size="18"
-                        class="ml-1"
-                      />
-                    </template>
-                  </v-tooltip>
+                    <!-- ✅ chulo a la izquierda del clip -->
+                    <v-tooltip v-if="hasCert('eps')" text="Archivo cargado" location="top">
+                      <template #activator="{ props }">
+                        <v-icon v-bind="props" size="18" color="success" class="ml-1">mdi-check-circle</v-icon>
+                      </template>
+                    </v-tooltip>
 
-                  <!-- Paperclip + badge si hay certificado -->
-                  <v-tooltip :text="hasCert('eps') ? 'Certificado cargado' : 'Subir/Ver certificado EPS'" location="top">
-                    <template #activator="{ props }">
-                      <v-badge
-                        v-if="hasCert('eps')"
-                        location="bottom end"
-                        :offset-x="2"
-                        :offset-y="2"
-                        color="success"
-                        class="ml-1"
-                      >
-                        <template #badge>
-                          <v-icon size="12">mdi-check</v-icon>
-                        </template>
+                    <!-- 📎 clip que abre modal -->
+                    <v-tooltip :text="hasCert('eps') ? 'Ver/Reemplazar certificado EPS' : 'Subir certificado EPS'" location="top">
+                      <template #activator="{ props }">
                         <v-btn
+                          v-bind="props"
                           icon="mdi-paperclip"
                           size="small"
                           variant="text"
                           class="ml-1"
                           :disabled="!epsId"
-                          @click.stop="abrirDialogoCertificado('eps')"
+                          :ripple="false"
+                          @mousedown.stop.prevent="openCert('eps', $event)"
+                          @click.stop.prevent="openCert('eps', $event)"
                         />
-                      </v-badge>
-
-                      <v-btn
-                        v-else
-                        v-bind="props"
-                        icon="mdi-paperclip"
-                        size="small"
-                        variant="text"
-                        class="ml-1"
-                        :disabled="!epsId"
-                        @click.stop="abrirDialogoCertificado('eps')"
-                      />
-                    </template>
-                  </v-tooltip>
+                      </template>
+                    </v-tooltip>
+                  </div>
                 </template>
               </v-select>
             </v-col>
@@ -368,67 +337,35 @@
                 :loading="loadingEntidades"
               >
                 <template #append-inner>
-                  <v-tooltip text="ADMINISTRADORA DE RIESGOS LABORALES" location="top">
-                    <template #activator="{ props }">
-                      <v-icon
-                        v-bind="props"
-                        icon="mdi-help-circle-outline"
-                        size="18"
-                        class="ml-1 text-medium-emphasis"
-                        aria-label="¿Qué es ARL?"
-                      />
-                    </template>
-                  </v-tooltip>
+                  <div :key="certStatusKey('arl')" class="append-icons">
+                    <v-tooltip text="ADMINISTRADORA DE RIESGOS LABORALES" location="top">
+                      <template #activator="{ props }">
+                        <v-icon v-bind="props" icon="mdi-help-circle-outline" size="18" class="ml-1 text-medium-emphasis" />
+                      </template>
+                    </v-tooltip>
 
-                  <!-- Indicador -->
-                  <v-tooltip :text="certTooltip('arl')" location="top">
-                    <template #activator="{ props }">
-                      <v-icon
-                        v-bind="props"
-                        :icon="certIcon('arl')"
-                        :color="certColor('arl')"
-                        size="18"
-                        class="ml-1"
-                      />
-                    </template>
-                  </v-tooltip>
+                    <v-tooltip v-if="hasCert('arl')" text="Archivo cargado" location="top">
+                      <template #activator="{ props }">
+                        <v-icon v-bind="props" size="18" color="success" class="ml-1">mdi-check-circle</v-icon>
+                      </template>
+                    </v-tooltip>
 
-                  <!-- Paperclip -->
-                  <v-tooltip :text="hasCert('arl') ? 'Certificado cargado' : 'Subir/Ver certificado ARL'" location="top">
-                    <template #activator="{ props }">
-                      <v-badge
-                        v-if="hasCert('arl')"
-                        location="bottom end"
-                        :offset-x="2"
-                        :offset-y="2"
-                        color="success"
-                        class="ml-1"
-                      >
-                        <template #badge>
-                          <v-icon size="12">mdi-check</v-icon>
-                        </template>
+                    <v-tooltip :text="hasCert('arl') ? 'Ver/Reemplazar certificado ARL' : 'Subir certificado ARL'" location="top">
+                      <template #activator="{ props }">
                         <v-btn
+                          v-bind="props"
                           icon="mdi-paperclip"
                           size="small"
                           variant="text"
                           class="ml-1"
                           :disabled="!arlId"
-                          @click.stop="abrirDialogoCertificado('arl')"
+                          :ripple="false"
+                          @mousedown.stop.prevent="openCert('arl', $event)"
+                          @click.stop.prevent="openCert('arl', $event)"
                         />
-                      </v-badge>
-
-                      <v-btn
-                        v-else
-                        v-bind="props"
-                        icon="mdi-paperclip"
-                        size="small"
-                        variant="text"
-                        class="ml-1"
-                        :disabled="!arlId"
-                        @click.stop="abrirDialogoCertificado('arl')"
-                      />
-                    </template>
-                  </v-tooltip>
+                      </template>
+                    </v-tooltip>
+                  </div>
                 </template>
               </v-select>
             </v-col>
@@ -448,67 +385,35 @@
                 :loading="loadingEntidades"
               >
                 <template #append-inner>
-                  <v-tooltip text="ADMINISTRADORA DE FONDO DE PENSIONES" location="top">
-                    <template #activator="{ props }">
-                      <v-icon
-                        v-bind="props"
-                        icon="mdi-help-circle-outline"
-                        size="18"
-                        class="ml-1 text-medium-emphasis"
-                        aria-label="¿Qué es AFP?"
-                      />
-                    </template>
-                  </v-tooltip>
+                  <div :key="certStatusKey('afp')" class="append-icons">
+                    <v-tooltip text="ADMINISTRADORA DE FONDO DE PENSIONES" location="top">
+                      <template #activator="{ props }">
+                        <v-icon v-bind="props" icon="mdi-help-circle-outline" size="18" class="ml-1 text-medium-emphasis" />
+                      </template>
+                    </v-tooltip>
 
-                  <!-- Indicador -->
-                  <v-tooltip :text="certTooltip('afp')" location="top">
-                    <template #activator="{ props }">
-                      <v-icon
-                        v-bind="props"
-                        :icon="certIcon('afp')"
-                        :color="certColor('afp')"
-                        size="18"
-                        class="ml-1"
-                      />
-                    </template>
-                  </v-tooltip>
+                    <v-tooltip v-if="hasCert('afp')" text="Archivo cargado" location="top">
+                      <template #activator="{ props }">
+                        <v-icon v-bind="props" size="18" color="success" class="ml-1">mdi-check-circle</v-icon>
+                      </template>
+                    </v-tooltip>
 
-                  <!-- Paperclip -->
-                  <v-tooltip :text="hasCert('afp') ? 'Certificado cargado' : 'Subir/Ver certificado AFP'" location="top">
-                    <template #activator="{ props }">
-                      <v-badge
-                        v-if="hasCert('afp')"
-                        location="bottom end"
-                        :offset-x="2"
-                        :offset-y="2"
-                        color="success"
-                        class="ml-1"
-                      >
-                        <template #badge>
-                          <v-icon size="12">mdi-check</v-icon>
-                        </template>
+                    <v-tooltip :text="hasCert('afp') ? 'Ver/Reemplazar certificado AFP' : 'Subir certificado AFP'" location="top">
+                      <template #activator="{ props }">
                         <v-btn
+                          v-bind="props"
                           icon="mdi-paperclip"
                           size="small"
                           variant="text"
                           class="ml-1"
                           :disabled="!afpId"
-                          @click.stop="abrirDialogoCertificado('afp')"
+                          :ripple="false"
+                          @mousedown.stop.prevent="openCert('afp', $event)"
+                          @click.stop.prevent="openCert('afp', $event)"
                         />
-                      </v-badge>
-
-                      <v-btn
-                        v-else
-                        v-bind="props"
-                        icon="mdi-paperclip"
-                        size="small"
-                        variant="text"
-                        class="ml-1"
-                        :disabled="!afpId"
-                        @click.stop="abrirDialogoCertificado('afp')"
-                      />
-                    </template>
-                  </v-tooltip>
+                      </template>
+                    </v-tooltip>
+                  </div>
                 </template>
               </v-select>
             </v-col>
@@ -528,67 +433,35 @@
                 :loading="loadingEntidades"
               >
                 <template #append-inner>
-                  <v-tooltip text="ADMINISTRADORA DE FONDO DE CESANTÍAS" location="top">
-                    <template #activator="{ props }">
-                      <v-icon
-                        v-bind="props"
-                        icon="mdi-help-circle-outline"
-                        size="18"
-                        class="ml-1 text-medium-emphasis"
-                        aria-label="¿Qué es AFC?"
-                      />
-                    </template>
-                  </v-tooltip>
+                  <div :key="certStatusKey('afc')" class="append-icons">
+                    <v-tooltip text="ADMINISTRADORA DE FONDO DE CESANTÍAS" location="top">
+                      <template #activator="{ props }">
+                        <v-icon v-bind="props" icon="mdi-help-circle-outline" size="18" class="ml-1 text-medium-emphasis" />
+                      </template>
+                    </v-tooltip>
 
-                  <!-- Indicador -->
-                  <v-tooltip :text="certTooltip('afc')" location="top">
-                    <template #activator="{ props }">
-                      <v-icon
-                        v-bind="props"
-                        :icon="certIcon('afc')"
-                        :color="certColor('afc')"
-                        size="18"
-                        class="ml-1"
-                      />
-                    </template>
-                  </v-tooltip>
+                    <v-tooltip v-if="hasCert('afc')" text="Archivo cargado" location="top">
+                      <template #activator="{ props }">
+                        <v-icon v-bind="props" size="18" color="success" class="ml-1">mdi-check-circle</v-icon>
+                      </template>
+                    </v-tooltip>
 
-                  <!-- Paperclip -->
-                  <v-tooltip :text="hasCert('afc') ? 'Certificado cargado' : 'Subir/Ver certificado AFC'" location="top">
-                    <template #activator="{ props }">
-                      <v-badge
-                        v-if="hasCert('afc')"
-                        location="bottom end"
-                        :offset-x="2"
-                        :offset-y="2"
-                        color="success"
-                        class="ml-1"
-                      >
-                        <template #badge>
-                          <v-icon size="12">mdi-check</v-icon>
-                        </template>
+                    <v-tooltip :text="hasCert('afc') ? 'Ver/Reemplazar certificado AFC' : 'Subir certificado AFC'" location="top">
+                      <template #activator="{ props }">
                         <v-btn
+                          v-bind="props"
                           icon="mdi-paperclip"
                           size="small"
                           variant="text"
                           class="ml-1"
                           :disabled="!afcId"
-                          @click.stop="abrirDialogoCertificado('afc')"
+                          :ripple="false"
+                          @mousedown.stop.prevent="openCert('afc', $event)"
+                          @click.stop.prevent="openCert('afc', $event)"
                         />
-                      </v-badge>
-
-                      <v-btn
-                        v-else
-                        v-bind="props"
-                        icon="mdi-paperclip"
-                        size="small"
-                        variant="text"
-                        class="ml-1"
-                        :disabled="!afcId"
-                        @click.stop="abrirDialogoCertificado('afc')"
-                      />
-                    </template>
-                  </v-tooltip>
+                      </template>
+                    </v-tooltip>
+                  </div>
                 </template>
               </v-select>
             </v-col>
@@ -608,67 +481,35 @@
                 :loading="loadingEntidades"
               >
                 <template #append-inner>
-                  <v-tooltip text="CAJA DE COMPENSACIÓN FAMILIAR" location="top">
-                    <template #activator="{ props }">
-                      <v-icon
-                        v-bind="props"
-                        icon="mdi-help-circle-outline"
-                        size="18"
-                        class="ml-1 text-medium-emphasis"
-                        aria-label="¿Qué es CCF?"
-                      />
-                    </template>
-                  </v-tooltip>
+                  <div :key="certStatusKey('ccf')" class="append-icons">
+                    <v-tooltip text="CAJA DE COMPENSACIÓN FAMILIAR" location="top">
+                      <template #activator="{ props }">
+                        <v-icon v-bind="props" icon="mdi-help-circle-outline" size="18" class="ml-1 text-medium-emphasis" />
+                      </template>
+                    </v-tooltip>
 
-                  <!-- Indicador -->
-                  <v-tooltip :text="certTooltip('ccf')" location="top">
-                    <template #activator="{ props }">
-                      <v-icon
-                        v-bind="props"
-                        :icon="certIcon('ccf')"
-                        :color="certColor('ccf')"
-                        size="18"
-                        class="ml-1"
-                      />
-                    </template>
-                  </v-tooltip>
+                    <v-tooltip v-if="hasCert('ccf')" text="Archivo cargado" location="top">
+                      <template #activator="{ props }">
+                        <v-icon v-bind="props" size="18" color="success" class="ml-1">mdi-check-circle</v-icon>
+                      </template>
+                    </v-tooltip>
 
-                  <!-- Paperclip -->
-                  <v-tooltip :text="hasCert('ccf') ? 'Certificado cargado' : 'Subir/Ver certificado CCF'" location="top">
-                    <template #activator="{ props }">
-                      <v-badge
-                        v-if="hasCert('ccf')"
-                        location="bottom end"
-                        :offset-x="2"
-                        :offset-y="2"
-                        color="success"
-                        class="ml-1"
-                      >
-                        <template #badge>
-                          <v-icon size="12">mdi-check</v-icon>
-                        </template>
+                    <v-tooltip :text="hasCert('ccf') ? 'Ver/Reemplazar certificado CCF' : 'Subir certificado CCF'" location="top">
+                      <template #activator="{ props }">
                         <v-btn
+                          v-bind="props"
                           icon="mdi-paperclip"
                           size="small"
                           variant="text"
                           class="ml-1"
                           :disabled="!ccfId"
-                          @click.stop="abrirDialogoCertificado('ccf')"
+                          :ripple="false"
+                          @mousedown.stop.prevent="openCert('ccf', $event)"
+                          @click.stop.prevent="openCert('ccf', $event)"
                         />
-                      </v-badge>
-
-                      <v-btn
-                        v-else
-                        v-bind="props"
-                        icon="mdi-paperclip"
-                        size="small"
-                        variant="text"
-                        class="ml-1"
-                        :disabled="!ccfId"
-                        @click.stop="abrirDialogoCertificado('ccf')"
-                      />
-                    </template>
-                  </v-tooltip>
+                      </template>
+                    </v-tooltip>
+                  </div>
                 </template>
               </v-select>
             </v-col>
@@ -957,13 +798,7 @@
               <div class="d-flex flex-wrap align-center ga-2">
                 <div>
                   <strong>Actual:</strong>
-                  {{ certDialog.meta?.certificadoNombreOriginal || 'Archivo cargado' }}
-                </div>
-                <div v-if="certDialog.meta?.certificadoFechaEmision">
-                  • Emisión: {{ formatFechaOrFechaHora(certDialog.meta.certificadoFechaEmision) }}
-                </div>
-                <div v-if="certDialog.meta?.certificadoFechaExpiracion">
-                  • Expira: {{ formatFechaOrFechaHora(certDialog.meta.certificadoFechaExpiracion) }}
+                  {{ getArchivoNombre(certDialog.meta) || 'Archivo cargado' }}
                 </div>
               </div>
             </v-alert>
@@ -1052,7 +887,6 @@
     </v-snackbar>
   </v-container>
 </template>
-
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, nextTick } from 'vue'
 import { useForm, useField } from 'vee-validate'
@@ -1061,11 +895,10 @@ import {
   obtenerSedes,
   obtenerCargos,
   obtenerEntidadesSalud,
-  obtenerEntidadSaludPorId,
-  subirCertificadoEntidadSalud,
-  descargarCertificadoEntidadSalud,
-  eliminarCertificadoEntidadSalud,
-  entidadTieneCertificado,
+  obtenerArchivoAfiliacionMeta,
+  subirArchivoAfiliacion,
+  eliminarArchivoAfiliacion,
+  tieneArchivoAfiliacion,
 } from '@/services/UserService'
 import {
   anexarContrato,
@@ -1139,7 +972,6 @@ interface ContratoRow {
   auxilioTransporte?: number
   auxilioNoSalarial?: number
 }
-
 type AfiliacionTipo = 'eps' | 'arl' | 'afp' | 'afc' | 'ccf'
 
 /* ======= Constantes de archivos y dinero ======= */
@@ -1238,9 +1070,9 @@ const modalPaso = ref({
   paso: null as Paso | null,
   form: { observacion: '', archivo: null as File | null }
 })
+const formPaso = ref()
 
 const archivoContrato = ref<File | null>(null)
-/** key para forzar reset visual del v-file-input */
 const fileInputKey = ref(0)
 const fileInputRef = ref<HTMLInputElement | null>(null)
 
@@ -1284,6 +1116,7 @@ const moneyRules = [
 const { value: identificacion, errorMessage: identificacionError } = useField('identificacion', [required, (val: string) => val.length >= 5 || 'Debe tener al menos 5 caracteres.'])
 const { value: sedeId, errorMessage: sedeIdError } = useField<number | null>('sedeId', [required], { initialValue: null })
 const { value: cargoId, errorMessage: cargoIdError } = useField<number | null>('cargoId', [required], { initialValue: null })
+
 const { value: funcionesCargo, errorMessage: funcionesCargoError } = useField('funcionesCargo', [required], { initialValue: '' })
 
 const { value: salarioBasico, errorMessage: salarioBasicoError } = useField('salarioBasico', [required, ...moneyRules], { initialValue: '' })
@@ -1345,70 +1178,80 @@ const salarioTotalCalculado = computed(() => {
   return (sb + bs + at + ans).toLocaleString('es-CO', { style: 'currency', currency: 'COP' })
 })
 
-/* ===== Certificados: estado por entidad ===== */
-const certStatusMap = ref<Record<number, boolean>>({})
-const entidadMetaCache = ref<Record<number, any>>({})
+/* ===== Certificados por TIPO (no por entidadId) ===== */
+const certStatusByTipo = ref<Record<AfiliacionTipo, boolean>>({
+  eps: false, arl: false, afp: false, afc: false, ccf: false,
+})
+const afiliacionMetaByTipo = ref<Record<AfiliacionTipo, any | null>>({
+  eps: null, arl: null, afp: null, afc: null, ccf: null,
+})
 
-function setCertStatus(entidadId: number, has: boolean) {
-  certStatusMap.value = { ...certStatusMap.value, [entidadId]: has }
+/* 🔧 seteo reactivo y forzar re-render del append-inner */
+const certUiTick = ref(0)
+function setCertState(tipo: AfiliacionTipo, has: boolean, meta: any | null) {
+  certStatusByTipo.value = { ...certStatusByTipo.value, [tipo]: !!has }
+  afiliacionMetaByTipo.value = { ...afiliacionMetaByTipo.value, [tipo]: meta }
+  certUiTick.value++ // fuerza re-render
 }
-function setEntidadMetaCache(entidadId: number, meta: any | null) {
-  const cache = { ...entidadMetaCache.value }
-  if (meta) cache[entidadId] = meta
-  else delete cache[entidadId]
-  entidadMetaCache.value = cache
-}
-
 function hasCert(tipo: AfiliacionTipo): boolean {
-  const id = ({
-    eps: epsId.value,
-    arl: arlId.value,
-    afp: afpId.value,
-    afc: afcId.value,
-    ccf: ccfId.value,
-  } as Record<AfiliacionTipo, number | null>)[tipo]
-  return !!(id && certStatusMap.value[id])
+  const flag = !!certStatusByTipo.value[tipo]
+  const meta = afiliacionMetaByTipo.value[tipo]
+  const byMeta = !!meta?.data?.url || !!meta?.data?.nombreOriginal
+  return flag || byMeta
 }
 
-/* ===== Estado visual para afiliaciones (icono/color/tooltip) ===== */
+/* (Estos helpers de color/icon ya no se usan en UI, pero no afectan si quedan) */
 function certColor(tipo: AfiliacionTipo) {
   const id = ({ eps: epsId.value, arl: arlId.value, afp: afpId.value, afc: afcId.value, ccf: ccfId.value } as Record<AfiliacionTipo, number | null>)[tipo]
-  if (!id) return 'warning'                 // sin entidad -> amarillo
-  const has = certStatusMap.value[id]
-  return has === true ? 'success' : 'error' // true -> verde, false/undef -> rojo
+  if (!id) return 'warning'
+  return hasCert(tipo) ? 'success' : 'error'
 }
 function certIcon(tipo: AfiliacionTipo) {
   const id = ({ eps: epsId.value, arl: arlId.value, afp: afpId.value, afc: afcId.value, ccf: ccfId.value } as Record<AfiliacionTipo, number | null>)[tipo]
   if (!id) return 'mdi-alert-circle-outline'
-  const has = certStatusMap.value[id]
-  return has === true ? 'mdi-check-circle' : 'mdi-alert-circle-outline'
+  return hasCert(tipo) ? 'mdi-check-circle' : 'mdi-alert-circle-outline'
 }
 function certTooltip(tipo: AfiliacionTipo) {
   const id = ({ eps: epsId.value, arl: arlId.value, afp: afpId.value, afc: afcId.value, ccf: ccfId.value } as Record<AfiliacionTipo, number | null>)[tipo]
   if (!id) return 'Sin entidad seleccionada'
-  const has = certStatusMap.value[id]
-  return has === true ? 'Certificado cargado' : 'No hay certificado cargado'
+  return hasCert(tipo) ? 'Certificado cargado' : 'No hay certificado cargado'
+}
+/* clave con usuario + entidad + tick para refrescar slot */
+const certStatusKey = (t: AfiliacionTipo) => {
+  const ids: Record<AfiliacionTipo, number | null> = { eps: epsId.value, arl: arlId.value, afp: afpId.value, afc: afcId.value, ccf: ccfId.value }
+  const userKey = usuarioSeleccionado.value ?? 'nouser'
+  return `${userKey}-${t}-${ids[t] ?? ''}-${Number(!!certStatusByTipo.value[t])}-${certUiTick.value}`
 }
 
-/* Forzar/actualizar estado desde backend o caché */
-async function refreshCertStatusByEntidadId(entidadId: number) {
-  const cached = entidadMetaCache.value[entidadId]
-  if (cached !== undefined) {
-    try { setCertStatus(entidadId, entidadTieneCertificado(cached)) } catch { setCertStatus(entidadId, false) }
-  }
-  try {
-    const meta = await obtenerEntidadSaludPorId(entidadId)
-    setEntidadMetaCache(entidadId, meta)
-    setCertStatus(entidadId, entidadTieneCertificado(meta))
-  } catch (e) {
-    setCertStatus(entidadId, false)
-    console.error('No se pudo refrescar estado de entidad', entidadId, e)
-  }
+/* ✅ Helper: Nombre legible del archivo desde la meta */
+function getArchivoNombre(meta: any): string {
+  return (
+    meta?.data?.nombreOriginal ||
+    meta?.data?.filename ||
+    meta?.data?.name ||
+    meta?.data?.url?.split('/')?.pop() ||
+    ''
+  )
 }
+
+/* ✅ Helper: abrir modal desde el clip sin abrir el menú del v-select */
+function openCert(tipo: AfiliacionTipo, ev?: MouseEvent) {
+  ev?.stopPropagation()
+  ev?.preventDefault()
+  abrirDialogoCertificado(tipo)
+}
+
+/* Refrescar estado desde backend (usuario + tipo) */
 async function refreshCertStatusByTipo(tipo: AfiliacionTipo) {
-  const id = ({ eps: epsId.value, arl: arlId.value, afp: afpId.value, afc: afcId.value, ccf: ccfId.value } as Record<AfiliacionTipo, number | null>)[tipo]
-  if (!id) return
-  await refreshCertStatusByEntidadId(id)
+  if (!usuarioSeleccionado.value) return
+  try {
+    const meta = await obtenerArchivoAfiliacionMeta(Number(usuarioSeleccionado.value), tipo)
+    const has = !!tieneArchivoAfiliacion(meta) || !!meta?.data?.url || !!meta?.data?.nombreOriginal
+    setCertState(tipo, has, meta)
+  } catch (e) {
+    console.error(`No se pudo refrescar ${tipo}:`, e)
+    setCertState(tipo, false, null)
+  }
 }
 
 /* ===========================
@@ -1436,9 +1279,15 @@ const certDialog = ref<{
   meta: null,
 })
 
+/* ✅ 1) Prioriza la meta del modal; fallback al cache por tipo */
 const certTieneArchivo = computed(() => {
-  const meta = certDialog.value.meta
-  try { return !!meta && entidadTieneCertificado(meta) } catch { return false }
+  const t = certDialog.value.tipo as AfiliacionTipo
+  const meta = certDialog.value.meta ?? (t ? afiliacionMetaByTipo.value[t] : null)
+  try {
+    return !!tieneArchivoAfiliacion(meta) || !!meta?.data?.url || !!meta?.data?.nombreOriginal
+  } catch {
+    return false
+  }
 })
 
 function cerrarCertDialog() {
@@ -1453,88 +1302,88 @@ function cerrarCertDialog() {
   certDialog.value.meta = null
 }
 
+/* ✅ 2) Asigna meta inmediata desde cache y luego refresca con backend */
 async function abrirDialogoCertificado(tipo: AfiliacionTipo) {
   const idMap: Record<AfiliacionTipo, number | null> = { eps: epsId.value, arl: arlId.value, afp: afpId.value, afc: afcId.value, ccf: ccfId.value }
   const id = idMap[tipo]
   if (!id) return showAlert('Selecciona una entidad', 'Debes elegir una entidad antes de gestionar su certificado.')
+  if (!usuarioSeleccionado.value) return showAlert('Usuario no seleccionado', 'Selecciona un usuario para gestionar archivos.')
 
   const ent = entidadesSalud.value.find((e: any) => e.id === id)
-  certDialog.value.tipo = tipo
-  certDialog.value.entidadId = id
-  certDialog.value.entidadNombre = ent?.nombre || `Entidad ${id}`
-  certDialog.value.open = true
-
-  const cached = entidadMetaCache.value[id]
-  if (cached) {
-    certDialog.value.meta = cached
-    setCertStatus(id, entidadTieneCertificado(cached))
-  } else {
-    certDialog.value.meta = null
+  certDialog.value = {
+    ...certDialog.value,
+    open: true,
+    tipo,
+    entidadId: id,
+    entidadNombre: ent?.nombre || `Entidad ${id}`,
+    file: null,
+    loading: true,
+    meta: afiliacionMetaByTipo.value[tipo] ?? null, // ⬅️ muestra de inmediato
   }
-
-  certDialog.value.loading = true
   try {
-    const meta = await obtenerEntidadSaludPorId(id)
+    const meta = await obtenerArchivoAfiliacionMeta(Number(usuarioSeleccionado.value), tipo)
+    const has = !!tieneArchivoAfiliacion(meta) || !!meta?.data?.url || !!meta?.data?.nombreOriginal
     certDialog.value.meta = meta
-    setEntidadMetaCache(id, meta)
-    setCertStatus(id, entidadTieneCertificado(meta))
+    setCertState(tipo, has, meta)
   } catch (e) {
-    console.error('Error cargando entidad:', e)
+    console.error('Error cargando meta de afiliación:', e)
+    certDialog.value.meta = certDialog.value.meta ?? null
+    setCertState(tipo, false, certDialog.value.meta)
   } finally {
     certDialog.value.loading = false
   }
 }
 
 async function subirCertificadoSeleccionado() {
-  if (!certDialog.value.entidadId || !certDialog.value.file) return
+  const t = certDialog.value.tipo as AfiliacionTipo
+  if (!usuarioSeleccionado.value || !t || !certDialog.value.file) return
   certDialog.value.loading = true
   try {
-    const updated = await subirCertificadoEntidadSalud(
-      certDialog.value.entidadId,
+    await subirArchivoAfiliacion(
+      Number(usuarioSeleccionado.value),
+      t,
       certDialog.value.file,
       {
         fechaEmision: certDialog.value.fechaEmision || undefined,
         fechaExpiracion: certDialog.value.fechaExpiracion || undefined,
-      }
+      } as any
     )
-    certDialog.value.meta = updated
-    setEntidadMetaCache(certDialog.value.entidadId, updated)
-    setCertStatus(certDialog.value.entidadId, true)
-
-    notify('Certificado guardado con éxito', 'success')
-    setTimeout(() => { cerrarCertDialog() }, 700)
+    // re-consultar meta para tener URL/nombre definitivos
+    const meta = await obtenerArchivoAfiliacionMeta(Number(usuarioSeleccionado.value), t)
+    setCertState(t, true, meta)
+    certDialog.value.meta = meta
+    certDialog.value.file = null
+    notify('Archivo de afiliación guardado con éxito', 'success')
   } catch (e: any) {
     console.error(e)
-    notify(e?.message || 'No fue posible subir el certificado.', 'error')
+    notify(e?.message || 'No fue posible subir el archivo.', 'error')
   } finally {
     certDialog.value.loading = false
   }
 }
 
-async function descargarCertificadoSeleccionado() {
-  if (!certDialog.value.entidadId) return
+async function eliminarCertificadoSeleccionado() {
+  const t = certDialog.value.tipo as AfiliacionTipo
+  if (!usuarioSeleccionado.value || !t) return
   try {
-    const sugerido = `${certDialog.value.entidadNombre.replace(/\s+/g, '_')}_certificado`
-    await descargarCertificadoEntidadSalud(certDialog.value.entidadId, sugerido)
+    await eliminarArchivoAfiliacion(Number(usuarioSeleccionado.value), t)
+    setCertState(t, false, null)
+    certDialog.value.meta = null
+    certDialog.value.file = null
+    notify('Archivo eliminado', 'success')
   } catch (e: any) {
     console.error(e)
-    notify(e?.message || 'No fue posible descargar el certificado.', 'error')
+    notify(e?.message || 'No fue posible eliminar el archivo.', 'error')
   }
 }
 
-async function eliminarCertificadoSeleccionado() {
-  if (!certDialog.value.entidadId) return
-  try {
-    await eliminarCertificadoEntidadSalud(certDialog.value.entidadId)
-    setCertStatus(certDialog.value.entidadId, false)
-    setEntidadMetaCache(certDialog.value.entidadId, null)
-    certDialog.value.meta = null
-    notify('Certificado eliminado', 'success')
-    setTimeout(() => { cerrarCertDialog() }, 500)
-  } catch (e: any) {
-    console.error(e)
-    notify(e?.message || 'No fue posible eliminar el certificado.', 'error')
-  }
+/* ✅ 3) Descargar usando primero la meta del modal (fallback al cache) */
+async function descargarCertificadoSeleccionado() {
+  const t = certDialog.value.tipo as AfiliacionTipo
+  const meta = certDialog.value.meta ?? (t ? afiliacionMetaByTipo.value[t] : null)
+  const url = meta?.data?.url
+  if (!url) return notify('No hay archivo para descargar.', 'error')
+  window.open(url, '_blank', 'noopener')
 }
 
 /* ===========================
@@ -1731,13 +1580,12 @@ async function editarContrato(c: ContratoRow) {
   if (at != null) auxilioTransporte.value = String(at)
   if (ans != null) auxilioNoSalarial.value = String(ans)
 
-  // === NUEVO: sincroniza estado de certificados para cada entidad seleccionada ===
   await Promise.all([
-    epsId.value ? refreshCertStatusByEntidadId(epsId.value) : Promise.resolve(),
-    arlId.value ? refreshCertStatusByEntidadId(arlId.value) : Promise.resolve(),
-    afpId.value ? refreshCertStatusByEntidadId(afpId.value) : Promise.resolve(),
-    afcId.value ? refreshCertStatusByEntidadId(afcId.value) : Promise.resolve(),
-    ccfId.value ? refreshCertStatusByEntidadId(ccfId.value) : Promise.resolve(),
+    refreshCertStatusByTipo('eps'),
+    refreshCertStatusByTipo('arl'),
+    refreshCertStatusByTipo('afp'),
+    refreshCertStatusByTipo('afc'),
+    refreshCertStatusByTipo('ccf'),
   ])
 
   archivoContrato.value = null
@@ -1823,7 +1671,7 @@ function cancelarEdicion() {
   limpiarFormulario()
 }
 
-/* ===== NUEVO: reset TOTAL ===== */
+/* ===== RESET TOTAL ===== */
 async function resetTotal() {
   resetForm()
   archivoContrato.value = null
@@ -1836,8 +1684,10 @@ async function resetTotal() {
   usuarioSeleccionado.value = null
 
   contratosUsuario.value = []
-  certStatusMap.value = {}
-  entidadMetaCache.value = {}
+
+  certStatusByTipo.value = { eps:false, arl:false, afp:false, afc:false, ccf:false }
+  afiliacionMetaByTipo.value = { eps:null, arl:null, afp:null, afc:null, ccf:null }
+  certUiTick.value++
 
   await nextTick()
   window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -1868,36 +1718,7 @@ async function toggleEstadoContrato(c: ContratoRow) {
   }
 }
 
-/* Modal pasos (UI local) */
-const abrirModalPaso = (paso: Paso) => {
-  modalPaso.value.paso = paso
-  modalPaso.value.form.observacion = paso.observacion || ''
-  modalPaso.value.form.archivo = paso.archivoFile || null
-  modalPaso.value.mostrar = true
-}
-const cerrarModalPaso = () => {
-  modalPaso.value.mostrar = false
-  modalPaso.value.paso = null
-  modalPaso.value.form = { observacion: '', archivo: null }
-}
-const completarPasoConfirmado = async () => {
-  if (!modalPaso.value.paso) return
-  const paso = modalPaso.value.paso
-  if (!modalPaso.value.form.observacion) {
-    return showAlert('Error', 'La observación es obligatoria.')
-  }
-  paso.completado = true
-  paso.observacion = modalPaso.value.form.observacion
-  paso.fechaCompletado = new Date().toISOString().slice(0, 10)
-  if (modalPaso.value.form.archivo) {
-    paso.nombreArchivo = modalPaso.value.form.archivo.name
-    paso.archivoFile = modalPaso.value.form.archivo
-    paso.archivoUrl = URL.createObjectURL(modalPaso.value.form.archivo)
-  }
-  cerrarModalPaso()
-}
-
-/* File handlers */
+/* ==== File handlers ==== */
 const onFileChange = (event: Event) => {
   const target = event.target as HTMLInputElement
   const f = target.files && target.files[0] ? target.files[0] : null
@@ -1910,6 +1731,7 @@ const onFileChange = (event: Event) => {
   }
   archivoContrato.value = f
 }
+
 const onFileRecChange = (event: Event) => {
   const target = event.target as HTMLInputElement
   const f = target.files && target.files[0] ? target.files[0] : null
@@ -1922,9 +1744,12 @@ const onFileRecChange = (event: Event) => {
   }
   archivoRecomendacionMedica.value = f
 }
-const onFilePasoChange = () => { /* noop, se maneja al confirmar */ }
 
-/* Descargar archivo genérico (usado en la tabla Historial) */
+const onFilePasoChange = () => {
+  // se maneja al confirmar en completarPasoConfirmado()
+}
+
+/* ==== Descargar archivo genérico (Historial) ==== */
 function parseFilenameFromContentDisposition(header: string | null): string | null {
   if (!header) return null
   const match = /filename\*?=(?:UTF-8''|")?([^\";]+)/i.exec(header)
@@ -1934,6 +1759,7 @@ function parseFilenameFromContentDisposition(header: string | null): string | nu
   }
   return null
 }
+
 async function descargarArchivo(url?: string | null, sugerido?: string) {
   if (!url) return showAlert('Archivo no disponible', 'No se encontró la ruta del archivo para este contrato.')
   try {
@@ -1958,37 +1784,90 @@ async function descargarArchivo(url?: string | null, sugerido?: string) {
   }
 }
 
-/* Watchers */
+/* ==== Modal de pasos: abrir / cerrar / completar ==== */
+function abrirModalPaso(paso: Paso) {
+  modalPaso.value.mostrar = true
+  modalPaso.value.paso = paso
+  modalPaso.value.form = {
+    observacion: paso.observacion || '',
+    archivo: null,
+  }
+}
+
+function cerrarModalPaso() {
+  modalPaso.value.mostrar = false
+  modalPaso.value.paso = null
+  modalPaso.value.form = { observacion: '', archivo: null }
+}
+
+async function completarPasoConfirmado() {
+  const p = modalPaso.value.paso
+  if (!p) return
+  try {
+    p.observacion = modalPaso.value.form.observacion?.trim() || undefined
+    p.completado = true
+    p.fechaCompletado = new Date().toISOString().slice(0, 10)
+    p.archivoFile = modalPaso.value.form.archivo || null
+    notify('Paso actualizado en la vista.', 'success')
+  } catch (e) {
+    console.error(e)
+    notify('No fue posible actualizar el paso.', 'error')
+  } finally {
+    cerrarModalPaso()
+  }
+}
+
+/* ==== Watchers ==== */
 watch([salarioBasico, bonoSalarial, auxilioTransporte, auxilioNoSalarial], () => {
   salarioBasico.value = sanitizeMoney(salarioBasico.value)
   bonoSalarial.value = sanitizeMoney(bonoSalarial.value)
   auxilioTransporte.value = sanitizeMoney(auxilioTransporte.value)
   auxilioNoSalarial.value = sanitizeMoney(auxilioNoSalarial.value)
 })
-watch(razonSocialSeleccionada, (newVal) => { if (newVal) cargarUsuariosPorRazonSocial() })
-watch(usuarioSeleccionado, async (newVal) => {
-  if (newVal) {
-    resetForm()
-    archivoContrato.value = null
-    await cargarHistorialContratos()
-  } else {
-    contratosUsuario.value = []
-  }
+
+watch(razonSocialSeleccionada, (newVal) => {
+  if (newVal) cargarUsuariosPorRazonSocial()
 })
+
+watch(usuarioSeleccionado, async (newVal) => {
+  certStatusByTipo.value = { eps:false, arl:false, afp:false, afc:false, ccf:false }
+  afiliacionMetaByTipo.value = { eps:null, arl:null, afp:null, afc:null, ccf:null }
+  certUiTick.value++
+  contratosUsuario.value = []
+
+  if (!newVal) return
+
+  await cargarHistorialContratos()
+
+  await Promise.all([
+    refreshCertStatusByTipo('eps'),
+    refreshCertStatusByTipo('arl'),
+    refreshCertStatusByTipo('afp'),
+    refreshCertStatusByTipo('afc'),
+    refreshCertStatusByTipo('ccf'),
+  ])
+})
+
 watch(tipoContratoSeleccionado, (newVal) => {
   if (newVal === 'prestacion' || newVal === 'aprendizaje') terminoContrato.value = null
 })
+
 watch(tieneRecomendacionesMedicas, (newVal) => {
   if (!newVal) archivoRecomendacionMedica.value = null
 })
-/* NUEVO: refrescar estado cuando cambian las entidades */
-watch(epsId,  (v) => { if (v) refreshCertStatusByEntidadId(v) })
-watch(arlId,  (v) => { if (v) refreshCertStatusByEntidadId(v) })
-watch(afpId,  (v) => { if (v) refreshCertStatusByEntidadId(v) })
-watch(afcId,  (v) => { if (v) refreshCertStatusByEntidadId(v) })
-watch(ccfId,  (v) => { if (v) refreshCertStatusByEntidadId(v) })
 
-/* Mount */
+/* 👉 un solo watcher para todas las entidades: refresca on-change */
+watch([epsId, arlId, afpId, afcId, ccfId],
+  async ([ne, na, nf, nc, nx], [pe, pa, pf, pc, px]) => {
+    if (!usuarioSeleccionado.value) return
+    if (ne !== pe) await refreshCertStatusByTipo('eps')
+    if (na !== pa) await refreshCertStatusByTipo('arl')
+    if (nf !== pf) await refreshCertStatusByTipo('afp')
+    if (nc !== pc) await refreshCertStatusByTipo('afc')
+    if (nx !== px) await refreshCertStatusByTipo('ccf')
+  }
+)
+
 onMounted(() => {
   cargarRazonesSociales()
   cargarSedes()
@@ -1997,7 +1876,78 @@ onMounted(() => {
 })
 </script>
 
+
 <style scoped>
-.form .v-col { padding-top: 4px; padding-bottom: 4px; }
+/* ancho máximo opcional */
+.v-container {
+  max-width: 1200px;
+}
+
+/* títulos/strings largos legibles */
+.v-card-title,
+.v-card-subtitle {
+  white-space: normal;
+  word-wrap: break-word;
+}
+.v-list-item-title,
+.v-list-item-subtitle {
+  word-break: break-word;
+}
+
+/* 🔧 Alinear íconos en el append-inner en una fila */
+.append-icons {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;             /* espacio entre ? , chulo y clip */
+  vertical-align: middle;
+}
+
+/* fuerza al contenedor de Vuetify a mantener los íconos alineados */
+:deep(.v-field__append-inner) {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* cada ítem ocupa su sitio */
+.append-icons > * {
+  display: inline-flex;
+  align-items: center;
+}
+
+/* 🔗 estilo para links de contrato físico (si los usas en historial) */
+.contrato-link {
+  color: #0d47a1 !important;
+  text-decoration: underline;
+}
+
+/* 🛠️ textos de seguridad social sin cortes raros */
+.seg-social .v-list-item-title,
+.seg-social .v-list-item-subtitle {
+  word-break: normal;
+  overflow-wrap: normal;
+}
+
+/* 📌 nombres en una línea con elipsis */
+.seg-social .afiliacion-nombre {
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* tweaks de espaciado */
+.form .v-col {
+  padding-top: 4px;
+  padding-bottom: 4px;
+}
 .text-medium-emphasis { opacity: .8; }
+.v-card-title.bg-blue-grey-lighten-5 {
+  border-bottom: 1px solid rgba(0,0,0,.06);
+}
+.v-card .pa-4 .v-alert + .v-file-input {
+  margin-top: .5rem;
+}
+
+[v-cloak] { display: none; }
 </style>
