@@ -152,6 +152,25 @@ export interface AnexarContratoResponse {
   contrato: Contrato
 }
 
+/** Meta genérica para archivos (contrato/recomendación) */
+export interface ArchivoMeta {
+  /** URL absoluta si el backend la retorna; si no, será una ruta relativa tipo "/uploads/..." */
+  url?: string | null
+  /** Ruta relativa en servidor, si aplica */
+  path?: string | null
+  /** Nombre original subido por el usuario */
+  nombreOriginal?: string | null
+  /** MimeType (application/pdf, image/jpeg, etc.) */
+  mime?: string | null
+  /** Tamaño en bytes (opcional) */
+  size?: number | null
+  /** Fechas opcionales que puedas guardar */
+  fechaEmision?: string | null
+  fechaExpiracion?: string | null
+  /** Cualquier otro dato que exponga tu backend */
+  [k: string]: any
+}
+
 /* ==================
    Helpers
 =================== */
@@ -183,6 +202,15 @@ function getActorId(): number | null {
   return null
 }
 
+/** Si el backend devuelve ruta relativa, construye URL absoluta */
+function toPublicUrl(maybePathOrUrl?: string | null): string | null {
+  if (!maybePathOrUrl) return null
+  if (/^https?:\/\//i.test(maybePathOrUrl)) return maybePathOrUrl
+  // es ruta relativa -> prefix con host de API (sin /api)
+  const base = ((import.meta as any)?.env?.VITE_API_URL?.replace(/\/+$/, '') || 'http://localhost:3333')
+  return `${base}${maybePathOrUrl.startsWith('/') ? '' : '/'}${maybePathOrUrl}`
+}
+
 // ▶ Mejor manejo de errores
 async function fetchData<T>(url: string, options?: RequestInit): Promise<T> {
   const resp = await fetch(url, options)
@@ -197,9 +225,9 @@ async function fetchData<T>(url: string, options?: RequestInit): Promise<T> {
     const body = await readBody()
     const data = typeof body === 'string' ? { text: body } : (body || {})
     const errorMsg =
-      data.error ||
-      data.message ||
-      data.text ||
+      (data as any).error ||
+      (data as any).message ||
+      (data as any).text ||
       resp.statusText ||
       `HTTP ${resp.status}`
 
@@ -399,4 +427,113 @@ export async function anexarContrato(form: {
 
 export async function crearContratoSalario(payload: ContratoSalarioPayload): Promise<any> {
   return fetchData<any>(`${API_BASE_URL}/contratos/${payload.contratoId}/salarios`, jsonOptions('POST', payload))
+}
+
+/* =========================
+   Recomendación Médica (por CONTRATO)
+   Endpoints reales según tus rutas:
+   GET    /api/contratos/:id/recomendacion/archivo        -> meta (tieneArchivo, data)
+   POST   /api/contratos/:id/recomendacion/archivo        -> subir/reemplazar (form-data: archivo)
+   DELETE /api/contratos/:id/recomendacion/archivo        -> eliminar
+   GET    /api/contratos/:id/recomendacion/descargar      -> descarga binaria
+========================== */
+
+/** Devuelve la meta/URL del archivo de recomendación médica (si existe) */
+export async function obtenerRecomendacionMedicaMeta(contratoId: number): Promise<ArchivoMeta | null> {
+  const meta = await fetchData<any>(`${API_BASE_URL}/contratos/${contratoId}/recomendacion/archivo`, {
+    credentials: 'include',
+  } as any)
+
+  // Formato del backend:
+  // { contratoId, tieneArchivo: boolean, data: { url, nombreOriginal, mime, size } | null }
+  if (!meta || meta.tieneArchivo !== true || !meta.data) return null
+
+  const raw = meta.data
+  return {
+    url: toPublicUrl(raw.url ?? raw.path ?? raw.ruta ?? null),
+    path: raw.path ?? null,
+    nombreOriginal: raw.nombreOriginal ?? raw.nombre ?? null,
+    mime: raw.mime ?? raw.mimetype ?? null,
+    size: raw.size ?? null,
+    fechaEmision: raw.fechaEmision ?? null,
+    fechaExpiracion: raw.fechaExpiracion ?? null,
+    ...raw,
+  } as ArchivoMeta
+}
+
+/** Sube o reemplaza la recomendación médica del contrato */
+export async function subirRecomendacionMedica(
+  contratoId: number,
+  archivo: File,
+  extras?: { fechaEmision?: string; fechaExpiracion?: string }
+): Promise<ArchivoMeta> {
+  const fd = new FormData()
+  fd.append('archivo', archivo, archivo.name)
+  if (extras?.fechaEmision) fd.append('fechaEmision', extras.fechaEmision)
+  if (extras?.fechaExpiracion) fd.append('fechaExpiracion', extras.fechaExpiracion)
+
+  const meta = await fetchData<any>(
+    `${API_BASE_URL}/contratos/${contratoId}/recomendacion/archivo`,
+    formOptions('POST', fd)
+  )
+
+  // El controlador devuelve:
+  // { contratoId, tieneArchivo: true, data: { url, nombreOriginal, mime, size } }
+  const raw = meta?.data ?? {}
+  return {
+    url: toPublicUrl(raw.url ?? raw.path ?? raw.ruta ?? null),
+    path: raw.path ?? null,
+    nombreOriginal: raw.nombreOriginal ?? raw.nombre ?? archivo.name,
+    mime: raw.mime ?? raw.mimetype ?? null,
+    size: raw.size ?? null,
+    fechaEmision: raw.fechaEmision ?? extras?.fechaEmision ?? null,
+    fechaExpiracion: raw.fechaExpiracion ?? extras?.fechaExpiracion ?? null,
+    ...raw,
+  } as ArchivoMeta
+}
+
+/** Elimina la recomendación médica del contrato */
+export async function eliminarRecomendacionMedica(contratoId: number): Promise<{ message: string }> {
+  const actorId = getActorId()
+  const headers: Record<string, string> = {}
+  if (actorId) headers['x-actor-id'] = String(actorId)
+
+  return fetchData<{ message: string }>(
+    `${API_BASE_URL}/contratos/${contratoId}/recomendacion/archivo`,
+    { method: 'DELETE', headers, credentials: 'include' }
+  )
+}
+
+/** Descarga la recomendación médica y dispara descarga en el navegador */
+export async function descargarRecomendacionMedicaYAbrir(contratoId: number): Promise<void> {
+  const resp = await fetch(`${API_BASE_URL}/contratos/${contratoId}/recomendacion/descargar`, {
+    method: 'GET',
+    credentials: 'include',
+  })
+  if (!resp.ok) {
+    let detail = ''
+    try { detail = (await resp.json())?.message ?? '' } catch {}
+    throw new Error(`Error ${resp.status}${detail ? `: ${detail}` : ''}`)
+  }
+  const blob = await resp.blob()
+
+  // Nombre desde content-disposition o por defecto
+  const cd = resp.headers.get('content-disposition') || ''
+  let filename = 'recomendacion-medica'
+  const m = /filename\*?=(?:UTF-8''|")?([^\";]+)/i.exec(cd)
+  if (m && m[1]) filename = decodeURIComponent(m[1].replace(/\"/g, ''))
+
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  URL.revokeObjectURL(url)
+}
+
+/** Devuelve una URL pública inmediata para usar con <a target="_blank"> cuando el backend solo te da path */
+export function obtenerUrlPublicaRecomendacionDesdeRuta(ruta: string | null | undefined): string | null {
+  return toPublicUrl(ruta ?? null)
 }

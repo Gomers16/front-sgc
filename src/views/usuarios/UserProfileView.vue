@@ -334,6 +334,41 @@
                       </v-list-item-subtitle>
                     </v-list-item>
                   </v-col>
+
+                  <!-- ✅ Recomendación Médica (clip + chulito) -->
+                  <v-col cols="12" sm="12">
+                    <v-list-item prepend-icon="mdi-heart-pulse">
+                      <v-list-item-title class="font-weight-bold">
+                        Recomendación Médica (Contrato actual):
+                      </v-list-item-title>
+                      <v-list-item-subtitle>
+                        <v-chip :color="recContrato.has ? 'success' : 'warning'" class="font-weight-bold" label small>
+                          {{ recContrato.has ? 'Cargada' : 'Sin archivo' }}
+                        </v-chip>
+                      </v-list-item-subtitle>
+
+                      <template #append>
+                        <v-badge
+                          :model-value="recContrato.has"
+                          color="success"
+                          overlap
+                          class="clip-badge"
+                        >
+                          <template #badge><v-icon size="14">mdi-check</v-icon></template>
+                          <v-btn
+                            icon
+                            variant="text"
+                            size="small"
+                            :disabled="!contratoIdActual"
+                            @click="abrirDialogoRecomendacionContrato()"
+                          >
+                            <v-icon>mdi-paperclip</v-icon>
+                          </v-btn>
+                        </v-badge>
+                      </template>
+                    </v-list-item>
+                  </v-col>
+                  <!-- /Recomendación Médica -->
                 </v-row>
               </v-card>
             </v-col>
@@ -417,6 +452,36 @@
                             </a>
                           </v-list-item-subtitle>
                         </v-list-item>
+
+                        <!-- ✅ Recomendaciones Médicas: chip + botón descargar si hay -->
+                        <v-list-item prepend-icon="mdi-heart-pulse" class="mb-2">
+                          <v-list-item-title class="font-weight-bold">Recomendaciones Médicas:</v-list-item-title>
+                          <v-list-item-subtitle>
+                            <v-chip
+                              :color="contrato.tieneRecomendacionesMedicas ? 'success' : 'warning'"
+                              class="font-weight-bold"
+                              label
+                              small
+                            >
+                              {{ contrato.tieneRecomendacionesMedicas ? 'Sí' : 'No' }}
+                            </v-chip>
+
+                            <template v-if="contrato.tieneRecomendacionesMedicas && contrato.rutaArchivoRecomendacionMedica">
+                              <v-btn
+                                :href="contrato.rutaArchivoRecomendacionMedica.startsWith('http') ? contrato.rutaArchivoRecomendacionMedica : `http://localhost:3333${contrato.rutaArchivoRecomendacionMedica}`"
+                                target="_blank"
+                                color="primary"
+                                variant="text"
+                                size="small"
+                                class="ml-2"
+                                prepend-icon="mdi-file-download-outline"
+                              >
+                                Descargar
+                              </v-btn>
+                            </template>
+                          </v-list-item-subtitle>
+                        </v-list-item>
+                        <!-- /Recomendaciones Médicas -->
                       </v-list>
 
                       <v-card-actions class="pa-0 mt-4">
@@ -809,13 +874,14 @@
           </v-card-title>
           <v-card-text class="py-4">
             <v-file-input
+              v-model="profilePhotoFiles"
               ref="fileInputRef"
               label="Seleccionar nueva foto"
               prepend-icon="mdi-camera"
               accept="image/*"
               variant="outlined"
               :clearable="true"
-              :rules="[v => (v && v.length > 0) || 'Debe seleccionar una imagen.']"
+              :rules="[v => ((Array.isArray(v) ? v.length : !!v) || 'Debe seleccionar una imagen.')]"
               :loading="isLoadingAction"
             />
           </v-card-text>
@@ -911,11 +977,13 @@
                 </v-col>
                 <v-col cols="12">
                   <v-file-input
+                    v-model="eventFiles"
                     ref="eventFileRef"
                     label="Documento adjunto (PDF, JPG, PNG)"
                     prepend-icon="mdi-paperclip"
                     accept=".pdf,image/jpeg,image/png"
                     variant="outlined"
+                    show-size
                   />
                 </v-col>
               </v-row>
@@ -993,10 +1061,11 @@
             <v-icon class="mr-1">mdi-pencil</v-icon>
             Editar Paso de Inicio
           </v-card-title>
-        <v-card-text class="py-4">
+          <v-card-text class="py-4">
             <v-form ref="editPasoForm">
               <v-textarea v-model="pasoEditData.observacion" label="Observación" variant="outlined" rows="3" />
               <v-file-input
+                v-model="editPasoFiles"
                 ref="editPasoFileRef"
                 label="Archivo adjunto (opcional)"
                 variant="outlined"
@@ -1047,7 +1116,7 @@
         </v-card>
       </v-dialog>
 
-      <!-- Diálogo Certificado -->
+      <!-- Diálogo Certificado (usuario + tipo) -->
       <v-dialog v-model="certDialog.open" max-width="640px">
         <v-card>
           <v-card-title class="text-h6">
@@ -1100,13 +1169,70 @@
           </v-card-actions>
         </v-card>
       </v-dialog>
+
+      <!-- ✅ Diálogo Recomendación Médica (POR CONTRATO) -->
+      <v-dialog v-model="recDialog.open" max-width="640px">
+        <v-card>
+          <v-card-title class="text-h6">
+            Recomendación Médica — Contrato #{{ contratoIdActual || '—' }}
+          </v-card-title>
+
+        <v-card-text>
+            <v-alert v-if="recDialog.loading" type="info" variant="tonal" class="mb-3">
+              Cargando información…
+            </v-alert>
+
+            <div v-else>
+              <v-alert v-if="recTieneArchivo" type="success" variant="tonal" class="mb-3">
+                <div class="d-flex flex-wrap align-center ga-2">
+                  <div><strong>Actual:</strong> {{ recDialog.meta?.nombreOriginal || 'Archivo cargado' }}</div>
+                  <div v-if="recDialog.meta?.fechaEmision">• Emisión: {{ formatFechaOrFechaHora(recDialog.meta?.fechaEmision) }}</div>
+                  <div v-if="recDialog.meta?.fechaExpiracion">• Expira: {{ formatFechaOrFechaHora(recDialog.meta?.fechaExpiracion) }}</div>
+                </div>
+              </v-alert>
+
+              <v-file-input
+                v-model="recDialog.file"
+                label="Seleccionar archivo (PDF/JPG/PNG/WEBP)"
+                accept=".pdf,.jpg,.jpeg,.png,.webp,application/pdf,image/jpeg,image/png,image/webp"
+                variant="outlined"
+                density="compact"
+                prepend-icon="mdi-paperclip"
+                show-size
+                class="mb-3"
+              />
+
+              <v-row dense>
+                <v-col cols="12" md="6">
+                  <v-text-field v-model="recDialog.fechaEmision" label="Fecha de Emisión (opcional)" type="date" variant="outlined" density="compact" clearable />
+                </v-col>
+                <v-col cols="12" md="6">
+                  <v-text-field v-model="recDialog.fechaExpiracion" label="Fecha de Expiración (opcional)" type="date" variant="outlined" density="compact" clearable />
+                </v-col>
+              </v-row>
+            </div>
+          </v-card-text>
+
+          <v-card-actions>
+            <v-spacer />
+            <v-btn variant="text" color="grey-darken-1" @click="cerrarRecDialog">Cerrar</v-btn>
+            <v-btn v-if="recTieneArchivo" variant="tonal" prepend-icon="mdi-download" @click="descargarRecomendacionMedicaContrato">Descargar</v-btn>
+            <v-btn v-if="recTieneArchivo" variant="tonal" color="error" prepend-icon="mdi-delete" @click="eliminarRecomendacionMedicaContrato">Eliminar</v-btn>
+            <v-btn color="primary" variant="flat" prepend-icon="mdi-upload" :disabled="!recDialog.file || recDialog.loading || !contratoIdActual" @click="subirRecomendacionMedicaContrato">
+              {{ recTieneArchivo ? 'Reemplazar' : 'Subir' }}
+            </v-btn>
+          </v-card-actions>
+        </v-card>
+      </v-dialog>
+      <!-- /Diálogo Recomendación Médica -->
     </v-card>
   </v-container>
 </template>
-
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
+
+/* ===== Servicios base usuario/contrato ===== */
 import {
   obtenerUsuarioPorId,
   uploadProfilePicture,
@@ -1125,6 +1251,15 @@ import {
   type ContratoPaso
 } from '@/services/contratosPasosService'
 import type { ContratoHistorialEstado } from '@/services/contratoHistorialEstadosService'
+
+/* ✅ Servicios Recomendación Médica (POR CONTRATO) */
+import {
+  obtenerRecomendacionMedicaMeta as obtenerRecMetaContrato,
+  subirRecomendacionMedica as subirRecContrato,
+  eliminarRecomendacionMedica as eliminarRecContrato,
+  descargarRecomendacionMedicaYAbrir as descargarRecContratoYAbrir,
+  obtenerUrlPublicaRecomendacionDesdeRuta as urlPublicaRecDesdeRuta,
+} from '@/services/contratoService'
 
 /* Servicios certificados (usuario + tipo) */
 import {
@@ -1166,6 +1301,9 @@ interface Contrato extends BaseContrato {
   timeline?: TimelineItem[]
   fechaFinalizacion?: string
   motivoFinalizacion?: string
+  /** ya existen en BaseContrato; los redeclaramos como opcionales para el template */
+  tieneRecomendacionesMedicas?: boolean
+  rutaArchivoRecomendacionMedica?: string | null
 }
 interface UserProfile extends User { contratos?: Contrato[] }
 interface UserEditForm {
@@ -1173,13 +1311,24 @@ interface UserEditForm {
 }
 
 /* ===== Helpers fecha ===== */
-function parseYMDLocal(s: string): Date | null { const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec((s||'').trim()); return m?new Date(+m[1],+m[2]-1,+m[3],0,0,0):null }
-function coerceToDate(v:any):Date|null{ if(!v) return null; if(v instanceof Date) return isNaN(v.getTime())?null:v; if(typeof v==='string'){ return parseYMDLocal(v)??(isNaN(new Date(v).getTime())?null:new Date(v)) } return null }
+function parseYMDLocal(s: string): Date | null {
+  const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec((s||'').trim())
+  return m?new Date(+m[1],+m[2]-1,+m[3],0,0,0):null
+}
+function coerceToDate(v:any):Date|null{
+  if(!v) return null
+  if(v instanceof Date) return isNaN(v.getTime())?null:v
+  if(typeof v==='string'){ return parseYMDLocal(v)??(isNaN(new Date(v).getTime())?null:new Date(v)) }
+  return null
+}
 const fmtFecha = new Intl.DateTimeFormat('es-CO',{day:'2-digit',month:'2-digit',year:'numeric'})
 const fmtFechaHora = new Intl.DateTimeFormat('es-CO',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit',hour12:true})
 function formatFecha(v:any){ const d=coerceToDate(v); return d?fmtFecha.format(d):'—' }
 function formatFechaHora(v:any){ const d=coerceToDate(v); return d?fmtFechaHora.format(d).replace(',',''):'—' }
-function formatFechaOrFechaHora(v:any){ const hasTime= typeof v==='string' && (/[T ]\d{2}:\d{2}/.test(v)); return hasTime?formatFechaHora(v):formatFecha(v) }
+function formatFechaOrFechaHora(v:any){
+  const hasTime= typeof v==='string' && (/[T ]\d{2}:\d{2}/.test(v));
+  return hasTime?formatFechaHora(v):formatFecha(v)
+}
 
 const router = useRouter()
 const route = useRoute()
@@ -1207,6 +1356,11 @@ const ABBREV_TOOLTIPS: Record<string,string> = {
   afcId:'ADMINISTRADORA DE FONDO DE CESANTÍAS',
   ccfId:'CAJA DE COMPENSACIÓN FAMILIAR',
 }
+
+/* ====== v-model para file inputs ====== */
+const profilePhotoFiles = ref<File[] | File | null>(null)
+const eventFiles = ref<File[] | File | null>(null)
+const editPasoFiles = ref<File[] | File | null>(null)
 
 /* Dialogs/refs */
 const showPhotoDialog = ref(false)
@@ -1251,69 +1405,28 @@ const primaryContrato = computed<Contrato | null>(() => {
   if (!cs.length) return null
   const activo = cs.find(c => (c.estado || '').toLowerCase() === 'activo')
   if (activo) return activo
-  return [...cs].filter(c=>!!c.fechaInicio).sort((a,b)=>new Date(b.fechaInicio).getTime()-new Date(a.fechaInicio).getTime())[0] || null
+  return [...cs].filter(c=>!!c.fechaInicio)
+    .sort((a,b)=>new Date(b.fechaInicio).getTime()-new Date(a.fechaInicio).getTime())[0] || null
 })
 
-/* Helpers UI */
-const showAlert = (title:string, message:string) => { alertDialogTitle.value = title; alertDialogMessage.value = message; showAlertDialog.value = true }
-const showConfirm = (title:string, message:string):Promise<boolean> => {
-  confirmDialogTitle.value = title; confirmDialogMessage.value = message; showConfirmDialog.value = true
-  return new Promise((resolve)=>{ confirmDialogCallback.value = (ok:boolean)=>{ showConfirmDialog.value = false; resolve(ok) }})
-}
-const formatDate = (dateString: string | null | undefined) => {
-  if (!dateString) return 'N/A'
-  const d = new Date(dateString as string)
-  return Number.isNaN(d.getTime()) ? String(dateString) : d.toLocaleDateString('es-CO',{year:'numeric',month:'long',day:'numeric'})
-}
-const getEstadoNombre = (e:'activo'|'inactivo') => e === 'activo' ? 'Activo' : 'Inactivo'
-const fullName = (u?:{nombres?:string; apellidos?:string|null}|null) => u ? [u.nombres,u.apellidos].filter(Boolean).join(' ') : '—'
-
-/* Etiquetas */
-const CAMPO_LABELS: Record<string,string> = {
-  razonSocialId:'Empresa', sedeId:'Sede', cargoId:'Cargo', funcionesCargo:'Funciones',
-  tipoContrato:'Tipo de Contrato', terminoContrato:'Término', fechaInicio:'Fecha de Inicio',
-  fechaTerminacion:'Fecha de Terminación', periodoPrueba:'Periodo de Prueba', horarioTrabajo:'Horario de Trabajo',
-  centroCosto:'Centro de Costo', epsId:'EPS', arlId:'ARL', afpId:'AFP', afcId:'AFC', ccfId:'CCF',
-  estado:'Estado', motivoFinalizacion:'Motivo de Finalización', tieneRecomendacionesMedicas:'Recomendaciones médicas',
-  salarioBasico:'Salario básico', bonoSalarial:'Bono salarial', auxilioTransporte:'Auxilio transporte', auxilioNoSalarial:'Auxilio no salarial', creacion:'Creación',
-}
-const labelCampo = (c:string)=> CAMPO_LABELS[c] || c
-
-/* Utilidades timeline */
-const parseMaybeJson = (v:any)=>{ if(v===null||v===undefined) return v; if(typeof v==='string'){ try{return JSON.parse(v)}catch{return v } } return v }
-const isNamedRel = (val:any): val is { id?: number|string; nombre?: string } => !!val && typeof val==='object' && ('nombre' in val || 'id' in val)
-const toNumberLoose = (v:any)=>{ if(v===null||v===undefined||v==='') return null; if(typeof v==='number') return Number.isFinite(v)?v:null; if(typeof v==='string'){ const s=v.replace(/\./g,'').replace(/,/g,'.').trim(); const n=Number(s); return Number.isFinite(n)?n:null } return null }
-const toBoolLoose = (v:any)=>{ if(v===null||v===undefined||v==='') return null; if(typeof v==='boolean') return v; if(typeof v==='string'){ const s=v.toLowerCase().trim(); if(['true','1','si','sí'].includes(s)) return true; if(['false','0','no'].includes(s)) return false } return null }
-const equalForField = (campo:string,a:any,b:any)=>{ const va=parseMaybeJson(a); const vb=parseMaybeJson(b); if(campo==='tieneRecomendacionesMedicas'){ return toBoolLoose(va)===toBoolLoose(vb)} if(['salarioBasico','bonoSalarial','auxilioTransporte','auxilioNoSalarial'].includes(campo)){ return toNumberLoose(va)===toNumberLoose(vb)} if(campo.endsWith('Id')){ const idA=isNamedRel(va)?Number(va.id):Number(va); const idB=isNamedRel(vb)?Number(vb.id):Number(vb); if(!Number.isNaN(idA)&&!Number.isNaN(idB)) return idA===idB; return JSON.stringify(va)===JSON.stringify(vb)} return (va??null)===(vb??null)}
-const renderValor = (campo:string, raw:any, contrato?:Contrato)=>{ const v=parseMaybeJson(raw); if(v===null||v===undefined||v==='') return 'N/A'; if(campo.endsWith('Id') && isNamedRel(v)) return v.nombre ?? `#${v.id ?? ''}`; if(campo.endsWith('Id')){ const id= typeof v==='number'?v:Number(v); const nameMatch = (()=>{ if(campo==='epsId' && contrato?.eps?.id===id) return contrato.eps.nombre
-  if(campo==='arlId' && contrato?.arl?.id===id) return contrato.arl.nombre
-  if(campo==='afpId' && contrato?.afp?.id===id) return contrato.afp.nombre
-  if(campo==='afcId' && contrato?.afc?.id===id) return contrato.afc.nombre
-  if(campo==='ccfId' && contrato?.ccf?.id===id) return contrato.ccf.nombre
-  if(campo==='sedeId' && contrato?.sede?.id===id) return contrato.sede.nombre
-  if(campo==='cargoId' && contrato?.cargo?.id===id) return contrato.cargo.nombre
-  return null })()
-  return nameMatch ? nameMatch : `#${isNaN(id) ? String(v) : id}`
-}
-if(campo.startsWith('fecha')) return typeof v==='string' ? formatDate(v) : formatDate(String(v))
-if(campo==='estado') return v==='activo' ? 'Activo' : (v==='inactivo' ? 'Inactivo' : String(v))
-if(typeof v==='boolean') return v ? 'Sí' : 'No'
-if(typeof v==='number') return new Intl.NumberFormat('es-CO').format(v)
-if(typeof v==='object'){ if('estado' in v && (v.estado==='activo'||v.estado==='inactivo')) return getEstadoNombre(v.estado); return JSON.stringify(v) }
-return String(v) }
-
-/* Timeline combinado */
-const buildTimeline = (c:Contrato)=> {
-  const items:any[] = []
-  ;(c.historialEstados||[]).forEach(h=>items.push({...h, kind:'estado'}))
-  ;(c.cambios||[]).filter(ch=>!equalForField(ch.campo, ch.oldValue, ch.newValue))
-                .forEach(ch=>items.push({...ch, oldValue:parseMaybeJson(ch.oldValue), newValue:parseMaybeJson(ch.newValue), kind:'cambio'}))
-  return items.sort((a,b)=>{
-    const da = new Date(a.kind==='estado'?a.fechaCambio:a.createdAt).getTime()
-    const db = new Date(b.kind==='estado'?b.fechaCambio:b.createdAt).getTime()
-    return db - da
-  })
-}
+/* ===== Recomendación Médica (POR CONTRATO) ===== */
+const recContrato = ref<{ has: boolean; loading: boolean; meta: any | null }>({
+  has: false, loading: false, meta: null,
+})
+const recDialog = ref<{
+  open: boolean
+  file: File | File[] | null
+  fechaEmision: string
+  fechaExpiracion: string
+  loading: boolean
+  meta: any
+}>({
+  open: false, file: null, fechaEmision: '', fechaExpiracion: '', loading: false, meta: null,
+})
+/** contrato activo (id) para recomendaciones médicas en Configuraciones */
+const contratoIdActual = computed<number | null>(() => primaryContrato.value?.id ?? null)
+/** ¿hay archivo actualmente en el diálogo? */
+const recTieneArchivo = computed(() => !!recDialog.value?.meta?.url || !!recDialog.value?.meta?.path)
 
 /* ===== Estado visual de certificados (usuario + tipo) ===== */
 type AfiliacionTipo = 'eps' | 'arl' | 'afp' | 'afc' | 'ccf'
@@ -1330,7 +1443,7 @@ const certDialog = ref<{
   tipo: AfiliacionTipo | ''
   entidadId: number | null
   entidadNombre: string
-  file: File | null
+  file: File | File[] | null
   fechaEmision: string
   fechaExpiracion: string
   loading: boolean
@@ -1348,28 +1461,212 @@ const certTieneArchivo = computed(()=> {
 // Helper: id de usuario actual
 const currentUserId = () => Number(user.value?.id ?? NaN) || null
 
-// Refrescar estados (chulito) por usuario + tipo
-async function refreshCertStatusByTipo(tipo: AfiliacionTipo) {
-  const uid = currentUserId()
-  certs.value[tipo].loading = true
-  try {
-    if (!uid) { certs.value[tipo] = { has:false, loading:false, meta:null }; return }
-    const meta = await obtenerArchivoAfiliacionMeta(uid, tipo)
-    certs.value[tipo].meta = meta
-    certs.value[tipo].has = tieneArchivoAfiliacion(meta)
-  } catch (e) {
-    console.error(`No se pudo refrescar ${tipo}:`, e)
-    certs.value[tipo].meta = null
-    certs.value[tipo].has = false
-  } finally {
-    certs.value[tipo].loading = false
-  }
+/* ===== Utils generales ===== */
+const showAlert = (title:string, message:string) => {
+  alertDialogTitle.value = title
+  alertDialogMessage.value = message
+  showAlertDialog.value = true
 }
-async function refreshAllCertStatuses() {
-  await Promise.all((['eps','arl','afp','afc','ccf'] as AfiliacionTipo[]).map(refreshCertStatusByTipo))
+const showConfirm = (title:string, message:string):Promise<boolean> => {
+  confirmDialogTitle.value = title
+  confirmDialogMessage.value = message
+  showConfirmDialog.value = true
+  return new Promise((resolve)=>{
+    confirmDialogCallback.value = (ok:boolean)=>{
+      showConfirmDialog.value = false
+      resolve(ok)
+    }
+  })
+}
+const formatDate = (dateString: string | null | undefined) => {
+  if (!dateString) return 'N/A'
+  const d = new Date(dateString as string)
+  return Number.isNaN(d.getTime()) ? String(dateString) : d.toLocaleDateString('es-CO',{year:'numeric',month:'long',day:'numeric'})
+}
+const getEstadoNombre = (e:'activo'|'inactivo') => e === 'activo' ? 'Activo' : 'Inactivo'
+const fullName = (u?:{nombres?:string; apellidos?:string|null}|null) => u ? [u.nombres,u.apellidos].filter(Boolean).join(' ') : '—'
+
+const CAMPO_LABELS: Record<string,string> = {
+  razonSocialId:'Empresa', sedeId:'Sede', cargoId:'Cargo', funcionesCargo:'Funciones',
+  tipoContrato:'Tipo de Contrato', terminoContrato:'Término', fechaInicio:'Fecha de Inicio',
+  fechaTerminacion:'Fecha de Terminación', periodoPrueba:'Periodo de Prueba', horarioTrabajo:'Horario de Trabajo',
+  centroCosto:'Centro de Costo', epsId:'EPS', arlId:'ARL', afpId:'AFP', afcId:'AFC', ccfId:'CCF',
+  estado:'Estado', motivoFinalizacion:'Motivo de Finalización', tieneRecomendacionesMedicas:'Recomendaciones médicas',
+  salarioBasico:'Salario básico', bonoSalarial:'Bono salarial', auxilioTransporte:'Auxilio transporte', auxilioNoSalarial:'Auxilio no salarial', creacion:'Creación',
+}
+const labelCampo = (c:string)=> CAMPO_LABELS[c] || c
+
+const parseMaybeJson = (v:any)=>{ if(v===null||v===undefined) return v; if(typeof v==='string'){ try{return JSON.parse(v)}catch{return v } } return v }
+const isNamedRel = (val:any): val is { id?: number|string; nombre?: string } => !!val && typeof val==='object' && ('nombre' in val || 'id' in val)
+const toNumberLoose = (v:any)=>{ if(v===null||v===undefined||v==='') return null; if(typeof v==='number') return Number.isFinite(v)?v:null; if(typeof v==='string'){ const s=v.replace(/\./g,'').replace(/,/g,'.').trim(); const n=Number(s); return Number.isFinite(n)?n:null } return null }
+const toBoolLoose = (v:any)=>{ if(v===null||v===undefined||v==='') return null; if(typeof v==='boolean') return v; if(typeof v==='string'){ const s=v.toLowerCase().trim(); if(['true','1','si','sí'].includes(s)) return true; if(['false','0','no'].includes(s)) return false } return null }
+const equalForField = (campo:string,a:any,b:any)=>{
+  const va=parseMaybeJson(a); const vb=parseMaybeJson(b)
+  if(campo==='tieneRecomendacionesMedicas'){ return toBoolLoose(va)===toBoolLoose(vb)}
+  if(['salarioBasico','bonoSalarial','auxilioTransporte','auxilioNoSalarial'].includes(campo)){ return toNumberLoose(va)===toNumberLoose(vb)}
+  if(campo.endsWith('Id')){
+    const idA=isNamedRel(va)?Number(va.id):Number(va)
+    const idB=isNamedRel(vb)?Number(vb.id):Number(vb)
+    if(!Number.isNaN(idA)&&!Number.isNaN(idB)) return idA===idB
+    return JSON.stringify(va)===JSON.stringify(vb)
+  }
+  return (va??null)===(vb??null)
+}
+const renderValor = (campo:string, raw:any, contrato?:Contrato)=>{
+  const v=parseMaybeJson(raw)
+  if(v===null||v===undefined||v==='') return 'N/A'
+  if(campo.endsWith('Id') && isNamedRel(v)) return v.nombre ?? `#${v.id ?? ''}`
+  if(campo.endsWith('Id')){
+    const id= typeof v==='number'?v:Number(v)
+    const nameMatch = (()=> {
+      if(campo==='epsId' && contrato?.eps?.id===id) return contrato.eps.nombre
+      if(campo==='arlId' && contrato?.arl?.id===id) return contrato.arl.nombre
+      if(campo==='afpId' && contrato?.afp?.id===id) return contrato.afp.nombre
+      if(campo==='afcId' && contrato?.afc?.id===id) return contrato.afc.nombre
+      if(campo==='ccfId' && contrato?.ccf?.id===id) return contrato.ccf.nombre
+      if(campo==='sedeId' && contrato?.sede?.id===id) return contrato.sede.nombre
+      if(campo==='cargoId' && contrato?.cargo?.id===id) return contrato.cargo.nombre
+      return null
+    })()
+    return nameMatch ? nameMatch : `#${isNaN(id) ? String(v) : id}`
+  }
+  if(campo.startsWith('fecha')) return typeof v==='string' ? formatDate(v) : formatDate(String(v))
+  if(campo==='estado') return v==='activo' ? 'Activo' : (v==='inactivo' ? 'Inactivo' : String(v))
+  if(typeof v==='boolean') return v ? 'Sí' : 'No'
+  if(typeof v==='number') return new Intl.NumberFormat('es-CO').format(v)
+  if(typeof v==='object'){ if('estado' in v && (v.estado==='activo'||v.estado==='inactivo')) return getEstadoNombre(v.estado); return JSON.stringify(v) }
+  return String(v)
 }
 
-/* IDs/nombres mostrados en UI (solo para etiquetar) */
+/* Timeline combinado */
+const buildTimeline = (c:Contrato)=> {
+  const items:any[] = []
+  ;(c.historialEstados||[]).forEach(h=>items.push({...h, kind:'estado'}))
+  ;(c.cambios||[]).filter(ch=>!equalForField(ch.campo, ch.oldValue, ch.newValue))
+                  .forEach(ch=>items.push({...ch, oldValue:parseMaybeJson(ch.oldValue), newValue:parseMaybeJson(ch.newValue), kind:'cambio'}))
+  return items.sort((a,b)=>{
+    const da = new Date(a.kind==='estado'?a.fechaCambio:a.createdAt).getTime()
+    const db = new Date(b.kind==='estado'?b.fechaCambio:b.createdAt).getTime()
+    return db - da
+  })
+}
+
+/* ===== Helpers archivo ===== */
+function firstFileFrom(model: File | File[] | null | undefined): File | null {
+  if (!model) return null
+  return Array.isArray(model) ? (model[0] ?? null) : model
+}
+
+/* ===== Recomendación Médica (funciones por CONTRATO) ===== */
+function cerrarRecDialog(){
+  recDialog.value = { open:false, file:null, fechaEmision:'', fechaExpiracion:'', loading:false, meta:null }
+}
+
+/** Refresca el estado (chulito) para el contrato activo */
+async function refreshRecStatusForContrato() {
+  const cid = contratoIdActual.value
+  recContrato.value.loading = true
+  try {
+    if (!cid) { recContrato.value = { has:false, loading:false, meta:null }; return }
+    const meta = await obtenerRecMetaContrato(cid) // ArchivoMeta | null
+    recContrato.value.meta = meta
+    recContrato.value.has = !!meta
+  } catch (e) {
+    console.error('No se pudo refrescar Recomendación Médica (contrato):', e)
+    recContrato.value.meta = null
+    recContrato.value.has = false
+  } finally {
+    recContrato.value.loading = false
+  }
+}
+
+async function abrirDialogoRecomendacionContrato(){
+  recDialog.value.open = true
+  recDialog.value.loading = true
+  try {
+    const cid = contratoIdActual.value
+    if (!cid) throw new Error('No hay contrato activo.')
+    const meta = await obtenerRecMetaContrato(cid)
+    recDialog.value.meta = meta
+    recContrato.value.meta = meta
+    recContrato.value.has = !!meta
+  } catch (e) {
+    console.error('Error cargando meta Recomendación Médica (contrato):', e)
+    recDialog.value.meta = null
+    recContrato.value.meta = null
+    recContrato.value.has = false
+  } finally {
+    recDialog.value.loading = false
+  }
+}
+
+async function subirRecomendacionMedicaContrato(){
+  const cid = contratoIdActual.value
+  const file = firstFileFrom(recDialog.value.file)
+  if (!cid || !file) return
+  recDialog.value.loading = true
+  try {
+    const updated = await subirRecContrato(cid, file, {
+      fechaEmision: recDialog.value.fechaEmision || undefined,
+      fechaExpiracion: recDialog.value.fechaExpiracion || undefined,
+    })
+    recDialog.value.meta = updated
+    recDialog.value.file = null
+    recContrato.value.meta = updated
+    recContrato.value.has = !!updated
+    /* Opcional: reflejar en tarjeta Detalles del contrato activo, sin recargar */
+    const pc = primaryContrato.value
+    if (pc) {
+      pc.tieneRecomendacionesMedicas = true
+      pc.rutaArchivoRecomendacionMedica = updated?.url || updated?.path || pc.rutaArchivoRecomendacionMedica || null
+    }
+    showAlert('Listo','Recomendación médica guardada con éxito.')
+  } catch (e:any) {
+    console.error(e)
+    showAlert('Error', e?.message || 'No fue posible subir la recomendación.')
+  } finally {
+    recDialog.value.loading = false
+  }
+}
+
+async function eliminarRecomendacionMedicaContrato(){
+  const cid = contratoIdActual.value
+  if (!cid) return
+  try {
+    await eliminarRecContrato(cid)
+    recDialog.value.meta = null
+    recContrato.value.meta = null
+    recContrato.value.has = false
+    /* Opcional: reflejar en tarjeta Detalles del contrato activo */
+    const pc = primaryContrato.value
+    if (pc) {
+      pc.tieneRecomendacionesMedicas = false
+      pc.rutaArchivoRecomendacionMedica = null
+    }
+    showAlert('Listo','Archivo eliminado.')
+  } catch (e:any) {
+    console.error(e)
+    showAlert('Error', e?.message || 'No fue posible eliminar el archivo.')
+  }
+}
+
+async function descargarRecomendacionMedicaContrato(){
+  const url = recDialog.value?.meta?.url || urlPublicaRecDesdeRuta(recDialog.value?.meta?.path)
+  if (url) {
+    window.open(url, '_blank', 'noopener')
+    return
+  }
+  const cid = contratoIdActual.value
+  if (!cid) { showAlert('Sin archivo','No hay archivo para descargar.'); return }
+  try {
+    await descargarRecContratoYAbrir(cid)
+  } catch (e:any) {
+    console.error(e)
+    showAlert('Error', e?.message || 'No fue posible descargar el archivo.')
+  }
+}
+
+/* IDs/nombres UI (solo para etiquetar seguridad social) */
 const getEntidadId = (tipo: AfiliacionTipo): number | null => {
   const c = primaryContrato.value
   switch (tipo) {
@@ -1415,6 +1712,8 @@ const loadUser = async () => {
               cambios: (contrato.cambios||[]).map((x:any)=>({...x, oldValue:parseMaybeJson(x.oldValue), newValue:parseMaybeJson(x.newValue)})),
               fechaFinalizacion: contrato.fechaTerminacion ? String(contrato.fechaTerminacion).split('T')[0] : null,
               motivoFinalizacion: contrato.motivoFinalizacion || null,
+              tieneRecomendacionesMedicas: contrato.tieneRecomendacionesMedicas ?? false,
+              rutaArchivoRecomendacionMedica: contrato.rutaArchivoRecomendacionMedica ?? null,
             }
             if (!c.pasos || c.pasos.length === 0) c.pasos = await fetchPasosInicio(c.id) as unknown as ContratoPasoExt[]
             c.timeline = buildTimeline(c)
@@ -1423,7 +1722,9 @@ const loadUser = async () => {
         )
       }
       user.value = fetchedUser
-      await refreshAllCertStatuses() // chulitos
+      await refreshAllCertStatuses() // chulitos de afiliación
+      // ✅ Refrescar estado de Recomendación Médica POR CONTRATO tras cargar usuario
+      await refreshRecStatusForContrato()
     } else {
       error.value = 'No se encontraron datos del usuario.'
     }
@@ -1433,59 +1734,120 @@ const loadUser = async () => {
   } finally { isLoadingUser.value = false }
 }
 
-/* Acciones perfil */
-const openEditUserDialog = () => {
-  if (user.value) {
-    editedUser.value = {
-      nombres: user.value.nombres, apellidos: user.value.apellidos,
-      celularPersonal: user.value.celularPersonal, celularCorporativo: user.value.celularCorporativo,
-      direccion: user.value.direccion, recomendaciones: user.value.recomendaciones,
-    }
+/* ===== Certificados (usuario + tipo) ===== */
+async function refreshCertStatusByTipo(tipo: AfiliacionTipo) {
+  const uid = currentUserId()
+  certs.value[tipo].loading = true
+  try {
+    if (!uid) { certs.value[tipo] = { has:false, loading:false, meta:null }; return }
+    const meta = await obtenerArchivoAfiliacionMeta(uid, tipo)
+    certs.value[tipo].meta = meta
+    certs.value[tipo].has = tieneArchivoAfiliacion(meta)
+  } catch (e) {
+    console.error(`No se pudo refrescar ${tipo}:`, e)
+    certs.value[tipo].meta = null
+    certs.value[tipo].has = false
+  } finally {
+    certs.value[tipo].loading = false
   }
-  showEditUserDialog.value = true
 }
-const closeEditUserDialog = () => { showEditUserDialog.value = false; userForm.value?.reset() }
-const submitEditUser = async () => {
-  if (!user.value?.id) return
-  const { valid } = await userForm.value.validate()
-  if (!valid) return
-  isLoadingAction.value = true
-  try {
-    const updatedUser = await actualizarUsuario(user.value.id, editedUser.value)
-    user.value = updatedUser as UserProfile
-    showAlert('Éxito','Perfil actualizado correctamente.')
-    closeEditUserDialog()
-  } catch (err:any) {
-    console.error('Error al actualizar el perfil:', err)
-    showAlert('Error', `Error al actualizar el perfil: ${err.message || 'error desconocido'}.`)
-  } finally { isLoadingAction.value = false }
+async function refreshAllCertStatuses() {
+  await Promise.all((['eps','arl','afp','afc','ccf'] as AfiliacionTipo[]).map(refreshCertStatusByTipo))
 }
-const closePhotoDialog = () => { showPhotoDialog.value = false; fileInputRef.value?.reset() }
-const uploadProfilePhoto = async () => {
-  if (!user.value?.id) { showAlert('Error','No se pudo obtener el ID del usuario.'); return }
-  const fileToUpload = fileInputRef.value?.files[0]
-  if (!fileToUpload) { showAlert('Advertencia','Debe seleccionar una imagen para subir.'); return }
-  isLoadingAction.value = true
+
+/* Diálogo de certificado (usuario + tipo) */
+function cerrarCertDialog(){
+  certDialog.value = { open:false, tipo:'', entidadId:null, entidadNombre:'', file:null, fechaEmision:'', fechaExpiracion:'', loading:false, meta:null }
+}
+async function abrirDialogoCertificado(tipo:AfiliacionTipo){
+  const id = getEntidadId(tipo)
+  if (!id) { showAlert('Selecciona una entidad','Debes tener una entidad asociada para gestionar su archivo.'); return }
+
+  certDialog.value.tipo = tipo
+  certDialog.value.entidadId = id
+  certDialog.value.entidadNombre = getEntidadNombre(tipo)
+  certDialog.value.open = true
+  certDialog.value.loading = true
+
   try {
-    const updatedUser = await uploadProfilePicture(user.value.id, fileToUpload)
-    user.value = updatedUser as UserProfile
-    showAlert('Éxito','Foto de perfil actualizada correctamente.')
-    closePhotoDialog()
-  } catch (err:any) {
-    console.error('Error al subir la foto de perfil:', err)
-    showAlert('Error', `Ocurrió un error al subir la foto: ${err.message || 'error desconocido'}.`)
-  } finally { isLoadingAction.value = false }
+    const uid = currentUserId()
+    if (!uid) throw new Error('Usuario no válido')
+    const meta = await obtenerArchivoAfiliacionMeta(uid, tipo)
+    certDialog.value.meta = meta
+    certs.value[tipo].meta = meta
+    certs.value[tipo].has = tieneArchivoAfiliacion(meta)
+  } catch (e) {
+    console.error('Error cargando meta de afiliación:', e)
+    certDialog.value.meta = null
+    certs.value[tipo].meta = null
+    certs.value[tipo].has = false
+  } finally { certDialog.value.loading = false }
+}
+
+async function subirCertificadoSeleccionado(){
+  const t = certDialog.value.tipo as AfiliacionTipo
+  const uid = currentUserId()
+  const file = firstFileFrom(certDialog.value.file)
+  if (!uid || !t || !file) return
+  certDialog.value.loading = true
+  try {
+    const updated = await subirArchivoAfiliacion(uid, t, file, {
+      fechaEmision: certDialog.value.fechaEmision || undefined,
+      fechaExpiracion: certDialog.value.fechaExpiracion || undefined,
+    } as any)
+    certDialog.value.meta = updated
+    certDialog.value.file = null
+    certs.value[t].meta = updated
+    certs.value[t].has = tieneArchivoAfiliacion(updated)
+    showAlert('Listo','Archivo de afiliación guardado con éxito.')
+  } catch (e:any) {
+    console.error(e)
+    showAlert('Error', e?.message || 'No fue posible subir el archivo.')
+  } finally { certDialog.value.loading = false }
+}
+
+async function eliminarCertificadoSeleccionado(){
+  const t = certDialog.value.tipo as AfiliacionTipo
+  const uid = currentUserId()
+  if (!uid || !t) return
+  try {
+    await eliminarArchivoAfiliacion(uid, t)
+    certDialog.value.meta = null
+    certs.value[t].meta = null
+    certs.value[t].has = false
+    showAlert('Listo','Archivo eliminado.')
+  } catch (e:any) {
+    console.error(e)
+    showAlert('Error', e?.message || 'No fue posible eliminar el archivo.')
+  }
+}
+
+async function descargarCertificadoSeleccionado(){
+  const meta = certDialog.value.meta as any
+  const url = meta?.data?.url
+  if (!url) { showAlert('Sin archivo','No hay archivo para descargar.'); return }
+  window.open(url, '_blank', 'noopener')
 }
 
 /* Eventos de contrato */
-const showAddEventDialog = (id:number)=>{ contratoIdForNewEvent.value=id; newEvent.value={}; showAddEventDialogForContrato.value=true }
-const closeAddEventDialog = ()=>{ showAddEventDialogForContrato.value=false; eventForm.value?.reset(); eventFileRef.value?.reset() }
+const showAddEventDialog = (id:number)=>{
+  contratoIdForNewEvent.value=id
+  newEvent.value = {}
+  eventFiles.value = null
+  showAddEventDialogForContrato.value=true
+}
+const closeAddEventDialog = ()=>{
+  showAddEventDialogForContrato.value=false
+  eventForm.value?.reset()
+  eventFileRef.value?.reset()
+  eventFiles.value = null
+}
 const submitNewEvent = async () => {
   if (!contratoIdForNewEvent.value) return
   const { valid } = await eventForm.value.validate()
   if (!valid) return
   isLoadingAction.value = true
-  const fileToUpload = eventFileRef.value?.files[0]
+  const fileToUpload = firstFileFrom(eventFiles.value) || eventFileRef.value?.files?.[0] || null
   const payload = new FormData()
   if (newEvent.value.tipo) payload.append('tipo', newEvent.value.tipo)
   if (newEvent.value.subtipo) payload.append('subtipo', newEvent.value.subtipo as string)
@@ -1509,7 +1871,9 @@ const viewEventDetails = (e:ContratoEventoExt)=>{ selectedEvent.value=e; showEve
 
 /* Estado contrato */
 const confirmarCambioEstadoContrato = async (contratoId:number, nuevoEstado:'activo'|'inactivo')=>{
-  const msg = nuevoEstado==='activo'? '¿Estás seguro de que deseas activar este contrato?' : '¿Estás seguro de que deseas desactivar este contrato?'
+  const msg = nuevoEstado==='activo'
+    ? '¿Estás seguro de que deseas activar este contrato?'
+    : '¿Estás seguro de que deseas desactivar este contrato?'
   const ok = await showConfirm('Confirmar Cambio de Estado', msg)
   if (!ok) return
   isLoadingAction.value = true
@@ -1524,12 +1888,23 @@ const confirmarCambioEstadoContrato = async (contratoId:number, nuevoEstado:'act
 }
 
 /* Finalizar contrato */
-const confirmFinalizeContract = async (id:number)=>{ const ok = await showConfirm('Confirmar Finalización','¿Estás seguro de que deseas finalizar este contrato? Esta acción no se puede deshacer.'); if(ok) await submitContractFinalization(id) }
+const confirmFinalizeContract = async (id:number)=>{
+  const ok = await showConfirm('Confirmar Finalización','¿Estás seguro de que deseas finalizar este contrato? Esta acción no se puede deshacer.')
+  if(ok) await submitContractFinalization(id)
+}
 const submitContractFinalization = async (id:number)=>{
-  if(!finalizationDate.value || !finalizationReason.value){ showAlert('Advertencia','Por favor, complete la fecha y el motivo de finalización.'); return }
+  if(!finalizationDate.value || !finalizationReason.value){
+    showAlert('Advertencia','Por favor, complete la fecha y el motivo de finalización.')
+    return
+  }
   isLoadingAction.value = true
   try {
-    await actualizarContrato(id, { estado:'inactivo', fechaTerminacion: finalizationDate.value, motivoFinalizacion: finalizationReason.value, actorId: actorId.value ?? undefined } as any)
+    await actualizarContrato(id, {
+      estado:'inactivo',
+      fechaTerminacion: finalizationDate.value,
+      motivoFinalizacion: finalizationReason.value,
+      actorId: actorId.value ?? undefined
+    } as any)
     showAlert('Éxito','Contrato finalizado correctamente.')
     await loadUser()
   } catch (err:any) {
@@ -1539,12 +1914,23 @@ const submitContractFinalization = async (id:number)=>{
 }
 
 /* Editar paso */
-const openEditPasoDialog = (contratoId:number, paso:ContratoPasoExt)=>{ contratoIdForPasoEdit.value=contratoId; pasoIdForEdit.value=(paso as any).id||null; pasoEditData.value={observacion: paso.observacion||''}; showEditPasoDialog.value=true }
-const closeEditPasoDialog = ()=>{ showEditPasoDialog.value=false; editPasoForm.value?.reset(); editPasoFileRef.value?.reset() }
+const openEditPasoDialog = (contratoId:number, paso:ContratoPasoExt)=>{
+  contratoIdForPasoEdit.value=contratoId
+  pasoIdForEdit.value=(paso as any).id||null
+  pasoEditData.value={observacion: paso.observacion||''}
+  editPasoFiles.value = null
+  showEditPasoDialog.value=true
+}
+const closeEditPasoDialog = ()=>{
+  showEditPasoDialog.value=false
+  editPasoForm.value?.reset()
+  editPasoFileRef.value?.reset()
+  editPasoFiles.value = null
+}
 const submitEditPaso = async ()=>{
   if(!contratoIdForPasoEdit.value || !pasoIdForEdit.value) return
   isLoadingAction.value = true
-  const fileToUpload = editPasoFileRef.value?.files?.[0]
+  const fileToUpload = firstFileFrom(editPasoFiles.value) || editPasoFileRef.value?.files?.[0] || null
   const payload = new FormData()
   payload.append('observacion', pasoEditData.value.observacion || '')
   if (fileToUpload) payload.append('archivo', fileToUpload)
@@ -1560,113 +1946,126 @@ const submitEditPaso = async ()=>{
   } finally { isLoadingAction.value = false }
 }
 
-const goBack = ()=> router.go(-1)
-
-/* ===== Diálogo de certificado ===== */
-function cerrarCertDialog(){
-  certDialog.value = { open:false, tipo:'', entidadId:null, entidadNombre:'', file:null, fechaEmision:'', fechaExpiracion:'', loading:false, meta:null }
+/* Foto de perfil */
+function closePhotoDialog(){
+  showPhotoDialog.value = false
+  profilePhotoFiles.value = null
+  fileInputRef.value?.reset?.()
 }
-async function abrirDialogoCertificado(tipo:AfiliacionTipo){
-  // opcional: seguimos exigiendo una entidad asociada para el UX del diálogo
-  const id = getEntidadId(tipo)
-  if (!id) { showAlert('Selecciona una entidad','Debes tener una entidad asociada para gestionar su archivo.'); return }
-
-  certDialog.value.tipo = tipo
-  certDialog.value.entidadId = id
-  certDialog.value.entidadNombre = getEntidadNombre(tipo)
-  certDialog.value.open = true
-  certDialog.value.loading = true
-
+async function uploadProfilePhoto(){
+  const file = firstFileFrom(profilePhotoFiles.value) || fileInputRef.value?.files?.[0] || null
+  if (!user.value?.id || !file) {
+    showAlert('Atención','Debes seleccionar una imagen.')
+    return
+  }
+  isLoadingAction.value = true
   try {
-    const uid = currentUserId()
-    if (!uid) throw new Error('Usuario no válido')
-
-    // META por usuario + tipo
-    const meta = await obtenerArchivoAfiliacionMeta(uid, tipo)
-    certDialog.value.meta = meta
-    certs.value[tipo].meta = meta
-    certs.value[tipo].has = tieneArchivoAfiliacion(meta)
-  } catch (e) {
-    console.error('Error cargando meta de afiliación:', e)
-    certDialog.value.meta = null
-    certs.value[tipo].meta = null
-    certs.value[tipo].has = false
-  } finally { certDialog.value.loading = false }
-}
-
-async function subirCertificadoSeleccionado(){
-  const t = certDialog.value.tipo as AfiliacionTipo
-  const uid = currentUserId()
-  if (!uid || !t || !certDialog.value.file) return
-
-  certDialog.value.loading = true
-  try {
-    // SUBIR por usuario + tipo
-    const updated = await subirArchivoAfiliacion(uid, t, certDialog.value.file, {
-      fechaEmision: certDialog.value.fechaEmision || undefined,
-      fechaExpiracion: certDialog.value.fechaExpiracion || undefined,
-    } as any)
-    certDialog.value.meta = updated
-    certDialog.value.file = null
-    certs.value[t].meta = updated
-    certs.value[t].has = tieneArchivoAfiliacion(updated)
-    showAlert('Listo','Archivo de afiliación guardado con éxito.')
-  } catch (e:any) {
-    console.error(e)
-    showAlert('Error', e?.message || 'No fue posible subir el archivo.')
-  } finally { certDialog.value.loading = false }
-}
-
-async function eliminarCertificadoSeleccionado(){
-  const t = certDialog.value.tipo as AfiliacionTipo
-  const uid = currentUserId()
-  if (!uid || !t) return
-
-  try {
-    // ELIMINAR por usuario + tipo
-    await eliminarArchivoAfiliacion(uid, t)
-    certDialog.value.meta = null
-    certs.value[t].meta = null
-    certs.value[t].has = false
-    showAlert('Listo','Archivo eliminado.')
-  } catch (e:any) {
-    console.error(e)
-    showAlert('Error', e?.message || 'No fue posible eliminar el archivo.')
+    // asumiendo firma: uploadProfilePicture(userId:number, file:File)
+    await uploadProfilePicture(user.value.id as number, file)
+    showAlert('Listo','Foto de perfil actualizada.')
+    closePhotoDialog()
+    await loadUser()
+  } catch (err:any) {
+    console.error('Error al subir la foto de perfil:', err)
+    showAlert('Error', err?.message || 'No fue posible actualizar la foto de perfil.')
+  } finally {
+    isLoadingAction.value = false
   }
 }
 
-async function descargarCertificadoSeleccionado(){
-  // El service no expone descarga directa: usamos la URL pública en meta
-  const meta = certDialog.value.meta as any
-  const url = meta?.data?.url
-  if (!url) { showAlert('Sin archivo','No hay archivo para descargar.'); return }
-  window.open(url, '_blank', 'noopener')
+/* Editar usuario */
+function openEditUserDialog(){
+  if (!user.value) return
+  editedUser.value = {
+    nombres: user.value.nombres,
+    apellidos: user.value.apellidos,
+    celularPersonal: user.value.celularPersonal,
+    celularCorporativo: user.value.celularCorporativo,
+    direccion: user.value.direccion,
+    recomendaciones: !!user.value.recomendaciones,
+  }
+  showEditUserDialog.value = true
 }
+function closeEditUserDialog(){
+  showEditUserDialog.value = false
+  editedUser.value = {}
+}
+async function submitEditUser(){
+  const { valid } = await userForm.value?.validate?.() ?? { valid: true }
+  if (!valid || !user.value?.id) return
+  isLoadingAction.value = true
+  try {
+    await actualizarUsuario(user.value.id as number, editedUser.value as UserEditForm)
+    showAlert('Éxito','Perfil actualizado correctamente.')
+    showEditUserDialog.value = false
+    await loadUser()
+  } catch (err:any) {
+    console.error('Error al actualizar el usuario:', err)
+    showAlert('Error', err?.message || 'No fue posible actualizar el perfil.')
+  } finally {
+    isLoadingAction.value = false
+  }
+}
+
+const goBack = ()=> router.go(-1)
+
+/* Watchers */
+watch(contratoIdActual, () => {
+  // ✅ Si cambia el contrato prioritario, refrescamos el chulito de Recomendación Médica
+  refreshRecStatusForContrato()
+})
 
 /* Montaje */
 onMounted(()=>{ loadUser() })
-</script>
 
+/* Expuestos implícitamente por <script setup>:
+   - Helpers, actions y refs usados en el template
+*/
+</script>
 <style scoped>
+/* Layout principal */
 .v-container { max-width: 1200px; }
+
+/* Avatar y botón de edición */
 .avatar-container { position: relative; display: inline-block; }
+.avatar-container :deep(.v-avatar) { background: #fafafa; }
 .edit-avatar-btn {
   position: absolute;
   bottom: 0; right: 0;
   transform: translate(25%, 25%);
-  z-index: 10; border: 3px solid white;
+  z-index: 10;
+  border: 3px solid white;
 }
+.edit-avatar-btn:hover { filter: brightness(1.05); }
+
+/* Títulos y textos largos sin cortes raros */
 .v-card-title, .v-card-subtitle { white-space: normal; word-wrap: break-word; }
 .v-list-item-title, .v-list-item-subtitle { word-break: break-word; }
 
-/* Enlace contrato físico */
-.contrato-link { color: #0d47a1 !important; text-decoration: underline; }
+/* Enlace del contrato físico */
+.contrato-link {
+  color: #0d47a1 !important;
+  text-decoration: underline;
+}
+.contrato-link:focus {
+  outline: 2px solid #0d47a1;
+  outline-offset: 2px;
+}
 
-/* Seguridad social: evitar cortes */
-.seg-social .v-list-item-title, .seg-social .v-list-item-subtitle { word-break: normal; overflow-wrap: normal; }
-.seg-social .afiliacion-nombre { display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-.seg-social .v-list-item__content { min-width: 0; }
-.seg-social .v-list-item__append { flex: 0 0 auto; }
+/* Seguridad social: evitar cortes y mantener layout */
+.seg-social .v-list-item-title,
+.seg-social .v-list-item-subtitle {
+  word-break: normal;
+  overflow-wrap: normal;
+}
+.seg-social .afiliacion-nombre {
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.seg-social :deep(.v-list-item__content) { min-width: 0; }
+.seg-social :deep(.v-list-item__append) { flex: 0 0 auto; }
 
 /* Badge del clip (check encima del clip) */
 .clip-badge :deep(.v-badge__badge) {
@@ -1674,5 +2073,10 @@ onMounted(()=>{ loadUser() })
   display: inline-flex;
   align-items: center;
   justify-content: center;
+}
+
+/* Responsivo pequeño */
+@media (max-width: 600px) {
+  .v-container { padding-left: 12px; padding-right: 12px; }
 }
 </style>
