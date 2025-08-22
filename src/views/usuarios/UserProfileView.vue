@@ -1171,60 +1171,51 @@
       </v-dialog>
 
       <!-- ✅ Diálogo Recomendación Médica (POR CONTRATO) -->
-      <v-dialog v-model="recDialog.open" max-width="640px">
-        <v-card>
-          <v-card-title class="text-h6">
-            Recomendación Médica — Contrato #{{ contratoIdActual || '—' }}
-          </v-card-title>
+<v-dialog v-model="recDialog.open" max-width="640px">
+  <v-card>
+    <v-card-title class="text-h6">
+      Recomendación Médica — Contrato #{{ contratoIdActual || '—' }}
+    </v-card-title>
 
-        <v-card-text>
-            <v-alert v-if="recDialog.loading" type="info" variant="tonal" class="mb-3">
-              Cargando información…
-            </v-alert>
+    <v-card-text>
+      <v-alert v-if="recDialog.loading" type="info" variant="tonal" class="mb-3">
+        Cargando información…
+      </v-alert>
 
-            <div v-else>
-              <v-alert v-if="recTieneArchivo" type="success" variant="tonal" class="mb-3">
-                <div class="d-flex flex-wrap align-center ga-2">
-                  <div><strong>Actual:</strong> {{ recDialog.meta?.nombreOriginal || 'Archivo cargado' }}</div>
-                  <div v-if="recDialog.meta?.fechaEmision">• Emisión: {{ formatFechaOrFechaHora(recDialog.meta?.fechaEmision) }}</div>
-                  <div v-if="recDialog.meta?.fechaExpiracion">• Expira: {{ formatFechaOrFechaHora(recDialog.meta?.fechaExpiracion) }}</div>
-                </div>
-              </v-alert>
+      <div v-else>
+        <v-alert v-if="recTieneArchivo" type="success" variant="tonal" class="mb-3">
+          <div class="d-flex flex-wrap align-center ga-2">
+            <div><strong>Actual:</strong> {{ recDialog.meta?.nombreOriginal || 'Archivo cargado' }}</div>
+            <!-- Fechas removidas -->
+          </div>
+        </v-alert>
 
-              <v-file-input
-                v-model="recDialog.file"
-                label="Seleccionar archivo (PDF/JPG/PNG/WEBP)"
-                accept=".pdf,.jpg,.jpeg,.png,.webp,application/pdf,image/jpeg,image/png,image/webp"
-                variant="outlined"
-                density="compact"
-                prepend-icon="mdi-paperclip"
-                show-size
-                class="mb-3"
-              />
+        <v-file-input
+          v-model="recDialog.file"
+          label="Seleccionar archivo (PDF/JPG/PNG/WEBP)"
+          accept=".pdf,.jpg,.jpeg,.png,.webp,application/pdf,image/jpeg,image/png,image/webp"
+          variant="outlined"
+          density="compact"
+          prepend-icon="mdi-paperclip"
+          show-size
+          class="mb-3"
+        />
+        <!-- Campos de fecha removidos -->
+      </div>
+    </v-card-text>
 
-              <v-row dense>
-                <v-col cols="12" md="6">
-                  <v-text-field v-model="recDialog.fechaEmision" label="Fecha de Emisión (opcional)" type="date" variant="outlined" density="compact" clearable />
-                </v-col>
-                <v-col cols="12" md="6">
-                  <v-text-field v-model="recDialog.fechaExpiracion" label="Fecha de Expiración (opcional)" type="date" variant="outlined" density="compact" clearable />
-                </v-col>
-              </v-row>
-            </div>
-          </v-card-text>
+    <v-card-actions>
+      <v-spacer />
+      <v-btn variant="text" color="grey-darken-1" @click="cerrarRecDialog">Cerrar</v-btn>
+      <v-btn v-if="recTieneArchivo" variant="tonal" prepend-icon="mdi-download" @click="descargarRecomendacionMedicaContrato">Descargar</v-btn>
+      <v-btn v-if="recTieneArchivo" variant="tonal" color="error" prepend-icon="mdi-delete" @click="eliminarRecomendacionMedicaContrato">Eliminar</v-btn>
+      <v-btn color="primary" variant="flat" prepend-icon="mdi-upload" :disabled="!recDialog.file || recDialog.loading || !contratoIdActual" @click="subirRecomendacionMedicaContrato">
+        {{ recTieneArchivo ? 'Reemplazar' : 'Subir' }}
+      </v-btn>
+    </v-card-actions>
+  </v-card>
+</v-dialog>
 
-          <v-card-actions>
-            <v-spacer />
-            <v-btn variant="text" color="grey-darken-1" @click="cerrarRecDialog">Cerrar</v-btn>
-            <v-btn v-if="recTieneArchivo" variant="tonal" prepend-icon="mdi-download" @click="descargarRecomendacionMedicaContrato">Descargar</v-btn>
-            <v-btn v-if="recTieneArchivo" variant="tonal" color="error" prepend-icon="mdi-delete" @click="eliminarRecomendacionMedicaContrato">Eliminar</v-btn>
-            <v-btn color="primary" variant="flat" prepend-icon="mdi-upload" :disabled="!recDialog.file || recDialog.loading || !contratoIdActual" @click="subirRecomendacionMedicaContrato">
-              {{ recTieneArchivo ? 'Reemplazar' : 'Subir' }}
-            </v-btn>
-          </v-card-actions>
-        </v-card>
-      </v-dialog>
-      <!-- /Diálogo Recomendación Médica -->
     </v-card>
   </v-container>
 </template>
