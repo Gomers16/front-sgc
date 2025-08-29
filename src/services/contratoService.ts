@@ -196,8 +196,12 @@ function getActorId(): number | null {
   }
 
   const direct =
-    tryNum(localStorage.getItem('actorId')) ?? tryNum(sessionStorage.getItem('actorId')) ??
-    tryNum(localStorage.getItem('userId')) ?? tryNum(sessionStorage.getItem('userId'))
+    tryNum(localStorage.getItem('actorId')) ??
+    tryNum(sessionStorage.getItem('actorId')) ??
+    tryNum(localStorage.getItem('authUserId')) ??
+    tryNum(sessionStorage.getItem('authUserId')) ??
+    tryNum(localStorage.getItem('userId')) ??
+    tryNum(sessionStorage.getItem('userId'))
   if (direct) return direct
 
   const keys = ['user', 'usuario', 'authUser', 'currentUser', 'sessionUser']
@@ -301,16 +305,21 @@ function omitUndefined<T extends Record<string, any>>(obj: T): T {
   return out
 }
 
-/** Construye opciones JSON con actor (solo header; NO body.actorId) */
+/** Construye opciones JSON con actor: header + body.actorId */
 function jsonOptions(method: string, data: any): RequestInit {
   const actorId = getActorId()
   const headers: Record<string, string> = { 'Content-Type': 'application/json' }
   if (actorId) headers['x-actor-id'] = String(actorId)
-  const body = JSON.stringify({ ...(data ?? {}) })
+
+  // Inyectamos actorId en el body si no viene
+  const bodyObj = { ...(data ?? {}) }
+  if (actorId != null && bodyObj.actorId == null) bodyObj.actorId = actorId
+
+  const body = JSON.stringify(bodyObj)
   return { method, headers, body, credentials: 'include' }
 }
 
-/** Construye opciones FormData con actor (solo header; NO form.append('actorId')) */
+/** Construye opciones FormData con actor (header; el body lo adjunta quien llama) */
 function formOptions(method: string, form: FormData): RequestInit {
   const actorId = getActorId()
   const headers: Record<string, string> = {}
@@ -362,6 +371,7 @@ export async function actualizarContrato(
   payload: ContratoUpdatePayload & {
     fechaFin?: string | Date | null
     fechaFinalizacion?: string | Date | null
+    actorId?: number | null
   }
 ): Promise<Contrato> {
   const toYMD = (v: any): string | undefined => {
@@ -394,7 +404,6 @@ export async function actualizarContrato(
   }
 
   // ✅ Si viene tipo o término, los normalizamos juntos.
-  //    Si NO viene ninguno de los dos, no toques terminoContrato (queda undefined y omitUndefined lo quita).
   let terminoNormalizado: TerminoContrato | undefined = undefined
   if (payload.tipoContrato || payload.terminoContrato !== undefined) {
     const tipo = (payload.tipoContrato as TipoContrato) ?? 'laboral' // fallback neutro
@@ -407,7 +416,7 @@ export async function actualizarContrato(
     cargoId: payload.cargoId,
     funcionesCargo: payload.funcionesCargo,
     tipoContrato: payload.tipoContrato,
-    terminoContrato: terminoNormalizado, // <-- ya no se pone null por tipo 'prestacion'
+    terminoContrato: terminoNormalizado, // <-- no ponemos null forzado
     fechaInicio: toYMD(payload.fechaInicio as any),
     fechaTerminacion: toYMD(fechaTerminacion as any),
     periodoPrueba: payload.periodoPrueba,
@@ -426,10 +435,12 @@ export async function actualizarContrato(
     auxilioNoSalarial: (payload as any).auxilioNoSalarial,
     tieneRecomendacionesMedicas: toBool(payload.tieneRecomendacionesMedicas as any),
     razonSocialId: payload.razonSocialId,
+
+    // ⬇️ MUY IMPORTANTE para “Realizado por”
+    actorId: payload.actorId ?? getActorId(),
   }
 
   const toSend = omitUndefined(raw)
-  // PATCH está bien si tu backend lo soporta; si solo acepta PUT, cámbialo por 'PUT'
   return fetchData<Contrato>(`${API_BASE_URL}/contratos/${contratoId}`, jsonOptions('PATCH', toSend))
 }
 
@@ -497,6 +508,10 @@ export async function anexarContrato(form: {
     )
   }
 
+  // También inyectamos actorId por compatibilidad
+  const actorId = getActorId()
+  if (actorId) fd.append('actorId', String(actorId))
+
   return fetchData<AnexarContratoResponse>(`${API_BASE_URL}/contratos/anexar-fisico`, formOptions('POST', fd))
 }
 
@@ -510,21 +525,13 @@ export async function crearContratoSalario(payload: ContratoSalarioPayload): Pro
 
 /* =========================
    Recomendación Médica (por CONTRATO)
-   Endpoints:
-   GET    /api/contratos/:id/recomendacion/archivo        -> meta (tieneArchivo, data)
-   POST   /api/contratos/:id/recomendacion/archivo        -> subir/reemplazar (form-data: archivo)
-   DELETE /api/contratos/:id/recomendacion/archivo        -> eliminar
-   GET    /api/contratos/:id/recomendacion/descargar      -> descarga binaria
 ========================== */
 
-/** Devuelve la meta/URL del archivo de recomendación médica (si existe) */
 export async function obtenerRecomendacionMedicaMeta(contratoId: number): Promise<ArchivoMeta | null> {
   const meta = await fetchData<any>(`${API_BASE_URL}/contratos/${contratoId}/recomendacion/archivo`, {
     credentials: 'include',
   } as any)
 
-  // Formato del backend:
-  // { contratoId, tieneArchivo: boolean, data: { url, nombreOriginal, mime, size } | null }
   if (!meta || meta.tieneArchivo !== true || !meta.data) return null
 
   const raw = meta.data
@@ -540,7 +547,6 @@ export async function obtenerRecomendacionMedicaMeta(contratoId: number): Promis
   } as ArchivoMeta
 }
 
-/** Sube o reemplaza la recomendación médica del contrato */
 export async function subirRecomendacionMedica(
   contratoId: number,
   archivo: File,
@@ -551,13 +557,14 @@ export async function subirRecomendacionMedica(
   if (extras?.fechaEmision) fd.append('fechaEmision', extras.fechaEmision)
   if (extras?.fechaExpiracion) fd.append('fechaExpiracion', extras.fechaExpiracion)
 
+  const actorId = getActorId()
+  if (actorId) fd.append('actorId', String(actorId))
+
   const meta = await fetchData<any>(
     `${API_BASE_URL}/contratos/${contratoId}/recomendacion/archivo`,
     formOptions('POST', fd)
   )
 
-  // El controlador devuelve:
-  // { contratoId, tieneArchivo: true, data: { url, nombreOriginal, mime, size } }
   const raw = meta?.data ?? {}
   return {
     url: toPublicUrl(raw.url ?? raw.path ?? raw.ruta ?? null),
@@ -571,7 +578,6 @@ export async function subirRecomendacionMedica(
   } as ArchivoMeta
 }
 
-/** Elimina la recomendación médica del contrato */
 export async function eliminarRecomendacionMedica(contratoId: number): Promise<{ message: string }> {
   const actorId = getActorId()
   const headers: Record<string, string> = {}
@@ -583,7 +589,6 @@ export async function eliminarRecomendacionMedica(contratoId: number): Promise<{
   )
 }
 
-/** Descarga la recomendación médica y dispara descarga en el navegador */
 export async function descargarRecomendacionMedicaYAbrir(contratoId: number): Promise<void> {
   const resp = await fetch(`${API_BASE_URL}/contratos/${contratoId}/recomendacion/descargar`, {
     method: 'GET',
@@ -596,7 +601,6 @@ export async function descargarRecomendacionMedicaYAbrir(contratoId: number): Pr
   }
   const blob = await resp.blob()
 
-  // Nombre desde content-disposition o por defecto
   const cd = resp.headers.get('content-disposition') || ''
   let filename = 'recomendacion-medica'
   const m = /filename\*?=(?:UTF-8''|")?([^\";]+)/i.exec(cd)
@@ -614,15 +618,16 @@ export async function descargarRecomendacionMedicaYAbrir(contratoId: number): Pr
 
 /* =========================
    Reemplazo por PATCH (opcional)
-   Endpoint: PATCH /api/contratos/:id/recomendacion-medica
 ========================== */
 export async function reemplazarRecomendacionMedicaPorPatch(
   contratoId: number,
   archivo: File
 ): Promise<Contrato> {
   const fd = new FormData()
-  // el controlador acepta 'archivo' o 'archivoRecomendacionMedica'
   fd.append('archivo', archivo, archivo.name)
+  const actorId = getActorId()
+  if (actorId) fd.append('actorId', String(actorId))
+
   return fetchData<Contrato>(
     `${API_BASE_URL}/contratos/${contratoId}/recomendacion-medica`,
     formOptions('PATCH', fd)
@@ -633,15 +638,12 @@ export async function reemplazarRecomendacionMedicaPorPatch(
    Contrato físico (visor/descarga/eliminar)
 ========================== */
 
-/** Meta para visor del contrato físico (si existe) */
 export async function obtenerContratoArchivoMeta(contratoId: number): Promise<ArchivoMeta | null> {
   const meta = await fetchData<any>(
     `${API_BASE_URL}/contratos/${contratoId}/archivo/meta`,
     { credentials: 'include' } as any
   )
 
-  // Formato:
-  // { contratoId, tieneArchivo: boolean, data: { url, nombreOriginal, mime, size } | null }
   if (!meta || meta.tieneArchivo !== true || !meta.data) return null
 
   const raw = meta.data
@@ -655,7 +657,6 @@ export async function obtenerContratoArchivoMeta(contratoId: number): Promise<Ar
   }
 }
 
-/** Elimina SOLO el archivo físico del contrato (no borra el contrato) */
 export async function eliminarArchivoContrato(contratoId: number): Promise<{ message: string }> {
   const actorId = getActorId()
   const headers: Record<string, string> = {}
@@ -668,7 +669,6 @@ export async function eliminarArchivoContrato(contratoId: number): Promise<{ mes
   })
 }
 
-/** Descarga del contrato físico (dispara descarga en el navegador) */
 export async function descargarContratoFisico(contratoId: number): Promise<void> {
   const resp = await fetch(`${API_BASE_URL}/contratos/${contratoId}/archivo`, {
     method: 'GET',
@@ -708,17 +708,12 @@ export function obtenerUrlPublicaRecomendacionDesdeRuta(ruta: string | null | un
 
 /* =========================
    Afiliaciones por contrato (EPS/ARL/AFP/AFC/CCF)
-   Endpoints:
-   GET    /api/contratos/:id/afiliacion/:tipo/archivo     -> meta (tieneArchivo, data)
-   POST   /api/contratos/:id/afiliacion/:tipo/archivo     -> subir/reemplazar (form-data: archivo)
-   DELETE /api/contratos/:id/afiliacion/:tipo/archivo     -> eliminar
 ========================== */
 
 export interface AfiliacionArchivoMeta extends ArchivoMeta {
   tipo?: TipoAfiliacion
 }
 
-/** 🟦 Obtener meta de archivo de afiliación por contrato */
 export async function obtenerAfiliacionArchivoMeta(
   contratoId: number,
   tipo: TipoAfiliacion
@@ -728,8 +723,6 @@ export async function obtenerAfiliacionArchivoMeta(
     { credentials: 'include' } as any
   )
 
-  // Respuesta del backend:
-  // { contratoId, tipo, tieneArchivo: boolean, data: { url, nombreOriginal, mime, size } | null }
   if (!meta || meta.tieneArchivo !== true || !meta.data) return null
 
   const raw = meta.data
@@ -744,7 +737,6 @@ export async function obtenerAfiliacionArchivoMeta(
   }
 }
 
-/** 🟦 Subir/Reemplazar archivo de afiliación por contrato */
 export async function subirAfiliacionArchivo(
   contratoId: number,
   tipo: TipoAfiliacion,
@@ -753,13 +745,14 @@ export async function subirAfiliacionArchivo(
   const fd = new FormData()
   fd.append('archivo', archivo, archivo.name)
 
+  const actorId = getActorId()
+  if (actorId) fd.append('actorId', String(actorId))
+
   const meta = await fetchData<any>(
     `${API_BASE_URL}/contratos/${contratoId}/afiliacion/${tipo}/archivo`,
     formOptions('POST', fd)
   )
 
-  // Respuesta:
-  // { contratoId, tipo, tieneArchivo: true, data: { url, nombreOriginal, mime, size } }
   const raw = meta?.data ?? {}
   return {
     tipo,
@@ -772,7 +765,6 @@ export async function subirAfiliacionArchivo(
   }
 }
 
-/** 🟦 Eliminar archivo de afiliación por contrato */
 export async function eliminarAfiliacionArchivo(
   contratoId: number,
   tipo: TipoAfiliacion
@@ -803,7 +795,6 @@ export function tieneArchivoAfiliacion(meta: any) {
 
 /* =========
    Aliases de export para compatibilidad con la vista
-   (la vista puede importar eliminarAfiliacionContrato, etc.)
 =========== */
 export { obtenerAfiliacionArchivoMeta as obtenerAfiliacionContratoMeta }
 export { subirAfiliacionArchivo as subirAfiliacionContrato }
