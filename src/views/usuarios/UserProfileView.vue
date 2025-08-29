@@ -535,9 +535,23 @@
                                 size="small"
                               >
                                 <div class="d-flex justify-space-between align-center mb-1">
-                                  <span class="font-weight-bold text-subtitle-1">
-                                    {{ paso.nombrePaso }} ({{ paso.fase }})
-                                  </span>
+                                  <div class="d-flex align-center">
+                                    <span class="font-weight-bold text-subtitle-1 mr-1">
+                                      {{ paso.nombrePaso }} ({{ paso.fase }})
+                                    </span>
+                                    <!-- ✏️ Lápiz pegado al título -->
+                                    <v-btn
+                                      icon
+                                      variant="text"
+                                      size="x-small"
+                                      color="info"
+                                      class="ml-1"
+                                      @click="openEditPasoDialog(contrato.id, paso)"
+                                      :aria-label="`Editar ${paso.nombrePaso}`"
+                                    >
+                                      <v-icon size="16">mdi-pencil</v-icon>
+                                    </v-btn>
+                                  </div>
                                   <span class="text-caption text-grey-darken-1">
                                     {{ paso.fecha ? formatDate(paso.fecha) : 'Sin fecha' }}
                                   </span>
@@ -564,26 +578,6 @@
                                     <v-icon size="small" class="mr-1">mdi-file-eye-outline</v-icon>
                                     Ver archivo
                                   </a>
-                                </div>
-
-                                <div class="mt-2 d-flex justify-end">
-                                  <v-btn
-                                    v-if="paso.archivoUrl"
-                                    :href="toAbsoluteApiUrl(paso.archivoUrl)"
-                                    target="_blank"
-                                    icon="mdi-eye"
-                                    variant="text"
-                                    size="small"
-                                    color="primary"
-                                    class="mr-2"
-                                  />
-                                  <v-btn
-                                    icon="mdi-pencil"
-                                    variant="text"
-                                    size="small"
-                                    color="info"
-                                    @click="openEditPasoDialog(contrato.id, paso)"
-                                  />
                                 </div>
                               </v-timeline-item>
                             </v-timeline>
@@ -1037,7 +1031,6 @@
                 <v-list-item-subtitle>{{ selectedEvent.descripcion }}</v-list-item-subtitle>
               </v-list-item>
               <v-list-item v-if="selectedEvent.documentoUrl">
-                <v-list-item-title class="font-weight-bold">Documento:</v-list-item-title>
                 <v-list-item-subtitle>
                   <a :href="toAbsoluteApiUrl(selectedEvent.documentoUrl)" target="_blank">Ver Documento</a>
                 </v-list-item-subtitle>
@@ -1065,37 +1058,71 @@
       </v-dialog>
 
       <!-- Diálogo EDITAR PASO -->
-      <v-dialog v-model="showEditPasoDialog" max-width="600px">
+      <v-dialog v-model="showEditPasoDialog" max-width="640px">
         <v-card>
           <v-card-title class="text-h5 bg-primary text-white">
             <v-icon class="mr-1">mdi-pencil</v-icon>
             Editar Paso de Inicio
           </v-card-title>
+
           <v-card-text class="py-4">
             <v-form ref="editPasoForm">
-              <v-textarea v-model="pasoEditData.observacion" label="Observación" variant="outlined" rows="3" />
+              <!-- 📝 Observación -->
+              <v-textarea v-model="pasoEditData.observacion" label="Observación" variant="outlined" rows="3" class="mb-3" />
+
+              <!-- 📎 Archivo actual (si existe) -->
+              <v-alert
+                v-if="pasoDialogMeta.has"
+                type="success"
+                variant="tonal"
+                class="mb-3"
+              >
+                <div class="d-flex flex-wrap align-center ga-2">
+                  <div><strong>Actual:</strong> {{ pasoDialogMeta.nombre || 'Archivo cargado' }}</div>
+                </div>
+              </v-alert>
+
+              <!-- 👉 Reemplazar archivo -->
               <v-file-input
                 v-model="editPasoFiles"
                 ref="editPasoFileRef"
-                label="Archivo adjunto (opcional)"
+                label="Seleccionar archivo (PDF/JPG/PNG/WEBP)"
                 variant="outlined"
                 density="compact"
                 show-size
                 prepend-icon="mdi-paperclip"
                 accept=".pdf,.jpg,.jpeg,.png,.webp,application/pdf,image/jpeg,image/png,image/webp"
+                class="mb-1"
               />
-              <div class="text-caption mt-2 text-grey-darken-1">
+              <div class="text-caption mt-1 text-grey-darken-1">
                 Si adjuntas un archivo nuevo, reemplazará el existente.
               </div>
             </v-form>
           </v-card-text>
+
           <v-card-actions>
             <v-spacer />
-            <v-btn color="blue-grey-darken-2" variant="text" @click="closeEditPasoDialog" :disabled="isLoadingAction">
-              Cancelar
+            <v-btn variant="text" color="grey-darken-1" @click="closeEditPasoDialog" :disabled="isLoadingAction">Cerrar</v-btn>
+            <v-btn
+              v-if="pasoDialogMeta.has"
+              variant="tonal"
+              prepend-icon="mdi-file-eye-outline"
+              @click="verArchivoPasoActual"
+            >
+              Descargar
             </v-btn>
-            <v-btn color="primary" variant="elevated" @click="submitEditPaso" :loading="isLoadingAction">
-              Guardar Cambios
+            <v-btn
+              v-if="pasoDialogMeta.has"
+              variant="tonal"
+              color="error"
+              prepend-icon="mdi-delete"
+              @click="eliminarArchivoPasoActual"
+              :disabled="isLoadingAction"
+            >
+              Eliminar
+            </v-btn>
+            <v-btn color="primary" variant="flat" prepend-icon="mdi-content-save" @click="submitEditPaso" :loading="isLoadingAction">
+              {{ pasoDialogMeta.has ? 'Reemplazar' : 'Subir' }}
             </v-btn>
           </v-card-actions>
         </v-card>
@@ -1185,7 +1212,7 @@
             Recomendación Médica — Contrato #{{ contratoIdActual || '—' }}
           </v-card-title>
 
-          <v-card-text>
+        <v-card-text>
             <v-alert v-if="recDialog.loading" type="info" variant="tonal" class="mb-3">
               Cargando información…
             </v-alert>
@@ -1232,8 +1259,7 @@
 
     </v-card>
   </v-container>
-</template>
-<script setup lang="ts">
+</template><script setup lang="ts">
 import { ref, onMounted, computed, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 
@@ -1431,6 +1457,11 @@ const pasoEditData = ref<{observacion?:string}>({ })
 const contratoIdForPasoEdit = ref<number | null>(null)
 const pasoIdForEdit = ref<number | null>(null)
 
+/* 🔎 Meta del archivo del paso (para “Actual/Descargar/Eliminar”) */
+const pasoDialogMeta = ref<{ has:boolean; nombre:string; url:string }>(
+  { has:false, nombre:'', url:'' }
+)
+
 /* ===== Helper: contrato prioritario ===== */
 function pickPrimaryContrato(list: any[]): any | null {
   const cs = (list || []).filter(Boolean)
@@ -1542,7 +1573,7 @@ const labelCampo = (c:string)=> CAMPO_LABELS[c] || c
 
 const parseMaybeJson = (v:any)=>{ if(v===null||v===undefined) return v; if(typeof v==='string'){ try{return JSON.parse(v)}catch{return v } } return v }
 const isNamedRel = (val:any): val is { id?: number|string; nombre?: string } => !!val && typeof val==='object' && ('nombre' in val || 'id' in val)
-const toNumberLoose = (v:any)=>{ if(v===null||v===undefined||v==='') return null; if(typeof v==='number') return Number.isFinite(v)?v:null; if(typeof v==='string'){ const s=v.replace(/\./g,'').replace(/,/g,'.').trim(); const n=Number(s); return Number.isFinite(n)?n:null } return null }
+const toNumberLoose = (v:any)=>{ if(v===null||v===undefined||v==='') return null; if(typeof v==='number') return Number.isFinite(v)?v:null; if(typeof v==='string'){ const s=v.replace(/\./g,'').replace(/,/g,'.').trim(); const n = Number(s); return Number.isFinite(n)?n:null } return null }
 const toBoolLoose = (v:any)=>{ if(v===null||v===undefined||v==='') return null; if(typeof v==='boolean') return v; if(typeof v==='string'){ const s=v.toLowerCase().trim(); if(['true','1','si','sí'].includes(s)) return true; if(['false','0','no'].includes(s)) return false } return null }
 
 /** Compara valores antiguos/nuevos evitando falsos positivos */
@@ -1590,16 +1621,52 @@ const renderValor = (campo:string, raw:any, contrato?:Contrato)=>{
   return String(v)
 }
 
-/* Timeline combinado (estados + cambios) */
-const buildTimeline = (c:Contrato)=> {
-  const items:any[] = []
-  ;(c.historialEstados||[]).forEach(h=>items.push({...h, kind:'estado'}))
-  ;(c.cambios||[]).filter(ch=>!equalForField(ch.campo, ch.oldValue, ch.newValue))
-                  .forEach(ch=>items.push({...ch, oldValue:parseMaybeJson(ch.oldValue), newValue:parseMaybeJson(ch.newValue), kind:'cambio'}))
-  return items.sort((a,b)=>{
-    const da = new Date(a.kind==='estado'?a.fechaCambio:a.createdAt).getTime()
-    const db = new Date(b.kind==='estado'?b.fechaCambio:b.createdAt).getTime()
-    return db - da
+/* Timeline combinado (estados + cambios) — sin duplicados del campo "estado" */
+const buildTimeline = (c: Contrato): TimelineItem[] => {
+  const items: TimelineItem[] = []
+
+  const estados = (c.historialEstados || []).map(h => ({ ...h, kind: 'estado' as const }))
+  const cambios = (c.cambios || []).map(ch => ({
+    ...ch,
+    oldValue: parseMaybeJson(ch.oldValue),
+    newValue: parseMaybeJson(ch.newValue),
+    kind: 'cambio' as const,
+  }))
+
+  // 1) Siempre incluimos los eventos específicos de estado
+  items.push(...estados)
+
+  // 2) Separamos los cambios del campo "estado"
+  const cambiosEstado = cambios.filter(ch => ch.campo === 'estado')
+  const cambiosNoEstado = cambios.filter(ch => ch.campo !== 'estado')
+
+  // 3) Si NO hay historialEstados, promovemos cambios.estado a eventos de estado
+  if (estados.length === 0 && cambiosEstado.length > 0) {
+    for (const ch of cambiosEstado) {
+      const oldE = typeof ch.oldValue === 'string' ? ch.oldValue : String(ch.oldValue ?? '')
+      const newE = typeof ch.newValue === 'string' ? ch.newValue : String(ch.newValue ?? '')
+      items.push({
+        kind: 'estado',
+        id: Number.isFinite(+ch.id) ? (ch.id as any) : Date.now(),
+        contratoId: c.id,
+        oldEstado: oldE as any,
+        newEstado: newE as any,
+        fechaCambio: ch.createdAt,
+        usuario: ch.usuario ?? null,
+      } as any)
+    }
+  }
+
+  // 4) Añadimos el resto de cambios (excluyendo "estado") evitando falsos positivos
+  for (const ch of cambiosNoEstado) {
+    if (!equalForField(ch.campo, ch.oldValue, ch.newValue)) items.push(ch as any)
+  }
+
+  // 5) Orden descendente por fecha
+  return items.sort((a, b) => {
+    const ta = new Date(a.kind === 'estado' ? (a as any).fechaCambio : (a as any).createdAt).getTime()
+    const tb = new Date(b.kind === 'estado' ? (b as any).fechaCambio : (b as any).createdAt).getTime()
+    return tb - ta
   })
 }
 
@@ -1936,12 +2003,22 @@ const submitContractFinalization = async (id:number)=>{
   }
 }
 
-/* Editar paso */
+/* ==================== PASO: abrir/guardar/ver/eliminar ==================== */
 const openEditPasoDialog = (contratoId:number, paso:ContratoPasoExt)=>{
   contratoIdForPasoEdit.value=contratoId
   pasoIdForEdit.value=(paso as any).id||null
   pasoEditData.value={observacion: paso.observacion||''}
   editPasoFiles.value = null
+
+  /* Meta del archivo del paso */
+  const url = paso.archivoUrl || ''
+  const nombre = url ? decodeURIComponent(String(url).split('/').pop() || 'archivo') : ''
+  pasoDialogMeta.value = {
+    has: !!url,
+    nombre,
+    url
+  }
+
   showEditPasoDialog.value=true
 }
 const closeEditPasoDialog = ()=>{
@@ -1950,6 +2027,16 @@ const closeEditPasoDialog = ()=>{
   editPasoFileRef.value?.reset()
   editPasoFiles.value = null
 }
+
+/** Localiza el paso actualmente en edición en la data del usuario */
+function getPasoEnEdicion(): ContratoPasoExt | null {
+  const cid = contratoIdForPasoEdit.value
+  const pid = pasoIdForEdit.value
+  if (!cid || !pid) return null
+  const c = user.value?.contratos?.find(x=>x.id===cid)
+  return c?.pasos?.find(p=> (p as any).id === pid) || null
+}
+
 const submitEditPaso = async ()=>{
   if(!contratoIdForPasoEdit.value || !pasoIdForEdit.value) return
   isLoadingAction.value = true
@@ -1968,6 +2055,43 @@ const submitEditPaso = async ()=>{
     showAlert('Error', `Error al actualizar el paso: ${err.message || 'error desconocido'}.`)
   } finally { isLoadingAction.value = false }
 }
+
+/** Ver/descargar el archivo actual del paso */
+function verArchivoPasoActual(){
+  const raw = pasoDialogMeta.value.url || getPasoEnEdicion()?.archivoUrl || ''
+  if (!raw) { showAlert('Sin archivo','No hay archivo para ver.'); return }
+  window.open(toAbsoluteApiUrl(raw), '_blank', 'noopener,noreferrer')
+}
+
+/** Eliminar el archivo actual del paso (sin afectar otros modals) */
+async function eliminarArchivoPasoActual(){
+  if(!contratoIdForPasoEdit.value || !pasoIdForEdit.value) return
+  const ok = await showConfirm('Eliminar archivo','¿Seguro que deseas eliminar el archivo de este paso?')
+  if(!ok) return
+
+  isLoadingAction.value = true
+  try {
+    const payload = new FormData()
+    payload.append('observacion', pasoEditData.value.observacion || '')
+    payload.append('eliminarArchivo','1') // backend puede ignorar si no aplica
+    if (actorId.value != null) payload.append('actorId', String(actorId.value))
+
+    await actualizarPasoContrato(contratoIdForPasoEdit.value, pasoIdForEdit.value, payload)
+
+    // refresco local mínimo para que el diálogo refleje el cambio
+    const paso = getPasoEnEdicion()
+    if (paso) (paso as any).archivoUrl = null
+    pasoDialogMeta.value = { has:false, nombre:'', url:'' }
+
+    showAlert('Listo','Archivo eliminado.')
+  } catch (e:any) {
+    console.error(e)
+    showAlert('Error', e?.message || 'No fue posible eliminar el archivo.')
+  } finally {
+    isLoadingAction.value = false
+  }
+}
+/* ================== /PASO ================== */
 
 /* Foto de perfil */
 function closePhotoDialog(){
@@ -2107,151 +2231,52 @@ onMounted(()=>{ loadUser() })
 
 /* Expuestos implícitamente por <script setup> */
 </script>
+
+
+
 <style scoped>
-/* ====== Layout general ====== */
-.contrato-section {
-  border: 1px solid #e0e0e0;
-  border-radius: 12px;
-  padding: 1rem;
-  margin-bottom: 1.5rem;
-  background-color: #fff;
+/* Avatar */
+.avatar-container {
+  position: relative;
+  display: inline-block;
+}
+.edit-avatar-btn {
+  position: absolute;
+  bottom: 0;
+  right: 0;
 }
 
-/* ====== Encabezados ====== */
-.section-title {
-  font-size: 1.25rem;
-  font-weight: bold;
-  margin-bottom: 0.75rem;
-  color: #1e293b;
+/* Clip badge */
+.clip-badge {
+  margin-left: 8px;
 }
 
-.subsection-title {
-  font-size: 1.1rem;
-  font-weight: 600;
-  margin: 0.75rem 0;
-  color: #334155;
+/* Estilo del modal de editar paso */
+.v-dialog .v-card-text .v-textarea {
+  margin-bottom: 12px;
 }
 
-/* ====== Tabs ====== */
-.v-tab {
-  text-transform: none !important;
-  font-weight: 500;
-  font-size: 0.95rem;
-}
-.v-tab.v-tab--active {
-  color: #1976d2 !important;
-  font-weight: 600;
+/* Ícono de lápiz al lado del título */
+.v-timeline-item .d-flex.align-center > .v-btn {
+  margin-left: 6px;
+  padding: 0;
 }
 
-/* ====== Timeline ====== */
-.timeline-item {
-  border-left: 3px solid #1976d2;
-  padding-left: 12px;
-  margin-bottom: 1rem;
-}
-.timeline-date {
-  font-size: 0.8rem;
-  color: #64748b;
-}
-.timeline-title {
-  font-weight: bold;
-  margin-bottom: 4px;
-  color: #1e293b;
-}
-.timeline-body {
-  font-size: 0.9rem;
-  color: #475569;
-}
-
-/* ====== Chips ====== */
-.v-chip {
-  font-size: 0.8rem;
-  font-weight: 500;
-}
-
-/* ====== Diálogos ====== */
-.v-dialog .v-card-title {
-  font-weight: bold;
-  font-size: 1.1rem;
-  color: #1e293b;
-}
-
-/* ====== Formularios ====== */
-.v-label {
-  font-size: 0.9rem;
-  color: #334155 !important;
-}
-
-/* ====== Botones ====== */
-.v-btn {
-  text-transform: none !important;
-  font-weight: 500;
-  border-radius: 8px;
-}
-
-/* ====== Snackbar personalizado ====== */
+/* Snackbar azul */
 .snackbar-card {
-  display: flex;
-  flex-direction: column;
-  min-width: 260px;
-  border-radius: 12px;
+  background: white;
+  border-radius: 8px;
   overflow: hidden;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  min-width: 260px;
 }
-
 .snackbar-header {
-  background-color: #1976d2; /* azul */
-  color: #fff;
+  background: #1976d2;
+  color: white;
   font-weight: bold;
   padding: 6px 12px;
-  font-size: 0.9rem;
-  text-align: center;
 }
-
 .snackbar-body {
-  background-color: #fff; /* blanco */
-  color: #1e293b;
   padding: 10px 12px;
-  font-size: 0.85rem;
-  text-align: center;
-}
-
-/* ====== Imagen de perfil ====== */
-.profile-picture {
-  width: 120px;
-  height: 120px;
-  border-radius: 50%;
-  object-fit: cover;
-  border: 3px solid #e2e8f0;
-}
-
-/* ====== Contratos ====== */
-.contrato-card {
-  border: 1px solid #e2e8f0;
-  border-radius: 12px;
-  padding: 1rem;
-  margin-bottom: 1.5rem;
-  background-color: #fafafa;
-}
-.contrato-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 0.75rem;
-}
-.contrato-title {
-  font-size: 1rem;
-  font-weight: 600;
-  color: #1e293b;
-}
-
-/* ====== Archivos ====== */
-.file-link {
-  color: #1976d2;
-  font-weight: 500;
-  text-decoration: none;
-}
-.file-link:hover {
-  text-decoration: underline;
+  color: #333;
 }
 </style>

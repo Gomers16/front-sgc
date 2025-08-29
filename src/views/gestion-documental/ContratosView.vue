@@ -81,7 +81,7 @@
               />
             </v-col>
 
-            <!-- Término (siempre visible; opciones dependen del tipo) -->
+            <!-- Término -->
             <v-col cols="12" md="6">
               <v-select
                 label="Término de Contrato"
@@ -276,9 +276,15 @@
                         <v-icon v-bind="props" icon="mdi-help-circle-outline" size="18" class="ml-1 text-medium-emphasis" />
                       </template>
                     </v-tooltip>
+
+                    <!-- ✅ Chulo cuando hay pendiente/guardado -->
                     <v-tooltip v-if="hasCertUI('eps')" text="Archivo cargado" location="top">
-                      <template #activator="{ props }"><v-icon v-bind="props" size="18" color="success" class="ml-1">mdi-check-circle</v-icon></template>
+                      <template #activator="{ props }">
+                        <v-icon v-bind="props" size="18" color="success" class="ml-1">mdi-check-circle</v-icon>
+                      </template>
                     </v-tooltip>
+
+                    <!-- 📎 Abre modal -->
                     <v-tooltip :text="hasCertUI('eps') ? 'Ver/Reemplazar certificado EPS' : 'Subir certificado EPS'" location="top">
                       <template #activator="{ props }">
                         <v-btn v-bind="props" icon="mdi-paperclip" size="small" variant="text" class="ml-1" :disabled="!epsId" :ripple="false" @click.stop="openCert('eps', $event)" />
@@ -310,9 +316,13 @@
                         <v-icon v-bind="props" icon="mdi-help-circle-outline" size="18" class="ml-1 text-medium-emphasis" />
                       </template>
                     </v-tooltip>
+
                     <v-tooltip v-if="hasCertUI('arl')" text="Archivo cargado" location="top">
-                      <template #activator="{ props }"><v-icon v-bind="props" size="18" color="success" class="ml-1">mdi-check-circle</v-icon></template>
+                      <template #activator="{ props }">
+                        <v-icon v-bind="props" size="18" color="success" class="ml-1">mdi-check-circle</v-icon>
+                      </template>
                     </v-tooltip>
+
                     <v-tooltip :text="hasCertUI('arl') ? 'Ver/Reemplazar certificado ARL' : 'Subir certificado ARL'" location="top">
                       <template #activator="{ props }">
                         <v-btn v-bind="props" icon="mdi-paperclip" size="small" variant="text" class="ml-1" :disabled="!arlId" :ripple="false" @click.stop="openCert('arl', $event)" />
@@ -344,9 +354,13 @@
                         <v-icon v-bind="props" icon="mdi-help-circle-outline" size="18" class="ml-1 text-medium-emphasis" />
                       </template>
                     </v-tooltip>
+
                     <v-tooltip v-if="hasCertUI('afp')" text="Archivo cargado" location="top">
-                      <template #activator="{ props }"><v-icon v-bind="props" size="18" color="success" class="ml-1">mdi-check-circle</v-icon></template>
+                      <template #activator="{ props }">
+                        <v-icon v-bind="props" size="18" color="success" class="ml-1">mdi-check-circle</v-icon>
+                      </template>
                     </v-tooltip>
+
                     <v-tooltip :text="hasCertUI('afp') ? 'Ver/Reemplazar certificado AFP' : 'Subir certificado AFP'" location="top">
                       <template #activator="{ props }">
                         <v-btn v-bind="props" icon="mdi-paperclip" size="small" variant="text" class="ml-1" :disabled="!afpId" :ripple="false" @click.stop="openCert('afp', $event)" />
@@ -377,9 +391,13 @@
                         <v-icon v-bind="props" icon="mdi-help-circle-outline" size="18" class="ml-1 text-medium-emphasis" />
                       </template>
                     </v-tooltip>
+
                     <v-tooltip v-if="hasCertUI('afc')" text="Archivo cargado" location="top">
-                      <template #activator="{ props }"><v-icon v-bind="props" size="18" color="success" class="ml-1">mdi-check-circle</v-icon></template>
+                      <template #activator="{ props }">
+                        <v-icon v-bind="props" size="18" color="success" class="ml-1">mdi-check-circle</v-icon>
+                      </template>
                     </v-tooltip>
+
                     <v-tooltip :text="hasCertUI('afc') ? 'Ver/Reemplazar certificado AFC' : 'Subir certificado AFC'" location="top">
                       <template #activator="{ props }">
                         <v-btn v-bind="props" icon="mdi-paperclip" size="small" variant="text" class="ml-1" :disabled="!afcId" :ripple="false" @click.stop="openCert('afc', $event)" />
@@ -411,9 +429,13 @@
                         <v-icon v-bind="props" icon="mdi-help-circle-outline" size="18" class="ml-1 text-medium-emphasis" />
                       </template>
                     </v-tooltip>
+
                     <v-tooltip v-if="hasCertUI('ccf')" text="Archivo cargado" location="top">
-                      <template #activator="{ props }"><v-icon v-bind="props" size="18" color="success" class="ml-1">mdi-check-circle</v-icon></template>
+                      <template #activator="{ props }">
+                        <v-icon v-bind="props" size="18" color="success" class="ml-1">mdi-check-circle</v-icon>
+                      </template>
                     </v-tooltip>
+
                     <v-tooltip :text="hasCertUI('ccf') ? 'Ver/Reemplazar certificado CCF' : 'Subir certificado CCF'" location="top">
                       <template #activator="{ props }">
                         <v-btn v-bind="props" icon="mdi-paperclip" size="small" variant="text" class="ml-1" :disabled="!ccfId" :ripple="false" @click.stop="openCert('ccf', $event)" />
@@ -523,14 +545,13 @@
             </v-card>
           </v-col>
 
-          <!-- Anexar/Reemplazar contrato: UN SOLO INPUT -->
+          <!-- Anexar/Reemplazar contrato -->
           <v-col cols="12" md="6">
             <h4 class="text-h6 mb-2">
               {{ isEditing ? 'Reemplazar Archivo de Contrato (opcional)' : 'Anexar Contrato' }}
             </h4>
 
             <v-card class="pa-4">
-              <!-- Archivo actual (solo en edición) -->
               <v-alert
                 v-if="isEditing && contratoEditTieneArchivo"
                 type="success"
@@ -554,7 +575,6 @@
                 </div>
               </v-alert>
 
-              <!-- ÚNICO v-file-input -->
               <v-file-input
                 :key="fileInputKey"
                 label="Subir archivo del contrato físico"
@@ -791,7 +811,8 @@
           </v-alert>
 
           <div v-else>
-            <v-alert v-if="certTieneArchivo" type="success" variant="tonal" class="mb-3">
+            <!-- ✅ Solo cuando YA está persistido (backend en edición o pendiente en creación) -->
+            <v-alert v-if="certTieneArchivoPersistido" type="success" variant="tonal" class="mb-3">
               <div class="d-flex flex-wrap align-center ga-2">
                 <div><strong>Actual:</strong> {{ getArchivoNombre(certDialog.meta) || 'Archivo cargado' }}</div>
               </div>
@@ -807,6 +828,12 @@
               show-size
               class="mb-1"
             />
+
+            <!-- 👀 Si SOLO hay archivo en el input (sin persistir todavía) -->
+            <div v-if="!certTieneArchivoPersistido && certDialog.file" class="text-caption text-medium-emphasis mb-1">
+              Archivo seleccionado: <strong>{{ certDialog.file.name }}</strong> — listo para <em>Subir</em>.
+            </div>
+
             <div class="text-caption text-medium-emphasis">Permitidos: PDF, JPG, PNG, WEBP (máx {{ MAX_UPLOAD_MB }} MB)</div>
           </div>
         </v-card-text>
@@ -814,10 +841,20 @@
         <v-card-actions>
           <v-spacer />
           <v-btn variant="text" color="grey-darken-1" @click="cerrarCertDialog">Cerrar</v-btn>
-          <v-btn v-if="certTieneArchivo" variant="tonal" prepend-icon="mdi-download" @click="descargarCertificadoSeleccionado">Descargar</v-btn>
-          <v-btn v-if="certTieneArchivo" variant="tonal" color="error" prepend-icon="mdi-delete" @click="eliminarCertificadoSeleccionado">Eliminar</v-btn>
-          <v-btn color="primary" variant="flat" prepend-icon="mdi-upload" :disabled="!certDialog.file || certDialog.loading" @click="subirCertificadoSeleccionado">
-            {{ certTieneArchivo ? 'Reemplazar' : 'Subir' }}
+
+          <!-- Botones solo si hay algo persistido -->
+          <v-btn v-if="certTieneArchivoPersistido" variant="tonal" prepend-icon="mdi-download" @click="descargarCertificadoSeleccionado">Descargar</v-btn>
+          <v-btn v-if="certTieneArchivoPersistido" variant="tonal" color="error" prepend-icon="mdi-delete" @click="eliminarCertificadoSeleccionado">Eliminar</v-btn>
+
+          <!-- Principal: Subir si NO hay persistido; Reemplazar si SÍ hay persistido -->
+          <v-btn
+            color="primary"
+            variant="flat"
+            prepend-icon="mdi-upload"
+            :disabled="!certDialog.file || certDialog.loading"
+            @click="subirCertificadoSeleccionado"
+          >
+            {{ certTieneArchivoPersistido ? 'Reemplazar' : 'Subir' }}
           </v-btn>
         </v-card-actions>
       </v-card>
@@ -849,6 +886,9 @@
               show-size
               class="mb-1"
             />
+            <div v-if="!recTieneArchivo && recDialog.file" class="text-caption text-medium-emphasis mb-1">
+              Archivo seleccionado: <strong>{{ recDialog.file.name }}</strong> — listo para <em>Subir</em>.
+            </div>
             <div class="text-caption text-medium-emphasis">Permitidos: PDF, DOC, DOCX (máx {{ MAX_UPLOAD_MB }} MB)</div>
           </div>
         </v-card-text>
@@ -899,6 +939,8 @@
     </v-snackbar>
   </v-container>
 </template>
+
+
 <script setup lang="ts">
 /* Vue + VeeValidate */
 import { ref, computed, watch, onMounted, nextTick } from 'vue'
@@ -1090,7 +1132,10 @@ function tieneArchivoAfiliacion(meta:any) {
   catch { return false }
 }
 function getArchivoNombre(meta: any) {
-  return meta?.data?.nombreOriginal || meta?.data?.filename || meta?.data?.name || meta?.nombreOriginal || meta?.url?.split('/')?.pop() || ''
+  // Fallback a nombre de pendiente si no hay meta con nombre
+  const t = certDialog.value.tipo as AfiliacionTipo
+  const pending = t ? pendingCertsByTipo.value[t] : null
+  return meta?.data?.nombreOriginal || meta?.data?.filename || meta?.data?.name || meta?.nombreOriginal || pending?.name || meta?.url?.split('/')?.pop() || ''
 }
 function getEntidadIdByTipo(t: AfiliacionTipo): number | null {
   const map: Record<AfiliacionTipo, number | null> = {
@@ -1300,18 +1345,30 @@ const certDialog = ref({
   loading: false,
   meta: null as any
 })
-const certTieneArchivo = computed(() => {
+
+/** ✅ Estado “persistido” del modal de certificado:
+ *  - En edición: si existe meta real en backend
+ *  - En creación: si hay archivo pendiente guardado en memoria
+ */
+const certTieneArchivoPersistido = computed(() => {
   const t = certDialog.value.tipo as AfiliacionTipo
-  const meta = certDialog.value.meta ?? (t ? afiliacionMetaByTipo.value[t] : null)
-  try { return tieneArchivoAfiliacion(meta) } catch { return false }
+  if (!t) return false
+  if (isEditing.value) {
+    const meta = certDialog.value.meta ?? afiliacionMetaByTipo.value[t]
+    return tieneArchivoAfiliacion(meta)
+  }
+  return !!pendingCertsByTipo.value[t]
 })
+
 function cerrarCertDialog() {
   certDialog.value = { ...certDialog.value, open:false, tipo:'', entidadId:null, entidadNombre:'', file:null, loading:false, meta:null }
 }
+
 function openCert(tipo: AfiliacionTipo, ev?: MouseEvent) {
   ev?.stopPropagation(); ev?.preventDefault()
   abrirDialogoCertificado(tipo)
 }
+
 async function abrirDialogoCertificado(tipo: AfiliacionTipo) {
   const idMap: Record<AfiliacionTipo, number | null> = { eps: epsId.value, arl: arlId.value, afp: afpId.value, afc: afcId.value, ccf: ccfId.value }
   const id = idMap[tipo]
@@ -1326,6 +1383,7 @@ async function abrirDialogoCertificado(tipo: AfiliacionTipo) {
     meta: null,
   }
 
+  // 🔁 Cargar estado inicial del modal:
   if (isEditing.value && contratoEditId.value) {
     certDialog.value.loading = true
     try {
@@ -1337,8 +1395,13 @@ async function abrirDialogoCertificado(tipo: AfiliacionTipo) {
     } finally {
       certDialog.value.loading = false
     }
+  } else {
+    // 👇 En creación: si ya había archivo pendiente, mostrarlo como “actual”
+    const f = pendingCertsByTipo.value[tipo]
+    certDialog.value.meta = f ? { data: { nombreOriginal: f.name } } : null
   }
 }
+
 async function subirCertificadoSeleccionado() {
   const t = certDialog.value.tipo as AfiliacionTipo
   const entidadId = certDialog.value.entidadId
@@ -1350,10 +1413,12 @@ async function subirCertificadoSeleccionado() {
   if (msg) { notify(msg, 'error'); return }
 
   if (!isEditing.value) {
+    // 💾 Persistir en memoria (pendiente) y actualizar UI del modal a “cargado”
     pendingCertsByTipo.value[t] = certDialog.value.file
     pendingEntidadIdByTipo.value[t] = entidadId
-    certUiTick.value++
+    certDialog.value.meta = { data: { nombreOriginal: certDialog.value.file.name } }
     certDialog.value.file = null
+    certUiTick.value++
     notify('Archivo preparado. Se subirá al guardar el contrato.', 'success')
     return
   }
@@ -1373,13 +1438,17 @@ async function subirCertificadoSeleccionado() {
     certDialog.value.loading = false
   }
 }
+
 async function eliminarCertificadoSeleccionado() {
   const t = certDialog.value.tipo as AfiliacionTipo
   if (!t) return
 
   if (!isEditing.value) {
+    // ❌ Quitar archivo pendiente en creación
     pendingCertsByTipo.value[t] = null
     pendingEntidadIdByTipo.value[t] = null
+    certDialog.value.meta = null
+    certDialog.value.file = null
     certUiTick.value++
     notify('Archivo pendiente descartado.', 'success')
     return
@@ -1396,6 +1465,7 @@ async function eliminarCertificadoSeleccionado() {
     notify(e?.message || 'No fue posible eliminar el archivo.', 'error')
   }
 }
+
 async function descargarCertificadoSeleccionado() {
   const t = certDialog.value.tipo as AfiliacionTipo
 
@@ -2104,35 +2174,98 @@ onMounted(() => {
 /* Exponer helpers usados en el template */
 defineExpose({ toAbsoluteApiUrl })
 </script>
+
 <style scoped>
+/* ====== Layout de formularios ====== */
 .form {
   display: flex;
   flex-direction: column;
   gap: 16px;
 }
 
+/* ====== Iconos de “clip” y estados en selects ====== */
 .append-icons {
   display: flex;
   align-items: center;
+  gap: 6px;
+}
+.append-icons .v-icon,
+.append-icons .v-btn {
+  margin-left: 2px;
 }
 
+/* ====== Tabla de historial ====== */
 .v-table {
   width: 100%;
   border-collapse: collapse;
 }
-
 .v-table th,
 .v-table td {
   padding: 8px;
   border-bottom: 1px solid #e0e0e0;
 }
-
 .v-table th {
   font-weight: bold;
   background-color: #f5f5f5;
 }
-
 .v-table tbody tr:hover {
   background-color: #fafafa;
 }
+
+/* ====== Tipografías / utilidades ====== */
+.text-capitalize {
+  text-transform: capitalize;
+}
+
+/* Ajustes de chips y botones pequeños en celdas */
+.v-chip {
+  font-weight: 600;
+}
+.v-btn--size-x-small {
+  line-height: 1.1;
+}
+
+/* ====== Títulos de tarjetas ====== */
+.v-card-title.bg-blue-grey-lighten-5 {
+  border-bottom: 1px solid #e0e0e0;
+}
+
+/* ====== Diálogos ====== */
+.v-dialog .v-card-title {
+  font-weight: 600;
+}
+.v-dialog .v-card-text {
+  padding-top: 12px;
+}
+
+/* ====== Inputs de archivo ====== */
+.v-file-input {
+  margin-bottom: 8px;
+}
+
+/* ====== Ajustes visuales menores ====== */
+:deep(.v-timeline-item__dot) {
+  box-shadow: none;
+}
+:deep(.v-timeline-item__body) {
+  padding-top: 6px;
+  padding-bottom: 6px;
+}
+
+/* ====== Contenedores con resalte suave ====== */
+.v-alert {
+  border-radius: 10px;
+}
+
+/* ====== Responsive tweaks ====== */
+@media (max-width: 600px) {
+  .v-table th,
+  .v-table td {
+    padding: 6px;
+  }
+  .append-icons {
+    gap: 4px;
+  }
+}
 </style>
+
