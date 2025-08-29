@@ -35,14 +35,14 @@ export interface ContratoEvento {
   id: number
   contratoId: number
   tipo:
-    | 'incapacidad'
-    | 'suspension'
-    | 'licencia'
-    | 'permiso'
-    | 'vacaciones'
-    | 'cesantias'
-    | 'disciplinario'
-    | 'terminacion'
+    | 'Incapacidad'
+    | 'Suspension'
+    | 'Licencia'
+    | 'Permiso'
+    | 'Vacaciones'
+    | 'Cesantias'
+    | 'Disciplinario'
+    | 'Terminacion'
   subtipo?: string
   fechaInicio: string
   fechaFin?: string
@@ -56,13 +56,18 @@ export interface Contrato {
   id: number
   usuarioId: number
   sedeId: number
-  tipoContrato: 'prestacion' | 'temporal' | 'laboral'
+  /** ⬅️ agregado 'aprendizaje' para alinear con la vista */
+  tipoContrato: 'prestacion' | 'temporal' | 'laboral' | 'aprendizaje'
   estado: 'activo' | 'inactivo'
   fechaInicio: string
   fechaFin?: string
   motivoFinalizacion?: string
   nombreArchivoContratoFisico?: string
   rutaArchivoContratoFisico?: string
+  /** ⬅️ opcional por si el backend lo envía y la vista lo usa */
+  terminoContrato?: 'fijo' | 'obra_o_labor_determinada' | 'indefinido' | string
+  /** ⬅️ opcional para que la vista pueda leerla si viene */
+  rutaArchivoRecomendacionMedica?: string | null
   eventos?: ContratoEvento[]
   pasos?: ContratoPaso[]
 }

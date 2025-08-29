@@ -30,7 +30,7 @@
             <div class="avatar-container">
               <v-avatar size="180" class="elevation-8 border-lg border-white">
                 <v-img
-                  :src="user.fotoPerfil ? 'http://localhost:3333' + user.fotoPerfil : 'https://i.imgur.com/I8iJ8sX.png'"
+                  :src="user.fotoPerfil ? toAbsoluteApiUrl(user.fotoPerfil) : 'https://i.imgur.com/I8iJ8sX.png'"
                   alt="Foto de perfil"
                   cover
                 />
@@ -41,6 +41,7 @@
                 color="primary"
                 size="small"
                 @click="showPhotoDialog = true"
+                aria-label="Cambiar foto de perfil"
               >
                 <v-icon>mdi-camera</v-icon>
               </v-btn>
@@ -109,7 +110,9 @@
                   </v-list-item>
                   <v-list-item prepend-icon="mdi-domain" class="mb-2">
                     <v-list-item-title class="font-weight-bold">Empresa:</v-list-item-title>
-                    <v-list-item-subtitle>{{ user.razonSocial?.nombre || 'N/A' }}</v-list-item-subtitle>
+                    <v-list-item-subtitle>
+                      {{ primaryContrato?.razonSocial?.nombre || user.razonSocial?.nombre || 'N/A' }}
+                    </v-list-item-subtitle>
                   </v-list-item>
                   <v-list-item prepend-icon="mdi-city" class="mb-2">
                     <v-list-item-title class="font-weight-bold">Sede:</v-list-item-title>
@@ -123,7 +126,7 @@
               </v-card>
             </v-col>
 
-            <!-- Seguridad Social (clip + chulito) -->
+            <!-- Seguridad Social -->
             <v-col cols="12" md="6">
               <v-card class="elevation-4 rounded-lg mt-6 h-100 seg-social">
                 <v-card-title class="text-h6 font-weight-bold text-white bg-blue-grey-darken-2 pa-4">
@@ -335,7 +338,7 @@
                     </v-list-item>
                   </v-col>
 
-                  <!-- ✅ Recomendación Médica (clip + chulito) -->
+                  <!-- Recomendación Médica (clip + chulito) -->
                   <v-col cols="12" sm="12">
                     <v-list-item prepend-icon="mdi-heart-pulse">
                       <v-list-item-title class="font-weight-bold">
@@ -361,6 +364,7 @@
                             size="small"
                             :disabled="!contratoIdActual"
                             @click="abrirDialogoRecomendacionContrato()"
+                            aria-label="Gestionar recomendación médica"
                           >
                             <v-icon>mdi-paperclip</v-icon>
                           </v-btn>
@@ -392,7 +396,7 @@
                 class="rounded-lg mb-4 elevation-2"
               >
                 <v-expansion-panel-title>
-                  Contrato #{{ contrato.id }} - Tipo: {{ contrato.tipoContrato }}
+                  Contrato #{{ contrato.id }} — Tipo: {{ contrato.tipoContrato }}
                   <v-spacer />
                   <v-chip
                     :color="(contrato.estado || '').toLowerCase() === 'activo' ? 'success' : 'error'"
@@ -444,7 +448,7 @@
                           <v-list-item-title class="font-weight-bold">Contrato Físico:</v-list-item-title>
                           <v-list-item-subtitle>
                             <a
-                              :href="`http://localhost:3333${contrato.rutaArchivoContratoFisico}`"
+                              :href="toAbsoluteApiUrl(contrato.rutaArchivoContratoFisico)"
                               target="_blank"
                               class="contrato-link"
                             >
@@ -453,7 +457,7 @@
                           </v-list-item-subtitle>
                         </v-list-item>
 
-                        <!-- ✅ Recomendaciones Médicas: chip + botón descargar si hay -->
+                        <!-- Recomendaciones Médicas -->
                         <v-list-item prepend-icon="mdi-heart-pulse" class="mb-2">
                           <v-list-item-title class="font-weight-bold">Recomendaciones Médicas:</v-list-item-title>
                           <v-list-item-subtitle>
@@ -468,13 +472,13 @@
 
                             <template v-if="contrato.tieneRecomendacionesMedicas && contrato.rutaArchivoRecomendacionMedica">
                               <v-btn
-                                :href="contrato.rutaArchivoRecomendacionMedica.startsWith('http') ? contrato.rutaArchivoRecomendacionMedica : `http://localhost:3333${contrato.rutaArchivoRecomendacionMedica}`"
+                                :href="toAbsoluteApiUrl(contrato.rutaArchivoRecomendacionMedica)"
                                 target="_blank"
                                 color="primary"
                                 variant="text"
                                 size="small"
                                 class="ml-2"
-                                prepend-icon="mdi-file-download-outline"
+                                prepend-icon="mdi-file-eye-outline"
                               >
                                 Descargar
                               </v-btn>
@@ -553,7 +557,7 @@
 
                                 <div v-if="paso.archivoUrl" class="mt-2">
                                   <a
-                                    :href="paso.archivoUrl.startsWith('http') ? paso.archivoUrl : `http://localhost:3333${paso.archivoUrl}`"
+                                    :href="toAbsoluteApiUrl(paso.archivoUrl)"
                                     target="_blank"
                                     class="text-caption d-flex align-center text-primary"
                                   >
@@ -565,9 +569,9 @@
                                 <div class="mt-2 d-flex justify-end">
                                   <v-btn
                                     v-if="paso.archivoUrl"
-                                    :href="paso.archivoUrl.startsWith('http') ? paso.archivoUrl : `http://localhost:3333${paso.archivoUrl}`"
+                                    :href="toAbsoluteApiUrl(paso.archivoUrl)"
                                     target="_blank"
-                                    icon="mdi-download"
+                                    icon="mdi-eye"
                                     variant="text"
                                     size="small"
                                     color="primary"
@@ -617,9 +621,13 @@
                                 size="small"
                               >
                                 <div class="d-flex justify-space-between align-center mb-1">
-                                  <span class="font-weight-bold text-subtitle-1">{{ evento.tipo }}</span>
+                                  <span class="font-weight-bold text-subtitle-1">
+                                    {{ evento.tipo }}
+                                  </span>
                                   <v-spacer />
-                                  <span class="text-caption text-grey-darken-1">{{ formatDate(evento.createdAt) }}</span>
+                                  <span class="text-caption text-grey-darken-1">
+                                    {{ formatDate(evento.createdAt) }}
+                                  </span>
                                 </div>
 
                                 <div class="text-body-2 text-grey-darken-2">
@@ -628,8 +636,8 @@
 
                                 <div class="mt-1 text-caption text-grey-darken-1">
                                   Por:
-                                  <v-chip v-if="evento.usuario" size="x-small" color="primary" label>
-                                    {{ fullName(evento.usuario) }}
+                                  <v-chip v-if="(evento as any).usuario" size="x-small" color="primary" label>
+                                    {{ fullName((evento as any).usuario) }}
                                   </v-chip>
                                   <span v-else>Sistema</span>
                                 </div>
@@ -645,14 +653,14 @@
                                   />
                                   <v-btn
                                     v-if="evento.documentoUrl"
-                                    :href="`http://localhost:3333${evento.documentoUrl}`"
+                                    :href="toAbsoluteApiUrl(evento.documentoUrl)"
                                     target="_blank"
                                     color="primary"
                                     variant="outlined"
                                     size="small"
-                                    prepend-icon="mdi-file-download-outline"
+                                    prepend-icon="mdi-file-eye-outline"
                                   >
-                                    Descargar Documento
+                                    Descargar
                                   </v-btn>
                                 </div>
                               </v-timeline-item>
@@ -793,7 +801,7 @@
                                         icon="mdi-help-circle-outline"
                                         size="16"
                                         class="ml-1 text-medium-emphasis"
-                                        :aria-label="`¿Qué es ${labelCampo(item.campo)}?`"
+                                        :aria-label="`¿Qué es {{ labelCampo(item.campo) }}?`"
                                       />
                                     </template>
                                   </v-tooltip>
@@ -950,6 +958,8 @@
                   <v-select
                     v-model="newEvent.tipo"
                     :items="tiposEvento"
+                    item-title="label"
+                    item-value="value"
                     label="Tipo de Evento"
                     variant="outlined"
                     :rules="[v => !!v || 'El tipo de evento es obligatorio']"
@@ -979,9 +989,9 @@
                   <v-file-input
                     v-model="eventFiles"
                     ref="eventFileRef"
-                    label="Documento adjunto (PDF, JPG, PNG)"
+                    label="Documento adjunto (PDF, JPG, PNG, WEBP)"
                     prepend-icon="mdi-paperclip"
-                    accept=".pdf,image/jpeg,image/png"
+                    accept=".pdf,.jpg,.jpeg,.png,.webp,application/pdf,image/jpeg,image/png,image/webp"
                     variant="outlined"
                     show-size
                   />
@@ -1029,7 +1039,7 @@
               <v-list-item v-if="selectedEvent.documentoUrl">
                 <v-list-item-title class="font-weight-bold">Documento:</v-list-item-title>
                 <v-list-item-subtitle>
-                  <a :href="`http://localhost:3333${selectedEvent.documentoUrl}`" target="_blank">Ver Documento</a>
+                  <a :href="toAbsoluteApiUrl(selectedEvent.documentoUrl)" target="_blank">Ver Documento</a>
                 </v-list-item-subtitle>
               </v-list-item>
               <v-list-item>
@@ -1072,7 +1082,7 @@
                 density="compact"
                 show-size
                 prepend-icon="mdi-paperclip"
-                accept=".pdf,image/jpeg,image/png"
+                accept=".pdf,.jpg,.jpeg,.png,.webp,application/pdf,image/jpeg,image/png,image/webp"
               />
               <div class="text-caption mt-2 text-grey-darken-1">
                 Si adjuntas un archivo nuevo, reemplazará el existente.
@@ -1091,16 +1101,16 @@
         </v-card>
       </v-dialog>
 
-      <!-- Alertas -->
+      <!-- Alertas (queda, pero se usa snackbar) -->
       <v-dialog v-model="showAlertDialog" max-width="400px">
         <v-card>
           <v-card-title class="text-h6 bg-primary text-white">{{ alertDialogTitle }}</v-card-title>
-          <v-card-text class="py-4">{{ alertDialogMessage }}</v-card-text>
-          <v-card-actions>
-            <v-spacer />
-            <v-btn color="primary" @click="showAlertDialog = false">Aceptar</v-btn>
-          </v-card-actions>
         </v-card>
+        <v-card-text class="py-4">{{ alertDialogMessage }}</v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn color="primary" @click="showAlertDialog = false">Aceptar</v-btn>
+        </v-card-actions>
       </v-dialog>
 
       <!-- Confirmaciones -->
@@ -1116,7 +1126,7 @@
         </v-card>
       </v-dialog>
 
-      <!-- Diálogo Certificado (usuario + tipo) -->
+      <!-- Diálogo Certificado (por CONTRATO + tipo) -->
       <v-dialog v-model="certDialog.open" max-width="640px">
         <v-card>
           <v-card-title class="text-h6">
@@ -1130,9 +1140,16 @@
             <div v-else>
               <v-alert v-if="certTieneArchivo" type="success" variant="tonal" class="mb-3">
                 <div class="d-flex flex-wrap align-center ga-2">
-                  <div><strong>Actual:</strong> {{ certDialog.meta?.data?.nombreOriginal || 'Archivo cargado' }}</div>
-                  <div v-if="certDialog.meta?.data?.fechaEmision">• Emisión: {{ formatFechaOrFechaHora(certDialog.meta?.data?.fechaEmision) }}</div>
-                  <div v-if="certDialog.meta?.data?.fechaExpiracion">• Expira: {{ formatFechaOrFechaHora(certDialog.meta?.data?.fechaExpiracion) }}</div>
+                  <div>
+                    <strong>Actual:</strong>
+                    {{ certDialog.meta?.data?.nombreOriginal || certDialog.meta?.nombreOriginal || 'Archivo cargado' }}
+                  </div>
+                  <div v-if="certDialog.meta?.data?.fechaEmision || certDialog.meta?.fechaEmision">
+                    • Emisión: {{ formatFechaOrFechaHora(certDialog.meta?.data?.fechaEmision || certDialog.meta?.fechaEmision) }}
+                  </div>
+                  <div v-if="certDialog.meta?.data?.fechaExpiracion || certDialog.meta?.fechaExpiracion">
+                    • Expira: {{ formatFechaOrFechaHora(certDialog.meta?.data?.fechaExpiracion || certDialog.meta?.fechaExpiracion) }}
+                  </div>
                 </div>
               </v-alert>
 
@@ -1146,22 +1163,13 @@
                 show-size
                 class="mb-3"
               />
-
-              <v-row dense>
-                <v-col cols="12" md="6">
-                  <v-text-field v-model="certDialog.fechaEmision" label="Fecha de Emisión (opcional)" type="date" variant="outlined" density="compact" clearable />
-                </v-col>
-                <v-col cols="12" md="6">
-                  <v-text-field v-model="certDialog.fechaExpiracion" label="Fecha de Expiración (opcional)" type="date" variant="outlined" density="compact" clearable />
-                </v-col>
-              </v-row>
             </div>
           </v-card-text>
 
           <v-card-actions>
             <v-spacer />
             <v-btn variant="text" color="grey-darken-1" @click="cerrarCertDialog">Cerrar</v-btn>
-            <v-btn v-if="certTieneArchivo" variant="tonal" prepend-icon="mdi-download" @click="descargarCertificadoSeleccionado">Descargar</v-btn>
+            <v-btn v-if="certTieneArchivo" variant="tonal" prepend-icon="mdi-file-eye-outline" @click="verCertificadoSeleccionado"> Descargar</v-btn>
             <v-btn v-if="certTieneArchivo" variant="tonal" color="error" prepend-icon="mdi-delete" @click="eliminarCertificadoSeleccionado">Eliminar</v-btn>
             <v-btn color="primary" variant="flat" prepend-icon="mdi-upload" :disabled="!certDialog.file || certDialog.loading" @click="subirCertificadoSeleccionado">
               {{ certTieneArchivo ? 'Reemplazar' : 'Subir' }}
@@ -1170,51 +1178,57 @@
         </v-card>
       </v-dialog>
 
-      <!-- ✅ Diálogo Recomendación Médica (POR CONTRATO) -->
-<v-dialog v-model="recDialog.open" max-width="640px">
-  <v-card>
-    <v-card-title class="text-h6">
-      Recomendación Médica — Contrato #{{ contratoIdActual || '—' }}
-    </v-card-title>
+      <!-- Diálogo Recomendación Médica (POR CONTRATO) -->
+      <v-dialog v-model="recDialog.open" max-width="640px">
+        <v-card>
+          <v-card-title class="text-h6">
+            Recomendación Médica — Contrato #{{ contratoIdActual || '—' }}
+          </v-card-title>
 
-    <v-card-text>
-      <v-alert v-if="recDialog.loading" type="info" variant="tonal" class="mb-3">
-        Cargando información…
-      </v-alert>
+          <v-card-text>
+            <v-alert v-if="recDialog.loading" type="info" variant="tonal" class="mb-3">
+              Cargando información…
+            </v-alert>
 
-      <div v-else>
-        <v-alert v-if="recTieneArchivo" type="success" variant="tonal" class="mb-3">
-          <div class="d-flex flex-wrap align-center ga-2">
-            <div><strong>Actual:</strong> {{ recDialog.meta?.nombreOriginal || 'Archivo cargado' }}</div>
-            <!-- Fechas removidas -->
-          </div>
-        </v-alert>
+            <div v-else>
+              <v-alert v-if="recTieneArchivo" type="success" variant="tonal" class="mb-3">
+                <div class="d-flex flex-wrap align-center ga-2">
+                  <div><strong>Actual:</strong> {{ recDialog.meta?.nombreOriginal || 'Archivo cargado' }}</div>
+                </div>
+              </v-alert>
 
-        <v-file-input
-          v-model="recDialog.file"
-          label="Seleccionar archivo (PDF/JPG/PNG/WEBP)"
-          accept=".pdf,.jpg,.jpeg,.png,.webp,application/pdf,image/jpeg,image/png,image/webp"
-          variant="outlined"
-          density="compact"
-          prepend-icon="mdi-paperclip"
-          show-size
-          class="mb-3"
-        />
-        <!-- Campos de fecha removidos -->
-      </div>
-    </v-card-text>
+              <v-file-input
+                v-model="recDialog.file"
+                label="Seleccionar archivo (PDF/JPG/PNG/WEBP)"
+                accept=".pdf,.jpg,.jpeg,.png,.webp,application/pdf,image/jpeg,image/png,image/webp"
+                variant="outlined"
+                density="compact"
+                prepend-icon="mdi-paperclip"
+                show-size
+                class="mb-3"
+              />
+            </div>
+          </v-card-text>
 
-    <v-card-actions>
-      <v-spacer />
-      <v-btn variant="text" color="grey-darken-1" @click="cerrarRecDialog">Cerrar</v-btn>
-      <v-btn v-if="recTieneArchivo" variant="tonal" prepend-icon="mdi-download" @click="descargarRecomendacionMedicaContrato">Descargar</v-btn>
-      <v-btn v-if="recTieneArchivo" variant="tonal" color="error" prepend-icon="mdi-delete" @click="eliminarRecomendacionMedicaContrato">Eliminar</v-btn>
-      <v-btn color="primary" variant="flat" prepend-icon="mdi-upload" :disabled="!recDialog.file || recDialog.loading || !contratoIdActual" @click="subirRecomendacionMedicaContrato">
-        {{ recTieneArchivo ? 'Reemplazar' : 'Subir' }}
-      </v-btn>
-    </v-card-actions>
-  </v-card>
-</v-dialog>
+          <v-card-actions>
+            <v-spacer />
+            <v-btn variant="text" color="grey-darken-1" @click="cerrarRecDialog">Cerrar</v-btn>
+            <v-btn v-if="recTieneArchivo" variant="tonal" prepend-icon="mdi-file-eye-outline" @click="verRecomendacionMedicaContrato">Descargar</v-btn>
+            <v-btn v-if="recTieneArchivo" variant="tonal" color="error" prepend-icon="mdi-delete" @click="eliminarRecomendacionMedicaContrato">Eliminar</v-btn>
+            <v-btn color="primary" variant="flat" prepend-icon="mdi-upload" :disabled="!recDialog.file || recDialog.loading || !contratoIdActual" @click="subirRecomendacionMedicaContrato">
+              {{ recTieneArchivo ? 'Reemplazar' : 'Subir' }}
+            </v-btn>
+          </v-card-actions>
+        </v-card>
+      </v-dialog>
+
+      <!-- 🟦 Snackbar con cabecera azul y cuerpo blanco -->
+      <v-snackbar v-model="snack.open" timeout="1500" location="top">
+        <div class="snackbar-card">
+          <div class="snackbar-header">{{ snack.title }}</div>
+          <div class="snackbar-body">{{ snack.text }}</div>
+        </div>
+      </v-snackbar>
 
     </v-card>
   </v-container>
@@ -1231,36 +1245,37 @@ import {
   type User,
   type Contrato as BaseContrato
 } from '@/services/userService'
-import { actualizarContrato } from '@/services/contratoService'
+
+import {
+  actualizarContrato,
+  /* ✅ Recomendación Médica (POR CONTRATO) */
+  obtenerRecomendacionMedicaMeta as obtenerRecMetaContrato,
+  subirRecomendacionMedica as subirRecContrato,
+  eliminarRecomendacionMedica as eliminarRecContrato,
+  obtenerUrlPublicaRecomendacionDesdeRuta as urlPublicaRecDesdeRuta,
+
+  /* ✅ Afiliaciones por CONTRATO (EPS/ARL/AFP/AFC/CCF) */
+  obtenerAfiliacionArchivoMeta as obtenerArchivoAfiliacionMeta,
+  subirAfiliacionArchivo as subirArchivoAfiliacion,
+  eliminarAfiliacionArchivo as eliminarArchivoAfiliacion,
+  tieneArchivoAfiliacion,
+  type TipoAfiliacion
+} from '@/services/contratoService'
+
 import {
   crearEventoDeContrato,
   type ContratoEvento
 } from '@/services/contratoEventosService'
+
 import {
   actualizarPasoContrato,
   fetchPasosInicio,
   type ContratoPaso
 } from '@/services/contratosPasosService'
+
 import type { ContratoHistorialEstado } from '@/services/contratoHistorialEstadosService'
 
-/* ✅ Servicios Recomendación Médica (POR CONTRATO) */
-import {
-  obtenerRecomendacionMedicaMeta as obtenerRecMetaContrato,
-  subirRecomendacionMedica as subirRecContrato,
-  eliminarRecomendacionMedica as eliminarRecContrato,
-  descargarRecomendacionMedicaYAbrir as descargarRecContratoYAbrir,
-  obtenerUrlPublicaRecomendacionDesdeRuta as urlPublicaRecDesdeRuta,
-} from '@/services/contratoService'
-
-/* Servicios certificados (usuario + tipo) */
-import {
-  obtenerArchivoAfiliacionMeta,
-  subirArchivoAfiliacion,
-  eliminarArchivoAfiliacion,
-  tieneArchivoAfiliacion,
-} from '@/services/UserService'
-
-/* ===== Tipos ===== */
+/* ===== Tipos locales ===== */
 interface Rel { id: number; nombre: string }
 interface CambioUsuario { id: number; nombres: string; apellidos: string; correo?: string }
 interface ContratoCambio {
@@ -1290,9 +1305,8 @@ interface Contrato extends BaseContrato {
   historialEstados?: (ContratoHistorialEstado & { usuario?: CambioUsuario | null })[]
   cambios?: ContratoCambio[]
   timeline?: TimelineItem[]
-  fechaFinalizacion?: string
-  motivoFinalizacion?: string
-  /** ya existen en BaseContrato; los redeclaramos como opcionales para el template */
+  fechaFinalizacion?: string | null
+  motivoFinalizacion?: string | null
   tieneRecomendacionesMedicas?: boolean
   rutaArchivoRecomendacionMedica?: string | null
 }
@@ -1319,6 +1333,22 @@ function formatFechaHora(v:any){ const d=coerceToDate(v); return d?fmtFechaHora.
 function formatFechaOrFechaHora(v:any){
   const hasTime= typeof v==='string' && (/[T ]\d{2}:\d{2}/.test(v));
   return hasTime?formatFechaHora(v):formatFecha(v)
+}
+
+/* formateo corto para algunas fechas del template */
+const formatDate = (dateString: string | null | undefined) => {
+  if (!dateString) return 'N/A'
+  const d = new Date(dateString as string)
+  return Number.isNaN(d.getTime()) ? String(dateString) : d.toLocaleDateString('es-CO',{year:'numeric',month:'long',day:'numeric'})
+}
+
+/* ====== Helper URL absoluta ====== */
+function toAbsoluteApiUrl(pathOrUrl?: string | null): string {
+  if (!pathOrUrl) return ''
+  const url = String(pathOrUrl)
+  if (/^(blob:|data:|https?:\/\/)/i.test(url)) return url
+  const base = (import.meta as any).env?.VITE_API_BASE_URL || (import.meta as any).env?.VITE_API_URL || 'http://localhost:3333'
+  return `${base.replace(/\/+$/,'')}/${url.replace(/^\/+/,'')}`
 }
 
 const router = useRouter()
@@ -1365,7 +1395,18 @@ const contratoIdForNewEvent = ref<number | null>(null)
 const newEvent = ref<Partial<ContratoEvento>>({})
 const eventFileRef = ref<any>(null)
 const eventForm = ref<any>(null)
-const tiposEvento = ['incapacidad','suspension','licencia','permiso','vacaciones','cesantias','disciplinario','terminacion']
+
+/** 🔁 Tipos de evento (UI label → value en minúsculas para backend) */
+const tiposEvento = [
+  { label: 'Incapacidad',  value: 'incapacidad' },
+  { label: 'Suspensión',   value: 'suspension' },
+  { label: 'Licencia',     value: 'licencia' },
+  { label: 'Permiso',      value: 'permiso' },
+  { label: 'Vacaciones',   value: 'vacaciones' },
+  { label: 'Cesantías',    value: 'cesantias' },
+  { label: 'Disciplinario',value: 'disciplinario' },
+  { label: 'Terminación',  value: 'terminacion' },
+]
 
 const showAlertDialog = ref(false)
 const alertDialogTitle = ref('')
@@ -1386,18 +1427,29 @@ const finalizationForm = ref<any>(null)
 const showEditPasoDialog = ref(false)
 const editPasoForm = ref<any>(null)
 const editPasoFileRef = ref<any>(null)
-const pasoEditData = ref<{observacion?:string}>({})
+const pasoEditData = ref<{observacion?:string}>({ })
 const contratoIdForPasoEdit = ref<number | null>(null)
 const pasoIdForEdit = ref<number | null>(null)
 
-/* Contrato prioritario */
+/* ===== Helper: contrato prioritario ===== */
+function pickPrimaryContrato(list: any[]): any | null {
+  const cs = (list || []).filter(Boolean)
+  if (!cs.length) return null
+  const ts = (d:any) => {
+    if (!d) return 0
+    const t = new Date(d).getTime()
+    return Number.isFinite(t) ? t : 0
+  }
+  const activos = cs.filter((c:any)=> (c.estado || '').toLowerCase() === 'activo')
+  if (activos.length) return activos.slice().sort((a:any,b:any)=> ts(b.fechaInicio)-ts(a.fechaInicio))[0]
+  return cs.slice().sort((a:any,b:any)=> ts(b.fechaInicio)-ts(a.fechaInicio))[0]
+}
+
+/* ===== Contrato prioritario reactivo ===== */
 const primaryContrato = computed<Contrato | null>(() => {
   const cs = user.value?.contratos || []
   if (!cs.length) return null
-  const activo = cs.find(c => (c.estado || '').toLowerCase() === 'activo')
-  if (activo) return activo
-  return [...cs].filter(c=>!!c.fechaInicio)
-    .sort((a,b)=>new Date(b.fechaInicio).getTime()-new Date(a.fechaInicio).getTime())[0] || null
+  return pickPrimaryContrato(cs) as Contrato | null
 })
 
 /* ===== Recomendación Médica (POR CONTRATO) ===== */
@@ -1414,14 +1466,14 @@ const recDialog = ref<{
 }>({
   open: false, file: null, fechaEmision: '', fechaExpiracion: '', loading: false, meta: null,
 })
-/** contrato activo (id) para recomendaciones médicas en Configuraciones */
+/** contrato activo (id) */
 const contratoIdActual = computed<number | null>(() => primaryContrato.value?.id ?? null)
 /** ¿hay archivo actualmente en el diálogo? */
 const recTieneArchivo = computed(() => !!recDialog.value?.meta?.url || !!recDialog.value?.meta?.path)
 
-/* ===== Estado visual de certificados (usuario + tipo) ===== */
-type AfiliacionTipo = 'eps' | 'arl' | 'afp' | 'afc' | 'ccf'
-const certs = ref<Record<AfiliacionTipo, { has: boolean; loading: boolean; meta: any | null }>>({
+/* ===== Estado visual de certificados (afiliaciones por CONTRATO) ===== */
+type AfiliacionTipoLocal = TipoAfiliacion
+const certs = ref<Record<AfiliacionTipoLocal, { has: boolean; loading: boolean; meta: any | null }>>({
   eps: { has: false, loading: false, meta: null },
   arl: { has: false, loading: false, meta: null },
   afp: { has: false, loading: false, meta: null },
@@ -1431,7 +1483,7 @@ const certs = ref<Record<AfiliacionTipo, { has: boolean; loading: boolean; meta:
 
 const certDialog = ref<{
   open: boolean
-  tipo: AfiliacionTipo | ''
+  tipo: AfiliacionTipoLocal | ''
   entidadId: number | null
   entidadNombre: string
   file: File | File[] | null
@@ -1444,19 +1496,24 @@ const certDialog = ref<{
   fechaEmision: '', fechaExpiracion: '', loading: false, meta: null,
 })
 
-// ahora usamos el helper REAL del service
 const certTieneArchivo = computed(()=> {
   try { return tieneArchivoAfiliacion(certDialog.value.meta) } catch { return false }
 })
 
-// Helper: id de usuario actual
+// Helper: id de usuario actual (solo para actualizar perfil/foto)
 const currentUserId = () => Number(user.value?.id ?? NaN) || null
+
+/* ======== SNACKBAR (cabecera azul + cuerpo blanco) ======== */
+const snack = ref<{open:boolean; title:string; text:string; timeout:number}>({
+  open: false, title: '', text: '', timeout: 3000
+})
+const showSnack = (title:string, text:string, timeout=3000)=>{
+  snack.value = { open:true, title, text, timeout }
+}
 
 /* ===== Utils generales ===== */
 const showAlert = (title:string, message:string) => {
-  alertDialogTitle.value = title
-  alertDialogMessage.value = message
-  showAlertDialog.value = true
+  showSnack(title, message)
 }
 const showConfirm = (title:string, message:string):Promise<boolean> => {
   confirmDialogTitle.value = title
@@ -1469,14 +1526,10 @@ const showConfirm = (title:string, message:string):Promise<boolean> => {
     }
   })
 }
-const formatDate = (dateString: string | null | undefined) => {
-  if (!dateString) return 'N/A'
-  const d = new Date(dateString as string)
-  return Number.isNaN(d.getTime()) ? String(dateString) : d.toLocaleDateString('es-CO',{year:'numeric',month:'long',day:'numeric'})
-}
 const getEstadoNombre = (e:'activo'|'inactivo') => e === 'activo' ? 'Activo' : 'Inactivo'
 const fullName = (u?:{nombres?:string; apellidos?:string|null}|null) => u ? [u.nombres,u.apellidos].filter(Boolean).join(' ') : '—'
 
+/* ======= Render limpio en HISTORIAL ======= */
 const CAMPO_LABELS: Record<string,string> = {
   razonSocialId:'Empresa', sedeId:'Sede', cargoId:'Cargo', funcionesCargo:'Funciones',
   tipoContrato:'Tipo de Contrato', terminoContrato:'Término', fechaInicio:'Fecha de Inicio',
@@ -1491,6 +1544,8 @@ const parseMaybeJson = (v:any)=>{ if(v===null||v===undefined) return v; if(typeo
 const isNamedRel = (val:any): val is { id?: number|string; nombre?: string } => !!val && typeof val==='object' && ('nombre' in val || 'id' in val)
 const toNumberLoose = (v:any)=>{ if(v===null||v===undefined||v==='') return null; if(typeof v==='number') return Number.isFinite(v)?v:null; if(typeof v==='string'){ const s=v.replace(/\./g,'').replace(/,/g,'.').trim(); const n=Number(s); return Number.isFinite(n)?n:null } return null }
 const toBoolLoose = (v:any)=>{ if(v===null||v===undefined||v==='') return null; if(typeof v==='boolean') return v; if(typeof v==='string'){ const s=v.toLowerCase().trim(); if(['true','1','si','sí'].includes(s)) return true; if(['false','0','no'].includes(s)) return false } return null }
+
+/** Compara valores antiguos/nuevos evitando falsos positivos */
 const equalForField = (campo:string,a:any,b:any)=>{
   const va=parseMaybeJson(a); const vb=parseMaybeJson(b)
   if(campo==='tieneRecomendacionesMedicas'){ return toBoolLoose(va)===toBoolLoose(vb)}
@@ -1503,6 +1558,8 @@ const equalForField = (campo:string,a:any,b:any)=>{
   }
   return (va??null)===(vb??null)
 }
+
+/** Render amigable del valor según el tipo de campo */
 const renderValor = (campo:string, raw:any, contrato?:Contrato)=>{
   const v=parseMaybeJson(raw)
   if(v===null||v===undefined||v==='') return 'N/A'
@@ -1521,15 +1578,19 @@ const renderValor = (campo:string, raw:any, contrato?:Contrato)=>{
     })()
     return nameMatch ? nameMatch : `#${isNaN(id) ? String(v) : id}`
   }
-  if(campo.startsWith('fecha')) return typeof v==='string' ? formatDate(v) : formatDate(String(v))
+  if(campo.startsWith('fecha')) return typeof v==='string' ? formatFecha(v) : formatFecha(String(v))
   if(campo==='estado') return v==='activo' ? 'Activo' : (v==='inactivo' ? 'Inactivo' : String(v))
   if(typeof v==='boolean') return v ? 'Sí' : 'No'
   if(typeof v==='number') return new Intl.NumberFormat('es-CO').format(v)
-  if(typeof v==='object'){ if('estado' in v && (v.estado==='activo'||v.estado==='inactivo')) return getEstadoNombre(v.estado); return JSON.stringify(v) }
+  if(typeof v==='object'){
+    if ('nombre' in v) return (v as any).nombre
+    if ('valor' in v) return String((v as any).valor)
+    try { return JSON.stringify(v) } catch { return String(v) }
+  }
   return String(v)
 }
 
-/* Timeline combinado */
+/* Timeline combinado (estados + cambios) */
 const buildTimeline = (c:Contrato)=> {
   const items:any[] = []
   ;(c.historialEstados||[]).forEach(h=>items.push({...h, kind:'estado'}))
@@ -1553,19 +1614,38 @@ function cerrarRecDialog(){
   recDialog.value = { open:false, file:null, fechaEmision:'', fechaExpiracion:'', loading:false, meta:null }
 }
 
-/** Refresca el estado (chulito) para el contrato activo */
 async function refreshRecStatusForContrato() {
   const cid = contratoIdActual.value
   recContrato.value.loading = true
   try {
-    if (!cid) { recContrato.value = { has:false, loading:false, meta:null }; return }
-    const meta = await obtenerRecMetaContrato(cid) // ArchivoMeta | null
+    if (!cid) {
+      recContrato.value = { has:false, loading:false, meta:null }
+      const pc = primaryContrato.value
+      if (pc) {
+        pc.tieneRecomendacionesMedicas = false
+        pc.rutaArchivoRecomendacionMedica = null
+      }
+      return
+    }
+    const meta = await obtenerRecMetaContrato(cid)
     recContrato.value.meta = meta
     recContrato.value.has = !!meta
+
+    const pc = primaryContrato.value
+    if (pc) {
+      pc.tieneRecomendacionesMedicas = !!meta
+      pc.rutaArchivoRecomendacionMedica =
+        meta?.url || urlPublicaRecDesdeRuta(meta?.path) || null
+    }
   } catch (e) {
     console.error('No se pudo refrescar Recomendación Médica (contrato):', e)
     recContrato.value.meta = null
     recContrato.value.has = false
+    const pc = primaryContrato.value
+    if (pc) {
+      pc.tieneRecomendacionesMedicas = false
+      pc.rutaArchivoRecomendacionMedica = null
+    }
   } finally {
     recContrato.value.loading = false
   }
@@ -1581,6 +1661,13 @@ async function abrirDialogoRecomendacionContrato(){
     recDialog.value.meta = meta
     recContrato.value.meta = meta
     recContrato.value.has = !!meta
+
+    const pc = primaryContrato.value
+    if (pc) {
+      pc.tieneRecomendacionesMedicas = !!meta
+      pc.rutaArchivoRecomendacionMedica =
+        meta?.url || urlPublicaRecDesdeRuta(meta?.path) || null
+    }
   } catch (e) {
     console.error('Error cargando meta Recomendación Médica (contrato):', e)
     recDialog.value.meta = null
@@ -1600,16 +1687,15 @@ async function subirRecomendacionMedicaContrato(){
     const updated = await subirRecContrato(cid, file, {
       fechaEmision: recDialog.value.fechaEmision || undefined,
       fechaExpiracion: recDialog.value.fechaExpiracion || undefined,
-    })
+    } as any)
     recDialog.value.meta = updated
     recDialog.value.file = null
     recContrato.value.meta = updated
     recContrato.value.has = !!updated
-    /* Opcional: reflejar en tarjeta Detalles del contrato activo, sin recargar */
     const pc = primaryContrato.value
     if (pc) {
       pc.tieneRecomendacionesMedicas = true
-      pc.rutaArchivoRecomendacionMedica = updated?.url || updated?.path || pc.rutaArchivoRecomendacionMedica || null
+      pc.rutaArchivoRecomendacionMedica = updated?.url || urlPublicaRecDesdeRuta(updated?.path) || pc.rutaArchivoRecomendacionMedica || null
     }
     showAlert('Listo','Recomendación médica guardada con éxito.')
   } catch (e:any) {
@@ -1628,7 +1714,6 @@ async function eliminarRecomendacionMedicaContrato(){
     recDialog.value.meta = null
     recContrato.value.meta = null
     recContrato.value.has = false
-    /* Opcional: reflejar en tarjeta Detalles del contrato activo */
     const pc = primaryContrato.value
     if (pc) {
       pc.tieneRecomendacionesMedicas = false
@@ -1641,24 +1726,16 @@ async function eliminarRecomendacionMedicaContrato(){
   }
 }
 
-async function descargarRecomendacionMedicaContrato(){
+/** Abrir en visor la recomendación */
+function verRecomendacionMedicaContrato(){
   const url = recDialog.value?.meta?.url || urlPublicaRecDesdeRuta(recDialog.value?.meta?.path)
-  if (url) {
-    window.open(url, '_blank', 'noopener')
-    return
-  }
-  const cid = contratoIdActual.value
-  if (!cid) { showAlert('Sin archivo','No hay archivo para descargar.'); return }
-  try {
-    await descargarRecContratoYAbrir(cid)
-  } catch (e:any) {
-    console.error(e)
-    showAlert('Error', e?.message || 'No fue posible descargar el archivo.')
-  }
+  if (!url) { showAlert('Sin archivo','No hay archivo para ver.'); return }
+  const absolute = toAbsoluteApiUrl(url)
+  window.open(absolute, '_blank', 'noopener,noreferrer')
 }
 
 /* IDs/nombres UI (solo para etiquetar seguridad social) */
-const getEntidadId = (tipo: AfiliacionTipo): number | null => {
+const getEntidadId = (tipo: AfiliacionTipoLocal): number | null => {
   const c = primaryContrato.value
   switch (tipo) {
     case 'eps': return c?.eps?.id ?? (user.value as any)?.eps?.id ?? null
@@ -1668,7 +1745,7 @@ const getEntidadId = (tipo: AfiliacionTipo): number | null => {
     case 'ccf': return c?.ccf?.id ?? (user.value as any)?.ccf?.id ?? null
   }
 }
-const getEntidadNombre = (tipo: AfiliacionTipo): string => {
+const getEntidadNombre = (tipo: AfiliacionTipoLocal): string => {
   const c = primaryContrato.value
   switch (tipo) {
     case 'eps': return c?.eps?.nombre ?? (user.value as any)?.eps?.nombre ?? 'EPS'
@@ -1679,59 +1756,13 @@ const getEntidadNombre = (tipo: AfiliacionTipo): string => {
   }
 }
 
-/* Carga de datos */
-const loadUser = async () => {
-  isLoadingUser.value = true
-  error.value = null
-  user.value = null
-  const userIdFromRoute = Number(route.params.id)
-  if (isNaN(userIdFromRoute)) { error.value = 'ID de usuario inválido en la URL.'; isLoadingUser.value = false; return }
-
-  try {
-    const fetchedUser = await obtenerUsuarioPorId(userIdFromRoute) as UserProfile
-    if (fetchedUser) {
-      if (fetchedUser.contratos) {
-        fetchedUser.contratos = await Promise.all(
-          fetchedUser.contratos.map(async (contrato:any) => {
-            const c: Contrato = {
-              ...contrato,
-              activeTab:'detalles',
-              activeSubTab:'inicio',
-              eventos: contrato.eventos || [],
-              pasos: contrato.pasos || [],
-              historialEstados: contrato.historialEstados || [],
-              cambios: (contrato.cambios||[]).map((x:any)=>({...x, oldValue:parseMaybeJson(x.oldValue), newValue:parseMaybeJson(x.newValue)})),
-              fechaFinalizacion: contrato.fechaTerminacion ? String(contrato.fechaTerminacion).split('T')[0] : null,
-              motivoFinalizacion: contrato.motivoFinalizacion || null,
-              tieneRecomendacionesMedicas: contrato.tieneRecomendacionesMedicas ?? false,
-              rutaArchivoRecomendacionMedica: contrato.rutaArchivoRecomendacionMedica ?? null,
-            }
-            if (!c.pasos || c.pasos.length === 0) c.pasos = await fetchPasosInicio(c.id) as unknown as ContratoPasoExt[]
-            c.timeline = buildTimeline(c)
-            return c
-          })
-        )
-      }
-      user.value = fetchedUser
-      await refreshAllCertStatuses() // chulitos de afiliación
-      // ✅ Refrescar estado de Recomendación Médica POR CONTRATO tras cargar usuario
-      await refreshRecStatusForContrato()
-    } else {
-      error.value = 'No se encontraron datos del usuario.'
-    }
-  } catch (err:any) {
-    console.error('Error al cargar datos del usuario:', err)
-    error.value = `Error al cargar el usuario: ${err.message || 'error desconocido'}.`
-  } finally { isLoadingUser.value = false }
-}
-
-/* ===== Certificados (usuario + tipo) ===== */
-async function refreshCertStatusByTipo(tipo: AfiliacionTipo) {
-  const uid = currentUserId()
+/* ===== Afiliaciones (archivos por CONTRATO) ===== */
+async function refreshCertStatusByTipo(tipo: AfiliacionTipoLocal) {
+  const cid = contratoIdActual.value
   certs.value[tipo].loading = true
   try {
-    if (!uid) { certs.value[tipo] = { has:false, loading:false, meta:null }; return }
-    const meta = await obtenerArchivoAfiliacionMeta(uid, tipo)
+    if (!cid) { certs.value[tipo] = { has:false, loading:false, meta:null }; return }
+    const meta = await obtenerArchivoAfiliacionMeta(cid, tipo)
     certs.value[tipo].meta = meta
     certs.value[tipo].has = tieneArchivoAfiliacion(meta)
   } catch (e) {
@@ -1743,14 +1774,14 @@ async function refreshCertStatusByTipo(tipo: AfiliacionTipo) {
   }
 }
 async function refreshAllCertStatuses() {
-  await Promise.all((['eps','arl','afp','afc','ccf'] as AfiliacionTipo[]).map(refreshCertStatusByTipo))
+  await Promise.all((['eps','arl','afp','afc','ccf'] as AfiliacionTipoLocal[]).map(refreshCertStatusByTipo))
 }
 
-/* Diálogo de certificado (usuario + tipo) */
+/* Diálogo de certificado */
 function cerrarCertDialog(){
   certDialog.value = { open:false, tipo:'', entidadId:null, entidadNombre:'', file:null, fechaEmision:'', fechaExpiracion:'', loading:false, meta:null }
 }
-async function abrirDialogoCertificado(tipo:AfiliacionTipo){
+async function abrirDialogoCertificado(tipo:AfiliacionTipoLocal){
   const id = getEntidadId(tipo)
   if (!id) { showAlert('Selecciona una entidad','Debes tener una entidad asociada para gestionar su archivo.'); return }
 
@@ -1761,9 +1792,9 @@ async function abrirDialogoCertificado(tipo:AfiliacionTipo){
   certDialog.value.loading = true
 
   try {
-    const uid = currentUserId()
-    if (!uid) throw new Error('Usuario no válido')
-    const meta = await obtenerArchivoAfiliacionMeta(uid, tipo)
+    const cid = contratoIdActual.value
+    if (!cid) throw new Error('No hay contrato activo')
+    const meta = await obtenerArchivoAfiliacionMeta(cid, tipo)
     certDialog.value.meta = meta
     certs.value[tipo].meta = meta
     certs.value[tipo].has = tieneArchivoAfiliacion(meta)
@@ -1776,16 +1807,13 @@ async function abrirDialogoCertificado(tipo:AfiliacionTipo){
 }
 
 async function subirCertificadoSeleccionado(){
-  const t = certDialog.value.tipo as AfiliacionTipo
-  const uid = currentUserId()
+  const t = certDialog.value.tipo as AfiliacionTipoLocal
+  const cid = contratoIdActual.value
   const file = firstFileFrom(certDialog.value.file)
-  if (!uid || !t || !file) return
+  if (!cid || !t || !file) return
   certDialog.value.loading = true
   try {
-    const updated = await subirArchivoAfiliacion(uid, t, file, {
-      fechaEmision: certDialog.value.fechaEmision || undefined,
-      fechaExpiracion: certDialog.value.fechaExpiracion || undefined,
-    } as any)
+    const updated = await subirArchivoAfiliacion(cid, t, file)
     certDialog.value.meta = updated
     certDialog.value.file = null
     certs.value[t].meta = updated
@@ -1798,11 +1826,11 @@ async function subirCertificadoSeleccionado(){
 }
 
 async function eliminarCertificadoSeleccionado(){
-  const t = certDialog.value.tipo as AfiliacionTipo
-  const uid = currentUserId()
-  if (!uid || !t) return
+  const t = certDialog.value.tipo as AfiliacionTipoLocal
+  const cid = contratoIdActual.value
+  if (!cid || !t) return
   try {
-    await eliminarArchivoAfiliacion(uid, t)
+    await eliminarArchivoAfiliacion(cid, t)
     certDialog.value.meta = null
     certs.value[t].meta = null
     certs.value[t].has = false
@@ -1813,11 +1841,13 @@ async function eliminarCertificadoSeleccionado(){
   }
 }
 
-async function descargarCertificadoSeleccionado(){
+/** Abrir en visor el certificado seleccionado */
+function verCertificadoSeleccionado(){
   const meta = certDialog.value.meta as any
-  const url = meta?.data?.url
-  if (!url) { showAlert('Sin archivo','No hay archivo para descargar.'); return }
-  window.open(url, '_blank', 'noopener')
+  const raw = meta?.url || meta?.data?.url || meta?.path || ''
+  if (!raw) { showAlert('Sin archivo','No hay archivo para ver.'); return }
+  const absolute = toAbsoluteApiUrl(raw)
+  window.open(absolute, '_blank', 'noopener,noreferrer')
 }
 
 /* Eventos de contrato */
@@ -1840,7 +1870,7 @@ const submitNewEvent = async () => {
   isLoadingAction.value = true
   const fileToUpload = firstFileFrom(eventFiles.value) || eventFileRef.value?.files?.[0] || null
   const payload = new FormData()
-  if (newEvent.value.tipo) payload.append('tipo', newEvent.value.tipo)
+  if (newEvent.value.tipo) payload.append('tipo', newEvent.value.tipo as string) // ← minúsculas
   if (newEvent.value.subtipo) payload.append('subtipo', newEvent.value.subtipo as string)
   if (newEvent.value.fechaInicio) payload.append('fechaInicio', newEvent.value.fechaInicio as string)
   if (newEvent.value.fechaFin) payload.append('fechaFin', newEvent.value.fechaFin as string)
@@ -1901,7 +1931,9 @@ const submitContractFinalization = async (id:number)=>{
   } catch (err:any) {
     console.error('Error al finalizar el contrato:', err)
     showAlert('Error', `Error al finalizar el contrato: ${err.message || 'error desconocido'}.`)
-  } finally { isLoadingAction.value = false }
+  } finally {
+    isLoadingAction.value = false
+  }
 }
 
 /* Editar paso */
@@ -1951,7 +1983,6 @@ async function uploadProfilePhoto(){
   }
   isLoadingAction.value = true
   try {
-    // asumiendo firma: uploadProfilePicture(userId:number, file:File)
     await uploadProfilePicture(user.value.id as number, file)
     showAlert('Listo','Foto de perfil actualizada.')
     closePhotoDialog()
@@ -2000,74 +2031,227 @@ async function submitEditUser(){
 
 const goBack = ()=> router.go(-1)
 
+/* Carga de datos */
+const loadUser = async () => {
+  isLoadingUser.value = true
+  error.value = null
+  user.value = null
+  const userIdFromRoute = Number(route.params.id)
+  if (isNaN(userIdFromRoute)) { error.value = 'ID de usuario inválido en la URL.'; isLoadingUser.value = false; return }
+
+  try {
+    const fetchedUser = await obtenerUsuarioPorId(userIdFromRoute) as UserProfile
+    if (fetchedUser) {
+      if (fetchedUser.contratos) {
+        fetchedUser.contratos = await Promise.all(
+          fetchedUser.contratos.map(async (contrato:any) => {
+            const c: Contrato = {
+              ...contrato,
+              activeTab:'detalles',
+              activeSubTab:'inicio',
+              eventos: contrato.eventos || [],
+              pasos: contrato.pasos || [],
+              historialEstados: contrato.historialEstados || [],
+              cambios: (contrato.cambios||[]).map((x:any)=>({...x, oldValue:parseMaybeJson(x.oldValue), newValue:parseMaybeJson(x.newValue)})),
+              fechaFinalizacion: contrato.fechaTerminacion ? String(contrato.fechaTerminacion).split('T')[0] : null,
+              motivoFinalizacion: contrato.motivoFinalizacion || null,
+              tieneRecomendacionesMedicas: contrato.tieneRecomendacionesMedicas ?? false,
+              rutaArchivoRecomendacionMedica: contrato.rutaArchivoRecomendacionMedica ?? null,
+            }
+            if (!c.pasos || c.pasos.length === 0) c.pasos = await fetchPasosInicio(c.id) as unknown as ContratoPasoExt[]
+            c.timeline = buildTimeline(c)
+            return c
+          })
+        )
+      }
+
+      /* 🔁 Sincronizar cabecera con contrato prioritario */
+      const pcLocal = pickPrimaryContrato(fetchedUser.contratos || []) as any
+      if (pcLocal) {
+        fetchedUser.razonSocial = pcLocal.razonSocial || fetchedUser.razonSocial || null
+        fetchedUser.sede        = pcLocal.sede        || fetchedUser.sede        || null
+        fetchedUser.cargo       = pcLocal.cargo       || fetchedUser.cargo       || null
+        if (pcLocal.centroCosto !== undefined && pcLocal.centroCosto !== null) {
+          fetchedUser.centroCosto = pcLocal.centroCosto
+        }
+        fetchedUser.eps = pcLocal.eps || fetchedUser.eps || null
+        fetchedUser.arl = pcLocal.arl || fetchedUser.arl || null
+        fetchedUser.afp = pcLocal.afp || fetchedUser.afp || null
+        fetchedUser.afc = pcLocal.afc || fetchedUser.afc || null
+        fetchedUser.ccf = pcLocal.ccf || fetchedUser.ccf || null
+        if (pcLocal.identificacion && !(fetchedUser as any).identificacion) {
+          (fetchedUser as any).identificacion = pcLocal.identificacion
+        }
+      }
+
+      user.value = fetchedUser
+      await refreshAllCertStatuses()       // ✅ chulitos afiliación
+      await refreshRecStatusForContrato()  // ✅ recomendación médica
+    } else {
+      error.value = 'No se encontraron datos del usuario.'
+    }
+  } catch (err:any) {
+    console.error('Error al cargar datos del usuario:', err)
+    error.value = `Error al cargar el usuario: ${err.message || 'error desconocido'}.`
+  } finally { isLoadingUser.value = false }
+}
+
 /* Watchers */
 watch(contratoIdActual, () => {
-  // ✅ Si cambia el contrato prioritario, refrescamos el chulito de Recomendación Médica
+  refreshAllCertStatuses()
   refreshRecStatusForContrato()
 })
 
 /* Montaje */
 onMounted(()=>{ loadUser() })
 
-/* Expuestos implícitamente por <script setup>:
-   - Helpers, actions y refs usados en el template
-*/
+/* Expuestos implícitamente por <script setup> */
 </script>
 <style scoped>
-/* Layout principal */
-.v-container { max-width: 1200px; }
-
-/* Avatar y botón de edición */
-.avatar-container { position: relative; display: inline-block; }
-.avatar-container :deep(.v-avatar) { background: #fafafa; }
-.edit-avatar-btn {
-  position: absolute;
-  bottom: 0; right: 0;
-  transform: translate(25%, 25%);
-  z-index: 10;
-  border: 3px solid white;
-}
-.edit-avatar-btn:hover { filter: brightness(1.05); }
-
-/* Títulos y textos largos sin cortes raros */
-.v-card-title, .v-card-subtitle { white-space: normal; word-wrap: break-word; }
-.v-list-item-title, .v-list-item-subtitle { word-break: break-word; }
-
-/* Enlace del contrato físico */
-.contrato-link {
-  color: #0d47a1 !important;
-  text-decoration: underline;
-}
-.contrato-link:focus {
-  outline: 2px solid #0d47a1;
-  outline-offset: 2px;
+/* ====== Layout general ====== */
+.contrato-section {
+  border: 1px solid #e0e0e0;
+  border-radius: 12px;
+  padding: 1rem;
+  margin-bottom: 1.5rem;
+  background-color: #fff;
 }
 
-/* Seguridad social: evitar cortes y mantener layout */
-.seg-social .v-list-item-title,
-.seg-social .v-list-item-subtitle {
-  word-break: normal;
-  overflow-wrap: normal;
+/* ====== Encabezados ====== */
+.section-title {
+  font-size: 1.25rem;
+  font-weight: bold;
+  margin-bottom: 0.75rem;
+  color: #1e293b;
 }
-.seg-social .afiliacion-nombre {
-  display: block;
-  white-space: nowrap;
+
+.subsection-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin: 0.75rem 0;
+  color: #334155;
+}
+
+/* ====== Tabs ====== */
+.v-tab {
+  text-transform: none !important;
+  font-weight: 500;
+  font-size: 0.95rem;
+}
+.v-tab.v-tab--active {
+  color: #1976d2 !important;
+  font-weight: 600;
+}
+
+/* ====== Timeline ====== */
+.timeline-item {
+  border-left: 3px solid #1976d2;
+  padding-left: 12px;
+  margin-bottom: 1rem;
+}
+.timeline-date {
+  font-size: 0.8rem;
+  color: #64748b;
+}
+.timeline-title {
+  font-weight: bold;
+  margin-bottom: 4px;
+  color: #1e293b;
+}
+.timeline-body {
+  font-size: 0.9rem;
+  color: #475569;
+}
+
+/* ====== Chips ====== */
+.v-chip {
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+/* ====== Diálogos ====== */
+.v-dialog .v-card-title {
+  font-weight: bold;
+  font-size: 1.1rem;
+  color: #1e293b;
+}
+
+/* ====== Formularios ====== */
+.v-label {
+  font-size: 0.9rem;
+  color: #334155 !important;
+}
+
+/* ====== Botones ====== */
+.v-btn {
+  text-transform: none !important;
+  font-weight: 500;
+  border-radius: 8px;
+}
+
+/* ====== Snackbar personalizado ====== */
+.snackbar-card {
+  display: flex;
+  flex-direction: column;
+  min-width: 260px;
+  border-radius: 12px;
   overflow: hidden;
-  text-overflow: ellipsis;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
-.seg-social :deep(.v-list-item__content) { min-width: 0; }
-.seg-social :deep(.v-list-item__append) { flex: 0 0 auto; }
 
-/* Badge del clip (check encima del clip) */
-.clip-badge :deep(.v-badge__badge) {
-  border: 2px solid white;
-  display: inline-flex;
+.snackbar-header {
+  background-color: #1976d2; /* azul */
+  color: #fff;
+  font-weight: bold;
+  padding: 6px 12px;
+  font-size: 0.9rem;
+  text-align: center;
+}
+
+.snackbar-body {
+  background-color: #fff; /* blanco */
+  color: #1e293b;
+  padding: 10px 12px;
+  font-size: 0.85rem;
+  text-align: center;
+}
+
+/* ====== Imagen de perfil ====== */
+.profile-picture {
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 3px solid #e2e8f0;
+}
+
+/* ====== Contratos ====== */
+.contrato-card {
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 1rem;
+  margin-bottom: 1.5rem;
+  background-color: #fafafa;
+}
+.contrato-header {
+  display: flex;
+  justify-content: space-between;
   align-items: center;
-  justify-content: center;
+  margin-bottom: 0.75rem;
+}
+.contrato-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #1e293b;
 }
 
-/* Responsivo pequeño */
-@media (max-width: 600px) {
-  .v-container { padding-left: 12px; padding-right: 12px; }
+/* ====== Archivos ====== */
+.file-link {
+  color: #1976d2;
+  font-weight: 500;
+  text-decoration: none;
+}
+.file-link:hover {
+  text-decoration: underline;
 }
 </style>

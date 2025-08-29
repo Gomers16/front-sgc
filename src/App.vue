@@ -15,7 +15,7 @@ const layouts: Record<LayoutKey, Component> = {
 
 const layout = computed(() => {
   const layoutKey = route.meta.layout as LayoutKey | undefined
-  return layoutKey && layoutKey in layouts ? layouts[layoutKey] : 'div'
+  return layoutKey && layoutKey in layouts ? layouts[layoutKey] : MainLayout
 })
 </script>
 
@@ -25,38 +25,26 @@ const layout = computed(() => {
   </component>
 </template>
 
-<style scoped>
+<style>
+/* Estilos globales (sin scoped) para controlar el ancho de las vistas */
+
+/* Por defecto, limita los containers (excepto fluid) a un ancho más delgado */
+.v-application .v-main .v-container:not(.fluid) {
+  max-width: 1250px;  /* puedes jugar con 900 / 960 / 1000 / 1100 según tu gusto */
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* Reseteo básico */
 html,
 body {
   margin: 0;
-  height: 100%;
-  align-items: center;
-  width: 100%;
-}
-
-router-view {
-  width: 100%;
-  height: 100%;
-}
-
-* {
-  margin: 0;
   padding: 0;
-  box-sizing: border-box;
-}
-
-body,
-html {
   width: 100%;
   height: 100%;
 }
 
 #app {
-  width: 100%;
-  height: 100%;
-}
-
-main {
   width: 100%;
   height: 100%;
 }
