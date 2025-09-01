@@ -104,13 +104,13 @@ const handlerLogin = async () => {
 .titulo-login {
   color: white;
   font-size: 1.8rem; /* Usamos rem para el tamaño de fuente, un poco más grande */
-  margin-bottom: 2rem; /* Usamos rem para el margen */
+  margin-bottom: 1rem; /* Usamos rem para el margen */
   text-align: center;
   font-weight: bold;
 }
 
 .input-group {
-  margin-bottom: 1.5rem; /* Usamos rem para el margen */
+  margin-bottom: 0.5rem; /* Usamos rem para el margen */
   text-align: left;
 }
 
