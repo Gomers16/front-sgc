@@ -525,20 +525,27 @@ export async function crearContratoSalario(payload: ContratoSalarioPayload): Pro
 
 /* =========================
    Recomendación Médica (por CONTRATO)
+   (✅ tolerante: no depende estrictamente de meta.tieneArchivo)
 ========================== */
 
 export async function obtenerRecomendacionMedicaMeta(contratoId: number): Promise<ArchivoMeta | null> {
-  const meta = await fetchData<any>(`${API_BASE_URL}/contratos/${contratoId}/recomendacion/archivo`, {
-    credentials: 'include',
-  } as any)
+  const meta = await fetchData<any>(
+    `${API_BASE_URL}/contratos/${contratoId}/recomendacion/archivo`,
+    { credentials: 'include' } as any
+  )
 
-  if (!meta || meta.tieneArchivo !== true || !meta.data) return null
+  // Puede venir como { tieneArchivo, data:{...} } o directamente el objeto
+  const raw = meta?.data ?? meta ?? {}
+  const has =
+    (meta?.tieneArchivo === true) ||
+    !!(raw.url || raw.path || raw.ruta || raw.nombreOriginal || raw.filename || raw.name)
 
-  const raw = meta.data
+  if (!has) return null
+
   return {
     url: toPublicUrl(raw.url ?? raw.path ?? raw.ruta ?? null),
     path: raw.path ?? null,
-    nombreOriginal: raw.nombreOriginal ?? raw.nombre ?? null,
+    nombreOriginal: raw.nombreOriginal ?? raw.nombre ?? raw.filename ?? raw.name ?? null,
     mime: raw.mime ?? raw.mimetype ?? null,
     size: raw.size ?? null,
     fechaEmision: raw.fechaEmision ?? null,
@@ -565,7 +572,7 @@ export async function subirRecomendacionMedica(
     formOptions('POST', fd)
   )
 
-  const raw = meta?.data ?? {}
+  const raw = meta?.data ?? meta ?? {}
   return {
     url: toPublicUrl(raw.url ?? raw.path ?? raw.ruta ?? null),
     path: raw.path ?? null,
@@ -644,13 +651,17 @@ export async function obtenerContratoArchivoMeta(contratoId: number): Promise<Ar
     { credentials: 'include' } as any
   )
 
-  if (!meta || meta.tieneArchivo !== true || !meta.data) return null
+  const raw = meta?.data ?? meta ?? {}
+  const has =
+    (meta?.tieneArchivo === true) ||
+    !!(raw.url || raw.path || raw.ruta || raw.nombreOriginal || raw.filename || raw.name)
 
-  const raw = meta.data
+  if (!has) return null
+
   return {
     url: toPublicUrl(raw.url ?? raw.path ?? raw.ruta ?? null),
     path: raw.path ?? null,
-    nombreOriginal: raw.nombreOriginal ?? raw.nombre ?? null,
+    nombreOriginal: raw.nombreOriginal ?? raw.nombre ?? raw.filename ?? raw.name ?? null,
     mime: raw.mime ?? raw.mimetype ?? 'application/pdf',
     size: raw.size ?? null,
     ...raw,
@@ -708,6 +719,7 @@ export function obtenerUrlPublicaRecomendacionDesdeRuta(ruta: string | null | un
 
 /* =========================
    Afiliaciones por contrato (EPS/ARL/AFP/AFC/CCF)
+   (✅ tolerante: no depende estrictamente de meta.tieneArchivo)
 ========================== */
 
 export interface AfiliacionArchivoMeta extends ArchivoMeta {
@@ -723,14 +735,18 @@ export async function obtenerAfiliacionArchivoMeta(
     { credentials: 'include' } as any
   )
 
-  if (!meta || meta.tieneArchivo !== true || !meta.data) return null
+  const raw = meta?.data ?? meta ?? {}
+  const has =
+    (meta?.tieneArchivo === true) ||
+    !!(raw.url || raw.path || raw.ruta || raw.nombreOriginal || raw.filename || raw.name)
 
-  const raw = meta.data
+  if (!has) return null
+
   return {
     tipo,
     url: toPublicUrl(raw.url ?? raw.path ?? raw.ruta ?? null),
     path: raw.path ?? null,
-    nombreOriginal: raw.nombreOriginal ?? raw.nombre ?? null,
+    nombreOriginal: raw.nombreOriginal ?? raw.nombre ?? raw.filename ?? raw.name ?? null,
     mime: raw.mime ?? raw.mimetype ?? null,
     size: raw.size ?? null,
     ...raw,
@@ -740,10 +756,12 @@ export async function obtenerAfiliacionArchivoMeta(
 export async function subirAfiliacionArchivo(
   contratoId: number,
   tipo: TipoAfiliacion,
-  archivo: File
+  archivo: File,
+  entidadId?: number
 ): Promise<AfiliacionArchivoMeta> {
   const fd = new FormData()
   fd.append('archivo', archivo, archivo.name)
+  if (entidadId != null) fd.append('entidadId', String(entidadId))
 
   const actorId = getActorId()
   if (actorId) fd.append('actorId', String(actorId))
@@ -753,7 +771,7 @@ export async function subirAfiliacionArchivo(
     formOptions('POST', fd)
   )
 
-  const raw = meta?.data ?? {}
+  const raw = meta?.data ?? meta ?? {}
   return {
     tipo,
     url: toPublicUrl(raw.url ?? raw.path ?? raw.ruta ?? null),
@@ -783,6 +801,7 @@ export async function eliminarAfiliacionArchivo(
 export function tieneArchivoAfiliacion(meta: any) {
   try {
     return Boolean(
+      meta?.tieneArchivo ||
       meta?.data?.url ||
       meta?.data?.nombreOriginal ||
       meta?.url ||

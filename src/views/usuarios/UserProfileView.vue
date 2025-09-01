@@ -328,11 +328,12 @@
                     </v-list-item>
                   </v-col>
                   <v-col cols="12" sm="6">
-                    <v-list-item :prepend-icon="user.recomendaciones ? 'mdi-lightbulb-on-outline' : 'mdi-lightbulb-off-outline'">
+                    <!-- 🔁 usa flag combinado -->
+                    <v-list-item :prepend-icon="recibeRecomendaciones ? 'mdi-lightbulb-on-outline' : 'mdi-lightbulb-off-outline'">
                       <v-list-item-title class="font-weight-bold">Recibe Recomendaciones:</v-list-item-title>
                       <v-list-item-subtitle>
-                        <v-chip :color="user.recomendaciones ? 'success' : 'warning'" class="font-weight-bold" label small>
-                          {{ user.recomendaciones ? 'Sí' : 'No' }}
+                        <v-chip :color="recibeRecomendaciones ? 'success' : 'warning'" class="font-weight-bold" label small>
+                          {{ recibeRecomendaciones ? 'Sí' : 'No' }}
                         </v-chip>
                       </v-list-item-subtitle>
                     </v-list-item>
@@ -348,6 +349,20 @@
                         <v-chip :color="recContrato.has ? 'success' : 'warning'" class="font-weight-bold" label small>
                           {{ recContrato.has ? 'Cargada' : 'Sin archivo' }}
                         </v-chip>
+
+                        <template v-if="recContrato.has && recContrato.meta?.url">
+                          <v-btn
+                            :href="toAbsoluteApiUrl(recContrato.meta.url)"
+                            target="_blank"
+                            color="primary"
+                            variant="text"
+                            size="small"
+                            class="ml-2"
+                            prepend-icon="mdi-file-eye-outline"
+                          >
+                            Descargar
+                          </v-btn>
+                        </template>
                       </v-list-item-subtitle>
 
                       <template #append>
@@ -444,18 +459,34 @@
                           <v-list-item-subtitle>{{ contrato.identificacion || 'N/A' }}</v-list-item-subtitle>
                         </v-list-item>
 
-                        <v-list-item prepend-icon="mdi-file-download" class="mb-2" v-if="contrato.rutaArchivoContratoFisico">
+                        <!-- CONTRATO FÍSICO: chip + botón Descargar -->
+                        <v-list-item class="mb-2" prepend-icon="mdi-file-download">
                           <v-list-item-title class="font-weight-bold">Contrato Físico:</v-list-item-title>
                           <v-list-item-subtitle>
-                            <a
+                            <v-chip
+                              :color="contrato.rutaArchivoContratoFisico ? 'success' : 'warning'"
+                              class="font-weight-bold"
+                              label
+                              small
+                            >
+                              {{ contrato.rutaArchivoContratoFisico ? 'Cargado' : 'Sin archivo' }}
+                            </v-chip>
+
+                            <v-btn
+                              v-if="contrato.rutaArchivoContratoFisico"
                               :href="toAbsoluteApiUrl(contrato.rutaArchivoContratoFisico)"
                               target="_blank"
-                              class="contrato-link"
+                              color="primary"
+                              variant="text"
+                              size="small"
+                              class="ml-2"
+                              prepend-icon="mdi-file-eye-outline"
                             >
-                              {{ contrato.nombreArchivoContratoFisico }}
-                            </a>
+                              Descargar
+                            </v-btn>
                           </v-list-item-subtitle>
                         </v-list-item>
+                        <!-- /CONTRATO FÍSICO -->
 
                         <!-- Recomendaciones Médicas -->
                         <v-list-item prepend-icon="mdi-heart-pulse" class="mb-2">
@@ -539,7 +570,6 @@
                                     <span class="font-weight-bold text-subtitle-1 mr-1">
                                       {{ paso.nombrePaso }} ({{ paso.fase }})
                                     </span>
-                                    <!-- ✏️ Lápiz pegado al título -->
                                     <v-btn
                                       icon
                                       variant="text"
@@ -638,13 +668,15 @@
 
                                 <div class="mt-2 d-flex justify-end">
                                   <v-btn
-                                    icon="mdi-eye"
                                     variant="text"
                                     size="small"
                                     color="info"
-                                    @click="viewEventDetails(evento)"
                                     class="mr-2"
-                                  />
+                                    @click="viewEventDetails(evento)"
+                                    prepend-icon="mdi-eye"
+                                  >
+                                    Ver
+                                  </v-btn>
                                   <v-btn
                                     v-if="evento.documentoUrl"
                                     :href="toAbsoluteApiUrl(evento.documentoUrl)"
@@ -780,49 +812,70 @@
                               </v-list>
                             </template>
 
+                            <!-- Cambios (incluye Creación con formato especial mínimo) -->
                             <template v-else>
-                              <div class="d-flex justify-space-between align-center mb-1">
-                                <span class="font-weight-bold text-subtitle-1 d-flex align-center">
-                                  {{ labelCampo(item.campo) }}
-                                  <v-tooltip
-                                    v-if="ABBREV_TOOLTIPS[item.campo]"
-                                    :text="ABBREV_TOOLTIPS[item.campo]"
-                                    location="top"
-                                  >
-                                    <template #activator="{ props }">
-                                      <v-icon
-                                        v-bind="props"
-                                        icon="mdi-help-circle-outline"
-                                        size="16"
-                                        class="ml-1 text-medium-emphasis"
-                                        :aria-label="`¿Qué es {{ labelCampo(item.campo) }}?`"
-                                      />
+                              <!-- 🔒 Ocultar "Creación" si ya hay un estado con motivo "Creación de contrato" -->
+                              <template
+                                v-if="!(item.campo === 'creacion' && contrato.timeline?.some(t => t.kind === 'estado' && t.motivo === 'Creación de contrato'))"
+                              >
+                                <!-- Encabezado -->
+                                <div class="d-flex justify-space-between align-center mb-1">
+                                  <span class="font-weight-bold text-subtitle-1 d-flex align-center">
+                                    <template v-if="item.campo === 'creacion'">
+                                      Creación
                                     </template>
-                                  </v-tooltip>
-                                </span>
-                                <span class="text-caption text-grey-darken-1">{{ formatDate(item.createdAt) }}</span>
-                              </div>
-
-                              <div class="text-body-2 text-grey-darken-2">
-                                <div class="mb-1">
-                                  <strong>De:</strong>
-                                  <span>{{ renderValor(item.campo, item.oldValue, contrato) }}</span>
+                                    <template v-else>
+                                      {{ labelCampo(item.campo) }}
+                                      <v-tooltip
+                                        v-if="ABBREV_TOOLTIPS[item.campo]"
+                                        :text="ABBREV_TOOLTIPS[item.campo]"
+                                        location="top"
+                                      >
+                                        <template #activator="{ props }">
+                                          <v-icon
+                                            v-bind="props"
+                                            icon="mdi-help-circle-outline"
+                                            size="16"
+                                            class="ml-1 text-medium-emphasis"
+                                            :aria-label="`¿Qué es {{ labelCampo(item.campo) }}?`"
+                                          />
+                                        </template>
+                                      </v-tooltip>
+                                    </template>
+                                  </span>
+                                  <span class="text-caption text-grey-darken-1">{{ formatDate(item.createdAt) }}</span>
                                 </div>
-                                <div>
-                                  <strong>A:</strong>
-                                  <span>{{ renderValor(item.campo, item.newValue, contrato) }}</span>
-                                </div>
-                              </div>
 
-                              <div class="mt-2">
-                                <small class="text-grey-darken-1">
-                                  Por:
-                                  <v-chip v-if="item.usuario" size="x-small" color="primary" label>
-                                    {{ fullName(item.usuario) }}
-                                  </v-chip>
-                                  <span v-else>Sistema</span>
-                                </small>
-                              </div>
+                                <!-- Cuerpo -->
+                                <div class="text-body-2 text-grey-darken-2">
+                                  <!-- Render especial para creación: solo texto -->
+                                  <template v-if="item.campo === 'creacion'">
+                                    <div class="mb-1"><strong>Contrato creado.</strong></div>
+                                  </template>
+
+                                  <!-- Otros cambios -->
+                                  <template v-else>
+                                    <div class="mb-1">
+                                      <strong>De:</strong>
+                                      <span>{{ renderValor(item.campo, item.oldValue, contrato) }}</span>
+                                    </div>
+                                    <div>
+                                      <strong>A:</strong>
+                                      <span>{{ renderValor(item.campo, item.newValue, contrato) }}</span>
+                                    </div>
+                                  </template>
+                                </div>
+
+                                <div class="mt-2">
+                                  <small class="text-grey-darken-1">
+                                    Por:
+                                    <v-chip v-if="item.usuario" size="x-small" color="primary" label>
+                                      {{ fullName(item.usuario) }}
+                                    </v-chip>
+                                    <span v-else>Sistema</span>
+                                  </small>
+                                </div>
+                              </template>
                             </template>
                           </v-timeline-item>
                         </v-timeline>
@@ -854,16 +907,7 @@
             <v-icon class="mr-1">mdi-arrow-left</v-icon>
             Volver
           </v-btn>
-          <v-btn
-            color="primary"
-            @click="openEditUserDialog"
-            class="rounded-pill"
-            size="large"
-            elevation="4"
-          >
-            <v-icon class="mr-1">mdi-pencil</v-icon>
-            Editar Perfil
-          </v-btn>
+          <!-- Botón de Editar Perfil eliminado -->
         </v-card-actions>
       </div>
 
@@ -899,7 +943,7 @@
         </v-card>
       </v-dialog>
 
-      <!-- Diálogo Editar Usuario -->
+      <!-- Diálogo Editar Usuario (se mantiene, ya que solo pediste quitar el botón) -->
       <v-dialog v-model="showEditUserDialog" max-width="800px">
         <v-card>
           <v-card-title class="text-h5 bg-primary text-white">
@@ -1001,7 +1045,7 @@
         </v-card>
       </v-dialog>
 
-      <!-- Diálogo Detalle Evento -->
+      <!-- Detalle Evento -->
       <v-dialog v-model="showEventDetailsDialog" max-width="500px">
         <v-card v-if="selectedEvent">
           <v-card-title class="text-h5 bg-primary text-white">
@@ -1057,7 +1101,7 @@
         </v-card>
       </v-dialog>
 
-      <!-- Diálogo EDITAR PASO -->
+      <!-- Editar Paso -->
       <v-dialog v-model="showEditPasoDialog" max-width="640px">
         <v-card>
           <v-card-title class="text-h5 bg-primary text-white">
@@ -1067,10 +1111,8 @@
 
           <v-card-text class="py-4">
             <v-form ref="editPasoForm">
-              <!-- 📝 Observación -->
               <v-textarea v-model="pasoEditData.observacion" label="Observación" variant="outlined" rows="3" class="mb-3" />
 
-              <!-- 📎 Archivo actual (si existe) -->
               <v-alert
                 v-if="pasoDialogMeta.has"
                 type="success"
@@ -1082,7 +1124,6 @@
                 </div>
               </v-alert>
 
-              <!-- 👉 Reemplazar archivo -->
               <v-file-input
                 v-model="editPasoFiles"
                 ref="editPasoFileRef"
@@ -1128,16 +1169,16 @@
         </v-card>
       </v-dialog>
 
-      <!-- Alertas (queda, pero se usa snackbar) -->
+      <!-- Alertas -->
       <v-dialog v-model="showAlertDialog" max-width="400px">
         <v-card>
           <v-card-title class="text-h6 bg-primary text-white">{{ alertDialogTitle }}</v-card-title>
+          <v-card-text class="py-4">{{ alertDialogMessage }}</v-card-text>
+          <v-card-actions>
+            <v-spacer />
+            <v-btn color="primary" @click="showAlertDialog = false">Aceptar</v-btn>
+          </v-card-actions>
         </v-card>
-        <v-card-text class="py-4">{{ alertDialogMessage }}</v-card-text>
-        <v-card-actions>
-          <v-spacer />
-          <v-btn color="primary" @click="showAlertDialog = false">Aceptar</v-btn>
-        </v-card-actions>
       </v-dialog>
 
       <!-- Confirmaciones -->
@@ -1153,7 +1194,7 @@
         </v-card>
       </v-dialog>
 
-      <!-- Diálogo Certificado (por CONTRATO + tipo) -->
+      <!-- Certificado por contrato -->
       <v-dialog v-model="certDialog.open" max-width="640px">
         <v-card>
           <v-card-title class="text-h6">
@@ -1205,14 +1246,14 @@
         </v-card>
       </v-dialog>
 
-      <!-- Diálogo Recomendación Médica (POR CONTRATO) -->
+      <!-- Recomendación médica por contrato -->
       <v-dialog v-model="recDialog.open" max-width="640px">
         <v-card>
           <v-card-title class="text-h6">
             Recomendación Médica — Contrato #{{ contratoIdActual || '—' }}
           </v-card-title>
 
-        <v-card-text>
+          <v-card-text>
             <v-alert v-if="recDialog.loading" type="info" variant="tonal" class="mb-3">
               Cargando información…
             </v-alert>
@@ -1249,7 +1290,7 @@
         </v-card>
       </v-dialog>
 
-      <!-- 🟦 Snackbar con cabecera azul y cuerpo blanco -->
+      <!-- Snackbar -->
       <v-snackbar v-model="snack.open" timeout="1500" location="top">
         <div class="snackbar-card">
           <div class="snackbar-header">{{ snack.title }}</div>
@@ -1259,7 +1300,9 @@
 
     </v-card>
   </v-container>
-</template><script setup lang="ts">
+</template>
+
+<script setup lang="ts">
 import { ref, onMounted, computed, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 
@@ -1501,6 +1544,13 @@ const recDialog = ref<{
 const contratoIdActual = computed<number | null>(() => primaryContrato.value?.id ?? null)
 /** ¿hay archivo actualmente en el diálogo? */
 const recTieneArchivo = computed(() => !!recDialog.value?.meta?.url || !!recDialog.value?.meta?.path)
+
+/** ✅ Flag combinado para UI: preferencia del usuario O existencia de Recomendación Médica */
+const recibeRecomendaciones = computed<boolean>(() => {
+  const pref = !!user.value?.recomendaciones
+  const hasRec = !!recContrato.value.has
+  return pref || hasRec
+})
 
 /* ===== Estado visual de certificados (afiliaciones por CONTRATO) ===== */
 type AfiliacionTipoLocal = TipoAfiliacion
@@ -2231,7 +2281,6 @@ onMounted(()=>{ loadUser() })
 
 /* Expuestos implícitamente por <script setup> */
 </script>
-
 
 
 <style scoped>
