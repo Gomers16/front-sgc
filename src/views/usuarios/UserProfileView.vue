@@ -748,16 +748,17 @@
                         Historial del Contrato (estados y cambios)
                       </h4>
 
-                      <div v-if="contrato.timeline?.length">
+                      <div v-if="visibleTimeline(contrato).length">
                         <v-timeline side="end" density="compact">
                           <v-timeline-item
-                            v-for="item in contrato.timeline"
+                            v-for="item in visibleTimeline(contrato)"
                             :key="item.kind + '-' + item.id"
                             :dot-color="item.kind === 'estado'
                               ? (item.newEstado === 'activo' ? 'success' : 'error')
                               : 'secondary'"
                             size="small"
                           >
+                            <!-- Estados -->
                             <template v-if="item.kind === 'estado'">
                               <div class="d-flex justify-space-between align-center mb-1">
                                 <span class="font-weight-bold text-subtitle-1">
@@ -795,63 +796,59 @@
 
                             <!-- Cambios -->
                             <template v-else>
-                              <template
-                                v-if="!(item.campo === 'creacion' && contrato.timeline?.some(t => t.kind === 'estado' && t.motivo === 'Creación de contrato'))"
-                              >
-                                <div class="d-flex justify-space-between align-center mb-1">
-                                  <span class="font-weight-bold text-subtitle-1 d-flex align-center">
-                                    <template v-if="item.campo === 'creacion'">
-                                      Creación
-                                    </template>
-                                    <template v-else>
-                                      {{ labelCampo(item.campo) }}
-                                      <v-tooltip
-                                        v-if="ABBREV_TOOLTIPS[item.campo]"
-                                        :text="ABBREV_TOOLTIPS[item.campo]"
-                                        location="top"
-                                      >
-                                        <template #activator="{ props }">
-                                          <v-icon
-                                            v-bind="props"
-                                            icon="mdi-help-circle-outline"
-                                            size="16"
-                                            class="ml-1 text-medium-emphasis"
-                                            :aria-label="`¿Qué es {{ labelCampo(item.campo) }}?`"
-                                          />
-                                        </template>
-                                      </v-tooltip>
-                                    </template>
-                                  </span>
-                                  <span class="text-caption text-grey-darken-1">{{ formatDate(item.createdAt) }}</span>
-                                </div>
-
-                                <div class="text-body-2 text-grey-darken-2">
+                              <div class="d-flex justify-space-between align-center mb-1">
+                                <span class="font-weight-bold text-subtitle-1 d-flex align-center">
                                   <template v-if="item.campo === 'creacion'">
-                                    <div class="mb-1"><strong>Contrato creado.</strong></div>
+                                    Creación
                                   </template>
-
                                   <template v-else>
-                                    <div class="mb-1">
-                                      <strong>De:</strong>
-                                      <span>{{ renderValor(item.campo, item.oldValue, contrato) }}</span>
-                                    </div>
-                                    <div>
-                                      <strong>A:</strong>
-                                      <span>{{ renderValor(item.campo, item.newValue, contrato) }}</span>
-                                    </div>
+                                    {{ labelCampo(item.campo) }}
+                                    <v-tooltip
+                                      v-if="ABBREV_TOOLTIPS[item.campo]"
+                                      :text="ABBREV_TOOLTIPS[item.campo]"
+                                      location="top"
+                                    >
+                                      <template #activator="{ props }">
+                                        <v-icon
+                                          v-bind="props"
+                                          icon="mdi-help-circle-outline"
+                                          size="16"
+                                          class="ml-1 text-medium-emphasis"
+                                          :aria-label="`¿Qué es {{ labelCampo(item.campo) }}?`"
+                                        />
+                                      </template>
+                                    </v-tooltip>
                                   </template>
-                                </div>
+                                </span>
+                                <span class="text-caption text-grey-darken-1">{{ formatDate(item.createdAt) }}</span>
+                              </div>
 
-                                <div class="mt-2">
-                                  <small class="text-grey-darken-1">
-                                    Por:
-                                    <v-chip v-if="item.usuario" size="x-small" color="primary" label>
-                                      {{ fullName(item.usuario) }}
-                                    </v-chip>
-                                    <span v-else>Sistema</span>
-                                  </small>
-                                </div>
-                              </template>
+                              <div class="text-body-2 text-grey-darken-2">
+                                <template v-if="item.campo === 'creacion'">
+                                  <div class="mb-1"><strong>Contrato creado.</strong></div>
+                                </template>
+
+                                <template v-else>
+                                  <div class="mb-1">
+                                    <strong>De:</strong>
+                                    <span>{{ renderValor(item.campo, item.oldValue, contrato) }}</span>
+                                  </div>
+                                  <div>
+                                    <strong>A:</strong>
+                                    <span>{{ renderValor(item.campo, item.newValue, contrato) }}</span>
+                                  </div>
+                                </template>
+                              </div>
+
+                              <div class="mt-2">
+                                <small class="text-grey-darken-1">
+                                  Por:
+                                  <v-chip v-if="item.usuario" size="x-small" color="primary" label>
+                                    {{ fullName(item.usuario) }}
+                                  </v-chip>
+                                  <span v-else>Sistema</span>
+                                </small>
+                              </div>
                             </template>
                           </v-timeline-item>
                         </v-timeline>
@@ -1272,7 +1269,6 @@
     </v-card>
   </v-container>
 </template>
-
 
 <script setup lang="ts">
 import { ref, onMounted, computed, watch } from 'vue'
@@ -1702,6 +1698,16 @@ const buildTimeline = (c: Contrato): TimelineItem[] => {
     const tb = new Date(b.kind === 'estado' ? (b as any).fechaCambio : (b as any).createdAt).getTime()
     return tb - ta
   })
+}
+
+/** Vista filtrada de timeline para el template:
+ *  elimina el item "creacion" cuando ya existe un estado con motivo "Creación de contrato"
+ */
+function visibleTimeline(c: Contrato): TimelineItem[] {
+  const list = (c.timeline || []) as TimelineItem[]
+  const hasEstadoCreacion = list.some(it => it.kind === 'estado' && (it as any).motivo === 'Creación de contrato')
+  if (!hasEstadoCreacion) return list
+  return list.filter(it => !(it.kind === 'cambio' && (it as any).campo === 'creacion'))
 }
 
 /* ===== Helpers archivo ===== */
@@ -2265,7 +2271,6 @@ onMounted(()=>{ loadUser() })
 
 /* Expuestos implícitamente por <script setup> */
 </script>
-
 
 <style scoped>
 /* ===== Avatar ===== */
