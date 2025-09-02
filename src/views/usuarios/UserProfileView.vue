@@ -339,39 +339,20 @@
                     </v-list-item>
                   </v-col>
 
-                  <!-- Recomendación Médica (clip + chulito) -->
+                  <!-- Recomendación Médica (chip basado en meta o ruta del contrato activo) -->
                   <v-col cols="12" sm="12">
                     <v-list-item prepend-icon="mdi-heart-pulse">
                       <v-list-item-title class="font-weight-bold">
                         Recomendación Médica (Contrato actual):
                       </v-list-item-title>
                       <v-list-item-subtitle>
-                        <v-chip :color="recContrato.has ? 'success' : 'warning'" class="font-weight-bold" label small>
-                          {{ recContrato.has ? 'Cargada' : 'Sin archivo' }}
+                        <v-chip :color="recContratoTieneArchivo ? 'success' : 'warning'" class="font-weight-bold" label small>
+                          {{ recContratoTieneArchivo ? 'Cargada' : 'Sin archivo' }}
                         </v-chip>
-
-                        <template v-if="recContrato.has && recContrato.meta?.url">
-                          <v-btn
-                            :href="toAbsoluteApiUrl(recContrato.meta.url)"
-                            target="_blank"
-                            color="primary"
-                            variant="text"
-                            size="small"
-                            class="ml-2"
-                            prepend-icon="mdi-file-eye-outline"
-                          >
-                            Descargar
-                          </v-btn>
-                        </template>
                       </v-list-item-subtitle>
 
                       <template #append>
-                        <v-badge
-                          :model-value="recContrato.has"
-                          color="success"
-                          overlap
-                          class="clip-badge"
-                        >
+                        <v-badge :model-value="recContratoTieneArchivo" color="success" overlap class="clip-badge">
                           <template #badge><v-icon size="14">mdi-check</v-icon></template>
                           <v-btn
                             icon
@@ -459,7 +440,7 @@
                           <v-list-item-subtitle>{{ contrato.identificacion || 'N/A' }}</v-list-item-subtitle>
                         </v-list-item>
 
-                        <!-- CONTRATO FÍSICO: chip + botón Descargar -->
+                        <!-- CONTRATO FÍSICO -->
                         <v-list-item class="mb-2" prepend-icon="mdi-file-download">
                           <v-list-item-title class="font-weight-bold">Contrato Físico:</v-list-item-title>
                           <v-list-item-subtitle>
@@ -488,7 +469,7 @@
                         </v-list-item>
                         <!-- /CONTRATO FÍSICO -->
 
-                        <!-- Recomendaciones Médicas -->
+                        <!-- Recomendaciones Médicas (por contrato) -->
                         <v-list-item prepend-icon="mdi-heart-pulse" class="mb-2">
                           <v-list-item-title class="font-weight-bold">Recomendaciones Médicas:</v-list-item-title>
                           <v-list-item-subtitle>
@@ -812,13 +793,11 @@
                               </v-list>
                             </template>
 
-                            <!-- Cambios (incluye Creación con formato especial mínimo) -->
+                            <!-- Cambios -->
                             <template v-else>
-                              <!-- 🔒 Ocultar "Creación" si ya hay un estado con motivo "Creación de contrato" -->
                               <template
                                 v-if="!(item.campo === 'creacion' && contrato.timeline?.some(t => t.kind === 'estado' && t.motivo === 'Creación de contrato'))"
                               >
-                                <!-- Encabezado -->
                                 <div class="d-flex justify-space-between align-center mb-1">
                                   <span class="font-weight-bold text-subtitle-1 d-flex align-center">
                                     <template v-if="item.campo === 'creacion'">
@@ -846,14 +825,11 @@
                                   <span class="text-caption text-grey-darken-1">{{ formatDate(item.createdAt) }}</span>
                                 </div>
 
-                                <!-- Cuerpo -->
                                 <div class="text-body-2 text-grey-darken-2">
-                                  <!-- Render especial para creación: solo texto -->
                                   <template v-if="item.campo === 'creacion'">
                                     <div class="mb-1"><strong>Contrato creado.</strong></div>
                                   </template>
 
-                                  <!-- Otros cambios -->
                                   <template v-else>
                                     <div class="mb-1">
                                       <strong>De:</strong>
@@ -907,7 +883,6 @@
             <v-icon class="mr-1">mdi-arrow-left</v-icon>
             Volver
           </v-btn>
-          <!-- Botón de Editar Perfil eliminado -->
         </v-card-actions>
       </div>
 
@@ -943,7 +918,8 @@
         </v-card>
       </v-dialog>
 
-      <!-- Diálogo Editar Usuario (se mantiene, ya que solo pediste quitar el botón) -->
+      <!-- (Resto de diálogos tal cual, sin cambios visuales relevantes en el template) -->
+      <!-- Editar Usuario -->
       <v-dialog v-model="showEditUserDialog" max-width="800px">
         <v-card>
           <v-card-title class="text-h5 bg-primary text-white">
@@ -982,7 +958,7 @@
         </v-card>
       </v-dialog>
 
-      <!-- Diálogo Agregar Evento -->
+      <!-- Agregar Evento -->
       <v-dialog v-model="showAddEventDialogForContrato" max-width="600px">
         <v-card>
           <v-card-title class="text-h5 bg-primary text-white">
@@ -1113,12 +1089,7 @@
             <v-form ref="editPasoForm">
               <v-textarea v-model="pasoEditData.observacion" label="Observación" variant="outlined" rows="3" class="mb-3" />
 
-              <v-alert
-                v-if="pasoDialogMeta.has"
-                type="success"
-                variant="tonal"
-                class="mb-3"
-              >
+              <v-alert v-if="pasoDialogMeta.has" type="success" variant="tonal" class="mb-3">
                 <div class="d-flex flex-wrap align-center ga-2">
                   <div><strong>Actual:</strong> {{ pasoDialogMeta.nombre || 'Archivo cargado' }}</div>
                 </div>
@@ -1301,6 +1272,7 @@
     </v-card>
   </v-container>
 </template>
+
 
 <script setup lang="ts">
 import { ref, onMounted, computed, watch } from 'vue'
@@ -1545,10 +1517,22 @@ const contratoIdActual = computed<number | null>(() => primaryContrato.value?.id
 /** ¿hay archivo actualmente en el diálogo? */
 const recTieneArchivo = computed(() => !!recDialog.value?.meta?.url || !!recDialog.value?.meta?.path)
 
+/** ✅ NUEVO: indica si HAY archivo de Recomendación para el contrato activo (para el chip del header).
+ *    Se evalúa por dos caminos:
+ *      1) meta.url / meta.path que retornan los servicios,
+ *      2) rutaArchivoRecomendacionMedica ya sincronizada en el contrato activo.
+ */
+const recContratoTieneArchivo = computed<boolean>(() => {
+  const meta = recContrato.value.meta as any
+  const viaMeta = !!(meta && (meta.url || meta.path))
+  const viaRuta = !!primaryContrato.value?.rutaArchivoRecomendacionMedica
+  return viaMeta || viaRuta || !!recContrato.value.has
+})
+
 /** ✅ Flag combinado para UI: preferencia del usuario O existencia de Recomendación Médica */
 const recibeRecomendaciones = computed<boolean>(() => {
   const pref = !!user.value?.recomendaciones
-  const hasRec = !!recContrato.value.has
+  const hasRec = recContratoTieneArchivo.value
   return pref || hasRec
 })
 
@@ -2284,7 +2268,7 @@ onMounted(()=>{ loadUser() })
 
 
 <style scoped>
-/* Avatar */
+/* ===== Avatar ===== */
 .avatar-container {
   position: relative;
   display: inline-block;
@@ -2295,37 +2279,71 @@ onMounted(()=>{ loadUser() })
   right: 0;
 }
 
-/* Clip badge */
+/* Borde grueso para el avatar (si no usas utilidades de Vuetify) */
+.border-lg {
+  border: 3px solid #fff;
+  box-sizing: border-box;
+}
+
+/* ===== Badges y chips ===== */
 .clip-badge {
   margin-left: 8px;
 }
 
-/* Estilo del modal de editar paso */
+/* Nombre de afiliación con elipsis si es muy largo */
+.afiliacion-nombre {
+  max-width: 100%;
+  display: inline-block;
+  vertical-align: middle;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* ===== Tarjetas / diálogos ===== */
 .v-dialog .v-card-text .v-textarea {
   margin-bottom: 12px;
 }
 
-/* Ícono de lápiz al lado del título */
+/* Ícono de lápiz pegado al título del timeline */
 .v-timeline-item .d-flex.align-center > .v-btn {
   margin-left: 6px;
   padding: 0;
 }
 
-/* Snackbar azul */
+/* Espacio extra en Seguridad Social para respiración visual */
+.seg-social .v-list-item {
+  padding-top: 6px;
+  padding-bottom: 6px;
+}
+
+/* ===== Snackbar (cabecera azul + cuerpo blanco) ===== */
 .snackbar-card {
-  background: white;
+  background: #fff;
   border-radius: 8px;
   overflow: hidden;
   min-width: 260px;
+  box-shadow: 0 4px 14px rgba(0,0,0,.15);
 }
 .snackbar-header {
-  background: #1976d2;
-  color: white;
-  font-weight: bold;
+  background: #1976d2; /* primary */
+  color: #fff;
+  font-weight: 700;
   padding: 6px 12px;
 }
 .snackbar-body {
   padding: 10px 12px;
   color: #333;
+}
+
+/* ===== Utilidades pequeñas ===== */
+.text-white { color: #fff; }
+.rounded-pill { border-radius: 9999px; }
+
+@media (max-width: 600px) {
+  /* Evita cortes en subtítulos en móviles */
+  .afiliacion-nombre {
+    max-width: 85vw;
+  }
 }
 </style>

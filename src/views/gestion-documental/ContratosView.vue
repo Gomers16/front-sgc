@@ -546,7 +546,7 @@
           </v-col>
 
           <!-- Anexar/Reemplazar contrato -->
-          <v-col cols="12" md="6">
+          <v-col :key="fileBlockKey" cols="12" md="6">
             <h4 class="text-h6 mb-2">
               {{ isEditing ? 'Reemplazar Archivo de Contrato (opcional)' : 'Anexar Contrato' }}
             </h4>
@@ -576,7 +576,7 @@
               </v-alert>
 
               <v-file-input
-                :key="fileInputKey"
+                :key="fileInputRenderKey"
                 label="Subir archivo del contrato físico"
                 variant="outlined"
                 density="compact"
@@ -584,7 +584,7 @@
                 accept="application/pdf"
                 prepend-icon="mdi-file-upload"
                 class="mb-1"
-                @change="onFileChange"
+                @update:model-value="onFileChange"
                 ref="fileInputRef"
               >
                 <template #append>
@@ -940,7 +940,6 @@
   </v-container>
 </template>
 
-
 <script setup lang="ts">
 /* Vue + VeeValidate */
 import { ref, computed, watch, onMounted, nextTick } from 'vue'
@@ -1092,8 +1091,16 @@ const contratoEditId = ref<number | null>(null)
 
 /* ======= Archivos: contrato + recomendación ======= */
 const archivoContrato = ref<File | null>(null)
-const fileInputKey = ref(0)
-const fileInputRef = ref<HTMLInputElement | null>(null)
+
+/** 🔑 Claves para forzar re-render
+ * - fileBlockKey → re-monta todo el bloque del input
+ * - fileInputRenderKey → re-monta SOLO el componente v-file-input
+ */
+const fileBlockKey = ref(0)
+const fileInputRenderKey = ref(0)
+// ref al componente (no se usa para lógica, solo por si necesitas acceso programático)
+const fileInputRef = ref<any>(null)
+
 const identificacionRef = ref<HTMLInputElement | null>(null)
 
 const tieneRecomendacionesMedicas = ref(false)
@@ -1132,7 +1139,6 @@ function tieneArchivoAfiliacion(meta:any) {
   catch { return false }
 }
 function getArchivoNombre(meta: any) {
-  // Fallback a nombre de pendiente si no hay meta con nombre
   const t = certDialog.value.tipo as AfiliacionTipo
   const pending = t ? pendingCertsByTipo.value[t] : null
   return meta?.data?.nombreOriginal || meta?.data?.filename || meta?.data?.name || meta?.nombreOriginal || pending?.name || meta?.url?.split('/')?.pop() || ''
@@ -1396,7 +1402,6 @@ async function abrirDialogoCertificado(tipo: AfiliacionTipo) {
       certDialog.value.loading = false
     }
   } else {
-    // 👇 En creación: si ya había archivo pendiente, mostrarlo como “actual”
     const f = pendingCertsByTipo.value[tipo]
     certDialog.value.meta = f ? { data: { nombreOriginal: f.name } } : null
   }
@@ -1413,7 +1418,6 @@ async function subirCertificadoSeleccionado() {
   if (msg) { notify(msg, 'error'); return }
 
   if (!isEditing.value) {
-    // 💾 Persistir en memoria (pendiente) y actualizar UI del modal a “cargado”
     pendingCertsByTipo.value[t] = certDialog.value.file
     pendingEntidadIdByTipo.value[t] = entidadId
     certDialog.value.meta = { data: { nombreOriginal: certDialog.value.file.name } }
@@ -1444,7 +1448,6 @@ async function eliminarCertificadoSeleccionado() {
   if (!t) return
 
   if (!isEditing.value) {
-    // ❌ Quitar archivo pendiente en creación
     pendingCertsByTipo.value[t] = null
     pendingEntidadIdByTipo.value[t] = null
     certDialog.value.meta = null
@@ -1509,7 +1512,6 @@ async function subirRecomendacionSeleccionada() {
     const meta = await obtenerRecomendacionMedicaMeta(Number(contratoEditId.value))
     recMetaCache.value = { url: meta?.data?.url || null, nombre: meta?.data?.nombreOriginal || null }
     recUiTick.value++
-    // ⚙️ Re-sincroniza el switch
     syncTieneRecFlagFromMeta(true)
     notify('Recomendación médica actualizada.', 'success')
     cerrarRecDialog()
@@ -1523,7 +1525,6 @@ async function eliminarRecomendacionSeleccionada() {
   if (!isEditing.value) {
     archivoRecomendacionMedica.value = null
     recUiTick.value++
-    // Si no hay archivo/flag en creación, desmarca
     syncTieneRecFlagFromMeta(false)
     cerrarRecDialog()
     return
@@ -1558,16 +1559,12 @@ async function descargarRecomendacionSeleccionada() {
 const dialogEliminarRec = ref(false)
 
 watch(tieneRecomendacionesMedicas, async (nuevo, viejo) => {
-  // Si estaba marcado y el usuario lo desmarca…
   if (viejo && !nuevo) {
-    // En edición: si hay archivo real en backend, pedimos confirmación
     if (isEditing.value && recMetaCache.value?.url) {
       dialogEliminarRec.value = true
-      // Revertimos visualmente hasta que confirme
       tieneRecomendacionesMedicas.value = true
       return
     }
-    // En creación: limpiar el archivo en memoria si lo había
     archivoRecomendacionMedica.value = null
     recUiTick.value++
   }
@@ -1619,11 +1616,9 @@ const submitForm = handleSubmit(async (values) => { await crearYAnexarContrato(v
 async function handleConfirmacion() {
   if (isSaving.value) return
 
-  // Validación general VeeValidate
   const { valid } = await validate()
   if (!valid) return showAlert('Error de Validación', 'Revisa los campos en rojo.')
 
-  // 🔒 Validación/forzado del término por tipo
   const tipo = tipoContratoSeleccionado.value
   const termino = terminoContrato.value as string | null
 
@@ -1644,16 +1639,13 @@ async function handleConfirmacion() {
     return showAlert('Falta el término', 'En contrato laboral selecciona Fijo, Obra o labor determinada o Indefinido.')
   }
 
-  // Fecha terminación (según reglas)
   if (isFechaTerminacionRequired.value && !fechaTerminacion.value) {
     return showAlert('Advertencia', 'La fecha de terminación es obligatoria para este tipo de contrato.')
   }
 
-  // Archivo contrato
   const contratoMsg = validateFileOrMsg(archivoContrato.value, { allowedMime: ALLOWED_CONTRATO_MIME, maxMB: MAX_UPLOAD_MB })
   if (contratoMsg) return showAlert('Archivo de contrato inválido', contratoMsg)
 
-  // Recomendación médica si aplica
   if (tieneRecomendacionesMedicas.value && archivoRecomendacionMedica.value) {
     const recMsg = validateFileOrMsg(archivoRecomendacionMedica.value, { allowedExt: ALLOWED_REC_EXT, maxMB: MAX_UPLOAD_MB })
     if (recMsg) return showAlert('Archivo de recomendación inválido', recMsg)
@@ -1669,7 +1661,6 @@ async function crearYAnexarContrato(formData:any) {
       showAlert('Error', 'Falta información clave.'); return
     }
 
-    // 🔧 Normalización de término ANTES de enviar al backend
     const terminoNormalizado = (() => {
       const tipo = tipoContratoSeleccionado.value
       const valor = terminoContrato.value as string | null
@@ -1808,15 +1799,12 @@ async function editarContrato(c: ContratoRow) {
   contratoEditArchivoUrl.value = src.rutaArchivoContratoFisico || null
   contratoEditNombreArchivo.value = contratoEditArchivoUrl.value?.split('/')?.pop() || 'Contrato actual'
 
-  // Recomendación meta (primera pasada por src)
   recMetaCache.value = {
     url: src.rutaArchivoRecomendacionMedica || null,
     nombre: (src.rutaArchivoRecomendacionMedica?.split('/')?.pop() || null)
   }
-  // 🔹 Marca el check si el contrato ya trae archivo/flag
   syncTieneRecFlagFromMeta(src.tieneRecomendacionesMedicas)
 
-  // Luego consulta meta real y re-sincroniza
   try {
     const meta = await obtenerRecomendacionMedicaMeta(Number(c.id))
     if (meta?.data) {
@@ -1825,12 +1813,10 @@ async function editarContrato(c: ContratoRow) {
         nombre: meta.data.nombreOriginal || recMetaCache.value?.nombre || null
       }
     }
-    // 🔹 Re-sincroniza con lo real del backend
     syncTieneRecFlagFromMeta(src.tieneRecomendacionesMedicas)
   } catch {}
   recUiTick.value++
 
-  // Chulos de afiliaciones
   await Promise.all(['eps','arl','afp','afc','ccf'].map(async (t:any)=>{
     try {
       const meta = await obtenerArchivoAfiliacionMeta(Number(c.id), t as AfiliacionTipo)
@@ -1838,11 +1824,12 @@ async function editarContrato(c: ContratoRow) {
     } catch { setCertState(t, false, null) }
   }))
 
-  // Pasos reales
   try { await cargarPasosDesdeBackend(Number(c.id)) } catch {}
 
+  // Reset del input de archivo para evitar duplicación/estado fantasma
   archivoContrato.value = null
-  archivoRecomendacionMedica.value = null
+  fileInputRenderKey.value++
+  fileBlockKey.value++ // fuerza re-montaje del bloque completo
   await nextTick(); window.scrollTo({ top: 0, behavior: 'smooth' })
 }
 
@@ -1854,7 +1841,6 @@ async function guardarCambiosContrato() {
     const { valid } = await validate()
     if (!valid) { showAlert('Error de Validación', 'Revisa los campos obligatorios.'); return }
 
-    // 🔒 Validaciones de término en edición también
     const tipo = tipoContratoSeleccionado.value
     const termino = terminoContrato.value as string | null
     if (tipo === 'prestacion' && !termino) {
@@ -1880,7 +1866,6 @@ async function guardarCambiosContrato() {
       if (msg) { showAlert('Archivo de recomendación inválido', msg); return }
     }
 
-    // 🔧 Normalización de término en edición
     const terminoNormalizado = (() => {
       const tipo = tipoContratoSeleccionado.value
       const valor = terminoContrato.value as string | null
@@ -1937,7 +1922,6 @@ async function guardarCambiosContrato() {
       }
     }
     recUiTick.value++
-    // 🔹 Asegura que el switch refleje lo que quedó en backend
     syncTieneRecFlagFromMeta(refreshed?.tieneRecomendacionesMedicas)
 
     notify('Contrato actualizado correctamente.', 'success')
@@ -2049,16 +2033,22 @@ async function completarPasoConfirmado() {
 }
 
 /* ======= Clip de contrato (input principal) ======= */
-function onFileChange(payload: any) {
-  const f: File | null =
-    Array.isArray(payload) ? (payload[0] || null)
-      : (payload?.target?.files?.[0] ?? payload ?? null)
+/** Maneja @update:model-value del v-file-input (value: File[] | null | undefined) */
+function onFileChange(value: any) {
+  let f: File | null = null
+  if (Array.isArray(value)) f = value[0] || null
+  else if (value && value?.target?.files) f = value.target.files[0] || null
+  else if (value instanceof File) f = value
+  else f = null
+
   if (!f) { archivoContrato.value = null; return }
+
   const msg = validateFileOrMsg(f, { allowedMime: ALLOWED_CONTRATO_MIME, maxMB: MAX_UPLOAD_MB })
   if (msg) {
     showAlert('Archivo de contrato inválido', msg)
     archivoContrato.value = null
-    fileInputKey.value++ // reset input
+    // 🔄 reset “limpio” del input para evitar estados fantasma/duplicados
+    fileInputRenderKey.value++
     return
   }
   archivoContrato.value = f
@@ -2082,7 +2072,10 @@ async function resetTotal() {
   resetPasos()
   archivoContrato.value = null
   archivoRecomendacionMedica.value = null
-  fileInputKey.value++
+
+  // 🔑 resetea el bloque/input de archivo para evitar duplicación
+  fileInputRenderKey.value++
+  fileBlockKey.value++
 
   tipoContratoSeleccionado.value = 'prestacion'
   razonSocialSeleccionada.value = null
@@ -2119,7 +2112,10 @@ function limpiarFormulario() {
   resetPasos()
   archivoContrato.value = null
   archivoRecomendacionMedica.value = null
-  fileInputKey.value++
+
+  fileInputRenderKey.value++
+  fileBlockKey.value++
+
   tipoContratoSeleccionado.value = 'prestacion'
   pendingCertsByTipo.value = { eps:null, arl:null, afp:null, afc:null, ccf:null }
   pendingEntidadIdByTipo.value = { eps:null, arl:null, afp:null, afc:null, ccf:null }
@@ -2154,10 +2150,14 @@ watch(usuarioSeleccionado, async (v)=>{
   tieneRecomendacionesMedicas.value = false
   recUiTick.value++
   pasosBackend.value = null
+
+  // 🔑 al cambiar de usuario, forzar re-render del bloque de archivo
+  fileInputRenderKey.value++
+  fileBlockKey.value++
+
   if (!v) return
   await cargarHistorialContratos()
 })
-/* Si el tipo cambia y el valor actual no está disponible, lo limpiamos */
 watch(tipoContratoSeleccionado, () => {
   const allowed = terminosContratoOptions.value.map(o => o.value)
   if (!allowed.includes(terminoContrato.value as any)) terminoContrato.value = null
@@ -2243,7 +2243,7 @@ defineExpose({ toAbsoluteApiUrl })
   margin-bottom: 8px;
 }
 
-/* ====== Ajustes visuales menores ====== */
+/* ====== Timeline ====== */
 :deep(.v-timeline-item__dot) {
   box-shadow: none;
 }
