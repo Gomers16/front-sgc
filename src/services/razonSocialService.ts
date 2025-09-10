@@ -1,100 +1,69 @@
 // src/services/razonSocialService.ts
+import { get } from './http'
 
 /**
- * @file Servicio para interactuar con la API de razones sociales.
- * Maneja las operaciones de listado, obtención por ID y obtención de usuarios
- * asociados a una razón social.
+ * Tipos
  */
-
-// Define interfaces para los tipos de datos que esperas recibir
-// Esto mejora la seguridad de tipos y la legibilidad.
-// Si tus modelos de AdonisJS tienen más campos, deberías incluirlos aquí.
-interface RazonSocial {
-  id: number;
-  nombre: string;
-  // Añade otras propiedades si las traes de la base de datos
+export interface RazonSocial {
+  id: number
+  nombre: string
+  // agrega aquí otros campos que devuelva tu backend
 }
 
 export interface Usuario {
-  id: number;
-  nombres: string;
-  apellidos: string;
-  correo: string;
-  // Otras propiedades del usuario que necesites...
-  // Por ejemplo, si precargas 'cargo', 'rol', 'contratos':
-  cargo?: { id: number; nombre: string };
-  rol?: { id: number; nombre: string };
-  contratos?: Array<{ id: number; estado: string; /* ...otras propiedades del contrato */ }>;
+  id: number
+  nombres: string
+  apellidos: string
+  correo: string
+  cargo?: { id: number; nombre: string }
+  rol?: { id: number; nombre: string }
+  contratos?: Array<{ id: number; estado: string }>
 }
 
 /**
- * Lista todas las razones sociales disponibles desde la API.
- * @returns {Promise<Array<RazonSocial>>} Un arreglo de razones sociales o un arreglo vacío en caso de error.
+ * Helper para extraer { data } si el backend envuelve la respuesta.
  */
-export async function listarRazonesSociales(): Promise<Array<RazonSocial>> {
-  try {
-    const response = await fetch('/api/razones-sociales', {
-      cache: 'no-store',
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Error ${response.status}: ${response.statusText || 'Error al obtener las razones sociales'}. Detalles: ${errorText}`);
-    }
-
-    const json = await response.json();
-    return json.data || [];
-  } catch (error: unknown) {
-    console.error('Error en listarRazonesSociales:', error instanceof Error ? error.message : error);
-    return [];
+function pickData<T>(resp: unknown): T {
+  if (resp && typeof resp === 'object' && 'data' in (resp as Record<string, unknown>)) {
+    return (resp as { data: T }).data
   }
+  return resp as T
 }
 
 /**
- * Obtiene una razón social específica por su ID desde la API.
- * @param {string | number} id - El ID de la razón social a obtener.
- * @returns {Promise<RazonSocial | null>} El objeto de la razón social o null si no se encuentra o hay un error.
+ * GET /api/razones-sociales
  */
-export async function obtenerRazonSocialPorId(id: string | number): Promise<RazonSocial | null> {
-  try {
-    const response = await fetch(`/api/razones-sociales/${id}`, {
-      cache: 'no-store',
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Error ${response.status}: ${response.statusText || 'Error al obtener la razón social'}. Detalles: ${errorText}`);
-    }
-
-    const json = await response.json();
-    return json.data || null;
-  } catch (error: unknown) {
-    console.error(`Error en obtenerRazonSocialPorId (${id}):`, error instanceof Error ? error.message : error);
-    return null;
-  }
+export async function listarRazonesSociales(): Promise<RazonSocial[]> {
+  const resp = await get<unknown>('/api/razones-sociales', {
+    headers: { 'Cache-Control': 'no-store' },
+    credentials: 'include',
+  })
+  return pickData<RazonSocial[]>(resp) ?? []
 }
 
 /**
- * Obtiene la lista de usuarios asociados a una razón social específica.
- * @param {string | number} razonSocialId - El ID de la razón social.
- * @returns {Promise<Array<Usuario>>} Un arreglo de usuarios o un arreglo vacío en caso de error.
+ * GET /api/razones-sociales/:id
  */
-export async function fetchUsuariosPorRazonSocial(razonSocialId: string | number): Promise<Array<Usuario>> {
-  try {
-    const response = await fetch(`/api/razones-sociales/${razonSocialId}/usuarios`, {
-      cache: 'no-store',
-    });
+export async function obtenerRazonSocialPorId(
+  id: string | number
+): Promise<RazonSocial | null> {
+  const resp = await get<unknown>(`/api/razones-sociales/${id}`, {
+    headers: { 'Cache-Control': 'no-store' },
+    credentials: 'include',
+  })
+  const data = pickData<RazonSocial | null>(resp)
+  return data ?? null
+}
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Error ${response.status}: ${response.statusText}. Detalles: ${errorText}`);
-    }
-
-    const json = await response.json();
-    console.log('🧪 Respuesta JSON:', json);
-    return json.data || [];
-  } catch (error: unknown) {
-    console.error(`Error en fetchUsuariosPorRazonSocial (${razonSocialId}):`, error instanceof Error ? error.message : error);
-    return [];
-  }
+/**
+ * GET /api/razones-sociales/:id/usuarios
+ */
+export async function fetchUsuariosPorRazonSocial(
+  razonSocialId: string | number
+): Promise<Usuario[]> {
+  const resp = await get<unknown>(`/api/razones-sociales/${razonSocialId}/usuarios`, {
+    headers: { 'Cache-Control': 'no-store' },
+    credentials: 'include',
+  })
+  return pickData<Usuario[]>(resp) ?? []
 }

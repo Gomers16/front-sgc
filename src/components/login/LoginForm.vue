@@ -1,6 +1,6 @@
 <template>
   <div class="login-form">
-    <h2 class="titulo-login">Bienvenido a ACTIVAUTOS CDA del Centro Ibagué</h2>
+    <h2 class="titulo-login">Bienvenido</h2>
     <form @submit.prevent="handlerLogin">
       <div class="input-group">
         <label for="email">Correo electrónico</label>

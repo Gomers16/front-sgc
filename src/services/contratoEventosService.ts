@@ -1,80 +1,91 @@
 // src/services/contratoEventosService.ts
-
-const API_BASE_URL =
-  ((import.meta as any)?.env?.VITE_API_URL?.replace(/\/+$/, '') || 'http://localhost:3333') + '/api'
+import { get, post, put, del } from './http'
 
 /* ===== Helpers ===== */
 
-function getActorId(): number | null {
-  const tryNum = (v: any) => {
-    const n = Number(v)
-    return Number.isFinite(n) && n > 0 ? n : null
-  }
+function toNumOrNull(v: unknown): number | null {
+  const n = typeof v === 'string' ? Number(v) : (typeof v === 'number' ? v : NaN)
+  return Number.isFinite(n) && n > 0 ? n : null
+}
 
-  // 1) claves directas comunes
+function getActorId(): number | null {
+  const read = (k: string): string | null =>
+    localStorage.getItem(k) ?? sessionStorage.getItem(k)
+
   const direct =
-    tryNum(localStorage.getItem('actorId')) ??
-    tryNum(sessionStorage.getItem('actorId')) ??
-    tryNum(localStorage.getItem('authUserId')) ??
-    tryNum(sessionStorage.getItem('authUserId')) ??
-    tryNum(localStorage.getItem('userId')) ??
-    tryNum(sessionStorage.getItem('userId'))
+    toNumOrNull(read('actorId')) ??
+    toNumOrNull(read('authUserId')) ??
+    toNumOrNull(read('userId'))
 
   if (direct) return direct
 
-  // 2) objetos comunes serializados
   const keys = ['user', 'usuario', 'authUser', 'currentUser', 'sessionUser']
   for (const k of keys) {
-    const raw = localStorage.getItem(k) ?? sessionStorage.getItem(k)
+    const raw = read(k)
     if (!raw) continue
     try {
-      const obj = JSON.parse(raw)
-      const id = obj?.id ?? obj?.user?.id ?? obj?.data?.id
-      const n = tryNum(id)
-      if (n) return n
-    } catch {}
+      const obj: unknown = JSON.parse(raw)
+      if (typeof obj === 'object' && obj !== null) {
+        const maybeId =
+          (obj as { id?: unknown }).id ??
+          (obj as { user?: { id?: unknown } }).user?.id ??
+          (obj as { data?: { id?: unknown } }).data?.id
+        const n = toNumOrNull(maybeId)
+        if (n) return n
+      }
+    } catch {
+      /* ignore */
+    }
   }
-
   return null
 }
 
-async function fetchData<T>(url: string, options?: RequestInit): Promise<T> {
-  const resp = await fetch(url, options)
-  if (!resp.ok) {
-    let msg = resp.statusText
-    try {
-      const j = await resp.json()
-      msg = j?.message || j?.error || msg
-    } catch {
-      try {
-        const t = await resp.text()
-        if (t) msg = t
-      } catch {}
-    }
-    throw new Error(msg)
-  }
-  if (resp.status === 204) return {} as T
-  return resp.json()
-}
-
-function jsonOptions(method: string, data: any): RequestInit {
+function withActorHeaders(extra?: Record<string, string>) {
   const actorId = getActorId()
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-  if (actorId) headers['x-actor-id'] = String(actorId)
-  // no forzamos actorId en el body si no viene; pero lo añadimos para compatibilidad
-  const body = JSON.stringify({ ...(data ?? {}), actorId: (data?.actorId ?? actorId) ?? null })
-  return { method, headers, body, credentials: 'include' }
+  return actorId
+    ? { ...(extra || {}), 'x-actor-id': String(actorId) }
+    : { ...(extra || {}) }
 }
 
-function formOptions(method: string, form: FormData): RequestInit {
+function withActorBody<T extends Record<string, unknown>>(data: T | undefined) {
+  const actorId = getActorId()
+  return {
+    ...(data ?? ({} as T)),
+    actorId: (data as Record<string, unknown> | undefined)?.actorId ?? actorId ?? null,
+  } as T & { actorId: number | null }
+}
+
+function withActorForm(form: FormData) {
   const actorId = getActorId()
   if (actorId && !form.has('actorId')) form.append('actorId', String(actorId))
-  const headers: Record<string, string> = {}
-  if (actorId) headers['x-actor-id'] = String(actorId)
-  return { method, headers, body: form, credentials: 'include' }
+  return form
+}
+
+function isRecord(x: unknown): x is Record<string, unknown> {
+  return typeof x === 'object' && x !== null
+}
+
+function toArray<T>(data: unknown): T[] {
+  if (Array.isArray(data)) return data as T[]
+  if (isRecord(data)) {
+    const dataProp = data['data']
+    const rowsProp = data['rows']
+    const itemsProp = data['items']
+    if (Array.isArray(dataProp)) return dataProp as T[]
+    if (Array.isArray(rowsProp)) return rowsProp as T[]
+    if (Array.isArray(itemsProp)) return itemsProp as T[]
+  }
+  return []
 }
 
 /* ===== Tipos ===== */
+
+export interface UsuarioLite {
+  id: number
+  nombres: string
+  apellidos: string
+  correo?: string
+}
 
 export interface ContratoEvento {
   id: number
@@ -93,55 +104,72 @@ export interface ContratoEvento {
   fechaFin?: string | null
   descripcion?: string | null
   documentoUrl?: string | null
-  // opcional: backend puede incluir el usuario
-  usuario?: { id: number; nombres: string; apellidos: string; correo?: string } | null
+  usuario?: UsuarioLite | null
   createdAt: string
   updatedAt: string
 }
 
-/* ===== API ===== */
+/* ===== API (vía motor http.ts) ===== */
 
-export async function obtenerEventosDeContrato(contratoId: number): Promise<ContratoEvento[]> {
-  return fetchData<ContratoEvento[]>(`${API_BASE_URL}/contratos/${contratoId}/eventos`, {
+export async function obtenerEventosDeContrato(contratoId: number) {
+  const resp = await get<unknown>(`/api/contratos/${contratoId}/eventos`, {
     credentials: 'include',
   })
+  return toArray<ContratoEvento>(resp)
 }
 
-export async function crearEventoDeContrato(
+export function crearEventoDeContrato(
   contratoId: number,
   eventData: Partial<ContratoEvento> | FormData
-): Promise<ContratoEvento> {
+) {
   if (eventData instanceof FormData) {
-    return fetchData<ContratoEvento>(
-      `${API_BASE_URL}/contratos/${contratoId}/eventos`,
-      formOptions('POST', eventData)
+    return post<ContratoEvento, FormData>(
+      `/api/contratos/${contratoId}/eventos`,
+      withActorForm(eventData),
+      {
+        headers: withActorHeaders(),
+        credentials: 'include',
+      }
     )
   }
-  return fetchData<ContratoEvento>(
-    `${API_BASE_URL}/contratos/${contratoId}/eventos`,
-    jsonOptions('POST', eventData)
+  return post<ContratoEvento, Partial<ContratoEvento>>(
+    `/api/contratos/${contratoId}/eventos`,
+    withActorBody(eventData),
+    {
+      headers: withActorHeaders({ 'Content-Type': 'application/json' }),
+      credentials: 'include',
+    }
   )
 }
 
-export async function actualizarEventoDeContrato(
+export function actualizarEventoDeContrato(
   contratoId: number,
   eventId: number,
-  eventData: Partial<ContratoEvento>
-): Promise<ContratoEvento> {
-  return fetchData<ContratoEvento>(
-    `${API_BASE_URL}/contratos/${contratoId}/eventos/${eventId}`,
-    jsonOptions('PUT', eventData)
+  eventData: Partial<ContratoEvento> | FormData
+) {
+  if (eventData instanceof FormData) {
+    return put<ContratoEvento, FormData>(
+      `/api/contratos/${contratoId}/eventos/${eventId}`,
+      withActorForm(eventData),
+      {
+        headers: withActorHeaders(),
+        credentials: 'include',
+      }
+    )
+  }
+  return put<ContratoEvento, Partial<ContratoEvento>>(
+    `/api/contratos/${contratoId}/eventos/${eventId}`,
+    withActorBody(eventData),
+    {
+      headers: withActorHeaders({ 'Content-Type': 'application/json' }),
+      credentials: 'include',
+    }
   )
 }
 
-export async function eliminarEventoDeContrato(contratoId: number, eventId: number): Promise<void> {
-  const actorId = getActorId()
-  const headers: Record<string, string> = {}
-  if (actorId) headers['x-actor-id'] = String(actorId)
-
-  await fetchData<void>(`${API_BASE_URL}/contratos/${contratoId}/eventos/${eventId}`, {
-    method: 'DELETE',
-    headers,
+export function eliminarEventoDeContrato(contratoId: number, eventId: number) {
+  return del<void>(`/api/contratos/${contratoId}/eventos/${eventId}`, {
+    headers: withActorHeaders(),
     credentials: 'include',
   })
 }

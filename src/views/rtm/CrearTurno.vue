@@ -1,148 +1,161 @@
 <template>
   <v-container class="mt-6">
-    <v-card elevation="8" class="pa-8 rounded-xl">
-      <v-card-title class="text-h4 mb-6 text-primary font-weight-bold d-flex justify-center title-full-bordered-container">
-        <span class="title-text-with-border">
-          ✍️ Crear Turno RTM <span class="text-secondary">- Turno #{{ turnoNumero || '...' }}</span>
-        </span>
-      </v-card-title>
+    <v-card elevation="8" class="pa-0 rounded-2xl card-surface">
+      <!-- Header corporativo -->
+      <div class="card-header px-6 py-5">
+        <div class="header-left">
+          <div class="icon-pill">
+            <v-icon size="22">mdi-clipboard-text-outline</v-icon>
+          </div>
+          <div class="title-group">
+            <h2 class="title">Crear Turno RTM</h2>
+            <p class="subtitle">Registra un nuevo turno con los datos mínimos requeridos</p>
+          </div>
+        </div>
 
-      <v-form ref="formRef" @submit.prevent="openConfirmDialog">
-        <v-row dense>
-          <v-col cols="12" sm="6">
-            <v-text-field
-              v-model="form.fecha"
-              label="Fecha"
-              variant="outlined"
-              readonly
-              density="comfortable"
-              prepend-inner-icon="mdi-calendar"
-            />
-          </v-col>
-          <v-col cols="12" sm="6">
-            <v-text-field
-              :model-value="formattedHoraIngreso"
-              label="Hora de Ingreso"
-              variant="outlined"
-              readonly
-              density="comfortable"
-              prepend-inner-icon="mdi-clock-time-four-outline"
-            />
-          </v-col>
+        <v-chip class="turno-chip" size="large" variant="elevated" prepend-icon="mdi-counter">
+          Turno # {{ turnoNumero || '...' }}
+        </v-chip>
+      </div>
 
-          <v-col cols="12" sm="6">
-            <v-text-field
-              v-model="form.placa"
-              label="Placa del Vehículo"
-              variant="outlined"
-              required
-              density="comfortable"
-              prepend-inner-icon="mdi-car-info"
-              @input="(event: { target: HTMLInputElement }) => form.placa = (event.target as HTMLInputElement).value.toUpperCase()"
-              :rules="[v => !!v || 'La placa es requerida']"
-            />
-          </v-col>
-          <v-col cols="12" sm="6">
-            <v-select
-              v-model="form.tipoVehiculo"
-              :items="['Liviano Particular', 'Liviano Taxi', 'Liviano Público', 'Motocicleta']"
-              label="Tipo de Vehículo"
-              variant="outlined"
-              required
-              density="comfortable"
-              prepend-inner-icon="mdi-car-multiple"
-              :rules="[v => !!v || 'El tipo de vehículo es requerido']"
-            />
-          </v-col>
+      <v-divider class="mx-6 divider-muted" />
 
-          <v-col cols="12" sm="6">
-            <v-select
-              v-model="form.medioEntero"
-              :items="[
-                { title: 'Redes Sociales', value: 'redes_sociales' },
-                { title: 'Convenio o Referido Externo', value: 'convenio_referido_externo' },
-                { title: 'Call Center', value: 'call_center' },
-                { title: 'Fachada', value: 'fachada' },
-                { title: 'Referido Interno', value: 'referido_interno' },
-                { title: 'Asesor Comercial', value: 'asesor_comercial' },
-              ]"
-              label="¿Cómo se enteró de nosotros?"
-              variant="outlined"
-              required
-              density="comfortable"
-              prepend-inner-icon="mdi-account-question"
-              :rules="[v => !!v || 'Este campo es requerido']"
-            />
-          </v-col>
-          <v-col cols="12" sm="6">
-            <v-radio-group
-              v-model="form.tieneCita"
-              label="¿Tiene cita previa?"
-              row
-              density="comfortable"
-              :rules="[v => v !== null || 'Seleccione una opción']"
-            >
-              <v-radio label="Sí" :value="true" color="primary"></v-radio>
-              <v-radio label="No" :value="false" color="error"></v-radio>
-            </v-radio-group>
-          </v-col>
+      <div class="pa-8">
+        <v-form ref="formRef" @submit.prevent="openConfirmDialog">
+          <v-row dense>
+            <v-col cols="12" sm="6">
+              <v-text-field
+                v-model="form.fecha"
+                label="Fecha"
+                variant="outlined"
+                readonly
+                density="comfortable"
+                prepend-inner-icon="mdi-calendar"
+              />
+            </v-col>
 
-          <v-col cols="12" sm="6" v-if="form.medioEntero === 'convenio_referido_externo'">
-            <v-text-field
-              v-model="form.convenio"
-              label="Nombre de Convenio o Referido Externo (opcional)"
-              variant="outlined"
-              density="comfortable"
-              prepend-inner-icon="mdi-handshake"
-            />
-          </v-col>
+            <v-col cols="12" sm="6">
+              <v-text-field
+                :model-value="formattedHoraIngreso"
+                label="Hora de Ingreso"
+                variant="outlined"
+                readonly
+                density="comfortable"
+                prepend-inner-icon="mdi-clock-time-four-outline"
+              />
+            </v-col>
 
-          <v-col cols="12" sm="6" v-if="form.medioEntero === 'referido_interno'">
-            <v-text-field
-              v-model="form.referidoInterno"
-              label="Nombre del Referido Interno (opcional)"
-              variant="outlined"
-              density="comfortable"
-              prepend-inner-icon="mdi-account-tie"
-            />
-          </v-col>
+            <v-col cols="12" sm="6">
+              <v-text-field
+                v-model="form.placa"
+                label="Placa del Vehículo"
+                variant="outlined"
+                required
+                density="comfortable"
+                prepend-inner-icon="mdi-car-info"
+                @input="onPlacaInput"
+                :rules="[v => !!v || 'La placa es requerida']"
+              />
+            </v-col>
 
-          <v-col cols="12" sm="6" v-if="form.medioEntero === 'asesor_comercial'">
-            <v-text-field
-              v-model="form.asesorComercial"
-              label="Nombre del Asesor Comercial (opcional)"
-              variant="outlined"
-              density="comfortable"
-              prepend-inner-icon="mdi-account-hard-hat"
-            />
-          </v-col>
-          <v-col cols="12">
-            <v-textarea
-              v-model="form.observaciones"
-              label="Observaciones (opcional)"
-              rows="3"
-              auto-grow
-              variant="outlined"
-              density="comfortable"
-              prepend-inner-icon="mdi-comment-text-multiple"
-            />
-          </v-col>
+            <v-col cols="12" sm="6">
+              <v-select
+                v-model="form.tipoVehiculo"
+                :items="tipoVehiculoItems"
+                label="Tipo de Vehículo"
+                variant="outlined"
+                required
+                density="comfortable"
+                prepend-inner-icon="mdi-car-multiple"
+                :rules="[v => !!v || 'El tipo de vehículo es requerido']"
+              />
+            </v-col>
 
-          <v-col cols="12" class="text-right mt-4">
-            <v-btn
-              color="primary"
-              @click="openConfirmDialog"
-              class="font-weight-bold py-3 px-6 bordered-button"
-              size="large"
-              :loading="isSubmitting"
-              :disabled="isSubmitting"
-            >
-              <v-icon left>mdi-plus-circle</v-icon>
-              Crear Nuevo Turno
-            </v-btn>
-          </v-col>
-        </v-row>
-      </v-form>
+            <v-col cols="12" sm="6">
+              <v-select
+                v-model="form.medioEntero"
+                :items="medioEnteroItems"
+                label="¿Cómo se enteró de nosotros?"
+                variant="outlined"
+                required
+                density="comfortable"
+                prepend-inner-icon="mdi-account-question"
+                :rules="[v => !!v || 'Este campo es requerido']"
+              />
+            </v-col>
+
+            <v-col cols="12" sm="6">
+              <v-radio-group
+                v-model="form.tieneCita"
+                label="¿Tiene cita previa?"
+                row
+                density="comfortable"
+                class="radio-row"
+                :rules="[v => v !== null || 'Seleccione una opción']"
+              >
+                <v-radio label="Sí" :value="true" color="primary" />
+                <v-radio label="No" :value="false" color="error" />
+              </v-radio-group>
+            </v-col>
+
+            <v-col cols="12" sm="6" v-if="form.medioEntero === 'convenio_referido_externo'">
+              <v-text-field
+                v-model="form.convenio"
+                label="Nombre de Convenio o Referido Externo (opcional)"
+                variant="outlined"
+                density="comfortable"
+                prepend-inner-icon="mdi-handshake"
+              />
+            </v-col>
+
+            <v-col cols="12" sm="6" v-if="form.medioEntero === 'referido_interno'">
+              <v-text-field
+                v-model="form.referidoInterno"
+                label="Nombre del Referido Interno (opcional)"
+                variant="outlined"
+                density="comfortable"
+                prepend-inner-icon="mdi-account-tie"
+              />
+            </v-col>
+
+            <v-col cols="12" sm="6" v-if="form.medioEntero === 'asesor_comercial'">
+              <v-text-field
+                v-model="form.asesorComercial"
+                label="Nombre del Asesor Comercial (opcional)"
+                variant="outlined"
+                density="comfortable"
+                prepend-inner-icon="mdi-account-hard-hat"
+              />
+            </v-col>
+
+            <v-col cols="12">
+              <v-textarea
+                v-model="form.observaciones"
+                label="Observaciones (opcional)"
+                rows="3"
+                auto-grow
+                variant="outlined"
+                density="comfortable"
+                prepend-inner-icon="mdi-comment-text-multiple"
+              />
+            </v-col>
+
+            <v-col cols="12" class="text-right mt-4">
+              <v-btn
+                color="primary"
+                @click="openConfirmDialog"
+                class="font-weight-bold py-3 px-6 action-btn"
+                size="large"
+                :loading="isSubmitting"
+                :disabled="isSubmitting"
+              >
+                <v-icon left>mdi-plus-circle</v-icon>
+                Crear nuevo turno
+              </v-btn>
+            </v-col>
+          </v-row>
+        </v-form>
+      </div>
     </v-card>
 
     <v-snackbar
@@ -152,10 +165,8 @@
       location="top right"
     >
       {{ snackbar.message }}
-      <template v-slot:actions>
-        <v-btn color="white" variant="text" @click="snackbar.show = false">
-          Cerrar
-        </v-btn>
+      <template #actions>
+        <v-btn color="white" variant="text" @click="snackbar.show = false">Cerrar</v-btn>
       </template>
     </v-snackbar>
 
@@ -169,7 +180,9 @@
         </v-card-text>
         <v-card-actions class="justify-center pa-4">
           <v-btn color="grey-darken-1" variant="outlined" @click="handleCancelAction">Cancelar</v-btn>
-          <v-btn :color="confirmDialogConfirmColor" variant="elevated" @click="handleConfirmAction" class="bordered-dialog-button">{{ confirmDialogConfirmText }}</v-btn>
+          <v-btn :color="confirmDialogConfirmColor" variant="elevated" @click="handleConfirmAction" class="bordered-dialog-button">
+            {{ confirmDialogConfirmText }}
+          </v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
@@ -179,31 +192,61 @@
 <script setup lang="ts">
 import { ref, onMounted, computed, watch } from 'vue'
 import { DateTime } from 'luxon'
-import { authSetStore } from '@/stores/AuthStore' // Asegúrate de que esta ruta sea correcta
+import { authSetStore } from '@/stores/AuthStore'
 import type { VForm } from 'vuetify/components'
-import TurnosDelDiaService from '@/services/turnosdeldiaService'; // ¡Importamos el servicio!
+import TurnosDelDiaService from '@/services/turnosdeldiaService'
+import type { TipoVehiculoFrontend, Turno } from '@/services/turnosdeldiaService'
+
+type MedioEntero =
+  | 'redes_sociales'
+  | 'convenio_referido_externo'
+  | 'call_center'
+  | 'fachada'
+  | 'referido_interno'
+  | 'asesor_comercial'
+
+interface SnackbarState {
+  show: boolean
+  message: string
+  color: string
+  timeout: number
+}
+
+interface TurnoForm {
+  fecha: string
+  horaIngreso: string
+  placa: string
+  tipoVehiculo: TipoVehiculoFrontend | ''
+  medioEntero: MedioEntero | ''
+  observaciones: string
+  tieneCita: boolean
+  convenio: string | null
+  referidoInterno: string | null
+  referidoExterno: string | null
+  asesorComercial: string | null
+  usuarioId: number
+}
 
 const authStore = authSetStore()
-
 const turnoNumero = ref<number | null>(null)
 const formRef = ref<VForm | null>(null)
 const isSubmitting = ref(false)
 
-interface TurnoForm {
-  fecha: string;
-  horaIngreso: string; // Este será HH:mm
-  placa: string;
-  tipoVehiculo: 'Liviano Particular' | 'Liviano Taxi' | 'Liviano Público' | 'Motocicleta' | '';
-  medioEntero: 'redes_sociales' | 'convenio_referido_externo' | 'call_center' | 'fachada' | 'referido_interno' | 'asesor_comercial' | '';
-  observaciones: string;
-  tieneCita: boolean;
-  convenio: string | null;
-  referidoInterno: string | null;
-  referidoExterno: string | null;
-  asesorComercial: string | null;
-  // CAMBIO CLAVE AQUÍ: Usamos 'usuarioId' para coincidir con el backend
-  usuarioId: number;
-}
+const tipoVehiculoItems: ReadonlyArray<TipoVehiculoFrontend> = [
+  'Liviano Particular',
+  'Liviano Taxi',
+  'Liviano Público',
+  'Motocicleta',
+] as const
+
+const medioEnteroItems: ReadonlyArray<{ title: string; value: MedioEntero }> = [
+  { title: 'Redes Sociales', value: 'redes_sociales' },
+  { title: 'Convenio o Referido Externo', value: 'convenio_referido_externo' },
+  { title: 'Call Center', value: 'call_center' },
+  { title: 'Fachada', value: 'fachada' },
+  { title: 'Referido Interno', value: 'referido_interno' },
+  { title: 'Asesor Comercial', value: 'asesor_comercial' },
+] as const
 
 const form = ref<TurnoForm>({
   fecha: '',
@@ -217,31 +260,30 @@ const form = ref<TurnoForm>({
   referidoInterno: null,
   referidoExterno: null,
   asesorComercial: null,
-  // Inicializamos usuarioId.
-  // Es crucial que este valor se actualice con el ID real del usuario logueado.
-  usuarioId: 0, // Inicia con 0 o un valor que indique "no asignado"
+  usuarioId: 0,
 })
 
-const formattedHoraIngreso = computed(() => {
-  if (form.value.horaIngreso) {
-    const time = DateTime.fromFormat(form.value.horaIngreso, 'HH:mm', { zone: 'America/Bogota' });
-    return time.isValid ? time.toFormat('hh:mm a') : form.value.horaIngreso;
-  }
-  return '';
-});
+const formattedHoraIngreso = computed<string>(() => {
+  const value = form.value.horaIngreso
+  if (!value) return ''
+  const time = DateTime.fromFormat(value, 'HH:mm', { zone: 'America/Bogota' })
+  return time.isValid ? time.toFormat('hh:mm a') : value
+})
 
-const snackbar = ref({
+const snackbar = ref<SnackbarState>({
   show: false,
   message: '',
   color: '',
   timeout: 4000,
 })
 
-const showSnackbar = (message: string, color: string = 'info', timeout: number = 4000) => {
-  snackbar.value.message = message
-  snackbar.value.color = color
-  snackbar.value.timeout = timeout
-  snackbar.value.show = true
+function showSnackbar(message: string, color: string = 'info', timeout: number = 4000): void {
+  snackbar.value = { show: true, message, color, timeout }
+}
+
+function onPlacaInput(e: Event): void {
+  const target = e.target as HTMLInputElement | null
+  if (target) form.value.placa = target.value.toUpperCase()
 }
 
 const showConfirmDialog = ref(false)
@@ -254,52 +296,67 @@ type ActionType = 'create_turno'
 const currentAction = ref<ActionType | ''>('')
 
 onMounted(async () => {
-  const user = authStore.user;
-  // Asignamos el ID del usuario de la sesión al campo usuarioId del formulario
-  // Es VITAL que `user.id` contenga el ID numérico que el backend espera.
-  if (user && user.id) {
-    form.value.usuarioId = user.id;
+  const userUnknown: unknown = authStore.user
+  const userId = ((): number | null => {
+    if (typeof userUnknown === 'object' && userUnknown !== null) {
+      const maybe = userUnknown as Record<string, unknown>
+      return typeof maybe.id === 'number' ? maybe.id : null
+    }
+    return null
+  })()
+
+  if (userId !== null) {
+    form.value.usuarioId = userId
   } else {
-    // Si no hay user.id, podrías establecer un ID por defecto para pruebas
-    // o redirigir al login si el usuario es estrictamente necesario.
-    console.warn('Usuario no logueado o ID de usuario no disponible. Usando ID por defecto o 0.');
-    // form.value.usuarioId = ID_DE_USUARIO_POR_DEFECTO_PARA_PRUEBAS;
-    // router.push('/login'); // O redirigir si el usuario es requerido
+    console.warn('Usuario no logueado o ID no disponible.')
   }
+
   await resetFormFields()
 })
 
-watch(() => form.value.medioEntero, () => {
-  form.value.convenio = null;
-  form.value.referidoInterno = null;
-  form.value.asesorComercial = null;
-  // form.value.referidoExterno = null; // Si referidoExterno no se usa, puedes quitarlo
-});
+watch(
+  () => form.value.medioEntero,
+  () => {
+    form.value.convenio = null
+    form.value.referidoInterno = null
+    form.value.asesorComercial = null
+  }
+)
 
-const fetchNextTurnNumber = async () => {
+/** mínimo válido según turnos ya existentes en la fecha */
+function computeMinExpectedNext(turnos: Turno[]): number {
+  const nums = (turnos as any[])
+    .map((t) => Number((t as any)?.turnoNumero ?? (t as any)?.numero))
+    .filter((n) => Number.isFinite(n)) as number[]
+  const a = nums.length ? Math.max(...nums) + 1 : null
+  const b = turnos.length + 1
+  return a ?? b
+}
+
+async function fetchNextTurnNumber(): Promise<void> {
   try {
-    // ¡CORRECCIÓN CLAVE AQUÍ! Usamos el servicio y pasamos el usuarioId del formulario.
-    console.log('Solicitando siguiente turno para usuarioId:', form.value.usuarioId); // LOG PARA DEPURACIÓN
-    const data = await TurnosDelDiaService.fetchNextTurnNumber(form.value.usuarioId);
+    // 1) valor que entrega el backend
+    const data = await TurnosDelDiaService.fetchNextTurnNumber(form.value.usuarioId)
+    const nextFromBackend = typeof data?.siguiente === 'number' ? data.siguiente : 0
 
-    if (data?.siguiente) {
-      turnoNumero.value = data.siguiente;
-      // Si el backend también devuelve la sedeId en esta respuesta, podrías asignarla aquí:
-      // form.value.sedeId = data.sedeId;
-    }
-  } catch (error: unknown) {
-    console.error('Error al cargar el siguiente número de turno:', error);
-    let message = 'Error al cargar el número de turno. Intente recargar la página.';
-    if (error instanceof Error) {
-      message = error.message;
-    }
-    showSnackbar(message, 'error');
+    // 2) consultamos lo que ya existe hoy para normalizar
+    const fecha = form.value.fecha // yyyy-MM-dd
+    const turnosHoy = await TurnosDelDiaService.fetchTurnos({ fecha })
+
+    const minExpected = computeMinExpectedNext(turnosHoy)
+
+    // 3) número final a mostrar
+    turnoNumero.value = Math.max(nextFromBackend || 0, minExpected)
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Error al cargar el número de turno'
+    console.error('Error al cargar el siguiente número de turno:', err)
+    showSnackbar(message, 'error')
+    turnoNumero.value = 1
   }
 }
 
-const resetFormFields = async () => {
-  const now = DateTime.now().setZone('America/Bogota');
-
+async function resetFormFields(): Promise<void> {
+  const now = DateTime.now().setZone('America/Bogota')
   form.value = {
     fecha: now.toISODate() || '',
     horaIngreso: now.toFormat('HH:mm'),
@@ -312,30 +369,23 @@ const resetFormFields = async () => {
     referidoInterno: null,
     referidoExterno: null,
     asesorComercial: null,
-    // Mantenemos el usuarioId que ya estaba asignado o el valor por defecto
     usuarioId: form.value.usuarioId,
-  };
-  turnoNumero.value = null;
-
-  await fetchNextTurnNumber(); // Llama a la función corregida
-
-  if (formRef.value) {
-    formRef.value.resetValidation();
   }
+  turnoNumero.value = null
+  await fetchNextTurnNumber()
+  formRef.value?.resetValidation()
 }
 
-const openConfirmDialog = async () => {
+async function openConfirmDialog(): Promise<void> {
   if (!formRef.value) {
-    showSnackbar('Error interno: El formulario no está inicializado.', 'error');
-    return;
-  }
-  const { valid } = await formRef.value.validate()
-
-  if (!valid) {
-    showSnackbar('Por favor, completa correctamente todos los campos requeridos.', 'warning')
+    showSnackbar('Error interno: formulario no inicializado.', 'error')
     return
   }
-
+  const { valid } = await formRef.value.validate()
+  if (!valid) {
+    showSnackbar('Completa los campos requeridos.', 'warning')
+    return
+  }
   confirmDialogTitle.value = 'Confirmar Creación de Turno'
   confirmDialogMessage.value = '¿Estás seguro de que quieres crear este turno?'
   confirmDialogConfirmText.value = 'Crear Turno'
@@ -344,131 +394,149 @@ const openConfirmDialog = async () => {
   showConfirmDialog.value = true
 }
 
-const handleConfirmAction = async () => {
+async function handleConfirmAction(): Promise<void> {
   showConfirmDialog.value = false
   isSubmitting.value = true
-
-  if (currentAction.value === 'create_turno') {
-    await submitForm()
+  try {
+    if (currentAction.value === 'create_turno') {
+      await submitForm()
+    }
+  } finally {
+    currentAction.value = ''
+    isSubmitting.value = false
   }
-  currentAction.value = ''
-  isSubmitting.value = false
 }
 
-const handleCancelAction = () => {
+function handleCancelAction(): void {
   showConfirmDialog.value = false
   currentAction.value = ''
   showSnackbar('Creación de turno cancelada.', 'info')
 }
 
-const submitForm = async () => {
+async function submitForm(): Promise<void> {
   try {
-    const response = await fetch('http://localhost:3333/api/turnos-rtm', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(form.value),
+    await TurnosDelDiaService.createTurno({
+      placa: form.value.placa,
+      tipoVehiculo: form.value.tipoVehiculo as TipoVehiculoFrontend,
+      tieneCita: form.value.tieneCita,
+      convenio: form.value.convenio,
+      referidoInterno: form.value.referidoInterno,
+      referidoExterno: form.value.referidoExterno,
+      medioEntero: form.value.medioEntero || 'fachada',
+      observaciones: form.value.observaciones,
+      asesorComercial: form.value.asesorComercial,
+      fecha: form.value.fecha,
+      horaIngreso: form.value.horaIngreso,
+      usuarioId: form.value.usuarioId,
     })
-
-    if (!response.ok) {
-      const errorData = await response.json()
-      throw new Error(errorData.message || 'Error al crear el turno')
-    }
-
-    const data = await response.json()
-
-    showSnackbar(`✅ Turno #${data.turnoNumero} creado exitosamente`, 'success')
-
+    showSnackbar('✅ Turno creado exitosamente', 'success')
     await resetFormFields()
-
-  } catch (error: unknown) {
-    let message = 'Error desconocido al crear el turno.'
-    if (error instanceof Error) {
-      message = error.message
-    }
-    console.error('Error:', error)
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Error desconocido al crear el turno.'
+    console.error('Error al crear turno:', err)
     showSnackbar(`❌ ${message}`, 'error')
   }
 }
 </script>
 
 <style scoped>
-/* Contenedor del título que ahora centra su contenido */
-.title-full-bordered-container {
-  /* Vuetify d-flex y justify-center ya manejan el display flex y el centrado */
-  /* text-align: center; /* Ya no es necesario si usamos flexbox para el centrado */
-  padding: 0 !important; /* Asegura que el v-card-title no tenga padding extra */
+/* —— Card base —— */
+.card-surface {
+  background: linear-gradient(180deg, #ffffff 0%, #f8f9fb 100%);
+  border: 1px solid rgba(16,24,40,0.06);
 }
 
-/* Estilo para el span que contiene el texto y el borde */
-.title-text-with-border {
-  border: 2px solid black; /* Borde negro de 2px */
-  padding: 10px 20px; /* Más padding para que el borde se vea bien */
-  border-radius: 12px; /* Bordes ligeramente más redondeados */
-  background-color: rgba(255, 255, 255, 0.9); /* Fondo semi-transparente para que el borde resalte */
-  /* Quitamos margin: auto aquí, ya que el padre flex lo centrará */
-  /* margin-bottom para separarlo del formulario */
-  margin-bottom: 24px; /* Un margen inferior para separarlo del formulario */
-  display: inline-block; /* Importante para que el padding y border se apliquen correctamente */
-  /* text-align: center; /* Centrar el texto dentro de este span si se rompiera en varias líneas */
+/* —— Header —— */
+.card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  background:
+    radial-gradient(1200px 200px at 20% -50%, rgba(25,118,210,.08), transparent 60%),
+    radial-gradient(900px 180px at 80% -60%, rgba(76,175,80,.10), transparent 60%),
+    linear-gradient(180deg, #ffffff, #f7f9fc);
+  border-top-left-radius: 16px;
+  border-top-right-radius: 16px;
 }
 
-/* Estilo para el texto principal del título (fuera del span del número) */
-.title-text-with-border {
-  font-weight: bold;
-  letter-spacing: 0.05em;
-  color: var(--v-theme-primary); /* Usar la variable de color primary de Vuetify */
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 14px;
 }
 
-/* Asegurar que el span del número de turno esté en la misma línea y tenga espacio */
-.title-text-with-border .text-secondary {
-  display: inline; /* Asegura que el número de turno esté en la misma línea */
-  margin-left: 8px; /* Espacio entre el texto principal y el número de turno */
-  color: #4CAF50; /* Color verde para el número de turno */
+.icon-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 40px; width: 40px;
+  border-radius: 10px;
+  border: 1px solid rgba(16,24,40,0.08);
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(16,24,40,0.06);
 }
 
-.v-card {
-  box-shadow: 0 10px 20px rgba(0,0,0,0.15), 0 6px 6px rgba(0,0,0,0.1);
-  border-radius: 16px;
-  background: linear-gradient(145deg, #f0f2f5, #e0e2e5);
+.title-group .title {
+  margin: 0;
+  font-weight: 700;
+  letter-spacing: .2px;
+  line-height: 1.2;
+  font-size: 1.35rem;
+  color: #0f172a;
 }
 
-.v-text-field .v-input__control,
-.v-select .v-input__control {
-  border-radius: 8px;
+.title-group .subtitle {
+  margin: 2px 0 0 0;
+  font-size: .925rem;
+  color: #475569;
 }
 
-.v-input__prepend-inner .v-icon {
+.turno-chip :deep(.v-chip__content) {
+  font-weight: 600;
+}
+.turno-chip {
+  --chip-bg: #0ea5e9;
+  background: linear-gradient(180deg, #0ea5e9, #0284c7);
+  color: #fff;
+  box-shadow: 0 6px 16px rgba(2,132,199,0.25);
+}
+
+/* —— Divider —— */
+.divider-muted {
+  border-color: rgba(16,24,40,0.08) !important;
+}
+
+/* —— Inputs —— */
+:deep(.v-text-field .v-input__control),
+:deep(.v-select .v-input__control) {
+  border-radius: 10px;
+}
+
+:deep(.v-input__prepend-inner .v-icon) {
   color: #1976D2;
 }
 
-.v-btn {
-  border-radius: 10px;
-  transition: all 0.3s ease;
-  box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+/* —— Button principal —— */
+.action-btn {
+  border-radius: 12px !important;
+  text-transform: none;
+  letter-spacing: .2px;
+  box-shadow: 0 6px 16px rgba(25,118,210,.25) !important;
+  border: 1px solid rgba(16,24,40,0.06);
 }
 
-/* Estilo para el botón principal "Crear Nuevo Turno" */
-.bordered-button {
-  box-shadow: 0 4px 6px rgba(0,0,0,0.1), 0 0 0 2px black !important;
+.action-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 20px rgba(25,118,210,.28) !important;
 }
 
-.v-btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 12px rgba(0,0,0,0.2), 0 0 0 3px black !important;
-}
-
-/* Estilo para el botón de confirmación en el diálogo */
+/* —— Diálogo —— */
 .bordered-dialog-button {
   box-shadow: 0 2px 4px rgba(0,0,0,0.1), 0 0 0 1px black !important;
 }
 
-.bordered-dialog-button:hover {
-  box-shadow: 0 4px 8px rgba(0,0,0,0.2), 0 0 0 2px black !important;
-}
-
-.v-radio-group .v-radio {
-  margin-right: 16px;
+.radio-row :deep(.v-label) {
+  font-weight: 500;
 }
 </style>

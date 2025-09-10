@@ -58,7 +58,9 @@
 
     <!-- Formulario -->
     <v-card elevation="2" class="mb-6" v-if="usuarioSeleccionado">
-      <v-card-title class="text-h6 font-weight-bold bg-blue-grey-lighten-5 d-flex align-center">
+      <v-card-title
+        class="text-h6 font-weight-bold bg-blue-grey-lighten-5 d-flex align-center titulo-editar-contrato"
+      >
         <span v-if="!isEditing">Datos del Contrato</span>
         <span v-else>Editar Contrato #{{ contratoEditId }}</span>
         <v-spacer />
@@ -277,14 +279,12 @@
                       </template>
                     </v-tooltip>
 
-                    <!-- ✅ Chulo cuando hay pendiente/guardado -->
                     <v-tooltip v-if="hasCertUI('eps')" text="Archivo cargado" location="top">
                       <template #activator="{ props }">
                         <v-icon v-bind="props" size="18" color="success" class="ml-1">mdi-check-circle</v-icon>
                       </template>
                     </v-tooltip>
 
-                    <!-- 📎 Abre modal -->
                     <v-tooltip :text="hasCertUI('eps') ? 'Ver/Reemplazar certificado EPS' : 'Subir certificado EPS'" location="top">
                       <template #activator="{ props }">
                         <v-btn v-bind="props" icon="mdi-paperclip" size="small" variant="text" class="ml-1" :disabled="!epsId" :ripple="false" @click.stop="openCert('eps', $event)" />
@@ -551,6 +551,17 @@
               {{ isEditing ? 'Reemplazar Archivo de Contrato (opcional)' : 'Anexar Contrato' }}
             </h4>
 
+            <!-- ⚠️ Aviso cuando hay contrato ya creado pero faltó anexar -->
+            <v-alert
+              v-if="!isEditing && contratoPendienteAnexoId"
+              type="warning"
+              variant="tonal"
+              class="mb-3"
+            >
+              Se creó el contrato #{{ contratoPendienteAnexoId }}, pero falló el anexado del PDF.
+              Puedes reintentar con el botón de abajo o volviendo a presionar “Reintentar anexar”.
+            </v-alert>
+
             <v-card class="pa-4">
               <v-alert
                 v-if="isEditing && contratoEditTieneArchivo"
@@ -620,38 +631,55 @@
           </v-col>
         </v-row>
 
+        <!-- 🔘 Acciones (corregido: flujo creación vs edición) -->
         <v-card-actions class="d-flex justify-end pr-4 pb-4 mt-4">
-          <v-btn
-            v-if="isEditing"
-            color="grey-darken-1"
-            variant="text"
-            class="mr-2"
-            @click="cancelarEdicion"
-          >
-            Cancelar edición
-          </v-btn>
+          <!-- MODO EDICIÓN -->
+          <template v-if="isEditing">
+            <v-btn
+              color="grey-darken-1"
+              variant="text"
+              class="mr-2"
+              @click="cancelarEdicion"
+            >
+              Cancelar edición
+            </v-btn>
 
-          <v-btn
-            v-if="!isEditing"
-            color="success"
-            prepend-icon="mdi-content-save-check"
-            :disabled="!usuarioSeleccionado || !archivoContrato || isSaving"
-            :loading="isSaving"
-            @click="handleConfirmacion"
-          >
-            Crear y Anexar Contrato
-          </v-btn>
+            <v-btn
+              color="warning"
+              prepend-icon="mdi-content-save"
+              :disabled="!usuarioSeleccionado || isSaving"
+              :loading="isSaving"
+              @click="guardarCambiosContrato"
+            >
+              Guardar cambios
+            </v-btn>
+          </template>
 
-          <v-btn
-            v-else
-            color="warning"
-            prepend-icon="mdi-content-save"
-            :disabled="!usuarioSeleccionado || isSaving"
-            :loading="isSaving"
-            @click="guardarCambiosContrato"
-          >
-            Guardar cambios
-          </v-btn>
+          <!-- MODO CREACIÓN -->
+          <template v-else>
+            <v-btn
+              color="success"
+              :prepend-icon="contratoPendienteAnexoId ? 'mdi-reload' : 'mdi-content-save-check'"
+              :disabled="!usuarioSeleccionado || !archivoContrato || isSaving"
+              :loading="isSaving"
+              @click="handleConfirmacion"
+            >
+              {{ contratoPendienteAnexoId ? 'Reintentar anexar' : 'Crear y Anexar Contrato' }}
+            </v-btn>
+
+            <v-btn
+              v-if="contratoPendienteAnexoId"
+              color="primary"
+              prepend-icon="mdi-paperclip"
+              variant="tonal"
+              class="ml-2"
+              :disabled="isSaving || !archivoContrato"
+              :loading="isSaving"
+              @click="reanexarArchivoContrato"
+            >
+              Reintentar anexar ahora
+            </v-btn>
+          </template>
         </v-card-actions>
       </v-card-text>
     </v-card>
@@ -687,15 +715,15 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-for="c in contratosUsuario" :key="c.id">
-              <td>{{ c.id }}</td>
-              <td class="text-capitalize">{{ c.tipoContrato }}</td>
-              <td class="text-capitalize">{{ (c.terminoContrato || '—').replaceAll('_',' ') }}</td>
-              <td>
-                <v-chip :color="c.estado === 'activo' ? 'success' : 'grey'" size="small" variant="flat">
-                  {{ c.estado }}
-                </v-chip>
-              </td>
+  <tr v-for="(c, i) in contratosUsuario" :key="c.id">
+    <td>{{ i + 1 }}</td> <!-- ← consecutivo visual -->
+    <td class="text-capitalize">{{ c.tipoContrato }}</td>
+    <td class="text-capitalize">{{ (c.terminoContrato || '—').replaceAll('_',' ') }}</td>
+    <td>
+      <v-chip :color="c.estado === 'activo' ? 'success' : 'grey'" size="small" variant="flat">
+        {{ c.estado }}
+      </v-chip>
+    </td>
               <td>{{ (c.fechaInicio || '').slice(0,10) }}</td>
               <td>{{ c.fechaTerminacion ? String(c.fechaTerminacion).slice(0,10) : '—' }}</td>
               <td>{{ c.sede?.nombre || '—' }}</td>
@@ -811,7 +839,6 @@
           </v-alert>
 
           <div v-else>
-            <!-- ✅ Solo cuando YA está persistido (backend en edición o pendiente en creación) -->
             <v-alert v-if="certTieneArchivoPersistido" type="success" variant="tonal" class="mb-3">
               <div class="d-flex flex-wrap align-center ga-2">
                 <div><strong>Actual:</strong> {{ getArchivoNombre(certDialog.meta) || 'Archivo cargado' }}</div>
@@ -829,7 +856,6 @@
               class="mb-1"
             />
 
-            <!-- 👀 Si SOLO hay archivo en el input (sin persistir todavía) -->
             <div v-if="!certTieneArchivoPersistido && certDialog.file" class="text-caption text-medium-emphasis mb-1">
               Archivo seleccionado: <strong>{{ certDialog.file.name }}</strong> — listo para <em>Subir</em>.
             </div>
@@ -842,11 +868,9 @@
           <v-spacer />
           <v-btn variant="text" color="grey-darken-1" @click="cerrarCertDialog">Cerrar</v-btn>
 
-          <!-- Botones solo si hay algo persistido -->
           <v-btn v-if="certTieneArchivoPersistido" variant="tonal" prepend-icon="mdi-download" @click="descargarCertificadoSeleccionado">Descargar</v-btn>
           <v-btn v-if="certTieneArchivoPersistido" variant="tonal" color="error" prepend-icon="mdi-delete" @click="eliminarCertificadoSeleccionado">Eliminar</v-btn>
 
-          <!-- Principal: Subir si NO hay persistido; Reemplazar si SÍ hay persistido -->
           <v-btn
             color="primary"
             variant="flat"
@@ -940,6 +964,7 @@
   </v-container>
 </template>
 
+
 <script setup lang="ts">
 /* Vue + VeeValidate */
 import { ref, computed, watch, onMounted, nextTick } from 'vue'
@@ -969,13 +994,29 @@ import {
 /* PASOS (solo listar/actualizar/crear) */
 import { fetchPasosContrato as fetchPasosContratoAPI } from '@/services/contratosPasosService'
 
+/* =========================================================
+ * Helpers de tipado y normalización
+ * ========================================================= */
+type Dict = Record<string, unknown>
+function isRecord(x: unknown): x is Dict { return typeof x === 'object' && x !== null }
+function toArray<T>(data: unknown): T[] {
+  if (Array.isArray(data)) return data as T[]
+  if (isRecord(data)) {
+    const d = data['data']; const r = data['rows']; const i = data['items']
+    if (Array.isArray(d)) return d as T[]
+    if (Array.isArray(r)) return r as T[]
+    if (Array.isArray(i)) return i as T[]
+  }
+  return []
+}
+
 /* ======= Constantes / utils ======= */
 const MAX_UPLOAD_MB = 10
 const BYTES_MB = 1024 * 1024
-const ALLOWED_CONTRATO_MIME = ['application/pdf']
-const ALLOWED_REC_EXT = ['pdf', 'doc', 'docx']
-const ALLOWED_CERT_EXT = ['pdf', 'jpg', 'jpeg', 'png', 'webp']
-const ALLOWED_PASO_EXT = ['pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png']
+const ALLOWED_CONTRATO_MIME = ['application/pdf'] as const
+const ALLOWED_REC_EXT = ['pdf', 'doc', 'docx'] as const
+const ALLOWED_CERT_EXT = ['pdf', 'jpg', 'jpeg', 'png', 'webp'] as const
+const ALLOWED_PASO_EXT = ['pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png'] as const
 const MAX_MONEY = 2_000_000_000
 
 const isSaving = ref(false)
@@ -984,26 +1025,24 @@ const isSaving = ref(false)
  * URL ABSOLUTA HACIA LA API
  * ===================================================================== */
 const API_ORIGIN = (() => {
-  const env = (import.meta as any)?.env || {}
-  const raw = env.VITE_API_BASE_URL || env.VITE_API_URL || 'http://localhost:3333'
+  const raw =
+    import.meta.env.VITE_API_BASE_URL ??
+    import.meta.env.VITE_API_URL ??
+    'http://localhost:3333'
   try { return new URL(String(raw)).origin } catch { return String(raw).replace(/\/+$/, '') }
 })()
 
 function toAbsoluteApiUrl(input?: string | null): string {
   if (!input) return ''
-  const raw = String(input)
-  if (/^https?:\/\//i.test(raw)) {
-    try {
-      const u = new URL(raw)
-      if (u.origin === API_ORIGIN) return raw
-      if (u.pathname.startsWith('/uploads') || u.pathname.startsWith('/api')) {
-        return `${API_ORIGIN}${u.pathname}${u.search}${u.hash}`
-      }
-      return raw
-    } catch { return raw }
-  }
+  const raw = String(input).trim()
+
+  // Si ya es absoluta, NO la toques
+  if (/^https?:\/\//i.test(raw)) return raw
+
+  // Si es relativa, complétala contra el BACKEND (API_ORIGIN)
+  const base = API_ORIGIN.replace(/\/+$/, '')
   const rel = raw.startsWith('/') ? raw : `/${raw}`
-  return `${API_ORIGIN}${rel}`
+  return `${base}${rel}`
 }
 
 function extOf(name?: string) {
@@ -1011,29 +1050,35 @@ function extOf(name?: string) {
   const p = name.split('.')
   return (p[p.length - 1] || '').toLowerCase()
 }
+
 function validateFileOrMsg(
   file: File | null,
-  opts: { allowedMime?: string[], allowedExt?: string[], maxMB?: number }
-) {
+  opts: { allowedMime?: readonly string[], allowedExt?: readonly string[], maxMB?: number }
+): string | null {
   if (!file) return 'Archivo requerido.'
   if (opts.maxMB && file.size > (opts.maxMB * BYTES_MB)) return `El archivo supera ${opts.maxMB} MB.`
   if (opts.allowedMime && !opts.allowedMime.includes(file.type)) return `Tipo no permitido (${file.type || 'desconocido'}).`
   if (opts.allowedExt && !opts.allowedExt.includes(extOf(file.name))) return `Extensión no permitida (.${extOf(file.name)}).`
   return null
 }
-function sanitizeMoney(v: any) {
+
+
+/* ======= Money typing ======= */
+type MoneyInput = number | ''
+
+function sanitizeMoney(v: unknown): MoneyInput {
   if (v === null || v === undefined || v === '') return ''
   const n = Number(String(v).replace(/[^\d.-]/g, ''))
-  if (isNaN(n)) return ''
+  if (Number.isNaN(n)) return ''
   return Math.min(n, MAX_MONEY)
 }
 
 /* ======= Selects / tipos ======= */
 const tiposContratoSelectItems = ref([
-  { nombre: 'Prestación de Servicios', valor: 'prestacion' },
-  { nombre: 'Temporal', valor: 'temporal' },
-  { nombre: 'Laboral', valor: 'laboral' },
-  { nombre: 'Contrato de Aprendizaje', valor: 'aprendizaje' },
+  { nombre: 'Prestación de Servicios', valor: 'prestacion' as const },
+  { nombre: 'Temporal', valor: 'temporal' as const },
+  { nombre: 'Laboral', valor: 'laboral' as const },
+  { nombre: 'Contrato de Aprendizaje', valor: 'aprendizaje' as const },
 ])
 
 type AfiliacionTipo = 'eps' | 'arl' | 'afp' | 'afc' | 'ccf'
@@ -1049,15 +1094,20 @@ interface Paso {
   fase: 'inicio' | 'desarrollo' | 'fin'
   orden?: number
 }
+
+interface SedeLite { id: number; nombre: string }
+interface CargoLite { id: number; nombre: string }
+interface EntidadSalud { id: number; nombre: string; tipo: AfiliacionTipo | string }
+interface UsuarioLiteOpt { id: number; nombres: string; apellidos: string; nombreCompleto?: string }
 interface ContratoRow {
   id: number
-  tipoContrato: string
-  terminoContrato: string | null
+  tipoContrato: 'prestacion' | 'temporal' | 'laboral' | 'aprendizaje' | string
+  terminoContrato: 'fijo' | 'obra_o_labor_determinada' | 'indefinido' | string | null
   estado: 'activo' | 'inactivo'
   fechaInicio: string
   fechaTerminacion: string | null
-  sede?: any
-  cargo?: any
+  sede?: SedeLite | null
+  cargo?: CargoLite | null
   rutaArchivoContratoFisico?: string | null
   rutaArchivoRecomendacionMedica?: string | null
   salarios?: Array<{ salarioBasico:number; bonoSalarial:number; auxilioTransporte:number; auxilioNoSalarial:number }>
@@ -1068,16 +1118,54 @@ interface ContratoRow {
   epsId?: number | null; arlId?: number | null; afpId?: number | null; afcId?: number | null; ccfId?: number | null
 }
 
+/** Payload mínimo esperado por crearContrato (ajusta a tu backend si hace falta) */
+interface CrearContratoPayload {
+  usuarioId: number
+  razonSocialId: number
+  identificacion: string
+  sedeId: number | null
+  cargoId: number | null
+  funcionesCargo: string | null
+  fechaInicio: string | null
+  fechaTerminacion: string | null
+  tipoContrato: 'prestacion' | 'temporal' | 'laboral' | 'aprendizaje'
+  terminoContrato: 'fijo' | 'obra_o_labor_determinada' | 'indefinido' | null
+  estado: 'activo' | 'inactivo'
+  centroCosto: string | null
+  epsId: number | null
+  arlId: number | null
+  afpId: number | null
+  afcId: number | null
+  ccfId: number | null
+  tieneRecomendacionesMedicas: boolean
+  salarioBasico: number
+  bonoSalarial: number
+  auxilioTransporte: number
+  auxilioNoSalarial: number
+}
+
+/** Respuesta mínima de crearContrato */
+interface CrearContratoResponse extends ContratoRow { id: number; salarios?: ContratoRow['salarios'] }
+
+/** Payload para anexarContrato */
+interface AnexarContratoPayload {
+  contratoId: number
+  archivo: File
+  razonSocialId: number
+  tieneRecomendacionesMedicas?: boolean
+  archivoRecomendacionMedica?: File
+}
+
 /* ======= Estado base ======= */
 const razonSocialSeleccionada = ref<number | null>(null)
 const usuarioSeleccionado = ref<number | null>(null)
 const tipoContratoSeleccionado = ref<'prestacion' | 'temporal' | 'laboral' | 'aprendizaje'>('prestacion')
 
-const razonesSociales = ref<any[]>([])
-const usuarios = ref<any[]>([])
-const sedes = ref<any[]>([])
-const cargos = ref<any[]>([])
-const entidadesSalud = ref<any[]>([])
+const razonesSociales = ref<Array<{ id:number; nombre:string }>>([])
+const usuarios = ref<UsuarioLiteOpt[]>([])
+const sedes = ref<SedeLite[]>([])
+const cargos = ref<CargoLite[]>([])
+const entidadesSalud = ref<EntidadSalud[]>([])
 
 const loadingRazonesSociales = ref(false)
 const loadingUsuarios = ref(false)
@@ -1092,14 +1180,10 @@ const contratoEditId = ref<number | null>(null)
 /* ======= Archivos: contrato + recomendación ======= */
 const archivoContrato = ref<File | null>(null)
 
-/** 🔑 Claves para forzar re-render
- * - fileBlockKey → re-monta todo el bloque del input
- * - fileInputRenderKey → re-monta SOLO el componente v-file-input
- */
+/** 🔑 Claves para forzar re-render */
 const fileBlockKey = ref(0)
 const fileInputRenderKey = ref(0)
-// ref al componente (no se usa para lógica, solo por si necesitas acceso programático)
-const fileInputRef = ref<any>(null)
+const fileInputRef = ref<{ reset?: () => void } | null>(null)
 
 const identificacionRef = ref<HTMLInputElement | null>(null)
 
@@ -1110,7 +1194,7 @@ const archivoRecomendacionMedica = ref<File | null>(null)
 const certStatusByTipo = ref<Record<AfiliacionTipo, boolean>>({
   eps:false, arl:false, afp:false, afc:false, ccf:false
 })
-const afiliacionMetaByTipo = ref<Record<AfiliacionTipo, any | null>>({
+const afiliacionMetaByTipo = ref<Record<AfiliacionTipo, unknown | null>>({
   eps:null, arl:null, afp:null, afc:null, ccf:null
 })
 const pendingCertsByTipo = ref<Record<AfiliacionTipo, File | null>>({
@@ -1122,26 +1206,38 @@ const pendingEntidadIdByTipo = ref<Record<AfiliacionTipo, number | null>>({
 const certUiTick = ref(0)
 const certStatusKey = (t: AfiliacionTipo) =>
   `${(isEditing.value ? contratoEditId.value : 'new')}-${t}-${Number(!!certStatusByTipo.value[t])}-${certUiTick.value}`
-function setCertState(tipo: AfiliacionTipo, has:boolean, meta:any|null) {
+function setCertState(tipo: AfiliacionTipo, has:boolean, meta: unknown | null) {
   certStatusByTipo.value = { ...certStatusByTipo.value, [tipo]: !!has }
   afiliacionMetaByTipo.value = { ...afiliacionMetaByTipo.value, [tipo]: meta }
   certUiTick.value++
 }
 function hasCert(tipo: AfiliacionTipo) {
-  const meta = afiliacionMetaByTipo.value[tipo]
-  return !!certStatusByTipo.value[tipo] || !!meta?.data?.url || !!meta?.data?.nombreOriginal || !!meta?.url
+  const meta = afiliacionMetaByTipo.value[tipo] as Dict | null
+  return !!(certStatusByTipo.value[tipo] ||
+            (meta && (meta?.data as Dict | undefined)?.['url']) ||
+            (meta && (meta?.data as Dict | undefined)?.['nombreOriginal']) ||
+            (meta && meta['url']))
 }
 function hasCertUI(tipo: AfiliacionTipo) {
   return isEditing.value ? hasCert(tipo) : !!pendingCertsByTipo.value[tipo]
 }
-function tieneArchivoAfiliacion(meta:any) {
-  try { return !!(meta?.data?.url || meta?.data?.nombreOriginal || meta?.url || meta?.nombreOriginal) }
-  catch { return false }
+function tieneArchivoAfiliacion(meta: unknown) {
+  try {
+    const m = meta as Dict
+    const d = (m?.data ?? {}) as Dict
+    return !!(d['url'] || d['nombreOriginal'] || m['url'] || m['nombreOriginal'])
+  } catch { return false }
 }
-function getArchivoNombre(meta: any) {
+function getArchivoNombre(meta: unknown) {
   const t = certDialog.value.tipo as AfiliacionTipo
   const pending = t ? pendingCertsByTipo.value[t] : null
-  return meta?.data?.nombreOriginal || meta?.data?.filename || meta?.data?.name || meta?.nombreOriginal || pending?.name || meta?.url?.split('/')?.pop() || ''
+  const m = meta as Dict | null
+  const d = (m?.data ?? {}) as Dict
+  return (d['nombreOriginal'] as string | undefined)
+      || (d['filename'] as string | undefined)
+      || (d['name'] as string | undefined)
+      || (m?.['nombreOriginal'] as string | undefined)
+      || (pending?.name ?? '')
 }
 function getEntidadIdByTipo(t: AfiliacionTipo): number | null {
   const map: Record<AfiliacionTipo, number | null> = {
@@ -1158,7 +1254,7 @@ const recTieneArchivo = computed(() => isEditing.value ? !!recMetaCache.value?.u
 const recNombreActual = computed(() => isEditing.value ? (recMetaCache.value?.nombre || recMetaCache.value?.url?.split('/').pop() || '') : (archivoRecomendacionMedica.value?.name || ''))
 
 /* ======= 🔹 Helper: sincroniza el switch según meta/archivo/flag backend ======= */
-function syncTieneRecFlagFromMeta(extraFlag?: any) {
+function syncTieneRecFlagFromMeta(extraFlag?: unknown) {
   const hasMeta = !!(recMetaCache.value?.url || recMetaCache.value?.nombre)
   const hasPending = !!archivoRecomendacionMedica.value
   tieneRecomendacionesMedicas.value = Boolean(extraFlag || hasMeta || hasPending)
@@ -1166,7 +1262,10 @@ function syncTieneRecFlagFromMeta(extraFlag?: any) {
 
 /* ======= Validaciones ======= */
 const { handleSubmit, resetForm, validate } = useForm()
-const required = (v:any) => (v !== null && v !== undefined && v !== '') || 'Este campo es obligatorio.'
+const required = (v: unknown) => (v !== null && v !== undefined && v !== '') || 'Este campo es obligatorio.'
+const onlyDigits = (v: unknown) =>
+  (v === '' || v === null || v === undefined || /^\d+$/.test(String(v))) ||
+  'Solo se permiten números.'
 
 /** Opciones del término por tipo de contrato */
 const terminosContratoOptions = computed(() => {
@@ -1176,19 +1275,19 @@ const terminosContratoOptions = computed(() => {
       { text: 'Fijo', value: 'fijo' },
       { text: 'Obra o labor determinada', value: 'obra_o_labor_determinada' },
       { text: 'Indefinido', value: 'indefinido' },
-    ]
+    ] as const
   }
   if (t === 'temporal') {
-    return [{ text:'Obra o labor determinada', value:'obra_o_labor_determinada' }]
+    return [{ text:'Obra o labor determinada', value:'obra_o_labor_determinada' }] as const
   }
   if (t === 'prestacion') {
     return [
       { text: 'Fijo', value: 'fijo' },
       { text: 'Obra o labor determinada', value: 'obra_o_labor_determinada' },
-    ]
+    ] as const
   }
   // aprendizaje
-  return [{ text:'Fijo', value:'fijo' }]
+  return [{ text:'Fijo', value:'fijo' }] as const
 })
 
 /** Reglas: obligatorio si hay opciones para elegir */
@@ -1207,14 +1306,24 @@ const isFechaTerminacionVisible = isFechaTerminacionRequired
 const fechaTerminacionRules = computed(() => isFechaTerminacionRequired.value ? [required] : [])
 
 const { value: identificacion, errorMessage: identificacionError } =
-  useField('identificacion', [required, (val:string)=> (val?.trim()?.length ?? 0) >= 5 || 'Debe tener al menos 5 caracteres.'], { initialValue: '' })
+  useField<string>(
+    'identificacion',
+    [
+      required,
+      onlyDigits,
+      (val: string) =>
+        (val?.trim()?.length ?? 0) >= 5 || 'Debe tener al menos 5 caracteres.'
+    ],
+    { initialValue: '' }
+  )
+
 const { value: sedeId, errorMessage: sedeIdError } = useField<number | null>('sedeId', [required], { initialValue: null })
 const { value: cargoId, errorMessage: cargoIdError } = useField<number | null>('cargoId', [required], { initialValue: null })
-const { value: funcionesCargo, errorMessage: funcionesCargoError } = useField('funcionesCargo', [required], { initialValue: '' })
+const { value: funcionesCargo, errorMessage: funcionesCargoError } = useField<string>('funcionesCargo', [required], { initialValue: '' })
 
-const { value: fechaInicio, errorMessage: fechaInicioError } = useField('fechaInicio', [required], { initialValue: '' })
-const { value: fechaTerminacion, errorMessage: fechaTerminacionError } = useField('fechaTerminacion', fechaTerminacionRules, { initialValue: '' })
-const { value: terminoContrato, errorMessage: terminoContratoError } = useField('terminoContrato', terminoContratoRules, { initialValue: null })
+const { value: fechaInicio, errorMessage: fechaInicioError } = useField<string>('fechaInicio', [required], { initialValue: '' })
+const { value: fechaTerminacion, errorMessage: fechaTerminacionError } = useField<string>('fechaTerminacion', fechaTerminacionRules, { initialValue: '' })
+const { value: terminoContrato, errorMessage: terminoContratoError } = useField<'fijo' | 'obra_o_labor_determinada' | 'indefinido' | null>('terminoContrato', terminoContratoRules, { initialValue: null })
 
 // Afiliaciones obligatorias (AFC opcional)
 const { value: epsId, errorMessage: epsIdError } = useField<number | null>('epsId', [required], { initialValue: null })
@@ -1225,16 +1334,24 @@ const { value: ccfId, errorMessage: ccfIdError } = useField<number | null>('ccfI
 
 /* Dinero */
 const moneyRules = [
-  (v: any) => (v === '' || v === null || v === undefined || Number(v) >= 0) || 'No puede ser negativo.',
-  (v: any) => (v === '' || Number(v) <= MAX_MONEY) || `No puede superar ${MAX_MONEY.toLocaleString('es-CO')}.`,
+  (v: MoneyInput) => (v === '' || Number(v) >= 0) || 'No puede ser negativo.',
+  (v: MoneyInput) => (v === '' || Number(v) <= MAX_MONEY) || `No puede superar ${MAX_MONEY.toLocaleString('es-CO')}.`,
 ]
-const requiredMoney = (v:any) => (v !== '' && v !== null && v !== undefined) || 'Requerido.'
-const { value: salarioBasico, errorMessage: salarioBasicoError } = useField('salarioBasico', [requiredMoney, ...moneyRules], { initialValue: '' })
-const { value: bonoSalarial } = useField('bonoSalarial', moneyRules, { initialValue: '' })
-const { value: auxilioTransporte } = useField('auxilioTransporte', moneyRules, { initialValue: '' })
-const { value: auxilioNoSalarial } = useField('auxilioNoSalarial', moneyRules, { initialValue: '' })
+const requiredMoney = (v: MoneyInput) => (v !== '') || 'Requerido.'
 
-const { value: centroCosto } = useField('centroCosto', [], { initialValue: '' })
+const { value: salarioBasico, errorMessage: salarioBasicoError } =
+  useField<MoneyInput>('salarioBasico', [requiredMoney, ...moneyRules], { initialValue: '' })
+
+const { value: bonoSalarial } =
+  useField<MoneyInput>('bonoSalarial', moneyRules, { initialValue: '' })
+
+const { value: auxilioTransporte } =
+  useField<MoneyInput>('auxilioTransporte', moneyRules, { initialValue: '' })
+
+const { value: auxilioNoSalarial } =
+  useField<MoneyInput>('auxilioNoSalarial', moneyRules, { initialValue: '' })
+
+const { value: centroCosto } = useField<string>('centroCosto', [], { initialValue: '' })
 
 const salarioTotalCalculado = computed(() => {
   const sb = Number(salarioBasico.value) || 0
@@ -1248,11 +1365,11 @@ const salarioTotalCalculado = computed(() => {
 const centrosCostoOptions = ref<string[]>([
   'ADMINISTRACIÓN','TALENTO HUMANO','CONTABILIDAD','OPERACIÓN','SERVICIO AL CLIENTE','DIRECCIÓN','COMERCIAL',
 ])
-const filteredEps = computed(() => entidadesSalud.value.filter((e: any) => e.tipo === 'eps'))
-const filteredArl = computed(() => entidadesSalud.value.filter((e: any) => e.tipo === 'arl'))
-const filteredAfp = computed(() => entidadesSalud.value.filter((e: any) => e.tipo === 'afp'))
-const filteredAfc = computed(() => entidadesSalud.value.filter((e: any) => e.tipo === 'afc'))
-const filteredCcf = computed(() => entidadesSalud.value.filter((e: any) => e.tipo === 'ccf'))
+const filteredEps = computed(() => entidadesSalud.value.filter((e) => e.tipo === 'eps'))
+const filteredArl = computed(() => entidadesSalud.value.filter((e) => e.tipo === 'arl'))
+const filteredAfp = computed(() => entidadesSalud.value.filter((e) => e.tipo === 'afp'))
+const filteredAfc = computed(() => entidadesSalud.value.filter((e) => e.tipo === 'afc'))
+const filteredCcf = computed(() => entidadesSalud.value.filter((e) => e.tipo === 'ccf'))
 
 /* ======= Pasos ======= */
 const basePasosPrestacion: Paso[] = [
@@ -1305,17 +1422,17 @@ function filenameFromUrl(u?: string | null) {
   if (!u) return undefined
   try { return decodeURIComponent(u.split('/').pop() || '') || undefined } catch { return (u.split('/').pop() || undefined) }
 }
-function mapPasoAPItoUI(raw: any): Paso {
+function mapPasoAPItoUI(raw: Dict): Paso {
   return {
-    id: raw.id,
-    nombre: raw.nombrePaso ?? raw.nombre_paso ?? '',
-    fase: (raw.fase || 'inicio'),
-    orden: raw.orden ?? undefined,
-    completado: !!raw.completado,
-    observacion: raw.observacion ?? undefined,
-    fechaCompletado: raw.fecha ?? undefined,
-    archivoUrl: raw.archivoUrl ?? raw.archivo_url ?? undefined,
-    nombreArchivo: filenameFromUrl(raw.archivoUrl ?? raw.archivo_url),
+    id: raw.id as number | undefined,
+    nombre: (raw['nombrePaso'] as string) ?? (raw['nombre_paso'] as string) ?? '',
+    fase: (raw['fase'] as Paso['fase']) || 'inicio',
+    orden: (raw['orden'] as number | undefined),
+    completado: Boolean(raw['completado']),
+    observacion: (raw['observacion'] as string | undefined),
+    fechaCompletado: (raw['fecha'] as string | undefined),
+    archivoUrl: (raw['archivoUrl'] as string | undefined) ?? (raw['archivo_url'] as string | undefined),
+    nombreArchivo: filenameFromUrl((raw['archivoUrl'] as string | undefined) ?? (raw['archivo_url'] as string | undefined)),
     archivoFile: null,
   }
 }
@@ -1323,7 +1440,8 @@ async function cargarPasosDesdeBackend(contratoId: number) {
   loadingPasos.value = true
   try {
     const list = await fetchPasosContratoAPI(contratoId)
-    pasosBackend.value = list.map(mapPasoAPItoUI)
+    const arr = toArray<Dict>(list).map(mapPasoAPItoUI)
+    pasosBackend.value = arr
   } catch {
     pasosBackend.value = []
   } finally { loadingPasos.value = false }
@@ -1339,7 +1457,7 @@ const showAlert = (title: string, message: string) => {
   showAlertDialog.value = true
 }
 const snackbar = ref({ show:false, text:'', color:'success', timeout:1800 })
-const notify = (text:string, color='success') => { snackbar.value = { show:true, text, color, timeout:1800 } }
+const notify = (text:string, color:'success'|'error'|'warning'|'info'='success') => { snackbar.value = { show:true, text, color, timeout:1800 } }
 
 /* ======= Certificados (por contrato) ======= */
 const certDialog = ref({
@@ -1349,19 +1467,14 @@ const certDialog = ref({
   entidadNombre: '',
   file: null as File | null,
   loading: false,
-  meta: null as any
+  meta: null as unknown
 })
-
-/** ✅ Estado “persistido” del modal de certificado:
- *  - En edición: si existe meta real en backend
- *  - En creación: si hay archivo pendiente guardado en memoria
- */
 const certTieneArchivoPersistido = computed(() => {
   const t = certDialog.value.tipo as AfiliacionTipo
   if (!t) return false
   if (isEditing.value) {
-    const meta = certDialog.value.meta ?? afiliacionMetaByTipo.value[t]
-    return tieneArchivoAfiliacion(meta)
+    const meta = (certDialog.value.meta ?? afiliacionMetaByTipo.value[t])
+    return tieneArchivoAfiliacion(meta as unknown)
   }
   return !!pendingCertsByTipo.value[t]
 })
@@ -1380,7 +1493,7 @@ async function abrirDialogoCertificado(tipo: AfiliacionTipo) {
   const id = idMap[tipo]
   if (!id) return showAlert('Selecciona una entidad', 'Elige la entidad para gestionar su certificado.')
 
-  const ent = entidadesSalud.value.find((e:any) => e.id === id)
+  const ent = entidadesSalud.value.find((e) => e.id === id)
   certDialog.value = {
     ...certDialog.value,
     open: true, tipo, entidadId: id,
@@ -1389,13 +1502,12 @@ async function abrirDialogoCertificado(tipo: AfiliacionTipo) {
     meta: null,
   }
 
-  // 🔁 Cargar estado inicial del modal:
   if (isEditing.value && contratoEditId.value) {
     certDialog.value.loading = true
     try {
       const meta = await obtenerArchivoAfiliacionMeta(Number(contratoEditId.value), tipo)
-      setCertState(tipo, tieneArchivoAfiliacion(meta), meta)
-      certDialog.value.meta = meta
+      setCertState(tipo, tieneArchivoAfiliacion(meta as unknown), meta as unknown)
+      certDialog.value.meta = meta as unknown
     } catch {
       setCertState(tipo, false, null)
     } finally {
@@ -1430,14 +1542,14 @@ async function subirCertificadoSeleccionado() {
   if (!contratoEditId.value) return
   certDialog.value.loading = true
   try {
-    await (subirArchivoAfiliacion as any)(Number(contratoEditId.value), t, certDialog.value.file, entidadId)
+    await (subirArchivoAfiliacion as unknown as (a:number, b:AfiliacionTipo, c:File, d:number)=>Promise<unknown>)(Number(contratoEditId.value), t, certDialog.value.file, entidadId)
     const meta = await obtenerArchivoAfiliacionMeta(Number(contratoEditId.value), t)
-    setCertState(t, true, meta)
-    certDialog.value.meta = meta
+    setCertState(t, true, meta as unknown)
+    certDialog.value.meta = meta as unknown
     certDialog.value.file = null
     notify('Archivo de afiliación guardado con éxito', 'success')
-  } catch (e:any) {
-    notify(e?.message || 'No fue posible subir el archivo.', 'error')
+  } catch (e) {
+    notify((e as Error)?.message || 'No fue posible subir el archivo.', 'error')
   } finally {
     certDialog.value.loading = false
   }
@@ -1464,8 +1576,8 @@ async function eliminarCertificadoSeleccionado() {
     certDialog.value.meta = null
     certDialog.value.file = null
     notify('Archivo eliminado', 'success')
-  } catch (e:any) {
-    notify(e?.message || 'No fue posible eliminar el archivo.', 'error')
+  } catch (e) {
+    notify((e as Error)?.message || 'No fue posible eliminar el archivo.', 'error')
   }
 }
 
@@ -1479,10 +1591,10 @@ async function descargarCertificadoSeleccionado() {
     window.open(url, '_blank', 'noopener')
     return
   }
-  const meta = certDialog.value.meta ?? (t ? afiliacionMetaByTipo.value[t] : null)
-  const urlRaw = meta?.data?.url || meta?.url
+  const meta = (certDialog.value.meta ?? (t ? afiliacionMetaByTipo.value[t] : null)) as Dict | null
+  const urlRaw = (meta?.data as Dict | undefined)?.['url'] || meta?.['url']
   if (!urlRaw) return notify('No hay archivo para ver.', 'error')
-  const url = toAbsoluteApiUrl(urlRaw)
+  const url = toAbsoluteApiUrl(String(urlRaw))
   window.open(url, '_blank', 'noopener')
 }
 
@@ -1510,13 +1622,14 @@ async function subirRecomendacionSeleccionada() {
     recDialog.value.loading = true
     await subirRecomendacionMedica(Number(contratoEditId.value), recDialog.value.file)
     const meta = await obtenerRecomendacionMedicaMeta(Number(contratoEditId.value))
-    recMetaCache.value = { url: meta?.data?.url || null, nombre: meta?.data?.nombreOriginal || null }
+    const d = (meta as Dict | null)?.['data'] as Dict | undefined
+    recMetaCache.value = { url: (d?.['url'] as string | null) || null, nombre: (d?.['nombreOriginal'] as string | null) || null }
     recUiTick.value++
     syncTieneRecFlagFromMeta(true)
     notify('Recomendación médica actualizada.', 'success')
     cerrarRecDialog()
-  } catch (e:any) {
-    notify(e?.message || 'No fue posible subir la recomendación.', 'error')
+  } catch (e) {
+    notify((e as Error)?.message || 'No fue posible subir la recomendación.', 'error')
   } finally {
     recDialog.value.loading = false
   }
@@ -1537,8 +1650,8 @@ async function eliminarRecomendacionSeleccionada() {
     tieneRecomendacionesMedicas.value = false
     notify('Recomendación eliminada.', 'success')
     cerrarRecDialog()
-  } catch (e:any) {
-    notify(e?.message || 'No fue posible eliminar la recomendación.', 'error')
+  } catch (e) {
+    notify((e as Error)?.message || 'No fue posible eliminar la recomendación.', 'error')
   }
 }
 async function descargarRecomendacionSeleccionada() {
@@ -1580,47 +1693,88 @@ async function confirmarEliminarRecMedica() {
     tieneRecomendacionesMedicas.value = false
     recUiTick.value++
     notify('Recomendación médica eliminada')
-  } catch (e:any) {
-    showAlert('Error', e?.message || 'No se pudo eliminar la recomendación médica')
+  } catch (e) {
+    showAlert('Error', (e as Error)?.message || 'No se pudo eliminar la recomendación médica')
   } finally {
     dialogEliminarRec.value = false
   }
 }
 
-/* ======= Carga de datos ======= */
+/* ======= Carga de datos (normalizada a arrays) ======= */
 const contratosUsuario = ref<ContratoRow[]>([])
 const loadingContratos = ref(false)
 async function cargarHistorialContratos() {
   if (!usuarioSeleccionado.value) { contratosUsuario.value = []; return }
   loadingContratos.value = true
-  try { contratosUsuario.value = await obtenerContratosPorUsuario(Number(usuarioSeleccionado.value)) }
-  catch { contratosUsuario.value = [] }
+  try {
+    const raw = await obtenerContratosPorUsuario(Number(usuarioSeleccionado.value))
+    contratosUsuario.value = toArray<ContratoRow>(raw)
+  } catch { contratosUsuario.value = [] }
   finally { loadingContratos.value = false }
 }
-async function cargarRazonesSociales(){ loadingRazonesSociales.value = true; try { razonesSociales.value = await listarRazonesSociales() } finally { loadingRazonesSociales.value = false } }
+async function cargarRazonesSociales(){
+  loadingRazonesSociales.value = true
+  try {
+    const raw = await listarRazonesSociales()
+    razonesSociales.value = toArray<{ id:number; nombre:string }>(raw)
+  } finally { loadingRazonesSociales.value = false }
+}
 async function cargarUsuariosPorRazonSocial(){
-  loadingUsuarios.value = true; usuarios.value = []; usuarioSeleccionado.value = null
+  loadingUsuarios.value = true
+  usuarios.value = []
+  usuarioSeleccionado.value = null
   if (razonSocialSeleccionada.value) {
     try {
-      const data = await fetchUsuariosPorRazonSocial(razonSocialSeleccionada.value)
-      usuarios.value = data.map((u:any)=>({ ...u, nombreCompleto:`${u.nombres} ${u.apellidos}` }))
+      const raw = await fetchUsuariosPorRazonSocial(razonSocialSeleccionada.value)
+      const arr = toArray<UsuarioLiteOpt>(raw)
+      usuarios.value = arr.map(u => ({ ...u, nombreCompleto:`${u.nombres} ${u.apellidos}`.trim() }))
     } finally { loadingUsuarios.value = false }
   } else loadingUsuarios.value = false
 }
-async function cargarSedes(){ loadingSedes.value = true; try { sedes.value = await obtenerSedes() } finally { loadingSedes.value = false } }
-async function cargarCargos(){ loadingCargos.value = true; try { cargos.value = await obtenerCargos() } finally { loadingCargos.value = false } }
-async function cargarEntidadesSalud(){ loadingEntidades.value = true; try { entidadesSalud.value = await obtenerEntidadesSalud() } finally { loadingEntidades.value = false } }
+async function cargarSedes(){
+  loadingSedes.value = true
+  try {
+    const raw = await obtenerSedes()
+    sedes.value = toArray<SedeLite>(raw)
+  } finally { loadingSedes.value = false }
+}
+async function cargarCargos(){
+  loadingCargos.value = true
+  try {
+    const raw = await obtenerCargos()
+    cargos.value = toArray<CargoLite>(raw)
+  } finally { loadingCargos.value = false }
+}
+async function cargarEntidadesSalud(){
+  loadingEntidades.value = true
+  try {
+    const raw = await obtenerEntidadesSalud()
+    entidadesSalud.value = toArray<EntidadSalud>(raw)
+  } finally { loadingEntidades.value = false }
+}
+
+/* ============
+ * Estado de reintento de anexado
+ * ============ */
+const contratoPendienteAnexoId = ref<number | null>(null)
 
 /* ======= Crear contrato ======= */
 const submitForm = handleSubmit(async (values) => { await crearYAnexarContrato(values) })
+
 async function handleConfirmacion() {
   if (isSaving.value) return
+
+  // Si hay contrato creado pero faltó anexar, reintentar anexar directamente
+  if (contratoPendienteAnexoId.value) {
+    await reanexarArchivoContrato()
+    return
+  }
 
   const { valid } = await validate()
   if (!valid) return showAlert('Error de Validación', 'Revisa los campos en rojo.')
 
   const tipo = tipoContratoSeleccionado.value
-  const termino = terminoContrato.value as string | null
+  const termino = terminoContrato.value
 
   if (tipo === 'prestacion' && !termino) {
     return showAlert('Falta el término', 'Selecciona el Término de Contrato (Fijo u Obra o labor determinada).')
@@ -1653,7 +1807,8 @@ async function handleConfirmacion() {
 
   await submitForm()
 }
-async function crearYAnexarContrato(formData:any) {
+
+async function crearYAnexarContrato(formData: Record<string, unknown>) {
   if (isSaving.value) return
   isSaving.value = true
   try {
@@ -1663,28 +1818,28 @@ async function crearYAnexarContrato(formData:any) {
 
     const terminoNormalizado = (() => {
       const tipo = tipoContratoSeleccionado.value
-      const valor = terminoContrato.value as string | null
-      if (tipo === 'temporal') return 'obra_o_labor_determinada'
-      if (tipo === 'aprendizaje') return 'fijo'
-      return valor || null
+      const valor = terminoContrato.value
+      if (tipo === 'temporal') return 'obra_o_labor_determinada' as const
+      if (tipo === 'aprendizaje') return 'fijo' as const
+      return (valor || null) as CrearContratoPayload['terminoContrato']
     })()
 
     const fechaTerminacionNormalizada =
-      isFechaTerminacionRequired.value ? (formData.fechaTerminacion || null) : null
+      isFechaTerminacionRequired.value ? (formData['fechaTerminacion'] as string | null) || null : null
 
-    const payloadContrato:any = {
+    const payloadContrato: CrearContratoPayload = {
       usuarioId: Number(usuarioSeleccionado.value),
       razonSocialId: Number(razonSocialSeleccionada.value),
-      identificacion: (identificacion.value || '').trim(),
+      identificacion: String(identificacion.value || '').trim(),
       sedeId: sedeId.value ? Number(sedeId.value) : null,
       cargoId: cargoId.value ? Number(cargoId.value) : null,
-      funcionesCargo: (funcionesCargo.value || '').trim() || null,
-      fechaInicio: formData.fechaInicio || null,
+      funcionesCargo: String(funcionesCargo.value || '').trim() || null,
+      fechaInicio: (formData['fechaInicio'] as string) || null,
       fechaTerminacion: fechaTerminacionNormalizada,
       tipoContrato: tipoContratoSeleccionado.value,
       terminoContrato: terminoNormalizado,
       estado: 'activo',
-      centroCosto: (centroCosto.value || '').trim() || null,
+      centroCosto: String(centroCosto.value || '').trim() || null,
       epsId: epsId.value ?? null,
       arlId: arlId.value ?? null,
       afpId: afpId.value ?? null,
@@ -1697,32 +1852,45 @@ async function crearYAnexarContrato(formData:any) {
       auxilioNoSalarial: Number(auxilioNoSalarial.value) || 0,
     }
 
-    const nuevoContrato:any = await crearContrato(payloadContrato)
+    const nuevoContrato = await crearContrato(payloadContrato) as CrearContratoResponse
+    const nc = nuevoContrato
 
-    const salarioViene = Array.isArray(nuevoContrato.salarios) && nuevoContrato.salarios.length > 0
+    // Salario (si backend no lo devuelve ya persistido)
+    const salarioViene = Array.isArray(nc.salarios) && nc.salarios.length > 0
     if (!salarioViene) {
       await crearContratoSalario({
-        contratoId: Number(nuevoContrato.id),
+        contratoId: Number(nc.id),
         salarioBasico: Number(salarioBasico.value) || 0,
         bonoSalarial: Number(bonoSalarial.value) || 0,
         auxilioTransporte: Number(auxilioTransporte.value) || 0,
         auxilioNoSalarial: Number(auxilioNoSalarial.value) || 0,
-        fechaEfectiva: `${formData.fechaInicio || new Date().toISOString().slice(0,10)}T00:00:00`,
+        fechaEfectiva: `${(formData['fechaInicio'] as string) || new Date().toISOString().slice(0,10)}T00:00:00`,
       })
     }
 
-    await anexarContrato({
-      contratoId: Number(nuevoContrato.id),
-      archivo: archivoContrato.value!,
-      razonSocialId: Number(razonSocialSeleccionada.value),
-      tieneRecomendacionesMedicas: !!tieneRecomendacionesMedicas.value && !!archivoRecomendacionMedica.value,
-      archivoRecomendacionMedica: archivoRecomendacionMedica.value || undefined,
-    })
+    // Anexar PDF principal (y recomendación si aplica)
+    try {
+      const anexarPayload: AnexarContratoPayload = {
+        contratoId: Number(nc.id),
+        archivo: archivoContrato.value!,
+        razonSocialId: Number(razonSocialSeleccionada.value),
+        tieneRecomendacionesMedicas: !!tieneRecomendacionesMedicas.value && !!archivoRecomendacionMedica.value,
+        archivoRecomendacionMedica: archivoRecomendacionMedica.value || undefined,
+      }
+      await anexarContrato(anexarPayload)
+    } catch (e) {
+      // Creación fue OK pero el anexado falló → guardamos el ID para reintento
+      contratoPendienteAnexoId.value = Number(nc.id)
+      notify('El contrato se creó, pero falló el anexado del PDF. Puedes reintentar.', 'warning')
+      await cargarHistorialContratos()
+      // No reseteamos formulario para permitir reintento inmediato
+      return
+    }
 
-    // Subir afiliaciones pendientes
+    // Subir afiliaciones pendientes (solo si hay)
     try {
       const tipos: AfiliacionTipo[] = ['eps','arl','afp','afc','ccf']
-      const uploads: Promise<any>[] = []
+      const uploads: Promise<unknown>[] = []
       for (const t of tipos) {
         const file = pendingCertsByTipo.value[t]
         if (!file) continue
@@ -1733,11 +1901,11 @@ async function crearYAnexarContrato(formData:any) {
           notify(`No se pudo subir ${t.toUpperCase()}: falta entidad seleccionada.`, 'error')
           continue
         }
-        uploads.push((subirArchivoAfiliacion as any)(Number(nuevoContrato.id), t, file, entidadFinal))
+        uploads.push((subirArchivoAfiliacion as unknown as (a:number, b:AfiliacionTipo, c:File, d:number)=>Promise<unknown>)(Number(nc.id), t, file, entidadFinal))
       }
       if (uploads.length) await Promise.all(uploads)
-    } catch (e:any) {
-      notify(e?.message || 'Algunas afiliaciones no pudieron subirse.', 'error')
+    } catch (e) {
+      notify((e as Error)?.message || 'Algunas afiliaciones no pudieron subirse.', 'error')
     }
 
     // Crear pasos base
@@ -1752,16 +1920,48 @@ async function crearYAnexarContrato(formData:any) {
         if (p.observacion) fd.append('observacion', p.observacion)
         if (p.fechaCompletado) fd.append('fecha', p.fechaCompletado)
         if (p.archivoFile) fd.append('archivo', p.archivoFile, p.archivoFile.name)
-        return crearPasoContrato(Number(nuevoContrato.id), fd)
+        return crearPasoContrato(Number(nc.id), fd)
       })
       await Promise.all(creates)
     } catch {}
 
     notify('Contrato creado y archivos anexados.', 'success')
     await resetParaSiguienteEnMismaRazon()
-  } catch (e:any) {
-    showAlert('Error', e?.message || 'No fue posible crear el contrato.')
+  } catch (e) {
+    showAlert('Error', (e as Error)?.message || 'No fue posible crear el contrato.')
   } finally { isSaving.value = false }
+}
+
+/** Reintenta anexar el PDF principal cuando crearContrato ya fue exitoso */
+async function reanexarArchivoContrato() {
+  if (isSaving.value) return
+  if (!contratoPendienteAnexoId.value) return
+  if (!archivoContrato.value || !razonSocialSeleccionada.value) {
+    showAlert('Faltan datos', 'Selecciona un archivo PDF y asegúrate de tener la razón social.')
+    return
+  }
+  const msg = validateFileOrMsg(archivoContrato.value, { allowedMime: ALLOWED_CONTRATO_MIME, maxMB: MAX_UPLOAD_MB })
+  if (msg) { showAlert('Archivo inválido', msg); return }
+
+  isSaving.value = true
+  try {
+    const anexarPayload: AnexarContratoPayload = {
+      contratoId: Number(contratoPendienteAnexoId.value),
+      archivo: archivoContrato.value,
+      razonSocialId: Number(razonSocialSeleccionada.value),
+      tieneRecomendacionesMedicas: !!tieneRecomendacionesMedicas.value && !!archivoRecomendacionMedica.value,
+      archivoRecomendacionMedica: archivoRecomendacionMedica.value || undefined,
+    }
+    await anexarContrato(anexarPayload)
+    notify('Archivo anexado correctamente al contrato previamente creado.', 'success')
+    contratoPendienteAnexoId.value = null
+    await cargarHistorialContratos()
+    await resetParaSiguienteEnMismaRazon()
+  } catch (e) {
+    notify((e as Error)?.message || 'Sigue fallando el anexado. Revisa la API o el archivo.', 'error')
+  } finally {
+    isSaving.value = false
+  }
 }
 
 /* ======= Edición ======= */
@@ -1772,64 +1972,71 @@ const contratoEditTieneArchivo = computed(() => !!contratoEditArchivoUrl.value)
 async function editarContrato(c: ContratoRow) {
   isEditing.value = true
   contratoEditId.value = c.id
-  let src:any = c
-  try { src = await obtenerContratoPorId(c.id) } catch {}
+  let src: Partial<ContratoRow & Dict> = c
+  try { src = await obtenerContratoPorId(c.id) as Partial<ContratoRow & Dict> } catch {}
 
-  tipoContratoSeleccionado.value = src.tipoContrato ?? c.tipoContrato
-  identificacion.value = src.identificacion ?? ''
-  sedeId.value = src.sede?.id ?? src.sedeId ?? null
-  cargoId.value = src.cargo?.id ?? src.cargoId ?? null
-  funcionesCargo.value = src.funcionesCargo ?? ''
-  fechaInicio.value = (src.fechaInicio || '').slice(0,10)
-  fechaTerminacion.value = src.fechaTerminacion ? String(src.fechaTerminacion).slice(0,10) : ''
-  terminoContrato.value = src.terminoContrato ?? null
-  centroCosto.value = src.centroCosto ?? ''
+  tipoContratoSeleccionado.value = (src['tipoContrato'] as ContratoRow['tipoContrato']) ?? c.tipoContrato
+  identificacion.value = (src['identificacion'] as string) ?? ''
+  sedeId.value = (src['sede'] as SedeLite | undefined)?.id ?? (src['sedeId'] as number | null) ?? null
+  cargoId.value = (src['cargo'] as CargoLite | undefined)?.id ?? (src['cargoId'] as number | null) ?? null
+  funcionesCargo.value = (src['funcionesCargo'] as string) ?? ''
+  fechaInicio.value = (String(src['fechaInicio'] || '')).slice(0,10)
+  fechaTerminacion.value = src['fechaTerminacion'] ? String(src['fechaTerminacion']).slice(0,10) : ''
+  terminoContrato.value = (src['terminoContrato'] as typeof terminoContrato.value) ?? null
+  centroCosto.value = (src['centroCosto'] as string) ?? ''
 
-  epsId.value = src.epsId ?? null; arlId.value = src.arlId ?? null; afpId.value = src.afpId ?? null; afcId.value = src.afcId ?? null; ccfId.value = src.ccfId ?? null
+  epsId.value = (src['epsId'] as number | null) ?? null
+  arlId.value = (src['arlId'] as number | null) ?? null
+  afpId.value = (src['afpId'] as number | null) ?? null
+  afcId.value = (src['afcId'] as number | null) ?? null
+  ccfId.value = (src['ccfId'] as number | null) ?? null
 
-  salarioBasico.value = String(
-    (src.salarioBasico as number | undefined)
-    ?? (Array.isArray(src.salarios) ? src.salarios[0]?.salarioBasico : undefined)
-    ?? 0
-  )
-  bonoSalarial.value = String((src.bonoSalarial ?? (Array.isArray(src.salarios) ? src.salarios[0]?.bonoSalarial : '')) ?? '')
-  auxilioTransporte.value = String((src.auxilioTransporte ?? (Array.isArray(src.salarios) ? src.salarios[0]?.auxilioTransporte : '')) ?? '')
-  auxilioNoSalarial.value = String((src.auxilioNoSalarial ?? (Array.isArray(src.salarios) ? src.salarios[0]?.auxilioNoSalarial : '')) ?? '')
+  const salarios = (Array.isArray(src['salarios']) ? src['salarios'] as Array<{ salarioBasico?:number; bonoSalarial?:number; auxilioTransporte?:number; auxilioNoSalarial?:number }> : [])
+  // ⚙️ Money fields (typed as number | '')
+  const sb = (src['salarioBasico'] as number | undefined) ?? salarios[0]?.salarioBasico
+  const bs = (src['bonoSalarial'] as number | undefined) ?? salarios[0]?.bonoSalarial
+  const at = (src['auxilioTransporte'] as number | undefined) ?? salarios[0]?.auxilioTransporte
+  const ans = (src['auxilioNoSalarial'] as number | undefined) ?? salarios[0]?.auxilioNoSalarial
 
-  contratoEditArchivoUrl.value = src.rutaArchivoContratoFisico || null
+  salarioBasico.value = sb != null ? sanitizeMoney(sb) : ''
+  bonoSalarial.value = bs != null ? sanitizeMoney(bs) : ''
+  auxilioTransporte.value = at != null ? sanitizeMoney(at) : ''
+  auxilioNoSalarial.value = ans != null ? sanitizeMoney(ans) : ''
+
+  contratoEditArchivoUrl.value = (src['rutaArchivoContratoFisico'] as string | null) || null
   contratoEditNombreArchivo.value = contratoEditArchivoUrl.value?.split('/')?.pop() || 'Contrato actual'
 
   recMetaCache.value = {
-    url: src.rutaArchivoRecomendacionMedica || null,
-    nombre: (src.rutaArchivoRecomendacionMedica?.split('/')?.pop() || null)
+    url: (src['rutaArchivoRecomendacionMedica'] as string | null) || null,
+    nombre: ((src['rutaArchivoRecomendacionMedica'] as string | null)?.split('/')?.pop() || null)
   }
-  syncTieneRecFlagFromMeta(src.tieneRecomendacionesMedicas)
+  syncTieneRecFlagFromMeta(src['tieneRecomendacionesMedicas'])
 
   try {
     const meta = await obtenerRecomendacionMedicaMeta(Number(c.id))
-    if (meta?.data) {
+    const d = (meta as Dict | null)?.['data'] as Dict | undefined
+    if (d) {
       recMetaCache.value = {
-        url: meta.data.url || recMetaCache.value?.url || null,
-        nombre: meta.data.nombreOriginal || recMetaCache.value?.nombre || null
+        url: (d['url'] as string | null) || recMetaCache.value?.url || null,
+        nombre: (d['nombreOriginal'] as string | null) || recMetaCache.value?.nombre || null
       }
     }
-    syncTieneRecFlagFromMeta(src.tieneRecomendacionesMedicas)
+    syncTieneRecFlagFromMeta(src['tieneRecomendacionesMedicas'])
   } catch {}
   recUiTick.value++
 
-  await Promise.all(['eps','arl','afp','afc','ccf'].map(async (t:any)=>{
+  await Promise.all(['eps','arl','afp','afc','ccf'].map(async (t) =>{
     try {
       const meta = await obtenerArchivoAfiliacionMeta(Number(c.id), t as AfiliacionTipo)
-      setCertState(t, tieneArchivoAfiliacion(meta), meta)
-    } catch { setCertState(t, false, null) }
+      setCertState(t as AfiliacionTipo, tieneArchivoAfiliacion(meta as unknown), meta as unknown)
+    } catch { setCertState(t as AfiliacionTipo, false, null) }
   }))
 
   try { await cargarPasosDesdeBackend(Number(c.id)) } catch {}
 
-  // Reset del input de archivo para evitar duplicación/estado fantasma
   archivoContrato.value = null
   fileInputRenderKey.value++
-  fileBlockKey.value++ // fuerza re-montaje del bloque completo
+  fileBlockKey.value++
   await nextTick(); window.scrollTo({ top: 0, behavior: 'smooth' })
 }
 
@@ -1842,7 +2049,7 @@ async function guardarCambiosContrato() {
     if (!valid) { showAlert('Error de Validación', 'Revisa los campos obligatorios.'); return }
 
     const tipo = tipoContratoSeleccionado.value
-    const termino = terminoContrato.value as string | null
+    const termino = terminoContrato.value
     if (tipo === 'prestacion' && !termino) {
       showAlert('Falta el término', 'Selecciona el Término de Contrato (Fijo u Obra o labor determinada).')
       return
@@ -1867,26 +2074,26 @@ async function guardarCambiosContrato() {
     }
 
     const terminoNormalizado = (() => {
-      const tipo = tipoContratoSeleccionado.value
-      const valor = terminoContrato.value as string | null
-      if (tipo === 'temporal') return 'obra_o_labor_determinada'
-      if (tipo === 'aprendizaje') return 'fijo'
-      return valor || null
+      const t = tipoContratoSeleccionado.value
+      const valor = terminoContrato.value
+      if (t === 'temporal') return 'obra_o_labor_determinada' as const
+      if (t === 'aprendizaje') return 'fijo' as const
+      return (valor || null) as CrearContratoPayload['terminoContrato']
     })()
 
     const fechaTerminacionNormalizada =
       isFechaTerminacionRequired.value ? (fechaTerminacion.value || null) : null
 
-    const payload:any = {
+    const payload: Partial<CrearContratoPayload> = {
       tipoContrato: tipoContratoSeleccionado.value,
       terminoContrato: terminoNormalizado,
-      identificacion: (identificacion.value || '').trim(),
+      identificacion: String(identificacion.value || '').trim(),
       sedeId: sedeId.value ? Number(sedeId.value) : null,
       cargoId: cargoId.value ? Number(cargoId.value) : null,
-      funcionesCargo: (funcionesCargo.value || '').trim() || null,
+      funcionesCargo: String(funcionesCargo.value || '').trim() || null,
       fechaInicio: fechaInicio.value || null,
       fechaTerminacion: fechaTerminacionNormalizada,
-      centroCosto: (centroCosto.value || '').trim() || null,
+      centroCosto: String(centroCosto.value || '').trim() || null,
       epsId: epsId.value ?? null, arlId: arlId.value ?? null, afpId: afpId.value ?? null, afcId: afcId.value ?? null, ccfId: ccfId.value ?? null,
       tieneRecomendacionesMedicas: !!tieneRecomendacionesMedicas.value,
       salarioBasico: salarioBasico.value !== '' ? Number(salarioBasico.value) : undefined,
@@ -1897,39 +2104,42 @@ async function guardarCambiosContrato() {
     await actualizarContrato(Number(contratoEditId.value), payload)
 
     if (archivoContrato.value && razonSocialSeleccionada.value != null) {
-      await anexarContrato({
+      const anexarPayload: AnexarContratoPayload = {
         contratoId: Number(contratoEditId.value),
         archivo: archivoContrato.value,
         razonSocialId: Number(razonSocialSeleccionada.value),
         tieneRecomendacionesMedicas: false,
-      } as any)
+      }
+      await anexarContrato(anexarPayload)
     }
     if (tieneRecomendacionesMedicas.value && archivoRecomendacionMedica.value) {
       await subirRecomendacionMedica(Number(contratoEditId.value), archivoRecomendacionMedica.value)
     }
 
-    const refreshed = await obtenerContratoPorId(Number(contratoEditId.value))
-    contratoEditArchivoUrl.value = refreshed?.rutaArchivoContratoFisico || contratoEditArchivoUrl.value
+    const refreshed = await obtenerContratoPorId(Number(contratoEditId.value)) as Dict
+    contratoEditArchivoUrl.value = (refreshed['rutaArchivoContratoFisico'] as string | null) || contratoEditArchivoUrl.value
     contratoEditNombreArchivo.value = (contratoEditArchivoUrl.value?.split('/')?.pop() || contratoEditNombreArchivo.value || 'Contrato actual')
 
     try {
       const meta = await obtenerRecomendacionMedicaMeta(Number(contratoEditId.value))
-      recMetaCache.value = { url: meta?.data?.url || null, nombre: meta?.data?.nombreOriginal || null }
+      const d = (meta as Dict | null)?.['data'] as Dict | undefined
+      recMetaCache.value = { url: (d?.['url'] as string | null) || null, nombre: (d?.['nombreOriginal'] as string | null) || null }
     } catch {
       recMetaCache.value = {
-        url: refreshed?.rutaArchivoRecomendacionMedica || recMetaCache.value?.url || null,
-        nombre: (refreshed?.rutaArchivoRecomendacionMedica?.split('/')?.pop() || recMetaCache.value?.nombre || null),
+        url: (refreshed['rutaArchivoRecomendacionMedica'] as string | null) || recMetaCache.value?.url || null,
+        nombre: ((refreshed['rutaArchivoRecomendacionMedica'] as string | null)?.split('/')?.pop() || recMetaCache.value?.nombre || null),
       }
     }
     recUiTick.value++
-    syncTieneRecFlagFromMeta(refreshed?.tieneRecomendacionesMedicas)
+    syncTieneRecFlagFromMeta(refreshed['tieneRecomendacionesMedicas'])
 
     notify('Contrato actualizado correctamente.', 'success')
     await resetParaSiguienteEnMismaRazon()
-  } catch (e:any) {
-    showAlert('Error', e?.message || 'No fue posible actualizar el contrato.')
+  } catch (e) {
+    showAlert('Error', (e as Error)?.message || 'No fue posible actualizar el contrato.')
   } finally { isSaving.value = false }
 }
+
 function cancelarEdicion() {
   isEditing.value = false
   contratoEditId.value = null
@@ -1937,12 +2147,18 @@ function cancelarEdicion() {
 }
 
 /* ======= Modal de pasos ======= */
-const modalPaso = ref({
+const modalPaso = ref<{
+  mostrar: boolean
+  paso: Paso | null
+  form: { observacion: string; archivo: File | null }
+  loading: boolean
+}>({
   mostrar:false,
-  paso: null as Paso | null,
-  form: { observacion:'', archivo: null as File | null },
+  paso: null,
+  form: { observacion:'', archivo: null },
   loading: false,
 })
+
 function abrirModalPaso(paso: Paso, ev?: MouseEvent){
   ev?.stopPropagation()
   ev?.preventDefault()
@@ -1953,7 +2169,7 @@ function abrirModalPaso(paso: Paso, ev?: MouseEvent){
 function cerrarModalPaso(){
   modalPaso.value = { mostrar:false, paso:null, form:{ observacion:'', archivo:null }, loading:false }
 }
-function onFilePasoChange(){}
+function onFilePasoChange(){/* no-op */ }
 function verArchivoPaso() {
   const raw = modalPaso.value.paso?.archivoUrl
   if (!raw) return notify('No hay archivo para ver.', 'error')
@@ -1977,8 +2193,8 @@ async function eliminarArchivoPaso() {
     await cargarPasosDesdeBackend(Number(contratoEditId.value))
     notify('Archivo eliminado.', 'success')
     if (modalPaso.value.paso) { modalPaso.value.paso.archivoUrl = undefined; modalPaso.value.paso.nombreArchivo = undefined }
-  } catch (e:any) {
-    notify(e?.message || 'No fue posible eliminar el archivo del paso.', 'error')
+  } catch (e) {
+    notify((e as Error)?.message || 'No fue posible eliminar el archivo del paso.', 'error')
   }
 }
 async function completarPasoConfirmado() {
@@ -2025,19 +2241,20 @@ async function completarPasoConfirmado() {
     await cargarPasosDesdeBackend(Number(contratoEditId.value))
     notify(p.id ? 'Paso actualizado.' : 'Paso creado.', 'success')
     cerrarModalPaso()
-  } catch (e:any) {
-    notify(e?.message || 'No fue posible guardar el paso.', 'error')
+  } catch (e) {
+    notify((e as Error)?.message || 'No fue posible guardar el paso.', 'error')
   } finally {
     modalPaso.value.loading = false
   }
 }
 
 /* ======= Clip de contrato (input principal) ======= */
-/** Maneja @update:model-value del v-file-input (value: File[] | null | undefined) */
-function onFileChange(value: any) {
+function onFileChange(value: unknown) {
   let f: File | null = null
   if (Array.isArray(value)) f = value[0] || null
-  else if (value && value?.target?.files) f = value.target.files[0] || null
+  else if (isRecord(value) && 'target' in value && (value as { target: { files?: FileList } }).target?.files) {
+    f = (value as { target: { files?: FileList } }).target.files?.[0] || null
+  }
   else if (value instanceof File) f = value
   else f = null
 
@@ -2047,7 +2264,6 @@ function onFileChange(value: any) {
   if (msg) {
     showAlert('Archivo de contrato inválido', msg)
     archivoContrato.value = null
-    // 🔄 reset “limpio” del input para evitar estados fantasma/duplicados
     fileInputRenderKey.value++
     return
   }
@@ -2061,8 +2277,8 @@ async function toggleEstadoContrato(c: ContratoRow) {
     await cambiarEstadoContrato(c.id, nuevo)
     notify(`Contrato ${nuevo}.`, 'success')
     await cargarHistorialContratos()
-  } catch (e:any) {
-    notify(e?.message || 'No fue posible cambiar el estado.', 'error')
+  } catch (e) {
+    notify((e as Error)?.message || 'No fue posible cambiar el estado.', 'error')
   }
 }
 
@@ -2073,7 +2289,6 @@ async function resetTotal() {
   archivoContrato.value = null
   archivoRecomendacionMedica.value = null
 
-  // 🔑 resetea el bloque/input de archivo para evitar duplicación
   fileInputRenderKey.value++
   fileBlockKey.value++
 
@@ -2094,10 +2309,13 @@ async function resetTotal() {
   tieneRecomendacionesMedicas.value = false
   recUiTick.value++
 
+  contratoPendienteAnexoId.value = null
+
   await nextTick()
   window.scrollTo({ top: 0, behavior: 'smooth' })
 }
-async function resetParaSiguienteEnMismaRazon({ keepTipo = true } = {}) {
+
+async function resetParaSiguienteEnMismaRazon({ keepTipo = true }: { keepTipo?: boolean } = {}) {
   const keepRazon = razonSocialSeleccionada.value
   const keepTipoContrato = tipoContratoSeleccionado.value
   isEditing.value = false
@@ -2107,6 +2325,7 @@ async function resetParaSiguienteEnMismaRazon({ keepTipo = true } = {}) {
   if (keepTipo) tipoContratoSeleccionado.value = keepTipoContrato
   if (keepRazon != null) await cargarUsuariosPorRazonSocial()
 }
+
 function limpiarFormulario() {
   resetForm()
   resetPasos()
@@ -2125,6 +2344,7 @@ function limpiarFormulario() {
   recMetaCache.value = null
   tieneRecomendacionesMedicas.value = false
   recUiTick.value++
+  contratoPendienteAnexoId.value = null
 }
 
 /* ======= Watchers ======= */
@@ -2151,16 +2371,17 @@ watch(usuarioSeleccionado, async (v)=>{
   recUiTick.value++
   pasosBackend.value = null
 
-  // 🔑 al cambiar de usuario, forzar re-render del bloque de archivo
   fileInputRenderKey.value++
   fileBlockKey.value++
+
+  contratoPendienteAnexoId.value = null
 
   if (!v) return
   await cargarHistorialContratos()
 })
 watch(tipoContratoSeleccionado, () => {
   const allowed = terminosContratoOptions.value.map(o => o.value)
-  if (!allowed.includes(terminoContrato.value as any)) terminoContrato.value = null
+  if (!allowed.some(v => v === terminoContrato.value)) terminoContrato.value = null
 })
 
 /* ======= Mounted ======= */
@@ -2171,11 +2392,19 @@ onMounted(() => {
   cargarEntidadesSalud()
 })
 
-/* Exponer helpers usados en el template */
+/* Exponer helper al template */
 defineExpose({ toAbsoluteApiUrl })
 </script>
 
+
 <style scoped>
+/* ====== Tono corporativo (suave) ====== */
+:root {
+  --corp-primary: #0d47a1;
+  --corp-accent:  #1976d2;
+  --corp-bg:      #f6f8fb;
+}
+
 /* ====== Layout de formularios ====== */
 .form {
   display: flex;
@@ -2183,89 +2412,97 @@ defineExpose({ toAbsoluteApiUrl })
   gap: 16px;
 }
 
-/* ====== Iconos de “clip” y estados en selects ====== */
-.append-icons {
-  display: flex;
-  align-items: center;
-  gap: 6px;
+/* ====== Encabezados de tarjeta (más espaciado y acento) ====== */
+.v-card-title.bg-blue-grey-lighten-5 {
+  background: linear-gradient(180deg, #f7f9fc 0%, #eef3f7 100%) !important;
+  border-bottom: 1px solid #e6eaf0;
+  padding-top: 18px;
+  padding-bottom: 18px;
+  letter-spacing: .2px;
 }
+.v-card-title.bg-blue-grey-lighten-5::before {
+  content: "";
+  display: inline-block;
+  width: 4px;
+  height: 1.6em;
+  margin-right: 10px;
+  border-radius: 4px;
+  background: var(--corp-accent);
+}
+.v-card-title.bg-blue-grey-lighten-5 .v-chip {
+  margin-left: 8px;
+}
+
+/* ====== Íconos de “clip” y estados en selects ====== */
+.append-icons { display: flex; align-items: center; gap: 6px; }
 .append-icons .v-icon,
-.append-icons .v-btn {
-  margin-left: 2px;
+.append-icons .v-btn { margin-left: 2px; }
+.append-icons .v-btn { min-width: 28px; height: 28px; padding: 0; }
+
+/* Desactivar interacción visual cuando el select esté deshabilitado */
+:deep(.v-input--disabled) .append-icons .v-btn,
+:deep(.v-input--disabled) .append-icons .v-icon {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+/* ====== FIX: Quitar el “recuadro azul” que sobresale en el focus ======
+   (se reemplaza por un realce interno más sutil y corporativo) */
+:deep(.v-btn:focus-visible),
+:deep(.v-field__input:focus-visible) {
+  outline: none !important;         /* quita el borde azul externo del navegador */
+}
+:deep(.v-field) { border-radius: 10px; }
+:deep(.v-field.v-field--focused) {
+  /* halo interno suave que NO se sale del input */
+  box-shadow: inset 0 0 0 2px rgba(25, 118, 210, .18);
+}
+:deep(.v-field.v-field--focused .v-field__outline) {
+  --v-field-border-opacity: 1;
+  border-color: #1976d2 !important; /* tono corporativo */
+}
+:deep(.v-field),
+:deep(.v-btn) {
+  transition: box-shadow .18s ease, border-color .18s ease, background-color .18s ease;
 }
 
 /* ====== Tabla de historial ====== */
-.v-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-.v-table th,
-.v-table td {
+.v-table { width: 100%; border-collapse: collapse; }
+.v-table th, .v-table td {
   padding: 8px;
-  border-bottom: 1px solid #e0e0e0;
+  border-bottom: 1px solid #e0e6ef;
+  vertical-align: middle;
 }
 .v-table th {
-  font-weight: bold;
-  background-color: #f5f5f5;
+  font-weight: 700;
+  background-color: #f5f8fb;
 }
-.v-table tbody tr:hover {
-  background-color: #fafafa;
-}
+.v-table tbody tr:hover { background-color: #fafcff; }
 
 /* ====== Tipografías / utilidades ====== */
-.text-capitalize {
-  text-transform: capitalize;
-}
+.text-capitalize { text-transform: capitalize; }
 
 /* Ajustes de chips y botones pequeños en celdas */
-.v-chip {
-  font-weight: 600;
-}
-.v-btn--size-x-small {
-  line-height: 1.1;
-}
-
-/* ====== Títulos de tarjetas ====== */
-.v-card-title.bg-blue-grey-lighten-5 {
-  border-bottom: 1px solid #e0e0e0;
-}
+.v-chip { font-weight: 600; }
+.v-btn--size-x-small { line-height: 1.1; height: 28px; }
 
 /* ====== Diálogos ====== */
-.v-dialog .v-card-title {
-  font-weight: 600;
-}
-.v-dialog .v-card-text {
-  padding-top: 12px;
-}
+.v-dialog .v-card-title { font-weight: 600; }
+.v-dialog .v-card-text  { padding-top: 12px; }
 
 /* ====== Inputs de archivo ====== */
-.v-file-input {
-  margin-bottom: 8px;
-}
+.v-file-input { margin-bottom: 8px; }
 
 /* ====== Timeline ====== */
-:deep(.v-timeline-item__dot) {
-  box-shadow: none;
-}
-:deep(.v-timeline-item__body) {
-  padding-top: 6px;
-  padding-bottom: 6px;
-}
+:deep(.v-timeline-item__dot)  { box-shadow: none; }
+:deep(.v-timeline-item__body) { padding-top: 6px; padding-bottom: 6px; }
 
 /* ====== Contenedores con resalte suave ====== */
-.v-alert {
-  border-radius: 10px;
-}
+.v-alert { border-radius: 10px; }
 
 /* ====== Responsive tweaks ====== */
 @media (max-width: 600px) {
-  .v-table th,
-  .v-table td {
-    padding: 6px;
-  }
-  .append-icons {
-    gap: 4px;
-  }
+  .v-table th, .v-table td { padding: 6px; }
+  .append-icons { gap: 4px; }
 }
 </style>
-

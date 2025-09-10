@@ -1,5 +1,5 @@
-// URL base para todas las peticiones a la API
-const API_BASE_URL = '/api'
+// src/services/usuariosService.ts
+import { get, post, put, del, upload } from './http'
 
 /* =========================
    Tipos / Interfaces
@@ -56,7 +56,6 @@ export interface Contrato {
   id: number
   usuarioId: number
   sedeId: number
-  /** ⬅️ agregado 'aprendizaje' para alinear con la vista */
   tipoContrato: 'prestacion' | 'temporal' | 'laboral' | 'aprendizaje'
   estado: 'activo' | 'inactivo'
   fechaInicio: string
@@ -64,9 +63,7 @@ export interface Contrato {
   motivoFinalizacion?: string
   nombreArchivoContratoFisico?: string
   rutaArchivoContratoFisico?: string
-  /** ⬅️ opcional por si el backend lo envía y la vista lo usa */
   terminoContrato?: 'fijo' | 'obra_o_labor_determinada' | 'indefinido' | string
-  /** ⬅️ opcional para que la vista pueda leerla si viene */
   rutaArchivoRecomendacionMedica?: string | null
   eventos?: ContratoEvento[]
   pasos?: ContratoPaso[]
@@ -88,6 +85,8 @@ export interface AfiliacionFileResponse {
   data: AfiliacionFileMeta | null
 }
 
+export type EstadoUsuario = 'activo' | 'inactivo'
+
 export interface User {
   id: number
   nombres: string
@@ -99,7 +98,7 @@ export interface User {
   centroCosto?: string
   recomendaciones?: boolean
   fotoPerfil?: string
-  estado: 'activo' | 'inactivo'
+  estado: EstadoUsuario
   rolId: number
   rol?: Rol
   razonSocialId: number
@@ -119,14 +118,12 @@ export interface User {
   ccfId?: number
   ccf?: EntidadSalud
 
-  // Metadatos de archivos de afiliación (si backend los serializa en show/index):
   epsDocPath?: string | null; epsDocNombre?: string | null; epsDocMime?: string | null; epsDocSize?: number | null
   arlDocPath?: string | null; arlDocNombre?: string | null; arlDocMime?: string | null; arlDocSize?: number | null
   afpDocPath?: string | null; afpDocNombre?: string | null; afpDocMime?: string | null; afpDocSize?: number | null
   afcDocPath?: string | null; afcDocNombre?: string | null; afcDocMime?: string | null; afcDocSize?: number | null
   ccfDocPath?: string | null; ccfDocNombre?: string | null; ccfDocMime?: string | null; ccfDocSize?: number | null
 
-  // Recomendación médica
   recomendacionMedica?: string | null
   recoMedDocPath?: string | null
   recoMedDocNombre?: string | null
@@ -138,310 +135,346 @@ export interface User {
 }
 
 /* ================================
-   Core fetch + helpers de descarga
+   Helpers anti-cola / idempotencia
 ================================ */
-export async function fetchData<T>(url: string, options: RequestInit = {}): Promise<T> {
-  const isFormData = options.body instanceof FormData
-  const fetchOptions: RequestInit = { ...options }
-
-  if (!isFormData) {
-    fetchOptions.headers = {
-      ...fetchOptions.headers,
-      'Content-Type': 'application/json',
-    } as HeadersInit
-  } else if (fetchOptions.headers) {
-    delete (fetchOptions.headers as Record<string, string>)['Content-Type']
-  }
-
-  const response = await fetch(url, fetchOptions)
-  if (!response.ok) {
-    // intenta leer json, si no, texto plano
-    let message = response.statusText
-    try {
-      const err = await response.json()
-      message = err?.message || message
-    } catch {
-      try { message = await response.text() } catch {}
-    }
-    throw new Error(message || 'Error en la petición')
-  }
-
-  const contentType = response.headers.get('content-type')
-  if (contentType && contentType.includes('application/json')) {
-    const jsonResponse = await response.json()
-    // algunos controladores devuelven {data: ...}
-    return (jsonResponse?.data ?? jsonResponse) as T
-  }
-
-  return {} as T
-}
-
-async function fetchBlob(url: string, options: RequestInit = {}): Promise<Blob> {
-  const resp = await fetch(url, options)
-  if (!resp.ok) {
-    const txt = await resp.text().catch(() => '')
-    throw new Error(txt || resp.statusText || `HTTP ${resp.status}`)
-  }
-  return await resp.blob()
-}
-
-function triggerDownload(blob: Blob, filename: string) {
-  const link = document.createElement('a')
-  const url = URL.createObjectURL(blob)
-  link.href = url
-  link.download = filename
-  document.body.appendChild(link)
-  link.click()
-  link.remove()
-  URL.revokeObjectURL(url)
-}
+const pendingCreates = new Map<string, AbortController>()
+const pendingUpdates = new Map<number, AbortController>()
+const makeIdempotencyKey = (suffix?: string) =>
+  (crypto as any)?.randomUUID?.() || `${Date.now()}-${Math.random()}${suffix ? ':' + suffix : ''}`
 
 /* ================================
    Usuarios
 ================================ */
-export async function obtenerUsuarios(razonSocialId?: number): Promise<User[]> {
-  const url = new URL(`${API_BASE_URL}/usuarios`, window.location.origin)
-  if (razonSocialId) url.searchParams.append('razon_social_id', razonSocialId.toString())
-  return fetchData<User[]>(url.href)
+export function obtenerUsuarios(razonSocialId?: number): Promise<User[]> {
+  return get<User[]>(
+    '/api/usuarios',
+    {
+      credentials: 'include',
+      headers: { Accept: 'application/json' },
+      params: razonSocialId ? { razon_social_id: razonSocialId } : undefined,
+    }
+  )
 }
 
 export async function obtenerUsuarioPorId(id: number): Promise<User | null> {
   try {
-    return await fetchData<User>(`${API_BASE_URL}/usuarios/${id}`)
-  } catch (error: any) {
-    if (error.message?.toLowerCase?.().includes('no encontrado') || error.message.includes('Not Found')) {
+    return await get<User>(`/api/usuarios/${id}`, {
+      credentials: 'include',
+      headers: { Accept: 'application/json' },
+    })
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message.toLowerCase() : String(e ?? '').toLowerCase()
+    if (msg.includes('no encontrado') || msg.includes('not found')) {
       console.warn(`Usuario con ID ${id} no encontrado.`)
       return null
     }
-    throw error
+    throw e
   }
 }
 
-export async function crearUsuario(userData: Partial<User>): Promise<User> {
-  return fetchData<User>(`${API_BASE_URL}/usuarios`, {
-    method: 'POST',
-    body: JSON.stringify(userData),
+export function crearUsuario(userData: Partial<User>) {
+  const email = String(userData.correo ?? '').trim().toLowerCase()
+  const key = `create:${email || 'unknown'}`
+
+  // Si hay un create anterior para el mismo correo, cancélalo
+  const prev = pendingCreates.get(key)
+  if (prev) prev.abort()
+
+  const ac = new AbortController()
+  pendingCreates.set(key, ac)
+
+  const idemKey = makeIdempotencyKey(email)
+
+  return post<User, Partial<User>>('/api/usuarios', userData, {
+    credentials: 'include',
+    headers: {
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+      // 💡 Opcional: si tu backend acepta claves de idempotencia:
+      'X-Idempotency-Key': idemKey,
+    },
+    signal: ac.signal,
+  }).finally(() => {
+    const cur = pendingCreates.get(key)
+    if (cur === ac) pendingCreates.delete(key)
   })
 }
 
-export async function actualizarUsuario(id: number, userData: Partial<User>): Promise<User> {
-  return fetchData<User>(`${API_BASE_URL}/usuarios/${id}`, {
-    method: 'PUT',
-    body: JSON.stringify(userData),
+export function actualizarUsuario(id: number, userData: Partial<User>) {
+  // Evita dobles PUT simultáneos del mismo usuario
+  const prev = pendingUpdates.get(id)
+  if (prev) prev.abort()
+  const ac = new AbortController()
+  pendingUpdates.set(id, ac)
+
+  return put<User, Partial<User>>(`/api/usuarios/${id}`, userData, {
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+    signal: ac.signal,
+  }).finally(() => {
+    const cur = pendingUpdates.get(id)
+    if (cur === ac) pendingUpdates.delete(id)
   })
 }
 
 export async function eliminarUsuario(id: number): Promise<string> {
-  const resp = await fetchData<DeleteResponse>(`${API_BASE_URL}/usuarios/${id}`, { method: 'DELETE' })
-  return resp.message || 'Usuario eliminado correctamente.'
+  const resp = await del<DeleteResponse>(`/api/usuarios/${id}`, {
+    credentials: 'include',
+    headers: { Accept: 'application/json' },
+  })
+  return resp?.message || 'Usuario eliminado correctamente.'
 }
 
-export async function uploadProfilePicture(userId: number, file: File): Promise<User> {
+export function uploadProfilePicture(userId: number, file: File) {
   const formData = new FormData()
   formData.append('foto', file)
-  return fetchData<User>(`${API_BASE_URL}/usuarios/${userId}/upload-photo`, {
-    method: 'POST',
-    body: formData,
+  return upload<User>(`/api/usuarios/${userId}/upload-photo`, formData, {
+    credentials: 'include',
+    headers: { Accept: 'application/json' },
   })
 }
 
 /* ================================
    Contratos (resumen)
 ================================ */
-export async function actualizarContrato(contratoId: number, data: Partial<Contrato>): Promise<Contrato> {
-  return fetchData<Contrato>(`${API_BASE_URL}/contratos/${contratoId}`, {
-    method: 'PUT',
-    body: JSON.stringify(data),
+export function actualizarContrato(contratoId: number, data: Partial<Contrato>) {
+  return put<Contrato, Partial<Contrato>>(`/api/contratos/${contratoId}`, data, {
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
   })
 }
 
-export async function crearEventoDeContrato(
+export function crearEventoDeContrato(
   contratoId: number,
   data: FormData | Partial<ContratoEvento>
-): Promise<ContratoEvento> {
-  return fetchData<ContratoEvento>(`${API_BASE_URL}/contratos/${contratoId}/eventos`, {
-    method: 'POST',
-    body: data instanceof FormData ? data : JSON.stringify(data),
-  })
+) {
+  if (data instanceof FormData) {
+    return upload<ContratoEvento>(`/api/contratos/${contratoId}/eventos`, data, {
+      credentials: 'include',
+      headers: { Accept: 'application/json' },
+    })
+  }
+  return post<ContratoEvento, Partial<ContratoEvento>>(
+    `/api/contratos/${contratoId}/eventos`,
+    data,
+    { credentials: 'include', headers: { 'Content-Type': 'application/json', Accept: 'application/json' } }
+  )
 }
 
 /* ================================
    Listas auxiliares
 ================================ */
-export async function obtenerRoles(): Promise<Rol[]> {
-  return fetchData<Rol[]>(`${API_BASE_URL}/roles`)
+export function obtenerRoles() {
+  return get<Rol[]>('/api/roles', {
+    credentials: 'include',
+    headers: { Accept: 'application/json' },
+  })
 }
 
-export async function obtenerRazonesSociales(): Promise<RazonSocial[]> {
-  return fetchData<RazonSocial[]>(`${API_BASE_URL}/razones-sociales`)
+export function obtenerRazonesSociales() {
+  return get<RazonSocial[]>('/api/razones-sociales', {
+    credentials: 'include',
+    headers: { Accept: 'application/json' },
+  })
 }
 
-export async function obtenerSedes(): Promise<Sede[]> {
-  return fetchData<Sede[]>(`${API_BASE_URL}/sedes`)
+export function obtenerSedes() {
+  return get<Sede[]>('/api/sedes', {
+    credentials: 'include',
+    headers: { Accept: 'application/json' },
+  })
 }
 
-export async function obtenerCargos(): Promise<Cargo[]> {
-  return fetchData<Cargo[]>(`${API_BASE_URL}/cargos`)
+export function obtenerCargos() {
+  return get<Cargo[]>('/api/cargos', {
+    credentials: 'include',
+    headers: { Accept: 'application/json' },
+  })
 }
 
 /** Catálogo de entidades (para selects) */
-export async function obtenerEntidadesSalud(): Promise<EntidadSalud[]> {
+export function obtenerEntidadesSalud() {
   // backend: /api/entidades-saluds  (incluye 'tipo')
-  return fetchData<EntidadSalud[]>(`${API_BASE_URL}/entidades-saluds`)
+  return get<EntidadSalud[]>('/api/entidades-saluds', {
+    credentials: 'include',
+    headers: { Accept: 'application/json' },
+  })
 }
 
 /* ==========================================================
    Archivos por afiliación (EPS/ARL/AFP/AFC/CCF)
-   Endpoints backend:
-     - POST   /api/usuarios/:id/afiliacion/:tipo/archivo
-     - GET    /api/usuarios/:id/afiliacion/:tipo/archivo
-     - DELETE /api/usuarios/:id/afiliacion/:tipo/archivo
 ========================================================== */
 export type TipoAfiliacion = 'eps' | 'arl' | 'afp' | 'afc' | 'ccf'
 
-/**
- * Sube/Reemplaza archivo de afiliación. Soporta metadatos extra vía 4to parámetro.
- */
 export async function subirArchivoAfiliacion(
   userId: number,
   tipo: TipoAfiliacion,
   file: File,
-  extraFields?: Record<string, any>
+  extraFields?: Record<string, unknown>
 ): Promise<AfiliacionFileResponse> {
   const form = new FormData()
   form.append('archivo', file, file.name)
   if (extraFields && typeof extraFields === 'object') {
-    Object.entries(extraFields).forEach(([k, v]) => {
+    for (const [k, v] of Object.entries(extraFields)) {
       if (v !== undefined && v !== null) form.append(k, String(v))
-    })
+    }
   }
 
-  const raw = await fetchData<any>(`${API_BASE_URL}/usuarios/${userId}/afiliacion/${tipo}/archivo`, {
-    method: 'POST',
-    body: form,
-  })
+  const raw = await upload<unknown>(
+    `/api/usuarios/${userId}/afiliacion/${tipo}/archivo`,
+    form,
+    { credentials: 'include', headers: { Accept: 'application/json' } }
+  )
 
-  // Normaliza (por si backend devuelve { message, data:{...} } o variaciones de nombres)
-  const srcData = raw?.data ?? raw ?? {}
+  const srcData = (raw as Record<string, unknown>)?.['data'] ?? raw ?? {}
 
   const pathLike =
-    srcData.url ?? srcData.path ?? srcData.ruta ?? srcData.archivoUrl ??
-    srcData.epsDocPath ?? srcData.arlDocPath ?? srcData.afpDocPath ?? srcData.afcDocPath ?? srcData.ccfDocPath
+    (srcData as Record<string, unknown>)['url'] ??
+    (srcData as Record<string, unknown>)['path'] ??
+    (srcData as Record<string, unknown>)['ruta'] ??
+    (srcData as Record<string, unknown>)['archivoUrl'] ??
+    (srcData as Record<string, unknown>)['epsDocPath'] ??
+    (srcData as Record<string, unknown>)['arlDocPath'] ??
+    (srcData as Record<string, unknown>)['afpDocPath'] ??
+    (srcData as Record<string, unknown>)['afcDocPath'] ??
+    (srcData as Record<string, unknown>)['ccfDocPath']
 
   const nombreLike =
-    srcData.nombreOriginal ?? srcData.filename ?? srcData.name ??
-    srcData.epsDocNombre ?? srcData.arlDocNombre ?? srcData.afpDocNombre ?? srcData.afcDocNombre ?? srcData.ccfDocNombre
+    (srcData as Record<string, unknown>)['nombreOriginal'] ??
+    (srcData as Record<string, unknown>)['filename'] ??
+    (srcData as Record<string, unknown>)['name'] ??
+    (srcData as Record<string, unknown>)['epsDocNombre'] ??
+    (srcData as Record<string, unknown>)['arlDocNombre'] ??
+    (srcData as Record<string, unknown>)['afpDocNombre'] ??
+    (srcData as Record<string, unknown>)['afcDocNombre'] ??
+    (srcData as Record<string, unknown>)['ccfDocNombre']
+
+  const mime = (srcData as Record<string, unknown>)['mime']
+  const size = (srcData as Record<string, unknown>)['size']
 
   return {
-    userId: raw.userId ?? userId,
-    tipo: raw.tipo ?? tipo,
-    tieneArchivo: !!(raw?.tieneArchivo ?? pathLike ?? nombreLike),
-    data: (pathLike || nombreLike)
-      ? {
-          url: String(pathLike || ''),
-          nombreOriginal: String(nombreLike || ''),
-          mime: srcData.mime ?? '',
-          size: Number(srcData.size ?? 0),
-        }
-      : null,
+    userId: ((raw as Record<string, unknown>)['userId'] as number) ?? userId,
+    tipo: ((raw as Record<string, unknown>)['tipo'] as AfiliacionFileResponse['tipo']) ?? tipo,
+    tieneArchivo: Boolean(
+      (raw as Record<string, unknown>)['tieneArchivo'] ?? pathLike ?? nombreLike
+    ),
+    data:
+      pathLike || nombreLike
+        ? {
+            url: String(pathLike || ''),
+            nombreOriginal: String(nombreLike || ''),
+            mime: typeof mime === 'string' ? mime : '',
+            size: Number(size ?? 0),
+          }
+        : null,
   }
 }
 
-/**
- * Obtiene metadatos del archivo de afiliación y los normaliza a { url, nombreOriginal, mime, size }.
- */
 export async function obtenerArchivoAfiliacionMeta(
   userId: number,
   tipo: TipoAfiliacion
 ): Promise<AfiliacionFileResponse> {
-  // Cache-buster + no-store para evitar datos stale en el modal
-  const url = `${API_BASE_URL}/usuarios/${userId}/afiliacion/${tipo}/archivo?ts=${Date.now()}`
-  const raw = await fetchData<any>(url, { cache: 'no-store' as RequestCache })
+  const resp = await get<unknown>(
+    `/api/usuarios/${userId}/afiliacion/${tipo}/archivo`,
+    {
+      credentials: 'include',
+      headers: { 'Cache-Control': 'no-store', Accept: 'application/json' },
+      params: { ts: Date.now() },
+    }
+  )
 
-  // Puede venir como { data:{...} } o directo
-  const src = raw?.data ?? raw ?? {}
+  const src = (resp as Record<string, unknown>)?.['data'] ?? resp ?? {}
 
   const pathLike =
-    src.url ?? src.path ?? src.ruta ?? src.archivoUrl ??
-    src.epsDocPath ?? src.arlDocPath ?? src.afpDocPath ?? src.afcDocPath ?? src.ccfDocPath
+    (src as Record<string, unknown>)['url'] ??
+    (src as Record<string, unknown>)['path'] ??
+    (src as Record<string, unknown>)['ruta'] ??
+    (src as Record<string, unknown>)['archivoUrl'] ??
+    (src as Record<string, unknown>)['epsDocPath'] ??
+    (src as Record<string, unknown>)['arlDocPath'] ??
+    (src as Record<string, unknown>)['afpDocPath'] ??
+    (src as Record<string, unknown>)['afcDocPath'] ??
+    (src as Record<string, unknown>)['ccfDocPath']
 
   const nombreLike =
-    src.nombreOriginal ?? src.filename ?? src.name ??
-    src.epsDocNombre ?? src.arlDocNombre ?? src.afpDocNombre ?? src.afcDocNombre ?? src.ccfDocNombre
+    (src as Record<string, unknown>)['nombreOriginal'] ??
+    (src as Record<string, unknown>)['filename'] ??
+    (src as Record<string, unknown>)['name'] ??
+    (src as Record<string, unknown>)['epsDocNombre'] ??
+    (src as Record<string, unknown>)['arlDocNombre'] ??
+    (src as Record<string, unknown>)['afpDocNombre'] ??
+    (src as Record<string, unknown>)['afcDocNombre'] ??
+    (src as Record<string, unknown>)['ccfDocNombre']
 
-  const normalized: AfiliacionFileResponse = {
-    userId: raw.userId ?? userId,
-    tipo: (raw.tipo as any) ?? tipo,
-    tieneArchivo: !!(raw?.tieneArchivo ?? pathLike ?? nombreLike),
-    data: (pathLike || nombreLike)
-      ? {
-          url: String(pathLike || ''),
-          nombreOriginal: String(nombreLike || ''),
-          mime: src.mime ?? '',
-          size: Number(src.size ?? 0),
-        }
-      : null,
+  const mime = (src as Record<string, unknown>)['mime']
+  const size = (src as Record<string, unknown>)['size']
+
+  return {
+    userId: ((resp as Record<string, unknown>)['userId'] as number) ?? userId,
+    tipo: ((resp as Record<string, unknown>)['tipo'] as AfiliacionFileResponse['tipo']) ?? tipo,
+    tieneArchivo: Boolean(
+      (resp as Record<string, unknown>)['tieneArchivo'] ?? pathLike ?? nombreLike
+    ),
+    data:
+      pathLike || nombreLike
+        ? {
+            url: String(pathLike || ''),
+            nombreOriginal: String(nombreLike || ''),
+            mime: typeof mime === 'string' ? mime : '',
+            size: Number(size ?? 0),
+          }
+        : null,
   }
-
-  return normalized
 }
 
 export async function eliminarArchivoAfiliacion(
   userId: number,
   tipo: TipoAfiliacion
 ): Promise<string> {
-  const resp = await fetchData<DeleteResponse>(`${API_BASE_URL}/usuarios/${userId}/afiliacion/${tipo}/archivo`, {
-    method: 'DELETE',
-  })
-  return resp.message || 'Archivo eliminado.'
+  const resp = await del<DeleteResponse>(
+    `/api/usuarios/${userId}/afiliacion/${tipo}/archivo`,
+    { credentials: 'include', headers: { Accept: 'application/json' } }
+  )
+  return resp?.message || 'Archivo eliminado.'
 }
 
 /** Helper de UI: ¿hay archivo para ese tipo? (tolerante con claves alternativas) */
 export function tieneArchivoAfiliacion(resp: AfiliacionFileResponse | null | undefined): boolean {
-  const d: any = resp?.data
-  return !!(
-    resp?.tieneArchivo ||
-    d?.url ||
-    d?.nombreOriginal ||
-    d?.path ||
-    d?.ruta ||
-    d?.archivoUrl
-  )
+  const d = resp?.data
+  return Boolean(resp?.tieneArchivo || d?.url || d?.nombreOriginal)
 }
 
 /* ==========================================================
    Recomendación médica (texto + archivo)
 ========================================================== */
-export async function upsertRecomendacionMedica(
+export function upsertRecomendacionMedica(
   userId: number,
   recomendacionMedica: string | null
-): Promise<{ message: string; recomendacionMedica: string | null }> {
-  return fetchData<{ message: string; recomendacionMedica: string | null }>(
-    `${API_BASE_URL}/usuarios/${userId}/recomendacion-medica`,
-    { method: 'PUT', body: JSON.stringify({ recomendacionMedica }) }
+) {
+  return put<{ message: string; recomendacionMedica: string | null },
+              { recomendacionMedica: string | null }>(
+    `/api/usuarios/${userId}/recomendacion-medica`,
+    { recomendacionMedica },
+    { credentials: 'include', headers: { 'Content-Type': 'application/json', Accept: 'application/json' } }
   )
 }
 
-export async function subirArchivoRecomendacionMedica(
-  userId: number,
-  file: File
-): Promise<{ message: string; url: string }> {
+export function subirArchivoRecomendacionMedica(userId: number, file: File) {
   const form = new FormData()
   form.append('archivo', file, file.name)
-  return fetchData<{ message: string; url: string }>(
-    `${API_BASE_URL}/usuarios/${userId}/recomendacion-medica/archivo`,
-    { method: 'POST', body: form }
+  return upload<{ message: string; url: string }>(
+    `/api/usuarios/${userId}/recomendacion-medica/archivo`,
+    form,
+    { credentials: 'include', headers: { Accept: 'application/json' } }
   )
 }
 
-export async function eliminarArchivoRecomendacionMedica(
-  userId: number
-): Promise<string> {
-  const resp = await fetchData<DeleteResponse>(
-    `${API_BASE_URL}/usuarios/${userId}/recomendacion-medica/archivo`,
-    { method: 'DELETE' }
+export async function eliminarArchivoRecomendacionMedica(userId: number): Promise<string> {
+  const resp = await del<DeleteResponse>(
+    `/api/usuarios/${userId}/recomendacion-medica/archivo`,
+    { credentials: 'include', headers: { Accept: 'application/json' } }
   )
-  return resp.message || 'Archivo de recomendación médica eliminado.'
+  return resp?.message || 'Archivo de recomendación médica eliminado.'
 }
 
 /* ==========================================================
@@ -458,13 +491,14 @@ export interface ContratoHistorialEstado {
   realizadoPor?: string | null
 }
 
-export async function obtenerHistorialEstadosContrato(
-  contratoId: number
-): Promise<ContratoHistorialEstado[]> {
-  return fetchData<ContratoHistorialEstado[]>(`${API_BASE_URL}/contratos/${contratoId}/historial-estados`)
+export function obtenerHistorialEstadosContrato(contratoId: number) {
+  return get<ContratoHistorialEstado[]>(
+    `/api/contratos/${contratoId}/historial-estados`,
+    { credentials: 'include', headers: { Accept: 'application/json' } }
+  )
 }
 
-export async function crearHistorialEstadoContrato(
+export function crearHistorialEstadoContrato(
   contratoId: number,
   payload: {
     oldEstado: string
@@ -473,11 +507,12 @@ export async function crearHistorialEstadoContrato(
     motivo?: string | null
     usuarioId?: number | null
   }
-): Promise<ContratoHistorialEstado> {
-  return fetchData<ContratoHistorialEstado>(`${API_BASE_URL}/contratos/${contratoId}/historial-estados`, {
-    method: 'POST',
-    body: JSON.stringify(payload),
-  })
+) {
+  return post<ContratoHistorialEstado, typeof payload>(
+    `/api/contratos/${contratoId}/historial-estados`,
+    payload,
+    { credentials: 'include', headers: { 'Content-Type': 'application/json', Accept: 'application/json' } }
+  )
 }
 
 export interface ContratoCambio {
@@ -493,13 +528,14 @@ export interface ContratoCambio {
   usuario?: { id: number; nombres: string; apellidos: string } | null
 }
 
-export async function obtenerHistorialCambiosContrato(
-  contratoId: number
-): Promise<ContratoCambio[]> {
-  return fetchData<ContratoCambio[]>(`${API_BASE_URL}/contratos/${contratoId}/historial-cambios`)
+export function obtenerHistorialCambiosContrato(contratoId: number) {
+  return get<ContratoCambio[]>(
+    `/api/contratos/${contratoId}/historial-cambios`,
+    { credentials: 'include', headers: { Accept: 'application/json' } }
+  )
 }
 
-export async function crearCambioContrato(
+export function crearCambioContrato(
   contratoId: number,
   payload: {
     campo: string
@@ -508,9 +544,10 @@ export async function crearCambioContrato(
     fechaCambio?: string
     usuarioId?: number | null
   }
-): Promise<ContratoCambio> {
-  return fetchData<ContratoCambio>(`${API_BASE_URL}/contratos/${contratoId}/historial-cambios`, {
-    method: 'POST',
-    body: JSON.stringify(payload),
-  })
+) {
+  return post<ContratoCambio, typeof payload>(
+    `/api/contratos/${contratoId}/historial-cambios`,
+    payload,
+    { credentials: 'include', headers: { 'Content-Type': 'application/json', Accept: 'application/json' } }
+  )
 }

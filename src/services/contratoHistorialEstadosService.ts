@@ -1,68 +1,58 @@
 // src/services/contratoHistorialEstadosService.ts
+import { get, post } from './http'
 
-// Interface del historial de estados de un contrato
+export type EstadoContrato = 'activo' | 'inactivo' | string
+
 export interface ContratoHistorialEstado {
   id: number
   contratoId: number
-  oldEstado: 'activo' | 'inactivo' | string
-  newEstado: 'activo' | 'inactivo' | string
-  fechaCambio: string           // ISO: yyyy-mm-dd o fecha ISO completa
+  oldEstado: EstadoContrato
+  newEstado: EstadoContrato
+  fechaCambio: string           // ISO: yyyy-mm-dd o ISO completa
   motivo?: string | null
-  // opcionalmente podrías tener:
-  // usuarioId?: number | null
-  // realizadoPor?: string | null
 }
 
-const API_BASE =
-  ((import.meta as any)?.env?.VITE_API_URL?.replace(/\/+$/, '') || 'http://localhost:3333') + '/api'
-
-// Helpers
-async function safeText(res: Response) {
-  try { return await res.text() } catch { return '' }
+function isRecord(x: unknown): x is Record<string, unknown> {
+  return typeof x === 'object' && x !== null
 }
-async function ensureOk<T>(res: Response): Promise<T> {
-  if (!res.ok) {
-    const t = await safeText(res)
-    throw new Error(t || `Error HTTP ${res.status}`)
+
+function toArray<T>(data: unknown): T[] {
+  if (Array.isArray(data)) return data as T[]
+  if (isRecord(data)) {
+    const dataProp = data['data']
+    const rowsProp = data['rows']
+    const itemsProp = data['items']
+    if (Array.isArray(dataProp)) return dataProp as T[]
+    if (Array.isArray(rowsProp)) return rowsProp as T[]
+    if (Array.isArray(itemsProp)) return itemsProp as T[]
   }
-  return res.json() as Promise<T>
+  return []
 }
 
-/**
- * GET /api/contratos/:contratoId/historial-estados
- * Devuelve la lista cronológica de cambios de estado de un contrato.
- */
-export async function fetchHistorialEstados(
-  contratoId: number
-): Promise<ContratoHistorialEstado[]> {
-  const res = await fetch(`${API_BASE}/contratos/${contratoId}/historial-estados`)
-  return ensureOk<ContratoHistorialEstado[]>(res)
+/** GET /api/contratos/:contratoId/historial-estados */
+export async function fetchHistorialEstados(contratoId: number) {
+  const resp = await get<unknown>(`/api/contratos/${contratoId}/historial-estados`, {
+    credentials: 'include',
+  })
+  return toArray<ContratoHistorialEstado>(resp)
 }
 
-/**
- * POST /api/contratos/:contratoId/historial-estados
- * Crea un registro manual en el historial (por si tu backend lo permite).
- * body JSON:
- * {
- *   oldEstado: 'activo' | 'inactivo',
- *   newEstado: 'activo' | 'inactivo',
- *   fechaCambio?: 'yyyy-mm-dd' | ISO,
- *   motivo?: string
- * }
- */
-export async function crearHistorialEstado(
+/** POST /api/contratos/:contratoId/historial-estados */
+export function crearHistorialEstado(
   contratoId: number,
-  payload: Partial<ContratoHistorialEstado> & {
-    oldEstado: string
-    newEstado: string
+  payload: {
+    oldEstado: EstadoContrato
+    newEstado: EstadoContrato
     fechaCambio?: string
     motivo?: string | null
   }
-): Promise<ContratoHistorialEstado> {
-  const res = await fetch(`${API_BASE}/contratos/${contratoId}/historial-estados`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-  })
-  return ensureOk<ContratoHistorialEstado>(res)
+) {
+  return post<ContratoHistorialEstado, typeof payload>(
+    `/api/contratos/${contratoId}/historial-estados`,
+    payload,
+    {
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+    }
+  )
 }

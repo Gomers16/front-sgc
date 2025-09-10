@@ -387,9 +387,9 @@
           <div v-if="user.contratos && user.contratos.length > 0">
             <v-expansion-panels variant="accordion">
               <v-expansion-panel
-                v-for="contrato in user.contratos"
-                :key="contrato.id"
-                class="rounded-lg mb-4 elevation-2"
+              v-for="contrato in contratosOrdenados"
+                 :key="contrato.id"
+                  class="rounded-lg mb-4 elevation-2"
               >
                 <v-expansion-panel-title>
                   Contrato #{{ contrato.id }} — Tipo: {{ contrato.tipoContrato }}
@@ -1286,10 +1286,13 @@ import {
 import {
   actualizarContrato,
   /* ✅ Recomendación Médica (POR CONTRATO) */
-  obtenerRecomendacionMedicaMeta as obtenerRecMetaContrato,
-  subirRecomendacionMedica as subirRecContrato,
-  eliminarRecomendacionMedica as eliminarRecContrato,
-  obtenerUrlPublicaRecomendacionDesdeRuta as urlPublicaRecDesdeRuta,
+obtenerRecomendacionMedicaMetaSafe as obtenerRecMetaContrato,
+subirRecomendacionMedica as subirRecContrato,
+eliminarRecomendacionMedica as eliminarRecContrato,
+obtenerUrlPublicaRecomendacionDesdeRuta as urlPublicaRecDesdeRuta,
+tieneArchivoRecomendacion,
+urlPublicaDesdeMetaRecomendacion, // ← opcional
+
 
   /* ✅ Afiliaciones por CONTRATO (EPS/ARL/AFP/AFC/CCF) */
   obtenerAfiliacionArchivoMeta as obtenerArchivoAfiliacionMeta,
@@ -1388,6 +1391,13 @@ function toAbsoluteApiUrl(pathOrUrl?: string | null): string {
   return `${base.replace(/\/+$/,'')}/${url.replace(/^\/+/,'')}`
 }
 
+/** 🔎 Extrae una URL pública desde varias formas de meta: meta.url|path o meta.data.url|path */
+function getPublicUrlFromMeta(meta: any | null | undefined): string | null {
+  if (!meta) return null
+  const raw = meta.url || meta.path || meta?.data?.url || meta?.data?.path || null
+  return raw ? toAbsoluteApiUrl(raw) : null
+}
+
 const router = useRouter()
 const route = useRoute()
 
@@ -1442,7 +1452,6 @@ const tiposEvento = [
   { label: 'Vacaciones',   value: 'vacaciones' },
   { label: 'Cesantías',    value: 'cesantias' },
   { label: 'Disciplinario',value: 'disciplinario' },
-  { label: 'Terminación',  value: 'terminacion' },
 ]
 
 const showAlertDialog = ref(false)
@@ -1477,14 +1486,20 @@ const pasoDialogMeta = ref<{ has:boolean; nombre:string; url:string }>(
 function pickPrimaryContrato(list: any[]): any | null {
   const cs = (list || []).filter(Boolean)
   if (!cs.length) return null
-  const ts = (d:any) => {
-    if (!d) return 0
-    const t = new Date(d).getTime()
-    return Number.isFinite(t) ? t : 0
+
+  const ts = (d: any) => {
+    const dt = coerceToDate(d)
+    return dt ? dt.getTime() : 0
   }
-  const activos = cs.filter((c:any)=> (c.estado || '').toLowerCase() === 'activo')
-  if (activos.length) return activos.slice().sort((a:any,b:any)=> ts(b.fechaInicio)-ts(a.fechaInicio))[0]
-  return cs.slice().sort((a:any,b:any)=> ts(b.fechaInicio)-ts(a.fechaInicio))[0]
+
+  const byMostRecent = (a: any, b: any) => {
+    const da = ts(a.fechaInicio), db = ts(b.fechaInicio)
+    if (da !== db) return db - da
+    return (b.id ?? 0) - (a.id ?? 0)
+  }
+
+  const activos = cs.filter(c => (c.estado || '').toLowerCase() === 'activo')
+  return (activos.length ? activos : cs).slice().sort(byMostRecent)[0] || null
 }
 
 /* ===== Contrato prioritario reactivo ===== */
@@ -1492,6 +1507,22 @@ const primaryContrato = computed<Contrato | null>(() => {
   const cs = user.value?.contratos || []
   if (!cs.length) return null
   return pickPrimaryContrato(cs) as Contrato | null
+})
+
+/* ===== Contratos ordenados (antiguo → reciente, desempate por id) ===== */
+const contratosOrdenados = computed<Contrato[]>(() => {
+  const cs = user.value?.contratos ?? []
+
+  const ts = (c: Contrato) => {
+    const d = coerceToDate(c.fechaInicio)
+    return d ? d.getTime() : Number.POSITIVE_INFINITY
+  }
+
+  return [...cs].sort((a, b) => {
+    const byDate = ts(a) - ts(b)
+    if (byDate !== 0) return byDate
+    return (Number(a.id) || 0) - (Number(b.id) || 0)
+  })
 })
 
 /* ===== Recomendación Médica (POR CONTRATO) ===== */
@@ -1510,20 +1541,20 @@ const recDialog = ref<{
 })
 /** contrato activo (id) */
 const contratoIdActual = computed<number | null>(() => primaryContrato.value?.id ?? null)
-/** ¿hay archivo actualmente en el diálogo? */
-const recTieneArchivo = computed(() => !!recDialog.value?.meta?.url || !!recDialog.value?.meta?.path)
+/** ¿hay archivo actualmente en el diálogo? (usa helper robusto del service) */
+const recTieneArchivo = computed(() =>
+  tieneArchivoRecomendacion(recDialog.value?.meta)
+)
 
-/** ✅ NUEVO: indica si HAY archivo de Recomendación para el contrato activo (para el chip del header).
- *    Se evalúa por dos caminos:
- *      1) meta.url / meta.path que retornan los servicios,
- *      2) rutaArchivoRecomendacionMedica ya sincronizada en el contrato activo.
- */
+
+/** ✅ Indica si HAY archivo de Recomendación para el contrato activo */
+/** ✅ Indica si HAY archivo de Recomendación para el contrato activo */
 const recContratoTieneArchivo = computed<boolean>(() => {
-  const meta = recContrato.value.meta as any
-  const viaMeta = !!(meta && (meta.url || meta.path))
+  const viaMeta = tieneArchivoRecomendacion(recContrato.value?.meta)
   const viaRuta = !!primaryContrato.value?.rutaArchivoRecomendacionMedica
-  return viaMeta || viaRuta || !!recContrato.value.has
+  return viaMeta || viaRuta
 })
+
 
 /** ✅ Flag combinado para UI: preferencia del usuario O existencia de Recomendación Médica */
 const recibeRecomendaciones = computed<boolean>(() => {
@@ -1663,14 +1694,11 @@ const buildTimeline = (c: Contrato): TimelineItem[] => {
     kind: 'cambio' as const,
   }))
 
-  // 1) Siempre incluimos los eventos específicos de estado
   items.push(...estados)
 
-  // 2) Separamos los cambios del campo "estado"
   const cambiosEstado = cambios.filter(ch => ch.campo === 'estado')
   const cambiosNoEstado = cambios.filter(ch => ch.campo !== 'estado')
 
-  // 3) Si NO hay historialEstados, promovemos cambios.estado a eventos de estado
   if (estados.length === 0 && cambiosEstado.length > 0) {
     for (const ch of cambiosEstado) {
       const oldE = typeof ch.oldValue === 'string' ? ch.oldValue : String(ch.oldValue ?? '')
@@ -1687,12 +1715,10 @@ const buildTimeline = (c: Contrato): TimelineItem[] => {
     }
   }
 
-  // 4) Añadimos el resto de cambios (excluyendo "estado") evitando falsos positivos
   for (const ch of cambiosNoEstado) {
     if (!equalForField(ch.campo, ch.oldValue, ch.newValue)) items.push(ch as any)
   }
 
-  // 5) Orden descendente por fecha
   return items.sort((a, b) => {
     const ta = new Date(a.kind === 'estado' ? (a as any).fechaCambio : (a as any).createdAt).getTime()
     const tb = new Date(b.kind === 'estado' ? (b as any).fechaCambio : (b as any).createdAt).getTime()
@@ -1700,9 +1726,7 @@ const buildTimeline = (c: Contrato): TimelineItem[] => {
   })
 }
 
-/** Vista filtrada de timeline para el template:
- *  elimina el item "creacion" cuando ya existe un estado con motivo "Creación de contrato"
- */
+/** Vista filtrada del timeline para el template */
 function visibleTimeline(c: Contrato): TimelineItem[] {
   const list = (c.timeline || []) as TimelineItem[]
   const hasEstadoCreacion = list.some(it => it.kind === 'estado' && (it as any).motivo === 'Creación de contrato')
@@ -1741,8 +1765,7 @@ async function refreshRecStatusForContrato() {
     const pc = primaryContrato.value
     if (pc) {
       pc.tieneRecomendacionesMedicas = !!meta
-      pc.rutaArchivoRecomendacionMedica =
-        meta?.url || urlPublicaRecDesdeRuta(meta?.path) || null
+      pc.rutaArchivoRecomendacionMedica = getPublicUrlFromMeta(meta)
     }
   } catch (e) {
     console.error('No se pudo refrescar Recomendación Médica (contrato):', e)
@@ -1772,8 +1795,7 @@ async function abrirDialogoRecomendacionContrato(){
     const pc = primaryContrato.value
     if (pc) {
       pc.tieneRecomendacionesMedicas = !!meta
-      pc.rutaArchivoRecomendacionMedica =
-        meta?.url || urlPublicaRecDesdeRuta(meta?.path) || null
+      pc.rutaArchivoRecomendacionMedica = getPublicUrlFromMeta(meta)
     }
   } catch (e) {
     console.error('Error cargando meta Recomendación Médica (contrato):', e)
@@ -1802,7 +1824,7 @@ async function subirRecomendacionMedicaContrato(){
     const pc = primaryContrato.value
     if (pc) {
       pc.tieneRecomendacionesMedicas = true
-      pc.rutaArchivoRecomendacionMedica = updated?.url || urlPublicaRecDesdeRuta(updated?.path) || pc.rutaArchivoRecomendacionMedica || null
+      pc.rutaArchivoRecomendacionMedica = getPublicUrlFromMeta(updated) || pc.rutaArchivoRecomendacionMedica || null
     }
     showAlert('Listo','Recomendación médica guardada con éxito.')
   } catch (e:any) {
@@ -1834,12 +1856,20 @@ async function eliminarRecomendacionMedicaContrato(){
 }
 
 /** Abrir en visor la recomendación */
-function verRecomendacionMedicaContrato(){
-  const url = recDialog.value?.meta?.url || urlPublicaRecDesdeRuta(recDialog.value?.meta?.path)
-  if (!url) { showAlert('Sin archivo','No hay archivo para ver.'); return }
-  const absolute = toAbsoluteApiUrl(url)
-  window.open(absolute, '_blank', 'noopener,noreferrer')
+function verRecomendacionMedicaContrato() {
+  // 1) intenta desde la meta (url/path o data.url/data.path)
+  const urlFromMeta = urlPublicaDesdeMetaRecomendacion(recDialog.value?.meta)
+  // 2) si no hay meta válida, intenta con la ruta que trae el contrato activo
+  const urlFromRuta = urlPublicaRecDesdeRuta(primaryContrato.value?.rutaArchivoRecomendacionMedica)
+  const url = urlFromMeta || urlFromRuta
+
+  if (!url) {
+    showAlert('Sin archivo', 'No hay archivo para ver.')
+    return
+  }
+  window.open(url, '_blank', 'noopener,noreferrer')
 }
+
 
 /* IDs/nombres UI (solo para etiquetar seguridad social) */
 const getEntidadId = (tipo: AfiliacionTipoLocal): number | null => {
@@ -1977,7 +2007,7 @@ const submitNewEvent = async () => {
   isLoadingAction.value = true
   const fileToUpload = firstFileFrom(eventFiles.value) || eventFileRef.value?.files?.[0] || null
   const payload = new FormData()
-  if (newEvent.value.tipo) payload.append('tipo', newEvent.value.tipo as string) // ← minúsculas
+  if (newEvent.value.tipo) payload.append('tipo', newEvent.value.tipo as string)
   if (newEvent.value.subtipo) payload.append('subtipo', newEvent.value.subtipo as string)
   if (newEvent.value.fechaInicio) payload.append('fechaInicio', newEvent.value.fechaInicio as string)
   if (newEvent.value.fechaFin) payload.append('fechaFin', newEvent.value.fechaFin as string)
@@ -2050,7 +2080,6 @@ const openEditPasoDialog = (contratoId:number, paso:ContratoPasoExt)=>{
   pasoEditData.value={observacion: paso.observacion||''}
   editPasoFiles.value = null
 
-  /* Meta del archivo del paso */
   const url = paso.archivoUrl || ''
   const nombre = url ? decodeURIComponent(String(url).split('/').pop() || 'archivo') : ''
   pasoDialogMeta.value = {
@@ -2103,7 +2132,7 @@ function verArchivoPasoActual(){
   window.open(toAbsoluteApiUrl(raw), '_blank', 'noopener,noreferrer')
 }
 
-/** Eliminar el archivo actual del paso (sin afectar otros modals) */
+/** Eliminar el archivo actual del paso */
 async function eliminarArchivoPasoActual(){
   if(!contratoIdForPasoEdit.value || !pasoIdForEdit.value) return
   const ok = await showConfirm('Eliminar archivo','¿Seguro que deseas eliminar el archivo de este paso?')
@@ -2113,12 +2142,11 @@ async function eliminarArchivoPasoActual(){
   try {
     const payload = new FormData()
     payload.append('observacion', pasoEditData.value.observacion || '')
-    payload.append('eliminarArchivo','1') // backend puede ignorar si no aplica
+    payload.append('eliminarArchivo','1')
     if (actorId.value != null) payload.append('actorId', String(actorId.value))
 
     await actualizarPasoContrato(contratoIdForPasoEdit.value, pasoIdForEdit.value, payload)
 
-    // refresco local mínimo para que el diálogo refleje el cambio
     const paso = getPasoEnEdicion()
     if (paso) (paso as any).archivoUrl = null
     pasoDialogMeta.value = { has:false, nombre:'', url:'' }
@@ -2271,6 +2299,7 @@ onMounted(()=>{ loadUser() })
 
 /* Expuestos implícitamente por <script setup> */
 </script>
+
 
 <style scoped>
 /* ===== Avatar ===== */

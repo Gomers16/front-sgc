@@ -1,10 +1,5 @@
 // src/services/contratoService.ts
-
-/* =========================
-   Base URL (con VITE_API_URL)
-========================== */
-const API_BASE_URL =
-  ((import.meta as any)?.env?.VITE_API_URL?.replace(/\/+$/, '') || 'http://localhost:3333') + '/api'
+import { get, post, patch, del, upload, download } from './http'
 
 /* =========
    Tipos
@@ -23,8 +18,12 @@ export interface Cargo { id: number; nombre: string }
 
 export type EstadoContrato = 'activo' | 'inactivo'
 export type TipoContrato = 'prestacion' | 'temporal' | 'laboral' | 'aprendizaje'
-/** En el front podemos usar 'obra_o_labor_determinada'. Normalizamos a 'obra_o_labor' al enviar. */
-export type TerminoContrato = 'fijo' | 'obra_o_labor' | 'obra_o_labor_determinada' | 'indefinido' | null
+export type TerminoContrato =
+  | 'fijo'
+  | 'obra_o_labor'
+  | 'obra_o_labor_determinada'
+  | 'indefinido'
+  | null
 
 export interface ContratoPaso {
   id?: number
@@ -49,8 +48,7 @@ export interface ContratoSalarioPayload {
   bonoSalarial: number
   auxilioTransporte: number
   auxilioNoSalarial: number
-  /** ISO, ej: '2025-08-11T00:00:00' */
-  fechaEfectiva?: string
+  fechaEfectiva?: string // ISO
 }
 
 export interface HistorialEstadoContrato {
@@ -69,46 +67,39 @@ export interface Contrato {
   id: number
   usuarioId: number
   razonSocialId: number
-
   identificacion?: string | null
   sedeId?: number | null
   sede?: Sede | null
-
   cargoId?: number | null
   cargo?: Cargo | null
-
   funcionesCargo?: string | null
-
   tipoContrato: TipoContrato
   terminoContrato?: TerminoContrato
-
   estado: EstadoContrato
-
   fechaInicio: string
   fechaTerminacion?: string | null
-
   periodoPrueba?: number | null
   horarioTrabajo?: string | null
   centroCosto?: string | null
-
   epsId?: number | null
   arlId?: number | null
   afpId?: number | null
   afcId?: number | null
   ccfId?: number | null
-
   nombreArchivoContratoFisico?: string | null
   rutaArchivoContratoFisico?: string | null
-
   tieneRecomendacionesMedicas?: boolean
   rutaArchivoRecomendacionMedica?: string | null
-
   pasos?: ContratoPaso[]
   historialEstados?: HistorialEstadoContrato[]
-
-  /** NUEVO: se refleja el salario básico vigente en el contrato */
   salario?: number | null
-
+  // Algunas APIs devuelven arreglo de salarios:
+  salarios?: Array<{
+    salarioBasico: number
+    bonoSalarial: number
+    auxilioTransporte: number
+    auxilioNoSalarial: number
+  }>
   createdAt: string
   updatedAt: string
 }
@@ -116,36 +107,24 @@ export interface Contrato {
 export interface ContratoCreatePayload {
   usuarioId: number
   razonSocialId: number
-
   identificacion?: string | null
-
   sedeId?: number | null
   cargoId?: number | null
   funcionesCargo?: string | null
-
-  /** 'YYYY-MM-DD' */
   fechaInicio: string
-  /** 'YYYY-MM-DD' | null */
   fechaTerminacion?: string | null
-
   tipoContrato: TipoContrato
   terminoContrato?: TerminoContrato
-
   estado: EstadoContrato
-
   periodoPrueba?: number | null
   horarioTrabajo?: string | null
   centroCosto?: string | null
-
   epsId?: number | null
   arlId?: number | null
   afpId?: number | null
   afcId?: number | null
   ccfId?: number | null
-
   tieneRecomendacionesMedicas?: boolean
-
-  // ⬇ Campos de salario para creación
   salarioBasico?: number
   bonoSalarial?: number
   auxilioTransporte?: number
@@ -161,47 +140,43 @@ export interface AnexarContratoResponse {
   contrato: Contrato
 }
 
-/** Meta genérica para archivos (contrato/recomendación) */
-export interface ArchivoMeta {
-  /** URL absoluta si el backend la retorna; si no, será una ruta relativa tipo "/uploads/..." */
+export interface ArchivoMetaData {
   url?: string | null
-  /** Ruta relativa en servidor, si aplica */
-  path?: string | null
-  /** Nombre original subido por el usuario */
   nombreOriginal?: string | null
-  /** MimeType (application/pdf, image/jpeg, etc.) */
-  mime?: string | null
-  /** Tamaño en bytes (opcional) */
-  size?: number | null
-  /** Fechas opcionales que puedas guardar */
-  fechaEmision?: string | null
-  fechaExpiracion?: string | null
-  /** Cualquier otro dato que exponga tu backend */
-  [k: string]: any
+  filename?: string | null
+  name?: string | null
 }
 
-/** Tipos de afiliación válidos para helpers */
+export interface ArchivoMeta {
+  data?: ArchivoMetaData
+  url?: string | null
+  path?: string | null
+  nombreOriginal?: string | null
+  mime?: string | null
+  size?: number | null
+  fechaEmision?: string | null
+  fechaExpiracion?: string | null
+  [k: string]: unknown
+}
+
 export type TipoAfiliacion = 'eps' | 'arl' | 'afp' | 'afc' | 'ccf'
-/** Alias que a veces usas en la vista */
-export type AfiliacionTipo = TipoAfiliacion
 
 /* ==================
-   Helpers
+   Helpers utilitarios
 =================== */
 
-function getActorId(): number | null {
-  const tryNum = (v: any) => {
-    const n = Number(v)
-    return Number.isFinite(n) && n > 0 ? n : null
-  }
+function toNumOrNull(v: unknown): number | null {
+  const n = Number(v)
+  return Number.isFinite(n) && n > 0 ? n : null
+}
 
+// Lee actorId de storage (mismo criterio que pasos service)
+function getActorId(): number | null {
   const direct =
-    tryNum(localStorage.getItem('actorId')) ??
-    tryNum(sessionStorage.getItem('actorId')) ??
-    tryNum(localStorage.getItem('authUserId')) ??
-    tryNum(sessionStorage.getItem('authUserId')) ??
-    tryNum(localStorage.getItem('userId')) ??
-    tryNum(sessionStorage.getItem('userId'))
+    toNumOrNull(localStorage.getItem('actorId')) ??
+    toNumOrNull(sessionStorage.getItem('actorId')) ??
+    toNumOrNull(localStorage.getItem('userId')) ??
+    toNumOrNull(sessionStorage.getItem('userId'))
   if (direct) return direct
 
   const keys = ['user', 'usuario', 'authUser', 'currentUser', 'sessionUser']
@@ -209,612 +184,350 @@ function getActorId(): number | null {
     const raw = localStorage.getItem(k) ?? sessionStorage.getItem(k)
     if (!raw) continue
     try {
-      const obj = JSON.parse(raw)
+      const obj = JSON.parse(raw) as any
       const id = obj?.id ?? obj?.user?.id ?? obj?.data?.id
-      const n = tryNum(id)
+      const n = toNumOrNull(id)
       if (n) return n
-    } catch {}
+    } catch { /* ignore */ }
   }
   return null
 }
 
-/** Si el backend devuelve ruta relativa, construye URL absoluta */
+// Agrega header x-actor-id si existe
+function withActorHeaders(extra?: Record<string, string>) {
+  const actorId = getActorId()
+  return actorId ? { ...(extra || {}), 'x-actor-id': String(actorId) } : { ...(extra || {}) }
+}
+
+// Asegura que el FormData tenga actorId
+function withActorForm(form: FormData) {
+  const actorId = getActorId()
+  if (actorId && !form.has('actorId')) form.append('actorId', String(actorId))
+  return form
+}
+
+/** Convierte una ruta relativa del backend a URL absoluta pública usando VITE_API_BASE_URL o same-origin */
 function toPublicUrl(maybePathOrUrl?: string | null): string | null {
   if (!maybePathOrUrl) return null
   if (/^https?:\/\//i.test(maybePathOrUrl)) return maybePathOrUrl
-  // es ruta relativa -> prefix con host de API (sin /api)
-  const base = ((import.meta as any)?.env?.VITE_API_URL?.replace(/\/+$/, '') || 'http://localhost:3333')
+  const base =
+    (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/+$/, '') ||
+    (typeof window !== 'undefined' ? window.location.origin : '')
   return `${base}${maybePathOrUrl.startsWith('/') ? '' : '/'}${maybePathOrUrl}`
-}
-
-// ▶ Mejor manejo de errores
-async function fetchData<T>(url: string, options?: RequestInit): Promise<T> {
-  const resp = await fetch(url, options)
-
-  const readBody = async () => {
-    try { return await resp.clone().json() } catch {
-      try { return await resp.text() } catch { return null }
-    }
-  }
-
-  if (!resp.ok) {
-    const body = await readBody()
-    const data = typeof body === 'string' ? { text: body } : (body || {})
-    const errorMsg =
-      (data as any).error ||
-      (data as any).message ||
-      (data as any).text ||
-      resp.statusText ||
-      `HTTP ${resp.status}`
-
-    const err = new Error(errorMsg)
-    ;(err as any).status = resp.status
-    ;(err as any).raw = data
-    throw err
-  }
-
-  if (resp.status === 204) return {} as T
-  return (await resp.json()) as T
-}
-
-/** Normaliza término: 'obra_o_labor_determinada' -> 'obra_o_labor' */
-function normalizeTerminoContrato(t: TerminoContrato): TerminoContrato {
-  if (t === 'obra_o_labor_determinada') return 'obra_o_labor'
-  return t ?? null
-}
-
-/** Valida y normaliza el término según el tipo de contrato. Lanza error si falta. */
-function normalizeTerminoForTipo(
-  tipo: TipoContrato,
-  termino: TerminoContrato | undefined
-): TerminoContrato {
-  const tNorm = normalizeTerminoContrato(termino ?? null)
-
-  if (tipo === 'prestacion') {
-    // Requerido: 'fijo' u 'obra_o_labor'
-    if (tNorm !== 'fijo' && tNorm !== 'obra_o_labor') {
-      throw new Error("Para tipo 'prestacion' el 'terminoContrato' es obligatorio ('fijo' u 'obra_o_labor').")
-    }
-    return tNorm
-  }
-
-  if (tipo === 'temporal') {
-    // Forzamos 'obra_o_labor'
-    return 'obra_o_labor'
-  }
-
-  if (tipo === 'aprendizaje') {
-    // Requerido: 'fijo'
-    if (tNorm !== 'fijo') {
-      throw new Error("Para tipo 'aprendizaje' el 'terminoContrato' debe ser 'fijo'.")
-    }
-    return 'fijo'
-  }
-
-  // 'laboral': permitido 'fijo' | 'obra_o_labor' | 'indefinido'
-  if (tNorm && !['fijo', 'obra_o_labor', 'indefinido'].includes(tNorm)) {
-    throw new Error("Para tipo 'laboral' el 'terminoContrato' debe ser 'fijo', 'obra_o_labor' o 'indefinido'.")
-  }
-  return tNorm ?? null
-}
-
-/** Quita propiedades undefined (para PATCH limpios) */
-function omitUndefined<T extends Record<string, any>>(obj: T): T {
-  const out = { ...obj }
-  Object.keys(out).forEach((k) => out[k] === undefined && delete out[k])
-  return out
-}
-
-/** Construye opciones JSON con actor: header + body.actorId */
-function jsonOptions(method: string, data: any): RequestInit {
-  const actorId = getActorId()
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-  if (actorId) headers['x-actor-id'] = String(actorId)
-
-  // Inyectamos actorId en el body si no viene
-  const bodyObj = { ...(data ?? {}) }
-  if (actorId != null && bodyObj.actorId == null) bodyObj.actorId = actorId
-
-  const body = JSON.stringify(bodyObj)
-  return { method, headers, body, credentials: 'include' }
-}
-
-/** Construye opciones FormData con actor (header; el body lo adjunta quien llama) */
-function formOptions(method: string, form: FormData): RequestInit {
-  const actorId = getActorId()
-  const headers: Record<string, string> = {}
-  if (actorId) headers['x-actor-id'] = String(actorId)
-  return { method, headers, body: form, credentials: 'include' }
-}
-
-/** Asegura que el filename termine en .pdf (sin tocar el File). */
-function ensurePdfFileName(file: File): string {
-  const raw = file?.name || 'contrato'
-  const base = raw.replace(/\.[^/.]+$/g, '') || 'contrato'
-  return raw.toLowerCase().endsWith('.pdf') ? raw : `${base}.pdf`
 }
 
 /* ==================
    Contratos (CRUD)
 =================== */
 
-export async function crearContrato(payload: ContratoCreatePayload): Promise<Contrato> {
-  // Validación rápida para evitar 400 desde el backend
-  if (payload.salarioBasico == null || Number.isNaN(Number(payload.salarioBasico))) {
-    throw new Error("El salario básico es obligatorio")
-  }
-  if (!payload.tipoContrato) {
-    throw new Error("El tipo de contrato es obligatorio")
-  }
-
-  // ✅ Normaliza/valida término según el tipo (incluye 'prestacion')
-  const terminoNormalizado = normalizeTerminoForTipo(payload.tipoContrato, payload.terminoContrato)
-
-  // Enviamos alias fechaFin por compatibilidad con controladores antiguos
-  const toSend: any = {
-    ...payload,
-    fechaFin: payload.fechaTerminacion ?? null,
-    terminoContrato: terminoNormalizado,
-
-    // Campos salariales (el backend ahora siempre los acepta)
-    salarioBasico: payload.salarioBasico,
-    bonoSalarial: payload.bonoSalarial,
-    auxilioTransporte: payload.auxilioTransporte,
-    auxilioNoSalarial: payload.auxilioNoSalarial,
-  }
-
-  return fetchData<Contrato>(`${API_BASE_URL}/contratos`, jsonOptions('POST', toSend))
-}
-
-export async function actualizarContrato(
-  contratoId: number,
-  payload: ContratoUpdatePayload & {
-    fechaFin?: string | Date | null
-    fechaFinalizacion?: string | Date | null
-    actorId?: number | null
-  }
-): Promise<Contrato> {
-  const toYMD = (v: any): string | undefined => {
-    if (!v) return undefined
-    if (typeof v === 'string') {
-      if (/^\d{4}-\d{2}-\d{2}$/.test(v)) return v
-      const d = new Date(v)
-      if (Number.isNaN(d.getTime())) return undefined
-      const yyyy = d.getFullYear()
-      const mm = String(d.getMonth() + 1).padStart(2, '0')
-      const dd = String(d.getDate()).padStart(2, '0')
-      return `${yyyy}-${mm}-${dd}`
-    }
-    const d = v instanceof Date ? v : new Date(v)
-    if (Number.isNaN(d.getTime())) return undefined
-    const yyyy = d.getFullYear()
-    const mm = String(d.getMonth() + 1).padStart(2, '0')
-    const dd = String(d.getDate()).padStart(2, '0')
-    return `${yyyy}-${mm}-${dd}`
-  }
-
-  const fechaTerminacion =
-    payload.fechaTerminacion ?? (payload as any).fechaFin ?? (payload as any).fechaFinalizacion
-
-  const toBool = (v: any): boolean | undefined => {
-    if (typeof v === 'boolean') return v
-    if (v === 'true') return true
-    if (v === 'false') return false
-    return undefined
-  }
-
-  // ✅ Si viene tipo o término, los normalizamos juntos.
-  let terminoNormalizado: TerminoContrato | undefined = undefined
-  if (payload.tipoContrato || payload.terminoContrato !== undefined) {
-    const tipo = (payload.tipoContrato as TipoContrato) ?? 'laboral' // fallback neutro
-    terminoNormalizado = normalizeTerminoForTipo(tipo, payload.terminoContrato)
-  }
-
-  const raw: any = {
-    identificacion: payload.identificacion,
-    sedeId: payload.sedeId,
-    cargoId: payload.cargoId,
-    funcionesCargo: payload.funcionesCargo,
-    tipoContrato: payload.tipoContrato,
-    terminoContrato: terminoNormalizado, // <-- no ponemos null forzado
-    fechaInicio: toYMD(payload.fechaInicio as any),
-    fechaTerminacion: toYMD(fechaTerminacion as any),
-    periodoPrueba: payload.periodoPrueba,
-    horarioTrabajo: payload.horarioTrabajo,
-    centroCosto: payload.centroCosto,
-    epsId: payload.epsId,
-    arlId: payload.arlId,
-    afpId: payload.afpId,
-    afcId: payload.afcId,
-    ccfId: payload.ccfId,
-    estado: payload.estado,
-    motivoFinalizacion: payload.motivoFinalizacion,
-    salarioBasico: (payload as any).salarioBasico,
-    bonoSalarial: (payload as any).bonoSalarial,
-    auxilioTransporte: (payload as any).auxilioTransporte,
-    auxilioNoSalarial: (payload as any).auxilioNoSalarial,
-    tieneRecomendacionesMedicas: toBool(payload.tieneRecomendacionesMedicas as any),
-    razonSocialId: payload.razonSocialId,
-
-    // ⬇️ MUY IMPORTANTE para “Realizado por”
-    actorId: payload.actorId ?? getActorId(),
-  }
-
-  const toSend = omitUndefined(raw)
-  return fetchData<Contrato>(`${API_BASE_URL}/contratos/${contratoId}`, jsonOptions('PATCH', toSend))
-}
-
-/** Activar/Inactivar contrato rápidamente (usa PATCH /contratos/:id) */
-export async function cambiarEstadoContrato(
-  contratoId: number,
-  estado: EstadoContrato
-): Promise<Contrato> {
-  return actualizarContrato(contratoId, { estado })
-}
-
-export async function eliminarContrato(id: number): Promise<{ message: string }> {
+export function crearContrato(payload: ContratoCreatePayload) {
   const actorId = getActorId()
-  const headers: Record<string, string> = {}
-  if (actorId) headers['x-actor-id'] = String(actorId)
+  const body: any = { ...payload }
+  if (actorId && body.actorId == null) body.actorId = actorId
 
-  return fetchData<{ message: string }>(`${API_BASE_URL}/contratos/${id}`, {
-    method: 'DELETE',
-    headers,
+  return post<Contrato, any>('/api/contratos', body, {
+    headers: withActorHeaders(),
     credentials: 'include',
   })
 }
 
-export async function obtenerContratoPorId(id: number): Promise<Contrato> {
-  return fetchData<Contrato>(`${API_BASE_URL}/contratos/${id}`, { credentials: 'include' } as any)
+export function actualizarContrato(contratoId: number, payload: ContratoUpdatePayload) {
+  const actorId = getActorId()
+  const body: any = { ...payload }
+  if (actorId && body.actorId == null) body.actorId = actorId
+
+  return patch<Contrato, any>(`/api/contratos/${contratoId}`, body, {
+    headers: withActorHeaders(),
+    credentials: 'include',
+  })
 }
 
-export async function obtenerContratosPorUsuario(usuarioId: number): Promise<Contrato[]> {
-  return fetchData<Contrato[]>(`${API_BASE_URL}/usuarios/${usuarioId}/contratos`, {
+export function cambiarEstadoContrato(contratoId: number, estado: EstadoContrato) {
+  const actorId = getActorId()
+  const payload: any = { estado }
+  if (actorId) payload.actorId = actorId
+
+  return patch<Contrato, any>(
+    `/api/contratos/${contratoId}`,
+    payload,
+    {
+      headers: withActorHeaders(),
+      credentials: 'include',
+    }
+  )
+}
+
+export function eliminarContrato(id: number) {
+  return del<{ message: string }>(`/api/contratos/${id}`, {
+    headers: withActorHeaders(),
     credentials: 'include',
-  } as any)
+  })
+}
+
+export function obtenerContratoPorId(id: number) {
+  return get<Contrato>(`/api/contratos/${id}`, {
+    headers: withActorHeaders(),
+    credentials: 'include',
+  })
+}
+
+export function obtenerContratosPorUsuario(usuarioId: number) {
+  return get<Contrato[]>(`/api/usuarios/${usuarioId}/contratos`, {
+    headers: withActorHeaders(),
+    credentials: 'include',
+  })
 }
 
 /* =========================
    Anexar contrato / archivos
 ========================== */
 
-export async function anexarContrato(form: {
+export interface AnexarContratoForm {
   contratoId: number
   archivo: File
   razonSocialId?: number
   tieneRecomendacionesMedicas?: boolean
   archivoRecomendacionMedica?: File
-}): Promise<AnexarContratoResponse> {
+}
+
+/**
+ * Fija 400 por validación de nombres: enviamos claves en camelCase y snake_case,
+ * y el archivo tanto como `archivo` como `archivoContratoFisico` por compatibilidad.
+ */
+export function anexarContrato(form: AnexarContratoForm) {
   const fd = new FormData()
+
+  // IDs (camel y snake)
   fd.append('contratoId', String(form.contratoId))
+  fd.append('contrato_id', String(form.contratoId))
 
-  // ⬇️ Aseguramos filename .pdf y enviamos TRES aliases: archivo, archivoContrato, archivoContratoFisico
-  const pdfName = ensurePdfFileName(form.archivo)
-  fd.append('archivo', form.archivo, pdfName)
-  fd.append('archivoContrato', form.archivo, pdfName)
-  fd.append('archivoContratoFisico', form.archivo, pdfName)
+  // Archivo principal (dos nombres por compat)
+  fd.append('archivo', form.archivo, form.archivo.name)
+  fd.append('archivoContratoFisico', form.archivo, form.archivo.name)
 
-  if (form.razonSocialId != null) {
+  // Razón social opcional (camel y snake)
+  if (typeof form.razonSocialId === 'number') {
     fd.append('razonSocialId', String(form.razonSocialId))
+    fd.append('razon_social_id', String(form.razonSocialId))
   }
 
+  // Recomendación médica opcional
   if (form.tieneRecomendacionesMedicas && form.archivoRecomendacionMedica) {
     fd.append('tieneRecomendacionesMedicas', 'true')
-    // La recomendación puede no ser pdf; dejamos su filename tal cual
+    fd.append('tiene_recomendaciones_medicas', 'true')
     fd.append(
       'archivoRecomendacionMedica',
       form.archivoRecomendacionMedica,
-      form.archivoRecomendacionMedica.name || 'recomendacion'
+      form.archivoRecomendacionMedica.name
     )
   }
 
-  // También inyectamos actorId por compatibilidad
-  const actorId = getActorId()
-  if (actorId) fd.append('actorId', String(actorId))
+  // Asegurar actorId
+  withActorForm(fd)
 
-  return fetchData<AnexarContratoResponse>(`${API_BASE_URL}/contratos/anexar-fisico`, formOptions('POST', fd))
+  return upload<AnexarContratoResponse>('/api/contratos/anexar-fisico', fd, {
+    headers: withActorHeaders(),
+    credentials: 'include',
+  })
 }
 
 /* =========================
    Salarios
 ========================== */
 
-export async function crearContratoSalario(payload: ContratoSalarioPayload): Promise<any> {
-  return fetchData<any>(`${API_BASE_URL}/contratos/${payload.contratoId}/salarios`, jsonOptions('POST', payload))
+export function crearContratoSalario(payload: ContratoSalarioPayload) {
+  const actorId = getActorId()
+  const body: any = { ...payload }
+  if (actorId && body.actorId == null) body.actorId = actorId
+
+  return post(`/api/contratos/${payload.contratoId}/salarios`, body, {
+    headers: withActorHeaders(),
+    credentials: 'include',
+  })
 }
 
 /* =========================
-   Recomendación Médica (por CONTRATO)
-   (✅ tolerante: no depende estrictamente de meta.tieneArchivo)
+   Recomendación Médica
 ========================== */
 
-export async function obtenerRecomendacionMedicaMeta(contratoId: number): Promise<ArchivoMeta | null> {
-  const meta = await fetchData<any>(
-    `${API_BASE_URL}/contratos/${contratoId}/recomendacion/archivo`,
-    { credentials: 'include' } as any
-  )
-
-  // Puede venir como { tieneArchivo, data:{...} } o directamente el objeto
-  const raw = meta?.data ?? meta ?? {}
-  const has =
-    (meta?.tieneArchivo === true) ||
-    !!(raw.url || raw.path || raw.ruta || raw.nombreOriginal || raw.filename || raw.name)
-
-  if (!has) return null
-
-  return {
-    url: toPublicUrl(raw.url ?? raw.path ?? raw.ruta ?? null),
-    path: raw.path ?? null,
-    nombreOriginal: raw.nombreOriginal ?? raw.nombre ?? raw.filename ?? raw.name ?? null,
-    mime: raw.mime ?? raw.mimetype ?? null,
-    size: raw.size ?? null,
-    fechaEmision: raw.fechaEmision ?? null,
-    fechaExpiracion: raw.fechaExpiracion ?? null,
-    ...raw,
-  } as ArchivoMeta
+export function obtenerRecomendacionMedicaMeta(contratoId: number) {
+  return get<ArchivoMeta>(`/api/contratos/${contratoId}/recomendacion/archivo`, {
+    headers: withActorHeaders(),
+    credentials: 'include',
+  })
 }
 
-export async function subirRecomendacionMedica(
+/** Variante segura: normaliza a null si no hay url/path real. */
+export async function obtenerRecomendacionMedicaMetaSafe(contratoId: number) {
+  const meta = await obtenerRecomendacionMedicaMeta(contratoId)
+  return tieneArchivoRecomendacion(meta) ? meta : null
+}
+
+export function subirRecomendacionMedica(
   contratoId: number,
   archivo: File,
   extras?: { fechaEmision?: string; fechaExpiracion?: string }
-): Promise<ArchivoMeta> {
+) {
   const fd = new FormData()
   fd.append('archivo', archivo, archivo.name)
   if (extras?.fechaEmision) fd.append('fechaEmision', extras.fechaEmision)
   if (extras?.fechaExpiracion) fd.append('fechaExpiracion', extras.fechaExpiracion)
+  withActorForm(fd)
 
-  const actorId = getActorId()
-  if (actorId) fd.append('actorId', String(actorId))
-
-  const meta = await fetchData<any>(
-    `${API_BASE_URL}/contratos/${contratoId}/recomendacion/archivo`,
-    formOptions('POST', fd)
-  )
-
-  const raw = meta?.data ?? meta ?? {}
-  return {
-    url: toPublicUrl(raw.url ?? raw.path ?? raw.ruta ?? null),
-    path: raw.path ?? null,
-    nombreOriginal: raw.nombreOriginal ?? raw.nombre ?? archivo.name,
-    mime: raw.mime ?? raw.mimetype ?? null,
-    size: raw.size ?? null,
-    fechaEmision: raw.fechaEmision ?? extras?.fechaEmision ?? null,
-    fechaExpiracion: raw.fechaExpiracion ?? extras?.fechaExpiracion ?? null,
-    ...raw,
-  } as ArchivoMeta
-}
-
-export async function eliminarRecomendacionMedica(contratoId: number): Promise<{ message: string }> {
-  const actorId = getActorId()
-  const headers: Record<string, string> = {}
-  if (actorId) headers['x-actor-id'] = String(actorId)
-
-  return fetchData<{ message: string }>(
-    `${API_BASE_URL}/contratos/${contratoId}/recomendacion/archivo`,
-    { method: 'DELETE', headers, credentials: 'include' }
-  )
-}
-
-export async function descargarRecomendacionMedicaYAbrir(contratoId: number): Promise<void> {
-  const resp = await fetch(`${API_BASE_URL}/contratos/${contratoId}/recomendacion/descargar`, {
-    method: 'GET',
+  return upload<ArchivoMeta>(`/api/contratos/${contratoId}/recomendacion/archivo`, fd, {
+    headers: withActorHeaders(),
     credentials: 'include',
   })
-  if (!resp.ok) {
-    let detail = ''
-    try { detail = (await resp.json())?.message ?? '' } catch {}
-    throw new Error(`Error ${resp.status}${detail ? `: ${detail}` : ''}`)
-  }
-  const blob = await resp.blob()
+}
 
-  const cd = resp.headers.get('content-disposition') || ''
-  let filename = 'recomendacion-medica'
-  const m = /filename\*?=(?:UTF-8''|")?([^\";]+)/i.exec(cd)
-  if (m && m[1]) filename = decodeURIComponent(m[1].replace(/\"/g, ''))
+export function eliminarRecomendacionMedica(contratoId: number) {
+  return del<{ message: string }>(`/api/contratos/${contratoId}/recomendacion/archivo`, {
+    headers: withActorHeaders(),
+    credentials: 'include',
+  })
+}
 
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = filename
-  document.body.appendChild(a)
-  a.click()
-  a.remove()
-  URL.revokeObjectURL(url)
+export function descargarRecomendacionMedicaYAbrir(contratoId: number) {
+  // download suele abrir nueva pestaña / blob; params quedan como antes
+  return download(`/api/contratos/${contratoId}/recomendacion/descargar`, { contratoId })
 }
 
 /* =========================
-   Reemplazo por PATCH (opcional)
-========================== */
-export async function reemplazarRecomendacionMedicaPorPatch(
-  contratoId: number,
-  archivo: File
-): Promise<Contrato> {
-  const fd = new FormData()
-  fd.append('archivo', archivo, archivo.name)
-  const actorId = getActorId()
-  if (actorId) fd.append('actorId', String(actorId))
-
-  return fetchData<Contrato>(
-    `${API_BASE_URL}/contratos/${contratoId}/recomendacion-medica`,
-    formOptions('PATCH', fd)
-  )
-}
-
-/* =========================
-   Contrato físico (visor/descarga/eliminar)
+   Contrato físico
 ========================== */
 
-export async function obtenerContratoArchivoMeta(contratoId: number): Promise<ArchivoMeta | null> {
-  const meta = await fetchData<any>(
-    `${API_BASE_URL}/contratos/${contratoId}/archivo/meta`,
-    { credentials: 'include' } as any
-  )
-
-  const raw = meta?.data ?? meta ?? {}
-  const has =
-    (meta?.tieneArchivo === true) ||
-    !!(raw.url || raw.path || raw.ruta || raw.nombreOriginal || raw.filename || raw.name)
-
-  if (!has) return null
-
-  return {
-    url: toPublicUrl(raw.url ?? raw.path ?? raw.ruta ?? null),
-    path: raw.path ?? null,
-    nombreOriginal: raw.nombreOriginal ?? raw.nombre ?? raw.filename ?? raw.name ?? null,
-    mime: raw.mime ?? raw.mimetype ?? 'application/pdf',
-    size: raw.size ?? null,
-    ...raw,
-  }
-}
-
-export async function eliminarArchivoContrato(contratoId: number): Promise<{ message: string }> {
-  const actorId = getActorId()
-  const headers: Record<string, string> = {}
-  if (actorId) headers['x-actor-id'] = String(actorId)
-
-  return fetchData<{ message: string }>(`${API_BASE_URL}/contratos/${contratoId}/archivo`, {
-    method: 'DELETE',
-    headers,
+export function obtenerContratoArchivoMeta(contratoId: number) {
+  return get<ArchivoMeta>(`/api/contratos/${contratoId}/archivo/meta`, {
+    headers: withActorHeaders(),
     credentials: 'include',
   })
 }
 
-export async function descargarContratoFisico(contratoId: number): Promise<void> {
-  const resp = await fetch(`${API_BASE_URL}/contratos/${contratoId}/archivo`, {
-    method: 'GET',
+export function eliminarArchivoContrato(contratoId: number) {
+  return del<{ message: string }>(`/api/contratos/${contratoId}/archivo`, {
+    headers: withActorHeaders(),
     credentials: 'include',
   })
-  if (!resp.ok) {
-    let detail = ''
-    try { detail = (await resp.json())?.message ?? '' } catch {}
-    throw new Error(`Error ${resp.status}${detail ? `: ${detail}` : ''}`)
-  }
-  const blob = await resp.blob()
-
-  const cd = resp.headers.get('content-disposition') || ''
-  let filename = 'contrato.pdf'
-  const m = /filename\*?=(?:UTF-8''|")?([^\";]+)/i.exec(cd)
-  if (m && m[1]) filename = decodeURIComponent(m[1].replace(/\"/g, ''))
-
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = filename
-  document.body.appendChild(a)
-  a.click()
-  a.remove()
-  URL.revokeObjectURL(url)
 }
 
-/** Helper para visor: URL pública del contrato cuando el backend solo te da path */
-export function obtenerUrlPublicaContratoDesdeRuta(ruta: string | null | undefined): string | null {
-  return toPublicUrl(ruta ?? null)
-}
-
-/** Devuelve una URL pública inmediata para usar con <a target="_blank"> cuando el backend solo te da path (recomendación) */
-export function obtenerUrlPublicaRecomendacionDesdeRuta(ruta: string | null | undefined): string | null {
-  return toPublicUrl(ruta ?? null)
+export function descargarContratoFisico(contratoId: number) {
+  return download(`/api/contratos/${contratoId}/archivo`, { contratoId })
 }
 
 /* =========================
-   Afiliaciones por contrato (EPS/ARL/AFP/AFC/CCF)
-   (✅ tolerante: no depende estrictamente de meta.tieneArchivo)
+   Afiliaciones por contrato
 ========================== */
 
 export interface AfiliacionArchivoMeta extends ArchivoMeta {
   tipo?: TipoAfiliacion
 }
 
-export async function obtenerAfiliacionArchivoMeta(
-  contratoId: number,
-  tipo: TipoAfiliacion
-): Promise<AfiliacionArchivoMeta | null> {
-  const meta = await fetchData<any>(
-    `${API_BASE_URL}/contratos/${contratoId}/afiliacion/${tipo}/archivo`,
-    { credentials: 'include' } as any
-  )
-
-  const raw = meta?.data ?? meta ?? {}
-  const has =
-    (meta?.tieneArchivo === true) ||
-    !!(raw.url || raw.path || raw.ruta || raw.nombreOriginal || raw.filename || raw.name)
-
-  if (!has) return null
-
-  return {
-    tipo,
-    url: toPublicUrl(raw.url ?? raw.path ?? raw.ruta ?? null),
-    path: raw.path ?? null,
-    nombreOriginal: raw.nombreOriginal ?? raw.nombre ?? raw.filename ?? raw.name ?? null,
-    mime: raw.mime ?? raw.mimetype ?? null,
-    size: raw.size ?? null,
-    ...raw,
-  }
+export function obtenerAfiliacionArchivoMeta(contratoId: number, tipo: TipoAfiliacion) {
+  return get<AfiliacionArchivoMeta>(`/api/contratos/${contratoId}/afiliacion/${tipo}/archivo`, {
+    headers: withActorHeaders(),
+    credentials: 'include',
+  })
 }
 
-export async function subirAfiliacionArchivo(
+export function subirAfiliacionArchivo(
   contratoId: number,
   tipo: TipoAfiliacion,
   archivo: File,
   entidadId?: number
-): Promise<AfiliacionArchivoMeta> {
+) {
   const fd = new FormData()
   fd.append('archivo', archivo, archivo.name)
-  if (entidadId != null) fd.append('entidadId', String(entidadId))
+  if (typeof entidadId === 'number') fd.append('entidadId', String(entidadId))
+  withActorForm(fd)
 
-  const actorId = getActorId()
-  if (actorId) fd.append('actorId', String(actorId))
-
-  const meta = await fetchData<any>(
-    `${API_BASE_URL}/contratos/${contratoId}/afiliacion/${tipo}/archivo`,
-    formOptions('POST', fd)
-  )
-
-  const raw = meta?.data ?? meta ?? {}
-  return {
-    tipo,
-    url: toPublicUrl(raw.url ?? raw.path ?? raw.ruta ?? null),
-    path: raw.path ?? null,
-    nombreOriginal: raw.nombreOriginal ?? raw.nombre ?? archivo.name,
-    mime: raw.mime ?? raw.mimetype ?? null,
-    size: raw.size ?? null,
-    ...raw,
-  }
+  return upload<AfiliacionArchivoMeta>(`/api/contratos/${contratoId}/afiliacion/${tipo}/archivo`, fd, {
+    headers: withActorHeaders(),
+    credentials: 'include',
+  })
 }
 
-export async function eliminarAfiliacionArchivo(
-  contratoId: number,
-  tipo: TipoAfiliacion
-): Promise<{ message: string }> {
-  const actorId = getActorId()
-  const headers: Record<string, string> = {}
-  if (actorId) headers['x-actor-id'] = String(actorId)
-
-  return fetchData<{ message: string }>(
-    `${API_BASE_URL}/contratos/${contratoId}/afiliacion/${tipo}/archivo`,
-    { method: 'DELETE', headers, credentials: 'include' }
-  )
+export function eliminarAfiliacionArchivo(contratoId: number, tipo: TipoAfiliacion) {
+  return del<{ message: string }>(`/api/contratos/${contratoId}/afiliacion/${tipo}/archivo`, {
+    headers: withActorHeaders(),
+    credentials: 'include',
+  })
 }
 
-/** Helper para la vista: detecta si hay archivo en la meta */
-export function tieneArchivoAfiliacion(meta: any) {
+/* =========================
+   Aliases (compatibilidad con vistas)
+========================== */
+
+export {
+  // Afiliaciones
+  obtenerAfiliacionArchivoMeta as obtenerAfiliacionContratoMeta,
+  subirAfiliacionArchivo    as subirAfiliacionContrato,
+  eliminarAfiliacionArchivo as eliminarAfiliacionContrato,
+}
+
+/* =========================
+   Helpers de UI (compat)
+========================== */
+
+/** Verifica si existe archivo en la meta de afiliación (tolerante a varias claves). */
+export function tieneArchivoAfiliacion(meta: unknown): boolean {
   try {
+    const m = meta as ArchivoMeta | undefined
+    const d = m?.data
     return Boolean(
-      meta?.tieneArchivo ||
-      meta?.data?.url ||
-      meta?.data?.nombreOriginal ||
-      meta?.url ||
-      meta?.nombreOriginal
+      d?.url ||
+      d?.nombreOriginal ||
+      d?.filename ||
+      d?.name ||
+      m?.url ||
+      m?.nombreOriginal ||
+      m?.path
     )
   } catch {
     return false
   }
 }
 
-/* =========
-   Aliases de export para compatibilidad con la vista
-=========== */
-export { obtenerAfiliacionArchivoMeta as obtenerAfiliacionContratoMeta }
-export { subirAfiliacionArchivo as subirAfiliacionContrato }
-export { eliminarAfiliacionArchivo as eliminarAfiliacionContrato }
+/** ✅ Recomendación Médica: hay archivo solo si existe url/path (o data.url/data.path) */
+export function tieneArchivoRecomendacion(meta: unknown): boolean {
+  try {
+    const m = meta as ArchivoMeta | undefined
+    const raw =
+      m?.url ||
+      m?.path ||
+      m?.data?.url ||
+      m?.data?.path
+    return !!(raw && String(raw).trim())
+  } catch {
+    return false
+  }
+}
+
+/** ✅ URL pública desde la meta de Recomendación Médica */
+export function urlPublicaDesdeMetaRecomendacion(meta: unknown): string | null {
+  try {
+    const m = meta as ArchivoMeta | undefined
+    const raw =
+      m?.url ||
+      m?.path ||
+      m?.data?.url ||
+      m?.data?.path ||
+      null
+    return toPublicUrl(raw)
+  } catch {
+    return null
+  }
+}
+
+/** URL pública inmediata para abrir Recomendación Médica cuando el backend solo da 'ruta' */
+export function obtenerUrlPublicaRecomendacionDesdeRuta(
+  ruta: string | null | undefined
+): string | null {
+  return toPublicUrl(ruta ?? null)
+}
+
+/** URL pública inmediata para abrir Contrato físico cuando el backend solo da 'ruta' */
+export function obtenerUrlPublicaContratoDesdeRuta(
+  ruta: string | null | undefined
+): string | null {
+  return toPublicUrl(ruta ?? null)
+}

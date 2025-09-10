@@ -1,34 +1,53 @@
 // src/services/contratoCambiosService.ts
-import { fetchData } from './UserService'
+import { get, post } from '@/services/http'
 
-const API_BASE =
-  ((import.meta as any)?.env?.VITE_API_URL?.replace(/\/+$/, '') || 'http://localhost:3333') + '/api'
+export interface UsuarioMin {
+  id: number
+  nombres: string
+  apellidos: string
+}
 
 export interface ContratoCambio {
   id: number
   contratoId: number
   usuarioId: number | null
-  campo: string                              // ej: 'epsId', 'salarioBasico', 'estado', etc.
-  valorAnterior: string | null               // guardado como string (normaliza en backend)
+  campo: string
+  valorAnterior: string | null
   valorNuevo: string | null
-  metadata?: any | null                      // opcional: etiquetas 'oldLabel'/'newLabel', etc.
-  createdAt: string                          // ISO
-  usuario?: { id: number; nombres: string; apellidos: string } | null
+  metadata?: Record<string, unknown> | null
+  createdAt: string
+  usuario?: UsuarioMin | null
+}
+
+function isRecord(x: unknown): x is Record<string, unknown> {
+  return typeof x === 'object' && x !== null
+}
+
+function toArray<T>(data: unknown): T[] {
+  if (Array.isArray(data)) return data as T[]
+  if (isRecord(data)) {
+    const dataProp = data['data']
+    const rowsProp = data['rows']
+    const itemsProp = data['items']
+    if (Array.isArray(dataProp)) return dataProp as T[]
+    if (Array.isArray(rowsProp)) return rowsProp as T[]
+    if (Array.isArray(itemsProp)) return itemsProp as T[]
+  }
+  return []
 }
 
 /** GET /api/contratos/:contratoId/cambios */
-export async function listarCambiosContrato(contratoId: number): Promise<ContratoCambio[]> {
-  return fetchData<ContratoCambio[]>(`${API_BASE}/contratos/${contratoId}/cambios`)
+export async function listarCambiosContrato(contratoId: number) {
+  const resp = await get<unknown>(`/api/contratos/${contratoId}/cambios`)
+  return toArray<ContratoCambio>(resp)
 }
 
-/** (opcional) POST manual si quieres registrar algo desde el front */
-export async function crearCambioContrato(
+/** POST /api/contratos/:contratoId/cambios */
+export function crearCambioContrato(
   contratoId: number,
-  payload: Pick<ContratoCambio, 'campo' | 'valorAnterior' | 'valorNuevo'> & { metadata?: any }
-): Promise<ContratoCambio> {
-  return fetchData<ContratoCambio>(`${API_BASE}/contratos/${contratoId}/cambios`, {
-    method: 'POST',
-    body: JSON.stringify(payload),
-    headers: { 'Content-Type': 'application/json' },
-  })
+  payload: Pick<ContratoCambio, 'campo' | 'valorAnterior' | 'valorNuevo'> & {
+    metadata?: Record<string, unknown>
+  }
+) {
+  return post<ContratoCambio, typeof payload>(`/api/contratos/${contratoId}/cambios`, payload)
 }

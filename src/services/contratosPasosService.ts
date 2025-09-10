@@ -1,16 +1,8 @@
 // src/services/contratosPasosService.ts
-// Servicio 100% alineado con el backend que expone:
-// GET    /api/contratos/:contratoId/pasos
-// POST   /api/contratos/:contratoId/pasos
-// PUT    /api/contratos/:contratoId/pasos/:pasoId
-// DELETE /api/contratos/:contratoId/pasos/:pasoId
-//
-// ✔ Usa FormData para crear/actualizar (soporte de archivo)
-// ✔ Base URL por VITE_API_URL si existe
-// ✔ Exporta funciones con los mismos nombres que ya usas
-// ✔ Añadido: mapPaso() normaliza y ahora incluye usuario + createdAt
-// ✔ Añadido: x-actor-id en headers + actorId dentro de FormData
-// ✔ credentials: 'include' para sesiones con cookies
+// Usa el motor central (http.ts) y rutas relativas (/api/...)
+import { get, post, put, del } from './http'
+
+/* ===== Tipos ===== */
 
 export interface PasoUsuario {
   id: number
@@ -29,40 +21,26 @@ export interface ContratoPaso {
   completado: boolean
   fecha?: string | null // ISO yyyy-mm-dd
   archivoUrl?: string | null
-  // 👇 NUEVO: actor precargado (o undefined si no existe)
+  // Actor/usuario que creó/actualizó (si backend lo retorna)
   usuario?: PasoUsuario | null
-  // 👇 NUEVO: para mostrar “creado el …” en UI si quieres
   createdAt?: string | null
   updatedAt?: string | null
 }
 
-const API_BASE =
-  ((import.meta as any)?.env?.VITE_API_URL?.replace(/\/+$/, '') || 'http://localhost:3333') + '/api'
+/* ===== Helpers ===== */
 
-// ===== Helpers =====
-async function safeText(res: Response) {
-  try { return await res.text() } catch { return '' }
-}
-async function ensureOk<T>(res: Response): Promise<T> {
-  if (!res.ok) {
-    const t = await safeText(res)
-    throw new Error(t || `Error HTTP ${res.status}`)
-  }
-  return res.json() as Promise<T>
+function toNumOrNull(v: unknown): number | null {
+  const n = Number(v)
+  return Number.isFinite(n) && n > 0 ? n : null
 }
 
-// Lee actorId de storage (varios posibles lugares)
+// Lee actorId de varios posibles lugares de storage
 function getActorId(): number | null {
-  const tryNum = (v: any) => {
-    const n = Number(v)
-    return Number.isFinite(n) && n > 0 ? n : null
-  }
-
   const direct =
-    tryNum(localStorage.getItem('actorId')) ??
-    tryNum(sessionStorage.getItem('actorId')) ??
-    tryNum(localStorage.getItem('userId')) ??
-    tryNum(sessionStorage.getItem('userId'))
+    toNumOrNull(localStorage.getItem('actorId')) ??
+    toNumOrNull(sessionStorage.getItem('actorId')) ??
+    toNumOrNull(localStorage.getItem('userId')) ??
+    toNumOrNull(sessionStorage.getItem('userId'))
   if (direct) return direct
 
   const keys = ['user', 'usuario', 'authUser', 'currentUser', 'sessionUser']
@@ -70,101 +48,98 @@ function getActorId(): number | null {
     const raw = localStorage.getItem(k) ?? sessionStorage.getItem(k)
     if (!raw) continue
     try {
-      const obj = JSON.parse(raw)
-      const id = obj?.id ?? obj?.user?.id ?? obj?.data?.id
-      const n = tryNum(id)
+      const obj = JSON.parse(raw) as unknown
+      const id =
+        (obj as { id?: unknown })?.id ??
+        (obj as { user?: { id?: unknown } })?.user?.id ??
+        (obj as { data?: { id?: unknown } })?.data?.id
+      const n = toNumOrNull(id)
       if (n) return n
-    } catch {}
+    } catch {
+      /* ignore */
+    }
   }
   return null
 }
 
 // Agrega header x-actor-id si existe
-function withActorHeaders(base?: HeadersInit): HeadersInit {
+function withActorHeaders(extra?: Record<string, string>) {
   const actorId = getActorId()
-  const headers: Record<string, string> = { Accept: 'application/json', ...(base as any) }
-  if (actorId) headers['x-actor-id'] = String(actorId)
-  return headers
+  return actorId ? { ...(extra || {}), 'x-actor-id': String(actorId) } : { ...(extra || {}) }
 }
 
-// Asegura que el FormData tenga actorId y añade headers con x-actor-id
-function formOptions(method: 'POST' | 'PUT' | 'DELETE', form?: FormData): RequestInit {
-  const fd = form ?? new FormData()
+// Asegura que el FormData tenga actorId
+function withActorForm(form: FormData) {
   const actorId = getActorId()
-  if (actorId && !fd.has('actorId')) fd.append('actorId', String(actorId))
-  return {
-    method,
-    headers: withActorHeaders(), // NO pongas Content-Type con FormData
-    body: fd,
-    credentials: 'include',
-  }
-}
-
-// GET options con headers de actor
-function getOptions(): RequestInit {
-  return {
-    headers: withActorHeaders(),
-    credentials: 'include',
-  }
+  if (actorId && !form.has('actorId')) form.append('actorId', String(actorId))
+  return form
 }
 
 // Normaliza snake_case -> camelCase y asegura tipos (incluye usuario y timestamps)
-function mapPaso(raw: any): ContratoPaso {
-  const usuarioRaw = raw.usuario ?? null
-  const usuario: PasoUsuario | null =
-    usuarioRaw && typeof usuarioRaw === 'object'
-      ? {
-          id: Number(usuarioRaw.id),
-          nombres: String(usuarioRaw.nombres ?? ''),
-          apellidos: String(usuarioRaw.apellidos ?? ''),
-          correo: String(usuarioRaw.correo ?? ''),
-        }
-      : null
+function mapPaso(raw: unknown): ContratoPaso {
+  const r = raw as Record<string, unknown>
 
-  // Lucid serializa DateTime a ISO string; caemos a null si no viene
-  const createdAt = raw.createdAt ?? raw.created_at ?? null
-  const updatedAt = raw.updatedAt ?? raw.updated_at ?? null
+  const u = r.usuario as Record<string, unknown> | null | undefined
+  const usuario: PasoUsuario | null = u
+    ? {
+        id: Number(u.id),
+        nombres: String(u.nombres ?? ''),
+        apellidos: String(u.apellidos ?? ''),
+        correo: String(u.correo ?? ''),
+      }
+    : null
+
+  const createdAt = (r.createdAt ?? r.created_at ?? null) as string | null
+  const updatedAt = (r.updatedAt ?? r.updated_at ?? null) as string | null
 
   return {
-    id: Number(raw.id),
-    contratoId: Number(raw.contratoId ?? raw.contrato_id ?? raw.contrato ?? 0),
-    fase: (raw.fase || 'inicio') as 'inicio' | 'desarrollo' | 'fin',
-    nombrePaso: String(raw.nombrePaso ?? raw.nombre_paso ?? ''),
-    observacion: raw.observacion ?? null,
-    orden: raw.orden != null ? Number(raw.orden) : null,
-    completado: !!(raw.completado ?? false),
-    fecha: raw.fecha ?? null,
-    archivoUrl: raw.archivoUrl ?? raw.archivo_url ?? null,
-    usuario,         // 👈 NUEVO
-    createdAt,       // 👈 NUEVO
-    updatedAt,       // 👈 NUEVO
+    id: Number(r.id),
+    contratoId: Number(r.contratoId ?? r.contrato_id ?? r.contrato ?? 0),
+    fase: (r.fase || 'inicio') as 'inicio' | 'desarrollo' | 'fin',
+    nombrePaso: String(r.nombrePaso ?? r.nombre_paso ?? ''),
+    observacion: (r.observacion as string | null | undefined) ?? null,
+    orden: r.orden != null ? Number(r.orden) : null,
+    completado: Boolean(r.completado ?? false),
+    fecha: (r.fecha as string | null | undefined) ?? null,
+    archivoUrl: (r.archivoUrl ?? r.archivo_url ?? null) as string | null,
+    usuario,
+    createdAt,
+    updatedAt,
   }
 }
 
-// ===== API =====
+/* ===== API (vía motor http.ts) ===== */
 
 /** GET /api/contratos/:contratoId/pasos (todas las fases) */
 export async function fetchPasosContrato(contratoId: number): Promise<ContratoPaso[]> {
-  const res = await fetch(`${API_BASE}/contratos/${contratoId}/pasos`, getOptions())
-  const data = await ensureOk<any[]>(res)
+  const data = await get<unknown[]>(`/api/contratos/${contratoId}/pasos`, {
+    headers: withActorHeaders(),
+    credentials: 'include',
+  })
   return Array.isArray(data) ? data.map(mapPaso) : []
 }
 
-/** GET /api/contratos/:contratoId/pasos?fase=inicio (con filtro de respaldo en cliente) */
+/** GET /api/contratos/:contratoId/pasos?fase=inicio (con filtro de respaldo) */
 export async function fetchPasosInicio(contratoId: number): Promise<ContratoPaso[]> {
-  const res = await fetch(`${API_BASE}/contratos/${contratoId}/pasos?fase=inicio`, getOptions())
-  const data = await ensureOk<any[]>(res)
+  const data = await get<unknown[]>(`/api/contratos/${contratoId}/pasos`, {
+    headers: withActorHeaders(),
+    credentials: 'include',
+    params: { fase: 'inicio' },
+  })
   const pasos = Array.isArray(data) ? data.map(mapPaso) : []
   return pasos.filter((p) => p.fase === 'inicio')
 }
 
-/** (Genérico) GET /api/contratos/:contratoId/pasos?fase={fase} (con filtro de respaldo) */
+/** GET genérico con fase */
 export async function fetchPasosPorFase(
   contratoId: number,
   fase: 'inicio' | 'desarrollo' | 'fin'
 ): Promise<ContratoPaso[]> {
-  const res = await fetch(`${API_BASE}/contratos/${contratoId}/pasos?fase=${fase}`, getOptions())
-  const data = await ensureOk<any[]>(res)
+  const data = await get<unknown[]>(`/api/contratos/${contratoId}/pasos`, {
+    headers: withActorHeaders(),
+    credentials: 'include',
+    params: { fase },
+  })
   const pasos = Array.isArray(data) ? data.map(mapPaso) : []
   return pasos.filter((p) => p.fase === fase)
 }
@@ -176,20 +151,16 @@ export async function fetchPasosPorFase(
  *  - nombrePaso (req)
  *  - observacion? (string)
  *  - orden? (number)
- *  - completado? (boolean-like: 'true'|'false'|'1'|'0')
+ *  - completado? ('true'|'false'|'1'|'0')
  *  - fecha? (yyyy-mm-dd)
  *  - archivo? (File)
  */
-export async function crearPasoContrato(
-  contratoId: number,
-  data: FormData
-): Promise<ContratoPaso> {
-  const res = await fetch(
-    `${API_BASE}/contratos/${contratoId}/pasos`,
-    formOptions('POST', data)
-  )
-  const paso = await ensureOk<any>(res)
-  return mapPaso(paso)
+export function crearPasoContrato(contratoId: number, data: FormData): Promise<ContratoPaso> {
+  return post<unknown, FormData>(
+    `/api/contratos/${contratoId}/pasos`,
+    withActorForm(data),
+    { headers: withActorHeaders(), credentials: 'include' }
+  ).then(mapPaso)
 }
 
 /**
@@ -197,33 +168,27 @@ export async function crearPasoContrato(
  * body: FormData con los mismos campos que crear (solo envía lo que quieras actualizar).
  * Si adjuntas un archivo en 'archivo', reemplaza el anterior.
  */
-export async function actualizarPasoContrato(
+export function actualizarPasoContrato(
   contratoId: number,
   pasoId: number,
   data: FormData
 ): Promise<ContratoPaso> {
-  const res = await fetch(
-    `${API_BASE}/contratos/${contratoId}/pasos/${pasoId}`,
-    formOptions('PUT', data)
-  )
-  const paso = await ensureOk<any>(res)
-  return mapPaso(paso)
+  return put<unknown, FormData>(
+    `/api/contratos/${contratoId}/pasos/${pasoId}`,
+    withActorForm(data),
+    { headers: withActorHeaders(), credentials: 'include' }
+  ).then(mapPaso)
 }
 
 /** DELETE /api/contratos/:contratoId/pasos/:pasoId */
-export async function eliminarPasoContrato(
-  contratoId: number,
-  pasoId: number
-): Promise<void> {
-  const res = await fetch(`${API_BASE}/contratos/${contratoId}/pasos/${pasoId}`, {
-    method: 'DELETE',
+export function eliminarPasoContrato(contratoId: number, pasoId: number) {
+  return del<void>(`/api/contratos/${contratoId}/pasos/${pasoId}`, {
     headers: withActorHeaders(),
     credentials: 'include',
   })
-  await ensureOk<unknown>(res)
 }
 
-// (Opcional) helper para construir FormData desde un objeto plano
+/* ===== Helper para construir FormData desde un objeto plano ===== */
 export function buildPasoFormData(input: {
   fase?: 'inicio' | 'desarrollo' | 'fin'
   nombrePaso?: string
@@ -241,5 +206,5 @@ export function buildPasoFormData(input: {
   if (input.completado !== undefined) fd.append('completado', input.completado ? 'true' : 'false')
   if (input.fecha !== undefined && input.fecha !== null) fd.append('fecha', input.fecha)
   if (input.archivo) fd.append('archivo', input.archivo)
-  return fd
+  return withActorForm(fd)
 }
