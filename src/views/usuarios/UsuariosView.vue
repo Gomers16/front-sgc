@@ -322,7 +322,7 @@ import {
   obtenerRoles,
   obtenerRazonesSociales,
 } from '../../services/userService'
-import ConfirmDialog from '../../components/Confirmardialogo.vue'
+import ConfirmDialog from '../../components/UI/ConfirmarDialogo.vue'
 
 /* =========================
  * VALIDACIÓN

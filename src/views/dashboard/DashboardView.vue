@@ -1,198 +1,131 @@
+<!--
+📌 DashboardView.vue
+- Vista principal del dashboard.
+- Se encarga de mostrar:
+    • Mensaje de bienvenida.
+    • KPIs (turnos en proceso, turnos finalizados, siguiente turno).
+    • Acciones rápidas (botones principales).
+    • Avisos flotantes (snackbar).
+- No contiene lógica compleja: solo orquesta composables y componentes.
+-->
+
 <template>
   <v-container>
     <v-card class="welcome-card" elevation="10">
-      <v-card-title
-        class="text-h4 text-center font-bold mb-4"
-        style="color: black;"
-      >
+      <!-- Encabezado de bienvenida -->
+      <v-card-title class="text-h4 text-center font-bold mb-4" style="color: black;">
         ¡Bienvenido a ACTIVAUTOS CDA DEL CENTRO IBAGUÉ!
       </v-card-title>
+
       <v-card-text class="text-center text-subtitle-1 mb-6">
         Estamos felices de tenerte de vuelta. Aquí tienes un resumen de la operación de hoy.
       </v-card-text>
 
-      <v-divider class="my-6"></v-divider>
+      <v-divider class="my-6" />
 
+      <!-- Sección de KPIs -->
       <h3 class="text-h4 text-center mb-6 text-primary font-weight-bold">
         📊 Resumen del Día ({{ todayDate }})
       </h3>
 
       <v-row justify="center" class="mb-8">
+        <!-- KPI: Turnos en proceso -->
         <v-col cols="12" sm="6" md="4">
-          <v-card class="kpi-card pa-4 text-center elevation-4" color="light-blue-lighten-5">
-            <v-icon size="48" color="blue-darken-2">mdi-car-multiple</v-icon>
-            <v-card-title class="text-h4 font-weight-bold text-blue-darken-2">
-              {{ isLoadingKpis ? '...' : turnosEnProceso }}
-            </v-card-title>
-            <v-card-subtitle class="text-body-1 text-blue-darken-2">Turnos en Proceso</v-card-subtitle>
-          </v-card>
+          <DashboardIndicador
+            icon="mdi-car-multiple"
+            :valor="turnosEnProceso"
+            titulo="Turnos en Proceso"
+            :loading="isLoadingKpis"
+            color-card="light-blue-lighten-5"
+            color-icon="blue-darken-2"
+          />
         </v-col>
 
+        <!-- KPI: Turnos finalizados -->
         <v-col cols="12" sm="6" md="4">
-          <v-card class="kpi-card pa-4 text-center elevation-4" color="green-lighten-5">
-            <v-icon size="48" color="green-darken-2">mdi-check-circle-outline</v-icon>
-            <v-card-title class="text-h4 font-weight-bold text-green-darken-2">
-              {{ isLoadingKpis ? '...' : turnosFinalizados }}
-            </v-card-title>
-            <v-card-subtitle class="text-body-1 text-green-darken-2">Turnos Finalizados</v-card-subtitle>
-          </v-card>
+          <DashboardIndicador
+            icon="mdi-check-circle-outline"
+            :valor="turnosFinalizados"
+            titulo="Turnos Finalizados"
+            :loading="isLoadingKpis"
+            color-card="green-lighten-5"
+            color-icon="green-darken-2"
+          />
         </v-col>
 
+        <!-- KPI: Siguiente turno -->
         <v-col cols="12" sm="6" md="4">
-          <v-card class="kpi-card pa-4 text-center elevation-4" color="orange-lighten-5">
-            <v-icon size="48" color="orange-darken-2">mdi-numeric</v-icon>
-            <v-card-title class="text-h4 font-weight-bold text-orange-darken-2">
-              {{ isLoadingKpis ? '...' : siguienteTurno }}
-            </v-card-title>
-            <v-card-subtitle class="text-body-1 text-orange-darken-2">Siguiente Turno</v-card-subtitle>
-          </v-card>
+          <DashboardIndicador
+            icon="mdi-numeric"
+            :valor="siguienteTurno"
+            titulo="Siguiente Turno"
+            :loading="isLoadingKpis"
+            color-card="orange-lighten-5"
+            color-icon="orange-darken-2"
+          />
         </v-col>
       </v-row>
 
-      <v-divider class="my-6"></v-divider>
+      <v-divider class="my-6" />
 
+      <!-- Sección de acciones rápidas -->
       <h3 class="text-h4 text-center mb-6 text-primary font-weight-bold">🚀 Acciones Rápidas</h3>
-      <v-row justify="center">
-        <v-col cols="12" sm="6" md="4">
-          <v-btn
-            color="success"
-            variant="elevated"
-            size="large"
-            block
-            prepend-icon="mdi-plus-circle"
-            @click="router.push('/rtm/crear-turno')"
-            class="action-btn"
-          >
-            Crear Nuevo Turno
-          </v-btn>
-        </v-col>
-        <v-col cols="12" sm="6" md="4">
-          <v-btn
-            color="info"
-            variant="elevated"
-            size="large"
-            block
-            prepend-icon="mdi-progress-check"
-            @click="router.push('/rtm/turnos-dia')"
-            class="action-btn"
-          >
-            Ver Turnos en Proceso
-          </v-btn>
-        </v-col>
-        <v-col cols="12" sm="6" md="4">
-          <v-btn
-            color="primary"
-            variant="elevated"
-            size="large"
-            block
-            prepend-icon="mdi-history"
-            @click="router.push('/rtm/estado-turnos')"
-            class="action-btn"
-          >
-            Ver Histórico de Turnos
-          </v-btn>
-        </v-col>
-      </v-row>
+      <DashboardAcciones
+        @crear-turno="goCrearTurno"
+        @ver-turnos-proceso="goTurnosDia"
+        @ver-historico="goHistorico"
+      />
     </v-card>
 
-    <v-snackbar
-      v-model="snackbar.show"
-      :color="snackbar.color"
-      :timeout="snackbar.timeout"
-      location="top right"
-    >
-      {{ snackbar.message }}
-      <template #actions>
-        <v-btn color="white" variant="text" @click="snackbar.show = false">Cerrar</v-btn>
-      </template>
-    </v-snackbar>
+    <!-- Snackbar global para mostrar avisos -->
+    <AvisoFlotante v-model="snackbar" />
   </v-container>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+/**
+ * 📌 Script del Dashboard
+ * - Importa composables:
+ *    useDashboardDatos → KPIs y fecha.
+ *    useAvisos         → Snackbar (avisos).
+ * - Importa componentes:
+ *    DashboardIndicador, DashboardAcciones, AvisoFlotante.
+ * - Define funciones de navegación.
+ * - Llama a cargarDashboard() al montar y maneja errores mostrando avisos.
+ */
 import { useRouter } from 'vue-router'
-import { DateTime } from 'luxon'
-import { authSetStore } from '@/stores/AuthStore'
-import { fetchDashboard } from '@/services/dashboardService'
+import { useDashboardDatos } from '@/composables/dashboard/useDashboardDatos'
+import { useAvisos } from '@/composables/dashboard/useAvisos'
+
+import DashboardIndicador from '@/components/dashboard/DashboardIndicador.vue'
+import DashboardAcciones from '@/components/dashboard/DashboardAcciones.vue'
+import AvisoFlotante from '@/components/dashboard/AvisoFlotante.vue'
 
 const router = useRouter()
-const authStore = authSetStore()
+const { snackbar, mostrarAviso } = useAvisos()
+const {
+  turnosEnProceso,
+  turnosFinalizados,
+  siguienteTurno,
+  isLoadingKpis,
+  todayDate,
+  cargarDashboard,
+} = useDashboardDatos()
 
-const turnosEnProceso = ref(0)
-const turnosFinalizados = ref(0)
-const siguienteTurno = ref(0)
-const isLoadingKpis = ref(true)
-const todayDate = ref('')
+// Funciones de navegación (la vista decide a dónde ir)
+function goCrearTurno()    { router.push('/rtm/crear-turno') }
+function goTurnosDia()     { router.push('/rtm/turnos-dia') }
+function goHistorico()     { router.push('/rtm/estado-turnos') }
 
-const snackbar = ref({
-  show: false,
-  message: '',
-  color: '',
-  timeout: 4000,
-})
-
-function showSnackbar(message: string, color = 'info', timeout = 4000) {
-  snackbar.value = { show: true, message, color, timeout }
-}
-
-async function fetchDashboardData() {
-  isLoadingKpis.value = true
-  try {
-    const userId = authStore.currentUserId
-    if (userId === null) {
-      showSnackbar('Error: No se pudo obtener el ID de usuario. Por favor, inicie sesión.', 'error')
-      authStore.logout()
-      router.push('/login')
-      return
-    }
-
-    const data = await fetchDashboard(userId)
-
-    turnosEnProceso.value   = data.turnosEnProceso
-    turnosFinalizados.value = data.turnosFinalizados
-    siguienteTurno.value    = data.siguienteTurno
-
-    // showSnackbar('Datos del dashboard actualizados.', 'success') // opcional
-  } catch (error: any) {
-    console.error('Error al cargar datos del dashboard:', error)
-    let message = 'Error al cargar los datos del dashboard. Intente recargar la página.'
-    if (typeof error?.message === 'string') {
-      message = error.message
-      if (message.includes('Sesión expirada') || message.includes('no autorizada')) {
-        authStore.logout()
-        router.push('/login')
-        return
-      }
-    }
-    showSnackbar(message, 'error')
-    turnosEnProceso.value = 0
-    turnosFinalizados.value = 0
-    siguienteTurno.value = 0
-  } finally {
-    isLoadingKpis.value = false
-  }
-}
-
-onMounted(() => {
-  authStore.checkAuth()
-  todayDate.value = DateTime.local().setZone('America/Bogota').toFormat('dd/MM/yyyy')
-  fetchDashboardData()
+// Cargar datos al entrar
+cargarDashboard().catch((e) => {
+  const msg = e?.message || 'No fue posible cargar el dashboard.'
+  mostrarAviso(msg, 'error')
 })
 </script>
 
 <style scoped>
-.fullscreen-center {
-  height: 100vh;
-  width: 100vw;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  background-color: #f9fbff;
-  padding: 0;
-  margin: 0;
-}
-
+/* Estilos para la tarjeta principal del dashboard */
 .welcome-card {
   max-width: 1200px;
   width: 100%;
@@ -204,24 +137,6 @@ onMounted(() => {
   margin: 0 auto;
 }
 
+/* Clase auxiliar para negritas */
 .font-bold { font-weight: 700; }
-
-.kpi-card {
-  border-radius: 12px;
-  transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
-}
-.kpi-card:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 12px 25px rgba(0,0,0,0.2);
-}
-
-.action-btn {
-  font-weight: bold;
-  letter-spacing: 0.05em;
-  transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
-}
-.action-btn:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 8px 15px rgba(0,0,0,0.2);
-}
 </style>

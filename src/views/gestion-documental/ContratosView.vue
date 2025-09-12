@@ -6,55 +6,20 @@
       </v-card-title>
     </v-card>
 
-    <!-- Filtros -->
-    <v-card elevation="2" class="mb-6">
-      <v-card-text>
-        <v-row>
-          <v-col cols="12" md="4">
-            <v-select
-              v-model="razonSocialSeleccionada"
-              :items="razonesSociales"
-              label="Seleccione una Razón Social"
-              item-title="nombre"
-              item-value="id"
-              variant="outlined"
-              density="compact"
-              :loading="loadingRazonesSociales"
-              clearable
-            />
-          </v-col>
-
-          <v-col cols="12" md="4">
-            <v-select
-              v-model="usuarioSeleccionado"
-              :items="usuarios"
-              label="Seleccione un Usuario"
-              item-title="nombreCompleto"
-              item-value="id"
-              variant="outlined"
-              density="compact"
-              :disabled="!razonSocialSeleccionada"
-              :loading="loadingUsuarios"
-              clearable
-            />
-          </v-col>
-
-          <v-col cols="12" md="4">
-            <v-select
-              v-model="tipoContratoSeleccionado"
-              :items="tiposContratoSelectItems"
-              label="Seleccione un tipo de contrato"
-              item-title="nombre"
-              item-value="valor"
-              variant="outlined"
-              density="compact"
-              :disabled="!usuarioSeleccionado || isEditing"
-              clearable
-            />
-          </v-col>
-        </v-row>
-      </v-card-text>
-    </v-card>
+    <FiltrosContratos
+      :razon-social="razonSocialSeleccionada"
+      :usuario="usuarioSeleccionado"
+      :tipo-contrato="tipoContratoSeleccionado"
+      @update:razonSocial="(v)=> razonSocialSeleccionada = v"
+      @update:usuario="(v)=> usuarioSeleccionado = v"
+      @update:tipoContrato="(v)=> tipoContratoSeleccionado = v"
+      :razones-sociales="razonesSociales"
+      :usuarios="usuarios"
+      :tipos-contrato-select-items="tiposContratoSelectItems"
+      :loading-razones-sociales="loadingRazonesSociales"
+      :loading-usuarios="loadingUsuarios"
+      :is-editing="isEditing"
+    />
 
     <!-- Formulario -->
     <v-card elevation="2" class="mb-6" v-if="usuarioSeleccionado">
@@ -68,438 +33,72 @@
       </v-card-title>
 
       <v-card-text>
-        <v-form @submit.prevent="handleConfirmacion" class="form">
-          <v-row dense>
-            <!-- Identificación -->
-            <v-col cols="12" md="6">
-              <v-text-field
-                ref="identificacionRef"
-                label="Número de Identificación (Número de cédula)"
-                v-model="identificacion"
-                :error-messages="identificacionError"
-                variant="outlined"
-                clearable
-                density="compact"
-              />
-            </v-col>
+        <FormularioContrato
+          v-model:identificacion="identificacion"
+          v-model:termino-contrato="terminoContrato"
+          v-model:sede-id="sedeId"
+          v-model:cargo-id="cargoId"
+          v-model:salario-basico="salarioBasico"
+          v-model:bono-salarial="bonoSalarial"
+          v-model:auxilio-transporte="auxilioTransporte"
+          v-model:auxilio-no-salarial="auxilioNoSalarial"
+          v-model:fecha-inicio="fechaInicio"
+          v-model:fecha-terminacion="fechaTerminacion"
+          v-model:centro-costo="centroCosto"
+          v-model:funciones-cargo="funcionesCargo"
+          v-model:eps-id="epsId"
+          v-model:arl-id="arlId"
+          v-model:afp-id="afpId"
+          v-model:afc-id="afcId"
+          v-model:ccf-id="ccfId"
+          v-model:tiene-recomendaciones-medicas="tieneRecomendacionesMedicas"
 
-            <!-- Término -->
-            <v-col cols="12" md="6">
-              <v-select
-                label="Término de Contrato"
-                v-model="terminoContrato"
-                :items="terminosContratoOptions"
-                item-title="text"
-                item-value="value"
-                :error-messages="terminoContratoError"
-                variant="outlined"
-                clearable
-                density="compact"
-                required
-              />
-            </v-col>
+          :terminos-contrato-options="terminosContratoOptions"
+          :sedes="sedes"
+          :cargos="cargos"
+          :filtered-eps="filteredEps"
+          :filtered-arl="filteredArl"
+          :filtered-afp="filteredAfp"
+          :filtered-afc="filteredAfc"
+          :filtered-ccf="filteredCcf"
+          :centros-costo-options="centrosCostoOptions"
 
-            <!-- Sede / Cargo -->
-            <v-col cols="12" md="6">
-              <v-select
-                label="Sede"
-                v-model="sedeId"
-                :items="sedes"
-                item-title="nombre"
-                item-value="id"
-                :error-messages="sedeIdError"
-                variant="outlined"
-                clearable
-                density="compact"
-                :loading="loadingSedes"
-              />
-            </v-col>
+          :loading-sedes="loadingSedes"
+          :loading-cargos="loadingCargos"
+          :loading-entidades="loadingEntidades"
 
-            <v-col cols="12" md="6">
-              <v-select
-                label="Cargo"
-                v-model="cargoId"
-                :items="cargos"
-                item-title="nombre"
-                item-value="id"
-                :error-messages="cargoIdError"
-                variant="outlined"
-                clearable
-                density="compact"
-                :loading="loadingCargos"
-              />
-            </v-col>
+          :is-fecha-terminacion-visible="isFechaTerminacionVisible"
+          :is-fecha-terminacion-required="isFechaTerminacionRequired"
 
-            <!-- 💸 Campos numéricos -->
-            <v-col cols="12" md="6">
-              <v-text-field
-                label="Salario Base"
-                v-model="salarioBasico"
-                :error-messages="salarioBasicoError"
-                type="number"
-                inputmode="numeric"
-                :max="MAX_MONEY"
-                prefix="$"
-                variant="outlined"
-                clearable
-                density="compact"
-              />
-            </v-col>
+          :salario-total-calculado="salarioTotalCalculado"
+          :max-upload-mb="MAX_UPLOAD_MB"
+          :max-money="MAX_MONEY"
 
-            <v-col cols="12" md="6">
-              <v-text-field
-                label="Bono Salarial"
-                v-model="bonoSalarial"
-                type="number"
-                inputmode="numeric"
-                :max="MAX_MONEY"
-                prefix="$"
-                variant="outlined"
-                clearable
-                density="compact"
-              />
-            </v-col>
+          :rec-tiene-archivo="recTieneArchivo"
+          :rec-nombre-actual="recNombreActual"
+          :rec-ui-key="recUiKey"
 
-            <v-col cols="12" md="6">
-              <v-text-field
-                label="Auxilio de Transporte"
-                v-model="auxilioTransporte"
-                type="number"
-                inputmode="numeric"
-                :max="MAX_MONEY"
-                prefix="$"
-                variant="outlined"
-                clearable
-                density="compact"
-              />
-            </v-col>
+          :has-cert-u-i="hasCertUI"
+          :cert-status-key="certStatusKey"
 
-            <v-col cols="12" md="6">
-              <v-text-field
-                label="Auxilio No Salarial"
-                v-model="auxilioNoSalarial"
-                type="number"
-                inputmode="numeric"
-                :max="MAX_MONEY"
-                prefix="$"
-                variant="outlined"
-                clearable
-                density="compact"
-              />
-            </v-col>
+          :errors="{
+            identificacion: identificacionError,
+            terminoContrato: terminoContratoError,
+            sedeId: sedeIdError,
+            cargoId: cargoIdError,
+            fechaInicio: fechaInicioError,
+            fechaTerminacion: fechaTerminacionError,
+            funcionesCargo: funcionesCargoError,
+            epsId: epsIdError,
+            arlId: arlIdError,
+            afpId: afpIdError,
+            ccfId: ccfIdError,
+            salarioBasico: salarioBasicoError
+          }"
 
-            <v-col cols="12" md="6">
-              <v-text-field
-                label="Salario Total Calculado"
-                :model-value="salarioTotalCalculado"
-                readonly
-                variant="outlined"
-                density="compact"
-                class="font-weight-bold"
-              />
-            </v-col>
-
-            <!-- Fechas -->
-            <v-col cols="12" md="6">
-              <v-text-field
-                label="Fecha de Inicio"
-                v-model="fechaInicio"
-                :error-messages="fechaInicioError"
-                type="date"
-                variant="outlined"
-                clearable
-                density="compact"
-              />
-            </v-col>
-
-            <v-col cols="12" md="6" v-if="isFechaTerminacionVisible">
-              <v-text-field
-                label="Fecha de Terminación"
-                v-model="fechaTerminacion"
-                :error-messages="fechaTerminacionError"
-                :required="isFechaTerminacionRequired"
-                type="date"
-                variant="outlined"
-                clearable
-                density="compact"
-              />
-            </v-col>
-
-            <!-- Centro de costo -->
-            <v-col cols="12" md="6">
-              <v-select
-                label="Centro de Costo (Área)"
-                v-model="centroCosto"
-                :items="centrosCostoOptions"
-                variant="outlined"
-                clearable
-                density="compact"
-              />
-            </v-col>
-
-            <!-- Funciones -->
-            <v-col cols="12">
-              <v-textarea
-                label="Funciones y Objeto del Cargo"
-                v-model="funcionesCargo"
-                :error-messages="funcionesCargoError"
-                rows="2"
-                variant="outlined"
-                clearable
-                density="compact"
-              />
-            </v-col>
-
-            <!-- Afiliaciones -->
-            <v-col cols="12">
-              <v-divider class="my-4" />
-              <h4 class="text-h6 text-center">Afiliaciones y Seguridad Social</h4>
-              <v-divider class="my-4" />
-            </v-col>
-
-            <!-- EPS -->
-            <v-col cols="12" md="6">
-              <v-select
-                label="EPS"
-                v-model="epsId"
-                :items="filteredEps"
-                item-title="nombre"
-                item-value="id"
-                :error-messages="epsIdError"
-                variant="outlined"
-                clearable
-                density="compact"
-                :loading="loadingEntidades"
-              >
-                <template #append-inner>
-                  <div :key="certStatusKey('eps')" class="append-icons">
-                    <v-tooltip text="ENTIDAD PRESTADORA DE SERVICIOS DE SALUD" location="top">
-                      <template #activator="{ props }">
-                        <v-icon v-bind="props" icon="mdi-help-circle-outline" size="18" class="ml-1 text-medium-emphasis" />
-                      </template>
-                    </v-tooltip>
-
-                    <v-tooltip v-if="hasCertUI('eps')" text="Archivo cargado" location="top">
-                      <template #activator="{ props }">
-                        <v-icon v-bind="props" size="18" color="success" class="ml-1">mdi-check-circle</v-icon>
-                      </template>
-                    </v-tooltip>
-
-                    <v-tooltip :text="hasCertUI('eps') ? 'Ver/Reemplazar certificado EPS' : 'Subir certificado EPS'" location="top">
-                      <template #activator="{ props }">
-                        <v-btn v-bind="props" icon="mdi-paperclip" size="small" variant="text" class="ml-1" :disabled="!epsId" :ripple="false" @click.stop="openCert('eps', $event)" />
-                      </template>
-                    </v-tooltip>
-                  </div>
-                </template>
-              </v-select>
-            </v-col>
-
-            <!-- ARL -->
-            <v-col cols="12" md="6">
-              <v-select
-                label="ARL"
-                v-model="arlId"
-                :items="filteredArl"
-                item-title="nombre"
-                item-value="id"
-                :error-messages="arlIdError"
-                variant="outlined"
-                clearable
-                density="compact"
-                :loading="loadingEntidades"
-              >
-                <template #append-inner>
-                  <div :key="certStatusKey('arl')" class="append-icons">
-                    <v-tooltip text="ADMINISTRADORA DE RIESGOS LABORALES" location="top">
-                      <template #activator="{ props }">
-                        <v-icon v-bind="props" icon="mdi-help-circle-outline" size="18" class="ml-1 text-medium-emphasis" />
-                      </template>
-                    </v-tooltip>
-
-                    <v-tooltip v-if="hasCertUI('arl')" text="Archivo cargado" location="top">
-                      <template #activator="{ props }">
-                        <v-icon v-bind="props" size="18" color="success" class="ml-1">mdi-check-circle</v-icon>
-                      </template>
-                    </v-tooltip>
-
-                    <v-tooltip :text="hasCertUI('arl') ? 'Ver/Reemplazar certificado ARL' : 'Subir certificado ARL'" location="top">
-                      <template #activator="{ props }">
-                        <v-btn v-bind="props" icon="mdi-paperclip" size="small" variant="text" class="ml-1" :disabled="!arlId" :ripple="false" @click.stop="openCert('arl', $event)" />
-                      </template>
-                    </v-tooltip>
-                  </div>
-                </template>
-              </v-select>
-            </v-col>
-
-            <!-- AFP -->
-            <v-col cols="12" md="6">
-              <v-select
-                label="AFP"
-                v-model="afpId"
-                :items="filteredAfp"
-                item-title="nombre"
-                item-value="id"
-                :error-messages="afpIdError"
-                variant="outlined"
-                clearable
-                density="compact"
-                :loading="loadingEntidades"
-              >
-                <template #append-inner>
-                  <div :key="certStatusKey('afp')" class="append-icons">
-                    <v-tooltip text="ADMINISTRADORA DE FONDO DE PENSIONES" location="top">
-                      <template #activator="{ props }">
-                        <v-icon v-bind="props" icon="mdi-help-circle-outline" size="18" class="ml-1 text-medium-emphasis" />
-                      </template>
-                    </v-tooltip>
-
-                    <v-tooltip v-if="hasCertUI('afp')" text="Archivo cargado" location="top">
-                      <template #activator="{ props }">
-                        <v-icon v-bind="props" size="18" color="success" class="ml-1">mdi-check-circle</v-icon>
-                      </template>
-                    </v-tooltip>
-
-                    <v-tooltip :text="hasCertUI('afp') ? 'Ver/Reemplazar certificado AFP' : 'Subir certificado AFP'" location="top">
-                      <template #activator="{ props }">
-                        <v-btn v-bind="props" icon="mdi-paperclip" size="small" variant="text" class="ml-1" :disabled="!afpId" :ripple="false" @click.stop="openCert('afp', $event)" />
-                      </template>
-                    </v-tooltip>
-                  </div>
-                </template>
-              </v-select>
-            </v-col>
-
-            <!-- AFC -->
-            <v-col cols="12" md="6">
-              <v-select
-                label="AFC"
-                v-model="afcId"
-                :items="filteredAfc"
-                item-title="nombre"
-                item-value="id"
-                variant="outlined"
-                clearable
-                density="compact"
-                :loading="loadingEntidades"
-              >
-                <template #append-inner>
-                  <div :key="certStatusKey('afc')" class="append-icons">
-                    <v-tooltip text="ADMINISTRADORA DE FONDO DE CESANTÍAS" location="top">
-                      <template #activator="{ props }">
-                        <v-icon v-bind="props" icon="mdi-help-circle-outline" size="18" class="ml-1 text-medium-emphasis" />
-                      </template>
-                    </v-tooltip>
-
-                    <v-tooltip v-if="hasCertUI('afc')" text="Archivo cargado" location="top">
-                      <template #activator="{ props }">
-                        <v-icon v-bind="props" size="18" color="success" class="ml-1">mdi-check-circle</v-icon>
-                      </template>
-                    </v-tooltip>
-
-                    <v-tooltip :text="hasCertUI('afc') ? 'Ver/Reemplazar certificado AFC' : 'Subir certificado AFC'" location="top">
-                      <template #activator="{ props }">
-                        <v-btn v-bind="props" icon="mdi-paperclip" size="small" variant="text" class="ml-1" :disabled="!afcId" :ripple="false" @click.stop="openCert('afc', $event)" />
-                      </template>
-                    </v-tooltip>
-                  </div>
-                </template>
-              </v-select>
-            </v-col>
-
-            <!-- CCF -->
-            <v-col cols="12" md="6">
-              <v-select
-                label="CCF"
-                v-model="ccfId"
-                :items="filteredCcf"
-                item-title="nombre"
-                item-value="id"
-                :error-messages="ccfIdError"
-                variant="outlined"
-                clearable
-                density="compact"
-                :loading="loadingEntidades"
-              >
-                <template #append-inner>
-                  <div :key="certStatusKey('ccf')" class="append-icons">
-                    <v-tooltip text="CAJA DE COMPENSACIÓN FAMILIAR" location="top">
-                      <template #activator="{ props }">
-                        <v-icon v-bind="props" icon="mdi-help-circle-outline" size="18" class="ml-1 text-medium-emphasis" />
-                      </template>
-                    </v-tooltip>
-
-                    <v-tooltip v-if="hasCertUI('ccf')" text="Archivo cargado" location="top">
-                      <template #activator="{ props }">
-                        <v-icon v-bind="props" size="18" color="success" class="ml-1">mdi-check-circle</v-icon>
-                      </template>
-                    </v-tooltip>
-
-                    <v-tooltip :text="hasCertUI('ccf') ? 'Ver/Reemplazar certificado CCF' : 'Subir certificado CCF'" location="top">
-                      <template #activator="{ props }">
-                        <v-btn v-bind="props" icon="mdi-paperclip" size="small" variant="text" class="ml-1" :disabled="!ccfId" :ripple="false" @click.stop="openCert('ccf', $event)" />
-                      </template>
-                    </v-tooltip>
-                  </div>
-                </template>
-              </v-select>
-            </v-col>
-
-            <!-- Recomendaciones Médicas -->
-            <v-col cols="12">
-              <v-divider class="my-4" />
-              <h4 class="text-h6 text-center">Recomendaciones Médicas</h4>
-              <v-divider class="my-4" />
-            </v-col>
-
-            <v-col cols="12" md="6">
-              <v-checkbox
-                v-model="tieneRecomendacionesMedicas"
-                label="¿Requiere Recomendaciones Médicas?"
-                density="compact"
-                hide-details
-                class="mt-0"
-              />
-            </v-col>
-
-            <v-col cols="12" md="6">
-              <v-text-field
-                label="Recomendación Médica"
-                :model-value="tieneRecomendacionesMedicas ? (recNombreActual || '—') : 'No aplica'"
-                readonly
-                variant="outlined"
-                density="compact"
-                :disabled="!tieneRecomendacionesMedicas"
-              >
-                <template #append-inner>
-                  <div :key="recUiKey" class="append-icons">
-                    <v-tooltip v-if="recTieneArchivo" text="Archivo cargado" location="top">
-                      <template #activator="{ props }"><v-icon v-bind="props" size="18" color="success" class="ml-1">mdi-check-circle</v-icon></template>
-                    </v-tooltip>
-                    <v-tooltip :text="recTieneArchivo ? 'Ver/Reemplazar Recomendación Médica' : 'Subir Recomendación Médica'" location="top">
-                      <template #activator="{ props }">
-                        <v-btn
-                          v-bind="props"
-                          icon="mdi-paperclip"
-                          size="small"
-                          variant="text"
-                          class="ml-1"
-                          :disabled="!tieneRecomendacionesMedicas"
-                          :ripple="false"
-                          @click.stop="openRecDialog($event)"
-                        />
-                      </template>
-                    </v-tooltip>
-                  </div>
-                </template>
-              </v-text-field>
-              <div class="text-caption text-medium-emphasis mb-3" v-if="tieneRecomendacionesMedicas">
-                Formatos permitidos: PDF, DOC, DOCX (máx {{ MAX_UPLOAD_MB }} MB)
-              </div>
-            </v-col>
-          </v-row>
-        </v-form>
+          @openCert="openCert"
+          @openRec="openRecDialog"
+        />
       </v-card-text>
     </v-card>
 
@@ -507,134 +106,49 @@
     <v-card elevation="2" v-if="usuarioSeleccionado" class="mt-6">
       <v-card-text>
         <v-row>
-          <!-- Pasos -->
-          <v-col cols="12" md="6">
-            <h3 class="text-h6 mb-4">Pasos del Contrato</h3>
-            <v-card class="pa-4">
-              <v-timeline side="end" density="compact">
-                <v-timeline-item
-                  v-for="(paso, index) in pasosContrato"
-                  :key="index"
-                  :dot-color="paso.completado ? 'success' : 'grey'"
-                  size="small"
-                >
-                  <div class="d-flex align-center justify-space-between w-100">
-                    <span class="font-weight-medium">{{ paso.nombre }}</span>
-                    <v-btn
-                      v-if="!paso.completado && (index === 0 || pasosContrato[index - 1]?.completado)"
-                      icon="mdi-check"
-                      color="primary"
-                      variant="tonal"
-                      size="small"
-                      @click.stop="abrirModalPaso(paso, $event)"
-                    />
-                    <v-btn
-                      v-else-if="paso.completado"
-                      icon="mdi-pencil-outline"
-                      color="warning"
-                      variant="tonal"
-                      size="small"
-                      @click.stop="abrirModalPaso(paso, $event)"
-                    />
-                  </div>
-                </v-timeline-item>
-              </v-timeline>
-              <v-alert v-if="loadingPasos" type="info" variant="tonal" class="mt-4">
-                Cargando pasos...
-              </v-alert>
-            </v-card>
-          </v-col>
+          <PasosContrato
+            :key="`${isEditing ? 'edit' : 'new'}-${contratoEditId || '0'}-${pasosVersion}`"
+            :pasos="pasosContrato"
+            :loading="loadingPasos"
+            :is-editing="isEditing"
+            :modal-paso="modalPaso"
+            :max-upload-mb="MAX_UPLOAD_MB"
+            @abrirModalPaso="(p)=> abrirModalPaso(p)"
+            @cerrarModalPaso="cerrarModalPaso"
+            @completarPasoConfirmado="completarPasoConfirmado"
+            @onFilePasoChange="onFilePasoChange"
+            @verArchivoPaso="verArchivoPaso"
+            @descargarArchivoPaso="descargarArchivoPaso"
+            @eliminarArchivoPaso="eliminarArchivoPaso"
+          />
 
           <!-- Anexar/Reemplazar contrato -->
-          <v-col :key="fileBlockKey" cols="12" md="6">
-            <h4 class="text-h6 mb-2">
-              {{ isEditing ? 'Reemplazar Archivo de Contrato (opcional)' : 'Anexar Contrato' }}
-            </h4>
-
-            <!-- ⚠️ Aviso cuando hay contrato ya creado pero faltó anexar -->
-            <v-alert
-              v-if="!isEditing && contratoPendienteAnexoId"
-              type="warning"
-              variant="tonal"
-              class="mb-3"
-            >
-              Se creó el contrato #{{ contratoPendienteAnexoId }}, pero falló el anexado del PDF.
-              Puedes reintentar con el botón de abajo o volviendo a presionar “Reintentar anexar”.
-            </v-alert>
-
-            <v-card class="pa-4">
-              <v-alert
-                v-if="isEditing && contratoEditTieneArchivo"
-                type="success"
-                variant="tonal"
-                class="mb-3"
-              >
-                <div class="d-flex flex-wrap align-center ga-2">
-                  <div>
-                    <strong>Actual:</strong> {{ contratoEditNombreArchivo || 'Contrato actual' }}
-                  </div>
-                  <v-btn
-                    size="x-small"
-                    variant="tonal"
-                    prepend-icon="mdi-file-eye-outline"
-                    class="ml-2"
-                    :href="toAbsoluteApiUrl(contratoEditArchivoUrl)"
-                    target="_blank"
-                  >
-                    Ver / Descargar
-                  </v-btn>
-                </div>
-              </v-alert>
-
-              <v-file-input
-                :key="fileInputRenderKey"
-                label="Subir archivo del contrato físico"
-                variant="outlined"
-                density="compact"
-                show-size
-                accept="application/pdf"
-                prepend-icon="mdi-file-upload"
-                class="mb-1"
-                @update:model-value="onFileChange"
-                ref="fileInputRef"
-              >
-                <template #append>
-                  <v-icon
-                    v-if="archivoContrato || (isEditing && contratoEditTieneArchivo)"
-                    size="18"
-                    color="success"
-                    class="ml-2"
-                  >mdi-check-circle</v-icon>
-                </template>
-              </v-file-input>
-
-              <div class="text-caption text-medium-emphasis mb-3">
-                Formato permitido: PDF (máx {{ MAX_UPLOAD_MB }} MB)
-              </div>
-
-              <v-alert
-                v-if="!archivoContrato && !(isEditing && contratoEditTieneArchivo)"
-                type="info"
-                variant="tonal"
-              >
-                {{ isEditing ? 'Si no cargas archivo, se mantiene el actual.' : 'Adjunte el archivo del contrato para anexarlo al usuario.' }}
-              </v-alert>
-              <v-alert v-else type="success" variant="tonal">
-                <template v-if="archivoContrato">
-                  Archivo <strong>{{ archivoContrato.name }}</strong> listo.
-                </template>
-                <template v-else>
-                  Archivo actual disponible.
-                </template>
-              </v-alert>
-            </v-card>
-          </v-col>
+          <AnexoContrato
+            :is-editing="isEditing"
+            :is-saving="isSaving"
+            :usuario-seleccionado="usuarioSeleccionado"
+            :archivo-contrato="archivoContrato"
+            :file-block-key="fileBlockKey"
+            :file-input-render-key="fileInputRenderKey"
+            :contrato-edit-tiene-archivo="contratoEditTieneArchivo"
+            :contrato-edit-archivo-url="contratoEditArchivoUrl"
+            :contrato-edit-nombre-archivo="contratoEditNombreArchivo"
+            :contrato-pendiente-anexo-id="contratoPendienteAnexoId"
+            :max-upload-mb="MAX_UPLOAD_MB"
+            :to-absolute-api-url="toAbsoluteApiUrl"
+            @update:archivoContrato="onFileChange"
+            @crearYAnexar="handleConfirmacion"
+            @reanexar="reanexarArchivoContrato"
+          />
         </v-row>
 
         <!-- 🔘 Acciones (corregido: flujo creación vs edición) -->
         <v-card-actions class="d-flex justify-end pr-4 pb-4 mt-4">
           <!-- MODO EDICIÓN -->
-          <template v-if="isEditing">
+          <v-card-actions
+            v-if="isEditing"
+            class="d-flex justify-end pr-4 pb-4 mt-4"
+          >
             <v-btn
               color="grey-darken-1"
               variant="text"
@@ -653,281 +167,55 @@
             >
               Guardar cambios
             </v-btn>
-          </template>
+          </v-card-actions>
 
           <!-- MODO CREACIÓN -->
-          <template v-else>
-            <v-btn
-              color="success"
-              :prepend-icon="contratoPendienteAnexoId ? 'mdi-reload' : 'mdi-content-save-check'"
-              :disabled="!usuarioSeleccionado || !archivoContrato || isSaving"
-              :loading="isSaving"
-              @click="handleConfirmacion"
-            >
-              {{ contratoPendienteAnexoId ? 'Reintentar anexar' : 'Crear y Anexar Contrato' }}
-            </v-btn>
-
-            <v-btn
-              v-if="contratoPendienteAnexoId"
-              color="primary"
-              prepend-icon="mdi-paperclip"
-              variant="tonal"
-              class="ml-2"
-              :disabled="isSaving || !archivoContrato"
-              :loading="isSaving"
-              @click="reanexarArchivoContrato"
-            >
-              Reintentar anexar ahora
-            </v-btn>
-          </template>
         </v-card-actions>
       </v-card-text>
     </v-card>
 
     <!-- Historial de Contratos -->
-    <v-card elevation="2" v-if="usuarioSeleccionado" class="mt-6">
-      <v-card-title class="text-h6 font-weight-bold bg-blue-grey-lighten-5">
-        Historial de Contratos del Usuario
-      </v-card-title>
-
-      <v-card-text>
-        <v-alert v-if="loadingContratos" type="info" variant="tonal" class="mb-4">
-          Cargando historial de contratos...
-        </v-alert>
-
-        <v-alert v-else-if="!loadingContratos && contratosUsuario.length === 0" type="warning" variant="tonal" class="mb-4">
-          Este usuario no tiene contratos registrados.
-        </v-alert>
-
-        <v-table v-else density="comfortable">
-          <thead>
-            <tr>
-              <th class="text-left">#</th>
-              <th class="text-left">Tipo</th>
-              <th class="text-left">Término</th>
-              <th class="text-left">Estado</th>
-              <th class="text-left">Inicio</th>
-              <th class="text-left">Terminación</th>
-              <th class="text-left">Sede</th>
-              <th class="text-left">Cargo</th>
-              <th class="text-left">Archivo</th>
-              <th class="text-left">Acciones</th>
-            </tr>
-          </thead>
-          <tbody>
-  <tr v-for="(c, i) in contratosUsuario" :key="c.id">
-    <td>{{ i + 1 }}</td> <!-- ← consecutivo visual -->
-    <td class="text-capitalize">{{ c.tipoContrato }}</td>
-    <td class="text-capitalize">{{ (c.terminoContrato || '—').replaceAll('_',' ') }}</td>
-    <td>
-      <v-chip :color="c.estado === 'activo' ? 'success' : 'grey'" size="small" variant="flat">
-        {{ c.estado }}
-      </v-chip>
-    </td>
-              <td>{{ (c.fechaInicio || '').slice(0,10) }}</td>
-              <td>{{ c.fechaTerminacion ? String(c.fechaTerminacion).slice(0,10) : '—' }}</td>
-              <td>{{ c.sede?.nombre || '—' }}</td>
-              <td>{{ c.cargo?.nombre || '—' }}</td>
-
-              <td>
-                <div v-if="c.rutaArchivoContratoFisico" class="d-flex flex-wrap ga-2">
-                  <v-btn
-                    size="x-small"
-                    variant="tonal"
-                    prepend-icon="mdi-file-eye-outline"
-                    :href="toAbsoluteApiUrl(c.rutaArchivoContratoFisico)"
-                    target="_blank"
-                  >
-                    Ver / Descargar
-                  </v-btn>
-                </div>
-                <span v-else>—</span>
-              </td>
-
-              <td class="d-flex ga-2">
-                <v-btn
-                  size="x-small"
-                  color="warning"
-                  variant="tonal"
-                  prepend-icon="mdi-pencil"
-                  @click="editarContrato(c)"
-                >Editar</v-btn>
-
-                <v-btn
-                  size="x-small"
-                  :color="c.estado === 'activo' ? 'error' : 'success'"
-                  variant="tonal"
-                  :prepend-icon="c.estado === 'activo' ? 'mdi-cancel' : 'mdi-check-circle'"
-                  @click="toggleEstadoContrato(c)"
-                >{{ c.estado === 'activo' ? 'Inactivar' : 'Activar' }}</v-btn>
-              </td>
-            </tr>
-          </tbody>
-        </v-table>
-      </v-card-text>
-    </v-card>
-
-    <!-- Modal Paso -->
-    <v-dialog v-model="modalPaso.mostrar" max-width="600px">
-      <v-card>
-        <v-card-title class="text-h6">
-          {{ modalPaso.paso?.completado ? 'Editar paso' : 'Completar paso' }}: {{ modalPaso.paso?.nombre }}
-        </v-card-title>
-
-        <v-card-text>
-          <v-alert
-            v-if="isEditing && modalPaso.paso?.archivoUrl"
-            type="success"
-            variant="tonal"
-            class="mb-3"
-          >
-            <div class="d-flex flex-wrap align-center ga-2">
-              <div>
-                <strong>Archivo actual:</strong>
-                {{ modalPaso.paso?.nombreArchivo || modalPaso.paso?.archivoUrl?.split('/').pop() }}
-              </div>
-              <v-btn size="x-small" variant="tonal" prepend-icon="mdi-eye" @click="verArchivoPaso">Ver</v-btn>
-              <v-btn size="x-small" variant="tonal" prepend-icon="mdi-download" @click="descargarArchivoPaso">Descargar</v-btn>
-              <v-btn size="x-small" color="error" variant="tonal" prepend-icon="mdi-delete" @click="eliminarArchivoPaso">Eliminar</v-btn>
-            </div>
-          </v-alert>
-
-          <v-form ref="formPaso" @submit.prevent="completarPasoConfirmado">
-            <v-textarea v-model="modalPaso.form.observacion" label="Observación" variant="outlined" rows="3" class="mb-4" />
-            <v-file-input
-              v-model="modalPaso.form.archivo"
-              label="Archivo adjunto (opcional — reemplaza el actual)"
-              variant="outlined"
-              density="compact"
-              show-size
-              prepend-icon="mdi-paperclip"
-              accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,image/jpeg,image/png"
-              @change="onFilePasoChange"
-            />
-            <div class="text-caption text-medium-emphasis mt-1">
-              Permitidos: PDF, DOC, DOCX, JPG, PNG (máx {{ MAX_UPLOAD_MB }} MB)
-            </div>
-          </v-form>
-        </v-card-text>
-
-        <v-card-actions>
-          <v-spacer />
-          <v-btn color="grey-darken-1" variant="text" @click="cerrarModalPaso">Cancelar</v-btn>
-          <v-btn
-            :color="modalPaso.paso?.completado ? 'warning' : 'primary'"
-            variant="flat"
-            :loading="modalPaso.loading"
-            :disabled="modalPaso.loading"
-            type="submit"
-            @click="completarPasoConfirmado"
-          >
-            {{ modalPaso.paso?.completado ? 'Guardar Cambios' : 'Marcar como Completado' }}
-          </v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
+    <HistorialContratos
+      v-if="usuarioSeleccionado"
+      :contratos="contratosUsuario"
+      :loading="loadingContratos"
+      :to-absolute-api-url="toAbsoluteApiUrl"
+      @editar="editarContrato"
+      @toggleEstado="toggleEstadoContrato"
+    />
 
     <!-- Dialogo Certificado -->
-    <v-dialog v-model="certDialog.open" max-width="640px">
-      <v-card>
-        <v-card-title class="text-h6">
-          {{ certDialog.entidadNombre ? certDialog.entidadNombre : 'Entidad' }} — Certificado ({{ certDialog.tipo?.toUpperCase() }})
-        </v-card-title>
-        <v-card-text>
-          <v-alert v-if="certDialog.loading" type="info" variant="tonal" class="mb-3">
-            Cargando información del certificado...
-          </v-alert>
-
-          <div v-else>
-            <v-alert v-if="certTieneArchivoPersistido" type="success" variant="tonal" class="mb-3">
-              <div class="d-flex flex-wrap align-center ga-2">
-                <div><strong>Actual:</strong> {{ getArchivoNombre(certDialog.meta) || 'Archivo cargado' }}</div>
-              </div>
-            </v-alert>
-
-            <v-file-input
-              v-model="certDialog.file"
-              label="Seleccionar archivo (PDF/JPG/PNG/WEBP)"
-              accept=".pdf,.jpg,.jpeg,.png,.webp,application/pdf,image/jpeg,image/png,image/webp"
-              variant="outlined"
-              density="compact"
-              prepend-icon="mdi-paperclip"
-              show-size
-              class="mb-1"
-            />
-
-            <div v-if="!certTieneArchivoPersistido && certDialog.file" class="text-caption text-medium-emphasis mb-1">
-              Archivo seleccionado: <strong>{{ certDialog.file.name }}</strong> — listo para <em>Subir</em>.
-            </div>
-
-            <div class="text-caption text-medium-emphasis">Permitidos: PDF, JPG, PNG, WEBP (máx {{ MAX_UPLOAD_MB }} MB)</div>
-          </div>
-        </v-card-text>
-
-        <v-card-actions>
-          <v-spacer />
-          <v-btn variant="text" color="grey-darken-1" @click="cerrarCertDialog">Cerrar</v-btn>
-
-          <v-btn v-if="certTieneArchivoPersistido" variant="tonal" prepend-icon="mdi-download" @click="descargarCertificadoSeleccionado">Descargar</v-btn>
-          <v-btn v-if="certTieneArchivoPersistido" variant="tonal" color="error" prepend-icon="mdi-delete" @click="eliminarCertificadoSeleccionado">Eliminar</v-btn>
-
-          <v-btn
-            color="primary"
-            variant="flat"
-            prepend-icon="mdi-upload"
-            :disabled="!certDialog.file || certDialog.loading"
-            @click="subirCertificadoSeleccionado"
-          >
-            {{ certTieneArchivoPersistido ? 'Reemplazar' : 'Subir' }}
-          </v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
+    <DialogoCertificado
+      :open="certDialog.open"
+      :loading="certDialog.loading"
+      :tipo="certDialog.tipo"
+      :entidad-nombre="certDialog.entidadNombre"
+      :has-file="certTieneArchivoPersistido"
+      :file-name="getArchivoNombre(certDialog.meta) || null"
+      :file="certDialog.file"
+      :max-upload-mb="MAX_UPLOAD_MB"
+      @update:open="(v)=> certDialog.open = v"
+      @update:file="(f)=> certDialog.file = f"
+      @subir="subirCertificadoSeleccionado"
+      @eliminar="eliminarCertificadoSeleccionado"
+      @descargar="descargarCertificadoSeleccionado"
+      @cerrar="cerrarCertDialog"
+    />
 
     <!-- Dialogo Recomendación Médica -->
-    <v-dialog v-model="recDialog.open" max-width="640px">
-      <v-card>
-        <v-card-title class="text-h6">Recomendación Médica — Archivo</v-card-title>
-        <v-card-text>
-          <v-alert v-if="recDialog.loading" type="info" variant="tonal" class="mb-3">
-            Cargando información de la recomendación...
-          </v-alert>
-
-          <div v-else>
-            <v-alert v-if="recTieneArchivo" type="success" variant="tonal" class="mb-3">
-              <div class="d-flex flex-wrap align-center ga-2">
-                <div><strong>Actual:</strong> {{ recNombreActual || 'Archivo cargado' }}</div>
-              </div>
-            </v-alert>
-
-            <v-file-input
-              v-model="recDialog.file"
-              label="Seleccionar archivo (PDF/DOC/DOCX)"
-              accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-              variant="outlined"
-              density="compact"
-              prepend-icon="mdi-paperclip"
-              show-size
-              class="mb-1"
-            />
-            <div v-if="!recTieneArchivo && recDialog.file" class="text-caption text-medium-emphasis mb-1">
-              Archivo seleccionado: <strong>{{ recDialog.file.name }}</strong> — listo para <em>Subir</em>.
-            </div>
-            <div class="text-caption text-medium-emphasis">Permitidos: PDF, DOC, DOCX (máx {{ MAX_UPLOAD_MB }} MB)</div>
-          </div>
-        </v-card-text>
-
-        <v-card-actions>
-          <v-spacer />
-          <v-btn variant="text" color="grey-darken-1" @click="cerrarRecDialog">Cerrar</v-btn>
-          <v-btn v-if="recTieneArchivo" variant="tonal" prepend-icon="mdi-download" @click="descargarRecomendacionSeleccionada">Descargar</v-btn>
-          <v-btn v-if="recTieneArchivo" variant="tonal" color="error" prepend-icon="mdi-delete" @click="eliminarRecomendacionSeleccionada">Eliminar</v-btn>
-          <v-btn color="primary" variant="flat" prepend-icon="mdi-upload" :disabled="!recDialog.file || recDialog.loading" @click="subirRecomendacionSeleccionada">
-            {{ recTieneArchivo ? 'Reemplazar' : 'Subir' }}
-          </v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
+    <DialogoRecomendacion
+      :open="recDialog.open"
+      :loading="recDialog.loading"
+      :has-file="recTieneArchivo"
+      :file-name="recNombreActual"
+      :file="recDialog.file"
+      :max-upload-mb="MAX_UPLOAD_MB"
+      @update:open="(v)=> recDialog.open = v"
+      @update:file="(f)=> recDialog.file = f"
+      @subir="subirRecomendacionSeleccionada"
+      @eliminar="eliminarRecomendacionSeleccionada"
+      @descargar="descargarRecomendacionSeleccionada"
+    />
 
     <!-- Diálogo Confirmación: eliminar recomendación al desmarcar -->
     <v-dialog v-model="dialogEliminarRec" max-width="480px">
@@ -966,13 +254,57 @@
 
 
 <script setup lang="ts">
+import FiltrosContratos from '@/components/contratos/FiltrosContratos.vue'
+import AnexoContrato from '@/components/contratos/AnexoContrato.vue'
+import DialogoRecomendacion from '@/components/contratos/DialogoRecomendacion.vue'
+import DialogoCertificado from '@/components/contratos/DialogoCertificado.vue'
+import PasosContrato from '@/components/contratos/PasosContrato.vue'
+import HistorialContratos from '@/components/contratos/HistorialContratos.vue'
+import FormularioContrato from '@/components/contratos/FormularioContrato.vue'
+
+/* Composables */
+import { useContratosFilters } from '@/composables/contratos/useContratosFilters'
+const {
+  razonSocialSeleccionada,
+  usuarioSeleccionado,
+  tipoContratoSeleccionado,
+  razonesSociales,
+  usuarios,
+  loadingRazonesSociales,
+  loadingUsuarios,
+  tiposContratoSelectItems,
+  cargarRazonesSociales,
+  cargarUsuariosPorRazonSocial,
+} = useContratosFilters()
+
+import { useAlerts } from '@/composables/contratos/useAlerts'
+const { showAlertDialog, alertDialogTitle, alertDialogMessage, showAlert, snackbar, notify } = useAlerts()
+
+import { useContratoTermOptions } from '@/composables/contratos/useContratoTermOptions'
+const { terminosContratoOptions, terminoContratoRules } = useContratoTermOptions(tipoContratoSeleccionado)
+
+
+import { toAbsoluteApiUrl } from '@/composables/contratos/useUrlApi'
+
+import { useMaestrosRRHH } from '@/composables/contratos/useMaestrosRRHH'
+const {
+  sedes, cargos, entidadesSalud,
+  loadingSedes, loadingCargos, loadingEntidades,
+  filteredEps, filteredArl, filteredAfp, filteredAfc, filteredCcf,
+  cargarMaestros,
+} = useMaestrosRRHH()
+
+
+
+
+
+
+
+
 /* Vue + VeeValidate */
 import { ref, computed, watch, onMounted, nextTick } from 'vue'
 import { useForm, useField } from 'vee-validate'
 
-/* Datos maestros */
-import { listarRazonesSociales, fetchUsuariosPorRazonSocial } from '@/services/razonSocialService'
-import { obtenerSedes, obtenerCargos, obtenerEntidadesSalud } from '@/services/UserService'
 
 /* Contratos (incluye afiliaciones POR CONTRATO) */
 import {
@@ -995,7 +327,7 @@ import {
 import { fetchPasosContrato as fetchPasosContratoAPI } from '@/services/contratosPasosService'
 
 /* =========================================================
- * Helpers de tipado y normalización
+ * Helpers
  * ========================================================= */
 type Dict = Record<string, unknown>
 function isRecord(x: unknown): x is Dict { return typeof x === 'object' && x !== null }
@@ -1021,29 +353,7 @@ const MAX_MONEY = 2_000_000_000
 
 const isSaving = ref(false)
 
-/* =====================================================================
- * URL ABSOLUTA HACIA LA API
- * ===================================================================== */
-const API_ORIGIN = (() => {
-  const raw =
-    import.meta.env.VITE_API_BASE_URL ??
-    import.meta.env.VITE_API_URL ??
-    'http://localhost:3333'
-  try { return new URL(String(raw)).origin } catch { return String(raw).replace(/\/+$/, '') }
-})()
-
-function toAbsoluteApiUrl(input?: string | null): string {
-  if (!input) return ''
-  const raw = String(input).trim()
-
-  // Si ya es absoluta, NO la toques
-  if (/^https?:\/\//i.test(raw)) return raw
-
-  // Si es relativa, complétala contra el BACKEND (API_ORIGIN)
-  const base = API_ORIGIN.replace(/\/+$/, '')
-  const rel = raw.startsWith('/') ? raw : `/${raw}`
-  return `${base}${rel}`
-}
+/* URL ABSOLUTA HACIA LA API */
 
 function extOf(name?: string) {
   if (!name) return ''
@@ -1062,10 +372,8 @@ function validateFileOrMsg(
   return null
 }
 
-
 /* ======= Money typing ======= */
 type MoneyInput = number | ''
-
 function sanitizeMoney(v: unknown): MoneyInput {
   if (v === null || v === undefined || v === '') return ''
   const n = Number(String(v).replace(/[^\d.-]/g, ''))
@@ -1073,14 +381,7 @@ function sanitizeMoney(v: unknown): MoneyInput {
   return Math.min(n, MAX_MONEY)
 }
 
-/* ======= Selects / tipos ======= */
-const tiposContratoSelectItems = ref([
-  { nombre: 'Prestación de Servicios', valor: 'prestacion' as const },
-  { nombre: 'Temporal', valor: 'temporal' as const },
-  { nombre: 'Laboral', valor: 'laboral' as const },
-  { nombre: 'Contrato de Aprendizaje', valor: 'aprendizaje' as const },
-])
-
+/* ======= Tipos ======= */
 type AfiliacionTipo = 'eps' | 'arl' | 'afp' | 'afc' | 'ccf'
 interface Paso {
   id?: number
@@ -1095,28 +396,6 @@ interface Paso {
   orden?: number
 }
 
-interface SedeLite { id: number; nombre: string }
-interface CargoLite { id: number; nombre: string }
-interface EntidadSalud { id: number; nombre: string; tipo: AfiliacionTipo | string }
-interface UsuarioLiteOpt { id: number; nombres: string; apellidos: string; nombreCompleto?: string }
-interface ContratoRow {
-  id: number
-  tipoContrato: 'prestacion' | 'temporal' | 'laboral' | 'aprendizaje' | string
-  terminoContrato: 'fijo' | 'obra_o_labor_determinada' | 'indefinido' | string | null
-  estado: 'activo' | 'inactivo'
-  fechaInicio: string
-  fechaTerminacion: string | null
-  sede?: SedeLite | null
-  cargo?: CargoLite | null
-  rutaArchivoContratoFisico?: string | null
-  rutaArchivoRecomendacionMedica?: string | null
-  salarios?: Array<{ salarioBasico:number; bonoSalarial:number; auxilioTransporte:number; auxilioNoSalarial:number }>
-  salarioBasico?: number
-  bonoSalarial?: number
-  auxilioTransporte?: number
-  auxilioNoSalarial?: number
-  epsId?: number | null; arlId?: number | null; afpId?: number | null; afcId?: number | null; ccfId?: number | null
-}
 
 /** Payload mínimo esperado por crearContrato (ajusta a tu backend si hace falta) */
 interface CrearContratoPayload {
@@ -1143,10 +422,8 @@ interface CrearContratoPayload {
   auxilioTransporte: number
   auxilioNoSalarial: number
 }
-
 /** Respuesta mínima de crearContrato */
 interface CrearContratoResponse extends ContratoRow { id: number; salarios?: ContratoRow['salarios'] }
-
 /** Payload para anexarContrato */
 interface AnexarContratoPayload {
   contratoId: number
@@ -1157,36 +434,17 @@ interface AnexarContratoPayload {
 }
 
 /* ======= Estado base ======= */
-const razonSocialSeleccionada = ref<number | null>(null)
-const usuarioSeleccionado = ref<number | null>(null)
-const tipoContratoSeleccionado = ref<'prestacion' | 'temporal' | 'laboral' | 'aprendizaje'>('prestacion')
 
-const razonesSociales = ref<Array<{ id:number; nombre:string }>>([])
-const usuarios = ref<UsuarioLiteOpt[]>([])
-const sedes = ref<SedeLite[]>([])
-const cargos = ref<CargoLite[]>([])
-const entidadesSalud = ref<EntidadSalud[]>([])
-
-const loadingRazonesSociales = ref(false)
-const loadingUsuarios = ref(false)
-const loadingSedes = ref(false)
-const loadingCargos = ref(false)
-const loadingEntidades = ref(false)
 const loadingPasos = ref(false)
 
 const isEditing = ref(false)
 const contratoEditId = ref<number | null>(null)
 
-/* ======= Archivos: contrato + recomendación ======= */
+/* Archivos: contrato + recomendación */
 const archivoContrato = ref<File | null>(null)
-
-/** 🔑 Claves para forzar re-render */
+/** 🔑 Claves para forzar re-render del file input del contrato */
 const fileBlockKey = ref(0)
 const fileInputRenderKey = ref(0)
-const fileInputRef = ref<{ reset?: () => void } | null>(null)
-
-const identificacionRef = ref<HTMLInputElement | null>(null)
-
 const tieneRecomendacionesMedicas = ref(false)
 const archivoRecomendacionMedica = ref<File | null>(null)
 
@@ -1253,7 +511,6 @@ const recUiKey = computed(() => `${contratoEditId.value || 'new'}-${recUiTick.va
 const recTieneArchivo = computed(() => isEditing.value ? !!recMetaCache.value?.url : !!archivoRecomendacionMedica.value)
 const recNombreActual = computed(() => isEditing.value ? (recMetaCache.value?.nombre || recMetaCache.value?.url?.split('/').pop() || '') : (archivoRecomendacionMedica.value?.name || ''))
 
-/* ======= 🔹 Helper: sincroniza el switch según meta/archivo/flag backend ======= */
 function syncTieneRecFlagFromMeta(extraFlag?: unknown) {
   const hasMeta = !!(recMetaCache.value?.url || recMetaCache.value?.nombre)
   const hasPending = !!archivoRecomendacionMedica.value
@@ -1267,34 +524,7 @@ const onlyDigits = (v: unknown) =>
   (v === '' || v === null || v === undefined || /^\d+$/.test(String(v))) ||
   'Solo se permiten números.'
 
-/** Opciones del término por tipo de contrato */
-const terminosContratoOptions = computed(() => {
-  const t = tipoContratoSeleccionado.value
-  if (t === 'laboral') {
-    return [
-      { text: 'Fijo', value: 'fijo' },
-      { text: 'Obra o labor determinada', value: 'obra_o_labor_determinada' },
-      { text: 'Indefinido', value: 'indefinido' },
-    ] as const
-  }
-  if (t === 'temporal') {
-    return [{ text:'Obra o labor determinada', value:'obra_o_labor_determinada' }] as const
-  }
-  if (t === 'prestacion') {
-    return [
-      { text: 'Fijo', value: 'fijo' },
-      { text: 'Obra o labor determinada', value: 'obra_o_labor_determinada' },
-    ] as const
-  }
-  // aprendizaje
-  return [{ text:'Fijo', value:'fijo' }] as const
-})
-
-/** Reglas: obligatorio si hay opciones para elegir */
-const terminoContratoRules = computed(() =>
-  terminosContratoOptions.value.length ? [required] : []
-)
-
+/* Fecha terminación (reglas locales) */
 const isFechaTerminacionRequired = computed(() => {
   const t = tipoContratoSeleccionado.value
   if (t === 'prestacion' || t === 'aprendizaje' || t === 'temporal') return true
@@ -1302,20 +532,12 @@ const isFechaTerminacionRequired = computed(() => {
   return false
 })
 const isFechaTerminacionVisible = isFechaTerminacionRequired
-
 const fechaTerminacionRules = computed(() => isFechaTerminacionRequired.value ? [required] : [])
 
+/* Campos */
 const { value: identificacion, errorMessage: identificacionError } =
-  useField<string>(
-    'identificacion',
-    [
-      required,
-      onlyDigits,
-      (val: string) =>
-        (val?.trim()?.length ?? 0) >= 5 || 'Debe tener al menos 5 caracteres.'
-    ],
-    { initialValue: '' }
-  )
+  useField<string>('identificacion', [required, onlyDigits, (val: string) =>
+    (val?.trim()?.length ?? 0) >= 5 || 'Debe tener al menos 5 caracteres.'], { initialValue: '' })
 
 const { value: sedeId, errorMessage: sedeIdError } = useField<number | null>('sedeId', [required], { initialValue: null })
 const { value: cargoId, errorMessage: cargoIdError } = useField<number | null>('cargoId', [required], { initialValue: null })
@@ -1323,9 +545,11 @@ const { value: funcionesCargo, errorMessage: funcionesCargoError } = useField<st
 
 const { value: fechaInicio, errorMessage: fechaInicioError } = useField<string>('fechaInicio', [required], { initialValue: '' })
 const { value: fechaTerminacion, errorMessage: fechaTerminacionError } = useField<string>('fechaTerminacion', fechaTerminacionRules, { initialValue: '' })
-const { value: terminoContrato, errorMessage: terminoContratoError } = useField<'fijo' | 'obra_o_labor_determinada' | 'indefinido' | null>('terminoContrato', terminoContratoRules, { initialValue: null })
 
-// Afiliaciones obligatorias (AFC opcional)
+const { value: terminoContrato, errorMessage: terminoContratoError } =
+  useField<'fijo' | 'obra_o_labor_determinada' | 'indefinido' | null>('terminoContrato', terminoContratoRules, { initialValue: null })
+
+/* Afiliaciones obligatorias (AFC opcional) */
 const { value: epsId, errorMessage: epsIdError } = useField<number | null>('epsId', [required], { initialValue: null })
 const { value: arlId, errorMessage: arlIdError } = useField<number | null>('arlId', [required], { initialValue: null })
 const { value: afpId, errorMessage: afpIdError } = useField<number | null>('afpId', [required], { initialValue: null })
@@ -1339,18 +563,10 @@ const moneyRules = [
 ]
 const requiredMoney = (v: MoneyInput) => (v !== '') || 'Requerido.'
 
-const { value: salarioBasico, errorMessage: salarioBasicoError } =
-  useField<MoneyInput>('salarioBasico', [requiredMoney, ...moneyRules], { initialValue: '' })
-
-const { value: bonoSalarial } =
-  useField<MoneyInput>('bonoSalarial', moneyRules, { initialValue: '' })
-
-const { value: auxilioTransporte } =
-  useField<MoneyInput>('auxilioTransporte', moneyRules, { initialValue: '' })
-
-const { value: auxilioNoSalarial } =
-  useField<MoneyInput>('auxilioNoSalarial', moneyRules, { initialValue: '' })
-
+const { value: salarioBasico, errorMessage: salarioBasicoError } = useField<MoneyInput>('salarioBasico', [requiredMoney, ...moneyRules], { initialValue: '' })
+const { value: bonoSalarial } = useField<MoneyInput>('bonoSalarial', moneyRules, { initialValue: '' })
+const { value: auxilioTransporte } = useField<MoneyInput>('auxilioTransporte', moneyRules, { initialValue: '' })
+const { value: auxilioNoSalarial } = useField<MoneyInput>('auxilioNoSalarial', moneyRules, { initialValue: '' })
 const { value: centroCosto } = useField<string>('centroCosto', [], { initialValue: '' })
 
 const salarioTotalCalculado = computed(() => {
@@ -1365,11 +581,7 @@ const salarioTotalCalculado = computed(() => {
 const centrosCostoOptions = ref<string[]>([
   'ADMINISTRACIÓN','TALENTO HUMANO','CONTABILIDAD','OPERACIÓN','SERVICIO AL CLIENTE','DIRECCIÓN','COMERCIAL',
 ])
-const filteredEps = computed(() => entidadesSalud.value.filter((e) => e.tipo === 'eps'))
-const filteredArl = computed(() => entidadesSalud.value.filter((e) => e.tipo === 'arl'))
-const filteredAfp = computed(() => entidadesSalud.value.filter((e) => e.tipo === 'afp'))
-const filteredAfc = computed(() => entidadesSalud.value.filter((e) => e.tipo === 'afc'))
-const filteredCcf = computed(() => entidadesSalud.value.filter((e) => e.tipo === 'ccf'))
+
 
 /* ======= Pasos ======= */
 const basePasosPrestacion: Paso[] = [
@@ -1395,20 +607,24 @@ const basePasosLaboral: Paso[] = [
 
 const pasosBackend = ref<Paso[] | null>(null)
 const pasosVersion = ref(0)
+/** ✅ Estado local para MODO CREACIÓN (conserva cambios del usuario) */
+const pasosLocal = ref<Paso[] | null>(null)
+
 function resetPasos() {
   pasosVersion.value++
   pasosBackend.value = null
+  pasosLocal.value = null
 }
-const pasosContrato = computed<Paso[]>(() => {
-  void pasosVersion.value
-  if (isEditing.value && pasosBackend.value) return pasosBackend.value
+function construirBasePasos(): Paso[] {
   let base: Paso[] = []
   if (tipoContratoSeleccionado.value === 'prestacion' || tipoContratoSeleccionado.value === 'aprendizaje') base = basePasosPrestacion
   else if (tipoContratoSeleccionado.value === 'temporal') base = basePasosTemporal
   else base = basePasosLaboral
 
-  return base.map((p, i) => (Object.assign({}, p, {
+  return base.map((p, i) => ({
     id: undefined,
+    nombre: p.nombre,
+    fase: p.fase,
     orden: i + 1,
     completado: false,
     observacion: undefined,
@@ -1416,8 +632,16 @@ const pasosContrato = computed<Paso[]>(() => {
     archivoUrl: undefined,
     archivoFile: null,
     fechaCompletado: undefined,
-  })))
+  }))
+}
+
+const pasosContrato = computed<Paso[]>(() => {
+  void pasosVersion.value
+  if (isEditing.value && pasosBackend.value) return pasosBackend.value
+  if (!pasosLocal.value) pasosLocal.value = construirBasePasos()
+  return pasosLocal.value
 })
+
 function filenameFromUrl(u?: string | null) {
   if (!u) return undefined
   try { return decodeURIComponent(u.split('/').pop() || '') || undefined } catch { return (u.split('/').pop() || undefined) }
@@ -1447,18 +671,6 @@ async function cargarPasosDesdeBackend(contratoId: number) {
   } finally { loadingPasos.value = false }
 }
 
-/* ======= Alertas / snackbar ======= */
-const showAlertDialog = ref(false)
-const alertDialogTitle = ref('')
-const alertDialogMessage = ref('')
-const showAlert = (title: string, message: string) => {
-  alertDialogTitle.value = title
-  alertDialogMessage.value = message
-  showAlertDialog.value = true
-}
-const snackbar = ref({ show:false, text:'', color:'success', timeout:1800 })
-const notify = (text:string, color:'success'|'error'|'warning'|'info'='success') => { snackbar.value = { show:true, text, color, timeout:1800 } }
-
 /* ======= Certificados (por contrato) ======= */
 const certDialog = ref({
   open:false,
@@ -1478,21 +690,17 @@ const certTieneArchivoPersistido = computed(() => {
   }
   return !!pendingCertsByTipo.value[t]
 })
-
 function cerrarCertDialog() {
   certDialog.value = { ...certDialog.value, open:false, tipo:'', entidadId:null, entidadNombre:'', file:null, loading:false, meta:null }
 }
-
 function openCert(tipo: AfiliacionTipo, ev?: MouseEvent) {
   ev?.stopPropagation(); ev?.preventDefault()
   abrirDialogoCertificado(tipo)
 }
-
 async function abrirDialogoCertificado(tipo: AfiliacionTipo) {
   const idMap: Record<AfiliacionTipo, number | null> = { eps: epsId.value, arl: arlId.value, afp: afpId.value, afc: afcId.value, ccf: ccfId.value }
   const id = idMap[tipo]
   if (!id) return showAlert('Selecciona una entidad', 'Elige la entidad para gestionar su certificado.')
-
   const ent = entidadesSalud.value.find((e) => e.id === id)
   certDialog.value = {
     ...certDialog.value,
@@ -1518,7 +726,6 @@ async function abrirDialogoCertificado(tipo: AfiliacionTipo) {
     certDialog.value.meta = f ? { data: { nombreOriginal: f.name } } : null
   }
 }
-
 async function subirCertificadoSeleccionado() {
   const t = certDialog.value.tipo as AfiliacionTipo
   const entidadId = certDialog.value.entidadId
@@ -1554,11 +761,9 @@ async function subirCertificadoSeleccionado() {
     certDialog.value.loading = false
   }
 }
-
 async function eliminarCertificadoSeleccionado() {
   const t = certDialog.value.tipo as AfiliacionTipo
   if (!t) return
-
   if (!isEditing.value) {
     pendingCertsByTipo.value[t] = null
     pendingEntidadIdByTipo.value[t] = null
@@ -1568,7 +773,6 @@ async function eliminarCertificadoSeleccionado() {
     notify('Archivo pendiente descartado.', 'success')
     return
   }
-
   if (!contratoEditId.value) return
   try {
     await eliminarArchivoAfiliacion(Number(contratoEditId.value), t)
@@ -1580,10 +784,8 @@ async function eliminarCertificadoSeleccionado() {
     notify((e as Error)?.message || 'No fue posible eliminar el archivo.', 'error')
   }
 }
-
 async function descargarCertificadoSeleccionado() {
   const t = certDialog.value.tipo as AfiliacionTipo
-
   if (!isEditing.value) {
     const f = pendingCertsByTipo.value[t]
     if (!f) return notify('No hay archivo para ver.', 'error')
@@ -1670,7 +872,6 @@ async function descargarRecomendacionSeleccionada() {
 
 /* ======= Diálogo de confirmación al desmarcar el check ======= */
 const dialogEliminarRec = ref(false)
-
 watch(tieneRecomendacionesMedicas, async (nuevo, viejo) => {
   if (viejo && !nuevo) {
     if (isEditing.value && recMetaCache.value?.url) {
@@ -1682,7 +883,6 @@ watch(tieneRecomendacionesMedicas, async (nuevo, viejo) => {
     recUiTick.value++
   }
 })
-
 async function confirmarEliminarRecMedica() {
   try {
     if (isEditing.value && contratoEditId.value) {
@@ -1700,7 +900,7 @@ async function confirmarEliminarRecMedica() {
   }
 }
 
-/* ======= Carga de datos (normalizada a arrays) ======= */
+/* ======= Carga de datos ======= */
 const contratosUsuario = ref<ContratoRow[]>([])
 const loadingContratos = ref(false)
 async function cargarHistorialContratos() {
@@ -1712,63 +912,16 @@ async function cargarHistorialContratos() {
   } catch { contratosUsuario.value = [] }
   finally { loadingContratos.value = false }
 }
-async function cargarRazonesSociales(){
-  loadingRazonesSociales.value = true
-  try {
-    const raw = await listarRazonesSociales()
-    razonesSociales.value = toArray<{ id:number; nombre:string }>(raw)
-  } finally { loadingRazonesSociales.value = false }
-}
-async function cargarUsuariosPorRazonSocial(){
-  loadingUsuarios.value = true
-  usuarios.value = []
-  usuarioSeleccionado.value = null
-  if (razonSocialSeleccionada.value) {
-    try {
-      const raw = await fetchUsuariosPorRazonSocial(razonSocialSeleccionada.value)
-      const arr = toArray<UsuarioLiteOpt>(raw)
-      usuarios.value = arr.map(u => ({ ...u, nombreCompleto:`${u.nombres} ${u.apellidos}`.trim() }))
-    } finally { loadingUsuarios.value = false }
-  } else loadingUsuarios.value = false
-}
-async function cargarSedes(){
-  loadingSedes.value = true
-  try {
-    const raw = await obtenerSedes()
-    sedes.value = toArray<SedeLite>(raw)
-  } finally { loadingSedes.value = false }
-}
-async function cargarCargos(){
-  loadingCargos.value = true
-  try {
-    const raw = await obtenerCargos()
-    cargos.value = toArray<CargoLite>(raw)
-  } finally { loadingCargos.value = false }
-}
-async function cargarEntidadesSalud(){
-  loadingEntidades.value = true
-  try {
-    const raw = await obtenerEntidadesSalud()
-    entidadesSalud.value = toArray<EntidadSalud>(raw)
-  } finally { loadingEntidades.value = false }
-}
 
-/* ============
- * Estado de reintento de anexado
- * ============ */
+
+/* ======= Reintento de anexado ======= */
 const contratoPendienteAnexoId = ref<number | null>(null)
 
 /* ======= Crear contrato ======= */
 const submitForm = handleSubmit(async (values) => { await crearYAnexarContrato(values) })
-
 async function handleConfirmacion() {
   if (isSaving.value) return
-
-  // Si hay contrato creado pero faltó anexar, reintentar anexar directamente
-  if (contratoPendienteAnexoId.value) {
-    await reanexarArchivoContrato()
-    return
-  }
+  if (contratoPendienteAnexoId.value) { await reanexarArchivoContrato(); return }
 
   const { valid } = await validate()
   if (!valid) return showAlert('Error de Validación', 'Revisa los campos en rojo.')
@@ -1780,14 +933,10 @@ async function handleConfirmacion() {
     return showAlert('Falta el término', 'Selecciona el Término de Contrato (Fijo u Obra o labor determinada).')
   }
   if (tipo === 'temporal') {
-    if (!termino || termino !== 'obra_o_labor_determinada') {
-      terminoContrato.value = 'obra_o_labor_determinada'
-    }
+    if (!termino || termino !== 'obra_o_labor_determinada') terminoContrato.value = 'obra_o_labor_determinada'
   }
   if (tipo === 'aprendizaje') {
-    if (!termino || termino !== 'fijo') {
-      terminoContrato.value = 'fijo'
-    }
+    if (!termino || termino !== 'fijo') terminoContrato.value = 'fijo'
   }
   if (tipo === 'laboral' && !termino) {
     return showAlert('Falta el término', 'En contrato laboral selecciona Fijo, Obra o labor determinada o Indefinido.')
@@ -1879,11 +1028,9 @@ async function crearYAnexarContrato(formData: Record<string, unknown>) {
       }
       await anexarContrato(anexarPayload)
     } catch (e) {
-      // Creación fue OK pero el anexado falló → guardamos el ID para reintento
       contratoPendienteAnexoId.value = Number(nc.id)
       notify('El contrato se creó, pero falló el anexado del PDF. Puedes reintentar.', 'warning')
       await cargarHistorialContratos()
-      // No reseteamos formulario para permitir reintento inmediato
       return
     }
 
@@ -1992,7 +1139,6 @@ async function editarContrato(c: ContratoRow) {
   ccfId.value = (src['ccfId'] as number | null) ?? null
 
   const salarios = (Array.isArray(src['salarios']) ? src['salarios'] as Array<{ salarioBasico?:number; bonoSalarial?:number; auxilioTransporte?:number; auxilioNoSalarial?:number }> : [])
-  // ⚙️ Money fields (typed as number | '')
   const sb = (src['salarioBasico'] as number | undefined) ?? salarios[0]?.salarioBasico
   const bs = (src['bonoSalarial'] as number | undefined) ?? salarios[0]?.bonoSalarial
   const at = (src['auxilioTransporte'] as number | undefined) ?? salarios[0]?.auxilioTransporte
@@ -2058,7 +1204,6 @@ async function guardarCambiosContrato() {
       showAlert('Falta el término', 'En contrato laboral selecciona Fijo, Obra o labor determinada o Indefinido.')
       return
     }
-
     if (isFechaTerminacionRequired.value && !fechaTerminacion.value) {
       showAlert('Advertencia', 'La fecha de terminación es obligatoria para este tipo de contrato.')
       return
@@ -2163,7 +1308,11 @@ function abrirModalPaso(paso: Paso, ev?: MouseEvent){
   ev?.stopPropagation()
   ev?.preventDefault()
   modalPaso.value.paso = paso
-  modalPaso.value.form = { observacion: paso.observacion || '', archivo: null }
+  // ⬇️ clave: reinyectar el archivo pendiente en modo CREACIÓN
+  modalPaso.value.form = {
+    observacion: paso.observacion || '',
+    archivo: paso.archivoFile || null,
+  }
   nextTick(() => { modalPaso.value.mostrar = true })
 }
 function cerrarModalPaso(){
@@ -2177,6 +1326,7 @@ function verArchivoPaso() {
   window.open(url, '_blank', 'noopener')
 }
 const descargarArchivoPaso = verArchivoPaso
+
 async function eliminarArchivoPaso() {
   const p = modalPaso.value.paso
   if (!isEditing.value || !contratoEditId.value || !p?.id) return
@@ -2197,6 +1347,7 @@ async function eliminarArchivoPaso() {
     notify((e as Error)?.message || 'No fue posible eliminar el archivo del paso.', 'error')
   }
 }
+
 async function completarPasoConfirmado() {
   const p = modalPaso.value.paso
   const obs = (modalPaso.value.form.observacion || '').trim()
@@ -2207,18 +1358,22 @@ async function completarPasoConfirmado() {
     if (msg) { notify(msg, 'error'); return }
   }
 
+  // Modo CREACIÓN: guardar todo localmente
   if (!isEditing.value) {
     if (p) {
       p.completado = true
       p.observacion = obs || p.observacion
       p.archivoFile = file || p.archivoFile
       p.fechaCompletado = new Date().toISOString()
+      // ⬇️ disparar reactividad (desbloquea el siguiente paso)
+      if (pasosLocal.value) pasosLocal.value = [...pasosLocal.value]
     }
     cerrarModalPaso()
     notify('Paso preparado. Se enviará al crear el contrato.', 'success')
     return
   }
 
+  // Modo EDICIÓN: mandar a backend
   if (!contratoEditId.value || !p) { notify('No hay contrato en edición.', 'error'); return }
   try {
     modalPaso.value.loading = true
@@ -2254,8 +1409,7 @@ function onFileChange(value: unknown) {
   if (Array.isArray(value)) f = value[0] || null
   else if (isRecord(value) && 'target' in value && (value as { target: { files?: FileList } }).target?.files) {
     f = (value as { target: { files?: FileList } }).target.files?.[0] || null
-  }
-  else if (value instanceof File) f = value
+  } else if (value instanceof File) f = value
   else f = null
 
   if (!f) { archivoContrato.value = null; return }
@@ -2379,17 +1533,32 @@ watch(usuarioSeleccionado, async (v)=>{
   if (!v) return
   await cargarHistorialContratos()
 })
-watch(tipoContratoSeleccionado, () => {
+
+/* Ajusta término automáticamente según tipo */
+watch(tipoContratoSeleccionado, (nuevo) => {
+  if (nuevo === 'temporal') {
+    if (terminoContrato.value !== 'obra_o_labor_determinada') terminoContrato.value = 'obra_o_labor_determinada'
+    return
+  }
+  if (nuevo === 'aprendizaje') {
+    if (terminoContrato.value !== 'fijo') terminoContrato.value = 'fijo'
+    return
+  }
   const allowed = terminosContratoOptions.value.map(o => o.value)
-  if (!allowed.some(v => v === terminoContrato.value)) terminoContrato.value = null
+  if (!allowed.includes(terminoContrato.value as any)) terminoContrato.value = null
 })
 
-/* ======= Mounted ======= */
+/* ⬅️ ⬅️ NUEVO: si cambia tipo o término y NO estoy editando, regenero los pasos base */
+watch([tipoContratoSeleccionado, terminoContrato], () => {
+  if (!isEditing.value) resetPasos()
+})
+
+/* Mounted */
 onMounted(() => {
   cargarRazonesSociales()
-  cargarSedes()
-  cargarCargos()
-  cargarEntidadesSalud()
+  cargarMaestros()
+
+
 })
 
 /* Exponer helper al template */
@@ -2446,20 +1615,18 @@ defineExpose({ toAbsoluteApiUrl })
   pointer-events: none;
 }
 
-/* ====== FIX: Quitar el “recuadro azul” que sobresale en el focus ======
-   (se reemplaza por un realce interno más sutil y corporativo) */
+/* ====== FIX: Quitar el “recuadro azul” que sobresale en el focus ====== */
 :deep(.v-btn:focus-visible),
 :deep(.v-field__input:focus-visible) {
-  outline: none !important;         /* quita el borde azul externo del navegador */
+  outline: none !important;
 }
 :deep(.v-field) { border-radius: 10px; }
 :deep(.v-field.v-field--focused) {
-  /* halo interno suave que NO se sale del input */
   box-shadow: inset 0 0 0 2px rgba(25, 118, 210, .18);
 }
 :deep(.v-field.v-field--focused .v-field__outline) {
   --v-field-border-opacity: 1;
-  border-color: #1976d2 !important; /* tono corporativo */
+  border-color: #1976d2 !important;
 }
 :deep(.v-field),
 :deep(.v-btn) {
