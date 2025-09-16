@@ -79,13 +79,14 @@ const routes = [
     component: UsuariosView,
     meta: { layout: 'MainLayout', requiresAuth: true },
   },
-  {
-    path: '/usuarios/:id',
-    name: 'UserProfile',
-    component: UserProfileView,
-    props: true,
-    meta: { layout: 'MainLayout', requiresAuth: true },
-  },
+  
+ {
+  path: '/usuarios/:id', // <-- Solo tiene el parámetro :id
+  name: 'UserProfile',
+  component: UserProfileView,
+  props: true,
+  meta: { layout: 'MainLayout', requiresAuth: true },
+},
   {
     path: '/gestion-documental/razon-social/:id',
     name: 'RazonSocialDetalle',
