@@ -5,6 +5,8 @@
  *    • turnosEnProceso    → número de turnos que están en curso.
  *    • turnosFinalizados  → número de turnos ya terminados.
  *    • siguienteTurno     → identificador/número del próximo turno.
+ *    • kpiServicios       → turnos en proceso por servicio (RTM, PREV, PERI).
+ *    • kpiServiciosTotal  → TOTAL del día por servicio (en proceso + finalizados) — NUEVO.
  *    • isLoadingKpis      → estado de carga (true mientras se consulta).
  *    • todayDate          → fecha actual en formato dd/MM/yyyy (zona Bogotá).
  * - Expone la función cargarDashboard() que:
@@ -24,9 +26,23 @@ export function useDashboardDatos() {
   const authStore = authSetStore()
 
   // 📊 Estado de los KPIs
-  const turnosEnProceso = ref(0)
+  const turnosEnProceso   = ref(0)
   const turnosFinalizados = ref(0)
-  const siguienteTurno = ref(0)
+  const siguienteTurno    = ref(0)
+
+  // 👇 KPIs por servicio (en proceso)
+  const kpiServicios = ref<{ rtm: number; preventiva: number; peritaje: number }>({
+    rtm: 0,
+    preventiva: 0,
+    peritaje: 0,
+  })
+
+  // 👇 NUEVO: KPIs por servicio (TOTAL del día = en proceso + finalizados)
+  const kpiServiciosTotal = ref<{ rtm: number; preventiva: number; peritaje: number }>({
+    rtm: 0,
+    preventiva: 0,
+    peritaje: 0,
+  })
 
   // ⏳ Estado de carga de los KPIs
   const isLoadingKpis = ref(true)
@@ -51,6 +67,11 @@ export function useDashboardDatos() {
       turnosEnProceso.value   = data.turnosEnProceso
       turnosFinalizados.value = data.turnosFinalizados
       siguienteTurno.value    = data.siguienteTurno
+
+      // Conteos por servicio (en proceso)
+      kpiServicios.value = data.turnosEnProcesoPorServicio ?? { rtm: 0, preventiva: 0, peritaje: 0 }
+      // 👇 NUEVO: conteos por servicio (total del día)
+      kpiServiciosTotal.value = data.turnosTotalesPorServicio ?? { rtm: 0, preventiva: 0, peritaje: 0 }
     } catch (error: unknown) {
       // Mensaje por defecto
       let msg = 'Error al cargar los datos del dashboard. Intente recargar la página.'
@@ -83,6 +104,8 @@ export function useDashboardDatos() {
     turnosEnProceso,
     turnosFinalizados,
     siguienteTurno,
+    kpiServicios,
+    kpiServiciosTotal, // 👈 NUEVO
     isLoadingKpis,
     todayDate,
     // acción expuesta

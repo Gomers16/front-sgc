@@ -7,6 +7,22 @@
 
       <v-form @submit.prevent="openConfirmSaveDialog">
         <v-row dense>
+          <!-- ✅ Servicio -->
+          <v-col cols="12" sm="6">
+            <v-select
+              v-model="turno.servicioId"
+              :items="serviciosItems"
+              :loading="serviciosLoading"
+              label="Servicio"
+              variant="outlined"
+              required
+              :rules="[(v) => !!v || 'El servicio es obligatorio']"
+              :readonly="!isEditing"
+              density="comfortable"
+              prepend-inner-icon="mdi-wrench-cog"
+            />
+          </v-col>
+
           <v-col cols="12" sm="6">
             <v-text-field
               v-model="turno.placa"
@@ -241,6 +257,12 @@ import { authSetStore } from '@/stores/AuthStore'
 
 type TipoVehiculoDB = 'Liviano Particular' | 'Liviano Taxi' | 'Liviano Público' | 'Motocicleta'
 
+interface ServicioDTO {
+  id: number
+  codigo: 'RTM' | 'PREV' | 'PERI' | string
+  nombre: string
+}
+
 interface Turno {
   id: number;
   turnoNumero: number;
@@ -249,7 +271,6 @@ interface Turno {
   horaSalida: string | null;
   tiempoServicio: string | null;
   placa: string;
-  /** Ahora usamos directamente los valores válidos del backend */
   tipoVehiculo: TipoVehiculoDB;
   tieneCita: boolean;
   convenio: string | null;
@@ -275,6 +296,11 @@ interface Turno {
   funcionario?: { id: number; nombres: string; apellidos: string };
   createdAt: string;
   updatedAt: string;
+
+  // ✅ campos de servicio
+  servicioId?: number | null
+  servicioCodigo?: 'RTM' | 'PREV' | 'PERI' | string
+  servicio?: { id: number; codigoServicio: string; nombreServicio: string } | null
 }
 
 const vehiculoItems: TipoVehiculoDB[] = [
@@ -297,18 +323,25 @@ const turno = ref<Turno>({
   horaSalida: null,
   tiempoServicio: null,
   placa: '',
-  tipoVehiculo: 'Liviano Particular', // valor por defecto compatible con backend
+  tipoVehiculo: 'Liviano Particular',
   tieneCita: false,
   convenio: null,
   referidoInterno: null,
   asesorComercial: null,
-  medioEntero: 'fachada', // snake_case para backend
+  medioEntero: 'fachada',
   observaciones: null,
   funcionarioId: 0,
   estado: 'activo',
   createdAt: '',
-  updatedAt: ''
+  updatedAt: '',
+  servicioId: null,
+  servicioCodigo: undefined,
+  servicio: null,
 })
+
+/** Select de servicios */
+const serviciosItems = ref<Array<{ title: string; value: number }>>([])
+const serviciosLoading = ref(false)
 
 const isLoading = ref(true)
 const isSaving = ref(false)
@@ -333,7 +366,6 @@ const medioEnteroOptions = [
   { title: 'Otros', value: 'otros' },
 ]
 
-// Helpers
 const hasValue = (val: string | null | undefined): boolean => val !== null && val !== undefined && val.trim() !== ''
 
 const isConvenioLocked = computed(() => isEditing.value && originalTurno.value !== null && hasValue(originalTurno.value.convenio))
@@ -363,6 +395,31 @@ watch(() => turno.value.medioEntero, (newValue, oldValue) => {
   }
 })
 
+/** Cargar catálogo de servicios (solo códigos RTM, PREV, PERI en la UI) */
+const loadServicios = async () => {
+  serviciosLoading.value = true
+  try {
+    const data = await TurnosDelDiaService.obtenerServicios() as ServicioDTO[]
+    const filtered = (data || []).filter((s) => ['RTM', 'PREV', 'PERI'].includes(s.codigo))
+    serviciosItems.value = filtered.map((s) => ({ title: s.codigo, value: s.id }))
+
+    // Si el turno ya tiene servicio (por id o relación), asegurar la selección
+    if (!turno.value.servicioId) {
+      const currentCode = turno.value.servicio?.codigoServicio ?? turno.value.servicioCodigo
+      if (currentCode) {
+        const found = filtered.find((s) => s.codigo === currentCode)
+        if (found) turno.value.servicioId = found.id
+      }
+    }
+  } catch (e) {
+    console.error('Error al cargar servicios:', e)
+    showSnackbar('No se pudieron cargar los servicios.', 'error')
+    serviciosItems.value = []
+  } finally {
+    serviciosLoading.value = false
+  }
+}
+
 const fetchTurnoDetails = async (id: number) => {
   isLoading.value = true
   try {
@@ -374,15 +431,29 @@ const fetchTurnoDetails = async (id: number) => {
       return
     }
 
+    // Nota: tu servicio acepta (id, token) en tu proyecto actual
     const data = await TurnosDelDiaService.fetchTurnoById(id, token) as unknown as Turno
 
-    // Aseguramos que medioEntero quede en snake_case
+    // Normaliza medioEntero a snake_case
     const processedMedioEntero = mapToSnakeCase(data.medioEntero) as typeof turno.value.medioEntero
 
-    const processedData: Turno = { ...data, medioEntero: processedMedioEntero }
+    // Normaliza servicioId (desde relación o campo directo)
+    const servicioId = (data.servicio?.id ?? data.servicioId ?? null) as number | null
+    const servicioCodigo = (data.servicio?.codigoServicio ?? data.servicioCodigo) as Turno['servicioCodigo']
+
+    const processedData: Turno = {
+      ...data,
+      medioEntero: processedMedioEntero,
+      servicioId,
+      servicioCodigo,
+      servicio: data.servicio ?? null,
+    }
 
     turno.value = { ...processedData }
     originalTurno.value = { ...processedData }
+
+    // Luego de tener el turno, cargamos el catálogo y fijamos selección si aplica
+    await loadServicios()
   } catch (error: unknown) {
     console.error('Error al cargar los detalles del turno:', error)
     let message = 'Error al cargar los detalles del turno. Intente recargar la página.'
@@ -420,15 +491,14 @@ const saveTurno = async () => {
       return
     }
 
-    // Enviamos tipoVehiculo exactamente como lo espera el backend
-    const updatePayload = {
+    const updatePayload: any = {
       placa: turno.value.placa,
       tipoVehiculo: turno.value.tipoVehiculo as TipoVehiculoDB,
       tieneCita: turno.value.tieneCita,
       convenio: turno.value.convenio,
       referidoInterno: turno.value.referidoInterno,
       asesorComercial: turno.value.asesorComercial,
-      medioEntero: turno.value.medioEntero, // snake_case válido
+      medioEntero: turno.value.medioEntero,
       observaciones: turno.value.observaciones,
       funcionarioId: turno.value.funcionarioId,
       horaSalida: turno.value.horaSalida,
@@ -437,6 +507,12 @@ const saveTurno = async () => {
       usuarioId: usuarioIdNum,
     }
 
+    // ✅ incluir servicio si está seleccionado
+    if (turno.value.servicioId) {
+      updatePayload.servicioId = turno.value.servicioId
+    }
+
+    // Nota: tu servicio acepta (id, payload, token) en tu proyecto actual
     await TurnosDelDiaService.updateTurno(turno.value.id, updatePayload, token)
 
     showSnackbar('Turno guardado exitosamente!', 'success')
@@ -448,12 +524,12 @@ const saveTurno = async () => {
     if (error instanceof Error) {
       message = error.message
       if (message.includes("Valor inválido para 'medioEntero'") || message.includes('invalid value for medioEntero')) {
-        message = 'Error: El valor seleccionado para "¿Cómo se enteró?" no es válido para el sistema. Por favor, revise la opción seleccionada.'
+        message = 'Error: El valor seleccionado para "¿Cómo se enteró?" no es válido.'
       } else if (message.includes('Sesión expirada') || message.includes('no autorizada')) {
         authStore.logout()
         router.push('/login')
       } else if (message.includes('Failed to fetch')) {
-        message = 'No se pudo conectar con el servidor. Verifique su conexión o el estado del servidor.'
+        message = 'No se pudo conectar con el servidor.'
       }
     }
     showSnackbar(message, 'error')

@@ -9,6 +9,7 @@ export interface RazonSocial { id: number; nombre: string }
 export interface Sede { id: number; nombre: string }
 export interface Cargo { id: number; nombre: string }
 
+
 export interface EntidadSalud {
   id: number
   nombre: string
@@ -293,6 +294,7 @@ export function obtenerCargos() {
 }
 
 /** Catálogo de entidades (para selects) */
+
 export function obtenerEntidadesSalud() {
   // backend: /api/entidades-saluds  (incluye 'tipo')
   return get<EntidadSalud[]>('/api/entidades-saluds', {

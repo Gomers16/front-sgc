@@ -75,9 +75,19 @@
             <v-card-title class="text-h6 font-weight-bold pb-2 text-on-primary-text">
               🔢 Turno: {{ turno.turnoNumero }}
             </v-card-title>
+
             <v-card-text>
-              <p class="text-subtitle-1 text-on-primary-text">🚗 Placa: <span class="font-weight-medium">{{ turno.placa }}</span></p>
-              <p class="text-subtitle-1 text-on-primary-text">⏰ Ingreso: <span class="font-weight-medium">{{ formatTime(turno.horaIngreso) }}</span></p>
+              <p class="text-subtitle-1 text-on-primary-text">
+                🛠 Servicio:
+                <span class="font-weight-medium">{{ getServicioCodigo(turno) }}</span>
+              </p>
+              <p class="text-subtitle-1 text-on-primary-text">
+                🚗 Placa: <span class="font-weight-medium">{{ turno.placa }}</span>
+              </p>
+              <p class="text-subtitle-1 text-on-primary-text">
+                ⏰ Ingreso: <span class="font-weight-medium">{{ formatTime(turno.horaIngreso) }}</span>
+              </p>
+
               <p class="text-subtitle-1 mt-3 font-weight-bold text-on-primary-text">📌 Etapas:</p>
               <v-list dense class="py-0 bg-transparent">
                 <v-list-item v-for="(etapa, i) in getEtapas(turno)" :key="i" class="py-0 px-0">
@@ -156,7 +166,8 @@
             <v-col cols="12" md="6">
               <v-card variant="outlined" class="pa-4">
                 <v-card-title class="text-h6 text-secondary">Por Tipo de Vehículo:</v-card-title>
-                <div style="height: 250px;"> <BarChart :data="chartDataTipoVehiculo" :options="chartOptions" />
+                <div style="height: 250px;">
+                  <BarChart :data="chartDataTipoVehiculo" :options="chartOptions" />
                 </div>
               </v-card>
             </v-col>
@@ -190,7 +201,6 @@ import { DateTime } from 'luxon'
 import TurnosDelDiaService from '@/services/turnosdeldiaService'
 import { authSetStore } from '@/stores/AuthStore'
 
-// Importaciones para Chart.js y vue-chartjs
 import {
   Chart as ChartJS,
   Title,
@@ -206,8 +216,13 @@ import { Bar as BarChart } from 'vue-chartjs';
 
 ChartJS.register(Title, Tooltip, Legend, BarElement, CategoryScale, LinearScale, ArcElement);
 
+// —— Tipos ——
+interface ServicioEnTurno {
+  id: number;
+  codigoServicio: string;   // 'RTM' | 'PREV' | 'PERI'
+  nombreServicio: string;
+}
 
-// Interfaz para definir la estructura de un turno
 interface Turno {
   id: number;
   fecha: string;
@@ -233,6 +248,13 @@ interface Turno {
   observaciones: string | null;
   funcionarioId: number;
   estado: 'activo' | 'inactivo' | 'cancelado' | 'finalizado';
+
+  // 👇 NUEVO: datos de servicio
+  servicioId?: number | null;
+  servicio?: ServicioEnTurno | null;
+  servicioCodigo?: 'RTM' | 'PREV' | 'PERI' | string;
+  servicioNombre?: string;
+
   funcionario?: {
     id: number;
     nombres: string;
@@ -247,7 +269,7 @@ const turnos = ref<Turno[]>([])
 const isLoading = ref(true)
 const todayDate = ref('')
 
-// --- Configuración del Snackbar (Notificaciones) ---
+// Snackbar
 const snackbar = ref({
   show: false,
   message: '',
@@ -259,7 +281,7 @@ const showSnackbar = (message: string, color = 'info', timeout = 4000) => {
   snackbar.value = { show: true, message, color, timeout }
 }
 
-// --- Configuración del Diálogo de Confirmación ---
+// Confirm dialog
 const confirmDialog = ref({
   show: false,
   title: '',
@@ -289,40 +311,33 @@ const handleConfirmAction = () => {
   if (action === 'editar') {
     router.push(`/rtm/editar-turno/${turno.id}`)
   } else if (action === 'continuar') {
-    // CAMBIO CLAVE AQUÍ: Redirige a la nueva vista de desarrollo
     router.push(`/rtm/proximamente`)
   }
 }
 
-// --- FUNCIÓN PARA FORMATAR LA HORA (HH:mm:ss a hh:mm AM/PM) ---
+// Utilidades
 const formatTime = (timeString: string | null): string => {
   if (!timeString) return '';
-  let time: DateTime;
-
-  time = DateTime.fromFormat(timeString, 'HH:mm:ss', { zone: 'America/Bogota' });
-
-  if (!time.isValid) {
-    time = DateTime.fromFormat(timeString, 'HH:mm', { zone: 'America/Bogota' });
-  }
-
-  if (time.isValid) {
-    return time.toFormat('hh:mm a');
-  }
-  console.warn('formatTime: Failed to parse timeString:', timeString);
-  return timeString;
+  let time: DateTime = DateTime.fromFormat(timeString, 'HH:mm:ss', { zone: 'America/Bogota' });
+  if (!time.isValid) time = DateTime.fromFormat(timeString, 'HH:mm', { zone: 'America/Bogota' });
+  return time.isValid ? time.toFormat('hh:mm a') : timeString ?? '';
 };
 
+// 👇 NUEVO: función de presentación del código de servicio
+const getServicioCodigo = (t: Turno): string => {
+  return t.servicio?.codigoServicio ?? t.servicioCodigo ?? '—';
+};
 
-// --- FUNCIÓN PRINCIPAL: Cargar turnos del día ---
+// Datos del día
 const loadTurnosHoy = async () => {
   isLoading.value = true
   try {
     const today = new Date();
     const options: Intl.DateTimeFormatOptions = {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        timeZone: 'America/Bogota'
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      timeZone: 'America/Bogota'
     };
     const formatter = new Intl.DateTimeFormat('es-CO', options);
     const parts = formatter.formatToParts(today);
@@ -330,7 +345,6 @@ const loadTurnosHoy = async () => {
     const month = parts.find(p => p.type === 'month')?.value;
     const day = parts.find(p => p.type === 'day')?.value;
     const todayISO = `${year}-${month}-${day}`;
-
 
     const filters = { fecha: todayISO };
     const data = await TurnosDelDiaService.fetchTurnos(filters) as Turno[];
@@ -343,7 +357,6 @@ const loadTurnosHoy = async () => {
     });
 
     showSnackbar(`Turnos en proceso para ${todayDate.value} cargados correctamente.`, 'success');
-
   } catch (error: unknown) {
     console.error('Error al cargar turnos del día:', error)
     let message = 'Error al cargar los turnos del día. Intente recargar la página.'
@@ -362,24 +375,22 @@ const loadTurnosHoy = async () => {
   }
 }
 
-// --- Lógica para determinar el estado de las etapas de un turno ---
+// Etapas
 const getEtapas = (turno: Turno) => {
   const etapas = [
-    { name: 'Puerta', completed: !!turno.horaIngreso },
-    { name: 'Registro', completed: false },
-    { name: 'Facturación', completed: false },
-    { name: 'Revisión', completed: false },
+    { name: 'Puerta',        completed: !!turno.horaIngreso },
+    { name: 'Registro',      completed: false },
+    { name: 'Facturación',   completed: false },
+    { name: 'Revisión',      completed: false },
     { name: 'Certificación', completed: !!turno.horaSalida },
   ];
-
   if (turno.estado === 'cancelado' || turno.estado === 'inactivo') {
     etapas.forEach(etapa => etapa.completed = false);
   }
-
   return etapas;
 }
 
-// --- Estado y Lógica para el Modal de Estadísticas ---
+// Stats modal
 const showStatsModal = ref(false);
 const statsData = ref({
   tipoVehiculo: {
@@ -434,7 +445,7 @@ const openStatsModal = () => {
   showStatsModal.value = true;
 };
 
-// --- Propiedades computadas para los datos de los gráficos ---
+// Charts
 const chartDataTipoVehiculo = computed(() => {
   const labels = Object.keys(statsData.value.tipoVehiculo);
   const data = Object.values(statsData.value.tipoVehiculo);
@@ -456,9 +467,7 @@ const chartOptions = {
   responsive: true,
   maintainAspectRatio: false,
   plugins: {
-    legend: {
-      position: 'top' as const,
-    },
+    legend: { position: 'top' as const },
     tooltip: {
       callbacks: {
         label: function(context: TooltipItem<'bar'>) {
@@ -471,8 +480,6 @@ const chartOptions = {
   }
 };
 
-
-// --- Hook de ciclo de vida: Se ejecuta cuando el componente se monta ---
 onMounted(() => {
   todayDate.value = new Date().toLocaleDateString('es-CO', { year: 'numeric', month: 'long', day: 'numeric' });
   loadTurnosHoy();
@@ -480,105 +487,78 @@ onMounted(() => {
 </script>
 
 <style scoped>
-/* Estilos para el CONTORNO PRINCIPAL (el v-card más externo) */
 .v-card {
-  box-shadow: 0 10px 20px rgba(0,0,0,0.08), 0 6px 6px rgba(0,0,0,0.05); /* Sombra más sutil */
+  box-shadow: 0 10px 20px rgba(0,0,0,0.08), 0 6px 6px rgba(0,0,0,0.05);
   border-radius: 16px;
 }
 
-/* 1. Estilos para el TÍTULO PRINCIPAL con borde y centrado */
-/* Contenedor del título que ahora centra su contenido */
-.title-full-bordered-container {
-  /* Vuetify d-flex y justify-center ya manejan el display flex y el centrado */
-  padding: 0 !important; /* Asegura que el v-card-title no tenga padding extra */
-}
+/* Título con borde */
+.title-full-bordered-container { padding: 0 !important; }
 
-/* Estilo para el span que contiene el texto y el borde */
 .title-text-with-border {
-  border: 2px solid black; /* Borde negro de 2px */
-  padding: 10px 20px; /* Más padding para que el borde se vea bien */
-  border-radius: 12px; /* Bordes ligeramente más redondeados */
-  background-color: rgba(255, 255, 255, 0.9); /* Fondo semi-transparente para que el borde resalte */
-  margin-bottom: 24px; /* Un margen inferior para separarlo del formulario/botones */
-  display: inline-block; /* Importante para que el padding y border se apliquen correctamente */
-  /* El centrado lo hará el padre con d-flex justify-center */
-}
-
-/* Estilo para el texto principal del título (dentro del span con borde) */
-.title-text-with-border {
-  /* Estas propiedades ya están en el v-card-title, pero las repetimos por especificidad */
+  border: 2px solid black;
+  padding: 10px 20px;
+  border-radius: 12px;
+  background-color: rgba(255, 255, 255, 0.9);
+  margin-bottom: 24px;
+  display: inline-block;
   font-weight: bold;
   letter-spacing: 0.05em;
-  color: var(--v-theme-primary); /* Usar la variable de color primary de Vuetify */
+  color: var(--v-theme-primary);
 }
 
-/* Asegurar que el span de la fecha esté en la misma línea y tenga espacio */
 .title-text-with-border .text-secondary {
-  display: inline; /* Asegura que la fecha esté en la misma línea */
-  margin-left: 8px; /* Espacio entre el texto principal y la fecha */
-  color: #4CAF50; /* Color verde para la fecha */
+  display: inline;
+  margin-left: 8px;
+  color: #4CAF50;
 }
 
-/* 2. Estilos para los BOTONES con borde */
-/* Estilo base para todos los botones con borde */
+/* Botones con borde */
 .bordered-button,
 .bordered-button-info,
 .bordered-button-success {
   border-radius: 10px;
   transition: all 0.3s ease;
-  box-shadow: 0 4px 6px rgba(0,0,0,0.1), 0 0 0 2px black !important; /* Borde negro de 2px */
+  box-shadow: 0 4px 6px rgba(0,0,0,0.1), 0 0 0 2px black !important;
 }
 
 .bordered-button:hover,
 .bordered-button-info:hover,
 .bordered-button-success:hover {
   transform: translateY(-2px);
-  box-shadow: 0 6px 12px rgba(0,0,0,0.2), 0 0 0 3px black !important; /* Borde al pasar el ratón */
+  box-shadow: 0 6px 12px rgba(0,0,0,0.2), 0 0 0 3px black !important;
 }
 
-/* Estilos específicos para el color de la sombra y borde de cada botón */
-
-
-/* Estilo para el botón de confirmación en el diálogo (ya existente) */
+/* Diálogo */
 .bordered-dialog-button {
   box-shadow: 0 2px 4px rgba(0,0,0,0.1), 0 0 0 1px black !important;
 }
-
 .bordered-dialog-button:hover {
   box-shadow: 0 4px 8px rgba(0,0,0,0.2), 0 0 0 2px black !important;
 }
 
-/* ESTILO CRÍTICO PARA LAS TARJETAS AZULES (las que están dentro del contorno) */
+/* Tarjetas de turno */
 .turno-card {
   transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
   border-radius: 12px;
-  box-shadow: 0 8px 15px rgba(0,0,0,0.2); /* Sombra para las tarjetas azules */
+  box-shadow: 0 8px 15px rgba(0,0,0,0.2);
 }
-
 .turno-card:hover {
   transform: translateY(-7px);
   box-shadow: 0 18px 35px rgba(0,0,0,0.3);
 }
 
-/* Colores de texto para elementos sobre fondos oscuros (las tarjetas azules) */
+/* Textos sobre fondo primario */
 .text-on-primary-text {
   color: rgb(var(--v-theme-on-primary-text)) !important;
 }
-
 .text-on-primary-text-faded {
   color: rgb(var(--v-theme-on-primary-text-faded)) !important;
 }
-
-.v-list-item-title {
-  font-size: 0.95rem;
-}
-
-/* Color para los íconos de etapa no completados sobre el fondo azul */
+.v-list-item-title { font-size: 0.95rem; }
 .v-icon.on-primary-text-light {
   color: rgb(var(--v-theme-on-primary-text-light)) !important;
 }
-
-/* Asegurar que el fondo de la lista de etapas sea transparente */
 .v-list.bg-transparent {
   background-color: transparent !important;
 }
