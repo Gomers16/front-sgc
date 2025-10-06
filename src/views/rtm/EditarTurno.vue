@@ -1,243 +1,312 @@
 <template>
-  <div class="edit-turno-container">
-    <v-card elevation="8" class="pa-4 pa-sm-6 pa-md-8 rounded-xl responsive-card">
-      <v-card-title class="text-h5 text-sm-h4 mb-4 mb-sm-6 text-center text-primary font-weight-bold">
-        ✍️ {{ isEditing ? 'Editar Turno RTM' : 'Ver Detalles del Turno RTM' }} #{{ turno.turnoNumero }}
-      </v-card-title>
+  <v-container class="mt-6">
+    <v-card elevation="8" class="pa-0 rounded-2xl card-surface">
+      <!-- Header corporativo -->
+      <div class="card-header px-6 py-5">
+        <div class="header-left">
+          <div class="icon-pill">
+            <v-icon size="22">mdi-clipboard-text-outline</v-icon>
+          </div>
+        <div class="title-group">
+            <h2 class="title">Editar Turno</h2>
+            <p class="subtitle">Actualiza la información del turno seleccionado</p>
+          </div>
+        </div>
 
-      <v-form @submit.prevent="openConfirmSaveDialog">
-        <v-row dense>
-          <!-- ✅ Servicio -->
-          <v-col cols="12" sm="6">
-            <v-select
-              v-model="turno.servicioId"
-              :items="serviciosItems"
-              :loading="serviciosLoading"
-              label="Servicio"
-              variant="outlined"
-              required
-              :rules="[(v) => !!v || 'El servicio es obligatorio']"
-              :readonly="!isEditing"
-              density="comfortable"
-              prepend-inner-icon="mdi-wrench-cog"
-            />
-          </v-col>
+        <div class="d-flex align-center" style="gap:10px">
+          <v-chip class="turno-chip" size="large" variant="elevated" prepend-icon="mdi-counter">
+            Global: {{ form.turnoNumero ?? '—' }}
+          </v-chip>
+          <v-chip class="turno-chip" size="large" variant="elevated" prepend-icon="mdi-counter">
+            {{ servicioCodigoActual || 'SERV' }}: {{ form.turnoNumeroServicio ?? '—' }}
+          </v-chip>
+        </div>
+      </div>
 
-          <v-col cols="12" sm="6">
-            <v-text-field
-              v-model="turno.placa"
-              label="Placa"
-              variant="outlined"
-              required
-              :rules="[(v) => !!v || 'La placa es obligatoria']"
-              @input="(event: { target: HTMLInputElement; }) => turno.placa = (event.target as HTMLInputElement).value.toUpperCase()"
-              :readonly="!isEditing"
-              density="comfortable"
-            />
-          </v-col>
+      <v-divider class="mx-6 divider-muted" />
 
-          <v-col cols="12" sm="6">
-            <v-select
-              v-model="turno.tipoVehiculo"
-              :items="vehiculoItems"
-              label="Tipo de Vehículo"
-              variant="outlined"
-              required
-              :rules="[(v) => !!v || 'El tipo de vehículo es obligatorio']"
-              :readonly="!isEditing"
-              density="comfortable"
-            />
-          </v-col>
+      <div class="pa-8">
+        <v-form ref="formRef" @submit.prevent="openConfirmDialog">
+          <v-row dense>
+            <!-- Servicio -->
+            <v-col cols="12">
+              <v-select
+                v-model="form.servicioId"
+                :items="serviciosItems"
+                :loading="serviciosLoading"
+                label="Servicio"
+                variant="outlined"
+                required
+                density="compact"
+                hide-details
+                prepend-inner-icon="mdi-wrench-cog"
+                class="servicio-fit"
+                :rules="[v => !!v || 'El servicio es requerido']"
+              />
+            </v-col>
 
-          <v-col cols="12" sm="6">
-            <v-checkbox
-              v-model="turno.tieneCita"
-              label="Tiene Cita"
-              color="primary"
-              :readonly="!isEditing"
-              density="comfortable"
-            />
-          </v-col>
+            <!-- Fecha (solo visual) y hora ingreso -->
+            <v-col cols="12" sm="6">
+              <v-text-field
+                :model-value="fechaBonita"
+                label="Fecha"
+                variant="outlined"
+                readonly
+                density="comfortable"
+                prepend-inner-icon="mdi-calendar"
+              />
+            </v-col>
+            <v-col cols="12" sm="6">
+              <v-text-field
+                v-model="form.horaIngreso"
+                label="Hora de Ingreso (HH:mm:ss)"
+                variant="outlined"
+                density="comfortable"
+                prepend-inner-icon="mdi-clock-time-four-outline"
+              />
+            </v-col>
 
-          <v-col cols="12" sm="6">
-            <v-select
-              v-model="turno.medioEntero"
-              :items="medioEnteroOptions"
-              item-title="title"
-              item-value="value"
-              label="¿Cómo se enteró de nosotros?"
-              variant="outlined"
-              required
-              :rules="[(v) => !!v || 'El medio por el que se enteró es obligatorio']"
-              :readonly="!isEditing || shouldLockMedioEnteroSelect"
-              density="comfortable"
-            />
-          </v-col>
+            <!-- Placa -->
+            <v-col cols="12" sm="6">
+              <v-text-field
+                v-model="form.placa"
+                label="Placa del Vehículo"
+                variant="outlined"
+                required
+                density="comfortable"
+                prepend-inner-icon="mdi-car-info"
+                @input="onPlacaInput"
+                :rules="[v => !!v || 'La placa es requerida']"
+              />
+            </v-col>
 
-          <v-col cols="12" sm="6" v-if="turno.medioEntero === 'convenio_referido_externo'">
-            <v-text-field
-              v-model="turno.convenio"
-              label="Nombre de Convenio o Referido Externo (Opcional)"
-              variant="outlined"
-              :clearable="isEditing && !isConvenioLocked"
-              :readonly="!isEditing || isConvenioLocked"
-              density="comfortable"
-            />
-          </v-col>
+            <!-- Tipo de Vehículo -->
+            <v-col cols="12" sm="6">
+              <v-select
+                v-model="form.tipoVehiculo"
+                :items="tipoVehiculoItems"
+                label="Tipo de Vehículo"
+                variant="outlined"
+                required
+                density="comfortable"
+                prepend-inner-icon="mdi-car-multiple"
+                :rules="[v => !!v || 'El tipo de vehículo es requerido']"
+              />
+            </v-col>
 
-          <v-col cols="12" sm="6" v-if="turno.medioEntero === 'referido_interno'">
-            <v-text-field
-              v-model="turno.referidoInterno"
-              label="Nombre del Referido Interno (Opcional)"
-              variant="outlined"
-              :clearable="isEditing && !isReferidoInternoLocked"
-              :readonly="!isEditing || isReferidoInternoLocked"
-              density="comfortable"
-            />
-          </v-col>
+            <!-- ¿Cómo nos conoció? -->
+            <v-col cols="12" sm="6">
+              <v-select
+                v-model="form.medioEntero"
+                :items="medioEnteroItems"
+                label="¿Cómo nos conoció?"
+                variant="outlined"
+                required
+                density="comfortable"
+                prepend-inner-icon="mdi-account-question"
+                :rules="[v => !!v || 'Este campo es requerido']"
+              />
+            </v-col>
 
-          <v-col cols="12" sm="6" v-if="turno.medioEntero === 'asesor_comercial'">
-            <v-text-field
-              v-model="turno.asesorComercial"
-              label="Nombre del Asesor Comercial (Opcional)"
-              variant="outlined"
-              :clearable="isEditing && !isAsesorComercialLocked"
-              :readonly="!isEditing || isAsesorComercialLocked"
-              density="comfortable"
-            />
-          </v-col>
+            <!-- Si es Asesor → detalle asesor -->
+            <template v-if="form.medioEntero === 'asesor'">
+              <v-col cols="12" sm="6">
+                <v-text-field
+                  v-model="form.asesorNombre"
+                  label="Nombre del Asesor"
+                  variant="outlined"
+                  density="comfortable"
+                  prepend-inner-icon="mdi-account-tie"
+                  :rules="[v => !!v || 'El nombre del asesor es requerido']"
+                />
+              </v-col>
+              <v-col cols="12" sm="6">
+                <v-radio-group
+                  v-model="form.asesorTipo"
+                  label="Tipo de Asesor"
+                  row
+                  density="comfortable"
+                  class="radio-row"
+                  :rules="[v => !!v || 'Seleccione tipo de asesor']"
+                >
+                  <v-radio label="Interno" value="ASESOR_INTERNO" color="primary" />
+                  <v-radio label="Externo" value="ASESOR_EXTERNO" color="primary" />
+                </v-radio-group>
+              </v-col>
+            </template>
 
-          <v-col cols="12">
-            <v-textarea
-              v-model="turno.observaciones"
-              label="Observaciones (Opcional)"
-              variant="outlined"
-              rows="3"
-              clearable
-              :readonly="!isEditing"
-              density="comfortable"
-            />
-          </v-col>
+            <!-- Observaciones -->
+            <v-col cols="12">
+              <v-textarea
+                v-model="form.observaciones"
+                label="Observaciones (opcional)"
+                rows="3"
+                auto-grow
+                variant="outlined"
+                density="comfortable"
+                prepend-inner-icon="mdi-comment-text-multiple"
+              />
+            </v-col>
 
-          <v-col cols="12" sm="4">
-            <v-text-field
-              v-model="turno.horaIngreso"
-              label="Hora de Ingreso (HH:mm:ss)"
-              variant="outlined"
-              readonly
-              density="comfortable"
-            />
-          </v-col>
+            <!-- Estado / Hora Salida / Tiempo Servicio -->
+            <v-col cols="12" sm="4">
+              <v-select
+                v-model="form.estado"
+                :items="['activo','inactivo','cancelado','finalizado']"
+                label="Estado del Turno"
+                variant="outlined"
+                required
+                density="comfortable"
+                prepend-inner-icon="mdi-check-decagram"
+              />
+            </v-col>
+            <v-col cols="12" sm="4">
+              <v-text-field
+                v-model="form.horaSalida"
+                label="Hora de Salida (HH:mm:ss)"
+                variant="outlined"
+                density="comfortable"
+                clearable
+                prepend-inner-icon="mdi-clock-end"
+              />
+            </v-col>
+            <v-col cols="12" sm="4">
+              <v-text-field
+                v-model="form.tiempoServicio"
+                label="Tiempo de Servicio (ej. 30 min)"
+                variant="outlined"
+                density="comfortable"
+                clearable
+                prepend-inner-icon="mdi-timer-outline"
+              />
+            </v-col>
 
-          <v-col cols="12" sm="4">
-            <v-text-field
-              v-model="turno.horaSalida"
-              label="Hora de Salida (HH:mm:ss)"
-              variant="outlined"
-              clearable
-              :readonly="!isEditing"
-              density="comfortable"
-            />
-          </v-col>
+            <!-- ====== Fila 1: Captación/Dateo + Cliente ====== -->
+            <v-col cols="12" md="6" class="d-flex">
+              <v-card variant="tonal" class="card-compact d-flex flex-column flex-grow-1">
+                <div class="card-header"><v-icon class="mr-2">mdi-bullhorn</v-icon><span>Captación / Dateo</span></div>
 
-          <v-col cols="12" sm="4">
-            <v-text-field
-              v-model="turno.tiempoServicio"
-              label="Tiempo de Servicio (ej. '30 min')"
-              variant="outlined"
-              clearable
-              :readonly="!isEditing"
-              density="comfortable"
-            />
-          </v-col>
+                <div class="mb-2 d-flex flex-wrap" style="gap:8px">
+                  <v-chip size="small" color="teal" variant="elevated" prepend-icon="mdi-bullhorn">
+                    Canal actual: {{ canalPretty }}
+                  </v-chip>
+                  <v-chip
+                    v-if="agenteChip"
+                    size="small"
+                    color="indigo"
+                    variant="elevated"
+                    prepend-icon="mdi-account-tie"
+                  >
+                    {{ agenteChip }}
+                  </v-chip>
+                </div>
 
-          <v-col cols="12" sm="6">
-            <v-select
-              v-model="turno.estado"
-              :items="['activo', 'inactivo', 'cancelado', 'finalizado']"
-              label="Estado del Turno"
-              variant="outlined"
-              required
-              :readonly="!isEditing"
-              density="comfortable"
-            />
-          </v-col>
-        </v-row>
+                <v-text-field
+                  :model-value="dateoOrigenPretty"
+                  label="Origen (último dateo)"
+                  variant="outlined"
+                  density="compact"
+                  readonly
+                  prepend-inner-icon="mdi-source-branch"
+                  class="mb-2"
+                />
+                <v-textarea
+                  :model-value="dateo?.observacion || '—'"
+                  label="Observación (último dateo)"
+                  variant="outlined"
+                  density="compact"
+                  readonly
+                  rows="2"
+                  prepend-inner-icon="mdi-text-long"
+                  class="mb-2"
+                />
+                <v-text-field
+                  :model-value="dateoFechaFmt"
+                  label="Fecha último dateo"
+                  variant="outlined"
+                  density="compact"
+                  readonly
+                  prepend-inner-icon="mdi-calendar-clock"
+                />
+              </v-card>
+            </v-col>
 
-        <v-divider class="my-6" />
+            <v-col cols="12" md="6" class="d-flex">
+              <v-card variant="tonal" class="card-compact d-flex flex-column flex-grow-1">
+                <div class="card-header"><v-icon class="mr-2">mdi-account</v-icon><span>Datos del Cliente</span></div>
+                <v-text-field :model-value="cliente?.nombre || '—'" label="Nombre" variant="outlined" density="compact" readonly prepend-inner-icon="mdi-account" class="mb-2" />
+                <v-text-field :model-value="cliente?.telefono || '—'" label="Teléfono" variant="outlined" density="compact" readonly prepend-inner-icon="mdi-phone" class="mb-2" />
+                <v-text-field :model-value="cliente?.email || '—'" label="Email" variant="outlined" density="compact" readonly prepend-inner-icon="mdi-email" />
+              </v-card>
+            </v-col>
 
-        <v-card-actions class="justify-end responsive-actions">
-          <v-btn
-            color="grey"
-            variant="flat"
-            prepend-icon="mdi-arrow-left"
-            @click="router.push('/rtm/turnos-dia')"
-            size="large"
-          >
-            Volver
-          </v-btn>
+            <!-- ====== Fila 2: Vehículo + Metadatos ====== -->
+            <v-col cols="12" md="6" class="d-flex">
+              <v-card variant="tonal" class="card-compact d-flex flex-column flex-grow-1">
+                <div class="card-header"><v-icon class="mr-2">mdi-car-info</v-icon><span>Datos del Vehículo</span></div>
+                <v-text-field :model-value="form.placa" label="Placa" variant="outlined" density="compact" readonly prepend-inner-icon="mdi-car" class="mb-2" />
+                <v-text-field :model-value="vehiculoClase" label="Clase" variant="outlined" density="compact" readonly prepend-inner-icon="mdi-shape-outline" class="mb-2" />
+                <v-text-field :model-value="vehiculo?.marca || '—'" label="Marca" variant="outlined" density="compact" readonly prepend-inner-icon="mdi-alpha-m-box" class="mb-2" />
+                <v-text-field :model-value="vehiculo?.linea || '—'" label="Línea" variant="outlined" density="compact" readonly prepend-inner-icon="mdi-timeline-outline" class="mb-2" />
+                <v-text-field :model-value="vehiculo?.modelo != null ? String(vehiculo?.modelo) : '—'" label="Modelo" variant="outlined" density="compact" readonly prepend-inner-icon="mdi-numeric" />
+              </v-card>
+            </v-col>
 
-          <v-btn
-            v-if="!isEditing"
-            color="primary"
-            variant="elevated"
-            prepend-icon="mdi-pencil"
-            @click="isEditing = true"
-            size="large"
-          >
-            Editar Turno
-          </v-btn>
+            <v-col cols="12" md="6" class="d-flex">
+              <v-card variant="tonal" class="card-compact d-flex flex-column flex-grow-1">
+                <div class="card-header"><v-icon class="mr-2">mdi-information-outline</v-icon><span>Metadatos</span></div>
+                <v-text-field :model-value="usuarioNombre" label="Usuario" variant="outlined" density="compact" readonly prepend-inner-icon="mdi-account-badge" class="mb-2" />
+                <v-text-field :model-value="sedeNombre" label="Sede" variant="outlined" density="compact" readonly prepend-inner-icon="mdi-office-building" class="mb-2" />
+                <v-text-field :model-value="createdFmt" label="Creado" variant="outlined" density="compact" readonly prepend-inner-icon="mdi-calendar-plus" class="mb-2" />
+                <v-text-field :model-value="updatedFmt" label="Actualizado" variant="outlined" density="compact" readonly prepend-inner-icon="mdi-calendar-refresh" />
 
-          <v-btn
-            v-if="isEditing"
-            color="primary"
-            variant="elevated"
-            prepend-icon="mdi-content-save"
-            type="submit"
-            :loading="isSaving"
-            size="large"
-          >
-            Guardar Cambios
-          </v-btn>
+                <!-- 👇 Campo temporal para trabajar sin auth -->
+                <v-text-field
+                  v-if="DEV_NO_AUTH"
+                  v-model.number="tmpUsuarioId"
+                  label="Usuario ID (temporal, sin auth)"
+                  variant="outlined"
+                  density="compact"
+                  type="number"
+                  prepend-inner-icon="mdi-account-key"
+                  class="mb-2"
+                />
+              </v-card>
+            </v-col>
 
-          <v-btn
-            v-if="isEditing"
-            color="error"
-            variant="outlined"
-            prepend-icon="mdi-close"
-            @click="cancelEdit"
-            size="large"
-          >
-            Cancelar Edición
-          </v-btn>
-        </v-card-actions>
-      </v-form>
+            <!-- Botones -->
+            <v-col cols="12" class="text-right mt-2">
+              <v-btn color="grey-darken-1" variant="outlined" class="mr-2" @click="goBack">
+                <v-icon left>mdi-arrow-left</v-icon> Volver
+              </v-btn>
+              <v-btn color="primary" class="font-weight-bold py-3 px-6 action-btn" size="large" :loading="isSaving" :disabled="isSaving" @click="openConfirmDialog">
+                <v-icon left>mdi-content-save</v-icon> Guardar cambios
+              </v-btn>
+            </v-col>
+          </v-row>
+        </v-form>
+      </div>
     </v-card>
 
-    <v-snackbar
-      v-model="snackbar.show"
-      :color="snackbar.color"
-      :timeout="snackbar.timeout"
-      location="top right"
-    >
+    <!-- Snackbar -->
+    <v-snackbar v-model="snackbar.show" :color="snackbar.color" :timeout="snackbar.timeout" location="top right">
       {{ snackbar.message }}
-      <template #actions>
-        <v-btn color="white" variant="text" @click="snackbar.show = false">Cerrar</v-btn>
-      </template>
+      <template #actions><v-btn color="white" variant="text" @click="snackbar.show = false">Cerrar</v-btn></template>
     </v-snackbar>
 
-    <v-dialog v-model="confirmSaveDialog.show" max-width="500">
-      <v-card>
-        <v-card-title class="text-h6 font-weight-bold">Confirmar Guardar Cambios</v-card-title>
-        <v-card-text>¿Está seguro de que desea guardar los cambios en este turno?</v-card-text>
-        <v-card-actions>
-          <v-spacer />
-          <v-btn color="grey" variant="text" @click="confirmSaveDialog.show = false">Cancelar</v-btn>
-          <v-btn color="primary" variant="elevated" @click="saveTurno">Confirmar</v-btn>
+    <!-- Confirmación -->
+    <v-dialog v-model="showConfirmDialog" max-width="500">
+      <v-card class="rounded-xl">
+        <v-card-title class="headline text-center text-primary font-weight-bold pa-4">Confirmar Guardado</v-card-title>
+        <v-card-text class="text-center text-body-1 pa-4">¿Deseas guardar los cambios del turno?</v-card-text>
+        <v-card-actions class="justify-center pa-4">
+          <v-btn color="grey-darken-1" variant="outlined" @click="showConfirmDialog=false">Cancelar</v-btn>
+          <v-btn color="primary" variant="elevated" @click="save">Guardar</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
 
+    <!-- Loader -->
     <v-dialog v-model="isLoading" persistent width="300">
       <v-card color="primary" dark>
         <v-card-text class="py-4 text-center">
@@ -246,373 +315,376 @@
         </v-card-text>
       </v-card>
     </v-dialog>
-  </div>
+  </v-container>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch, computed } from 'vue'
+import { ref, onMounted, computed } from 'vue'
+import { DateTime } from 'luxon'
 import { useRoute, useRouter } from 'vue-router'
-import TurnosDelDiaService from '@/services/turnosdeldiaService'
+import type { VForm } from 'vuetify/components'
 import { authSetStore } from '@/stores/AuthStore'
+import TurnosDelDiaService from '@/services/turnosdeldiaService'
 
-type TipoVehiculoDB = 'Liviano Particular' | 'Liviano Taxi' | 'Liviano Público' | 'Motocicleta'
+type TipoVehiculoFrontend = 'Liviano Particular' | 'Liviano Taxi' | 'Liviano Público' | 'Motocicleta'
+type MedioEntero = 'redes_sociales' | 'call_center' | 'fachada' | 'asesor'
+type AsesorTipo = 'ASESOR_INTERNO' | 'ASESOR_EXTERNO'
 
-interface ServicioDTO {
-  id: number
-  codigo: 'RTM' | 'PREV' | 'PERI' | string
-  nombre: string
-}
-
-interface Turno {
-  id: number;
-  turnoNumero: number;
-  fecha: string;
-  horaIngreso: string;
-  horaSalida: string | null;
-  tiempoServicio: string | null;
-  placa: string;
-  tipoVehiculo: TipoVehiculoDB;
-  tieneCita: boolean;
-  convenio: string | null;
-  referidoInterno: string | null;
-  asesorComercial: string | null;
-  medioEntero:
-    | 'Redes Sociales'
-    | 'Convenio o Referido Externo'
-    | 'Call Center'
-    | 'Fachada'
-    | 'Referido Interno'
-    | 'Asesor Comercial'
-    | 'Otros'
-    | 'redes_sociales'
-    | 'convenio_referido_externo'
-    | 'call_center'
-    | 'fachada'
-    | 'referido_interno'
-    | 'asesor_comercial';
-  observaciones: string | null;
-  funcionarioId: number;
-  estado: 'activo' | 'inactivo' | 'cancelado' | 'finalizado';
-  funcionario?: { id: number; nombres: string; apellidos: string };
-  createdAt: string;
-  updatedAt: string;
-
-  // ✅ campos de servicio
-  servicioId?: number | null
-  servicioCodigo?: 'RTM' | 'PREV' | 'PERI' | string
-  servicio?: { id: number; codigoServicio: string; nombreServicio: string } | null
-}
-
-const vehiculoItems: TipoVehiculoDB[] = [
-  'Liviano Particular',
-  'Liviano Taxi',
-  'Liviano Público',
-  'Motocicleta',
-]
+interface ServicioDTO { id: number; codigo: string; nombre: string }
+interface ServicioItem { title: string; value: number }
 
 const route = useRoute()
 const router = useRouter()
 const authStore = authSetStore()
 
-const originalTurno = ref<Turno | null>(null)
-const turno = ref<Turno>({
-  id: 0,
-  turnoNumero: 0,
+/** === Modo sin auth (parche temporal) === */
+const DEV_NO_AUTH = true
+const tmpUsuarioId = ref<number>(1)
+
+/** ===== Form ===== **/
+interface EditForm {
+  turnoNumero: number | null
+  turnoNumeroServicio: number | null
+  fecha: string
+  horaIngreso: string
+  horaSalida: string | null
+  tiempoServicio: string | null
+  placa: string
+  tipoVehiculo: TipoVehiculoFrontend | ''
+  medioEntero: MedioEntero | ''
+  observaciones: string
+  estado: 'activo' | 'inactivo' | 'cancelado' | 'finalizado'
+  servicioId: number | null
+  asesorNombre: string | null
+  asesorTipo: AsesorTipo | null
+  servicioCodigo?: string | null
+}
+const formRef = ref<VForm | null>(null)
+const form = ref<EditForm>({
+  turnoNumero: null,
+  turnoNumeroServicio: null,
   fecha: '',
   horaIngreso: '',
   horaSalida: null,
   tiempoServicio: null,
   placa: '',
-  tipoVehiculo: 'Liviano Particular',
-  tieneCita: false,
-  convenio: null,
-  referidoInterno: null,
-  asesorComercial: null,
-  medioEntero: 'fachada',
-  observaciones: null,
-  funcionarioId: 0,
+  tipoVehiculo: '',
+  medioEntero: '',
+  observaciones: '',
   estado: 'activo',
-  createdAt: '',
-  updatedAt: '',
   servicioId: null,
-  servicioCodigo: undefined,
-  servicio: null,
+  asesorNombre: null,
+  asesorTipo: null,
+  servicioCodigo: null,
 })
 
-/** Select de servicios */
-const serviciosItems = ref<Array<{ title: string; value: number }>>([])
-const serviciosLoading = ref(false)
-
-const isLoading = ref(true)
-const isSaving = ref(false)
-const isEditing = ref(false)
-
-const snackbar = ref({ show: false, message: '', color: '', timeout: 4000 })
-const showSnackbar = (message: string, color = 'info', timeout = 4000) => {
-  snackbar.value = { show: true, message, color, timeout }
-}
-
-const confirmSaveDialog = ref({ show: false })
-const openConfirmSaveDialog = () => { confirmSaveDialog.value.show = true }
-
-// Opciones para “¿Cómo se enteró?”
-const medioEnteroOptions = [
+/** Catálogos */
+const tipoVehiculoItems: ReadonlyArray<TipoVehiculoFrontend> = ['Liviano Particular','Liviano Taxi','Liviano Público','Motocicleta'] as const
+const medioEnteroItems: ReadonlyArray<{ title: string; value: MedioEntero }> = [
   { title: 'Redes Sociales', value: 'redes_sociales' },
-  { title: 'Convenio o Referido Externo', value: 'convenio_referido_externo' },
-  { title: 'Call Center', value: 'call_center' },
-  { title: 'Fachada', value: 'fachada' },
-  { title: 'Referido Interno', value: 'referido_interno' },
-  { title: 'Asesor Comercial', value: 'asesor_comercial' },
-  { title: 'Otros', value: 'otros' },
-]
+  { title: 'Call Center',    value: 'call_center' },
+  { title: 'Fachada',        value: 'fachada' },
+  { title: 'Asesor',         value: 'asesor' },
+] as const
 
-const hasValue = (val: string | null | undefined): boolean => val !== null && val !== undefined && val.trim() !== ''
+const serviciosItems = ref<ServicioItem[]>([])
+const serviciosLoading = ref(false)
+const serviciosMapById = ref<Record<number, ServicioDTO>>({})
 
-const isConvenioLocked = computed(() => isEditing.value && originalTurno.value !== null && hasValue(originalTurno.value.convenio))
-const isReferidoInternoLocked = computed(() => isEditing.value && originalTurno.value !== null && hasValue(originalTurno.value.referidoInterno))
-const isAsesorComercialLocked = computed(() => isEditing.value && originalTurno.value !== null && hasValue(originalTurno.value.asesorComercial))
+/** Relacionados leídos del turno */
+const vehiculo = ref<any | null>(null)
+const cliente  = ref<any | null>(null)
+const dateo    = ref<any | null>(null)
+const agente   = ref<any | null>(null) // agenteCaptacion del turno o del dateo
 
-const shouldLockMedioEnteroSelect = computed(() => {
-  if (!isEditing.value) return true
-  if (originalTurno.value && (hasValue(originalTurno.value.convenio) || hasValue(originalTurno.value.referidoInterno) || hasValue(originalTurno.value.asesorComercial))) {
-    return true
-  }
-  return false
+/** UI State */
+const snackbar = ref({ show: false, message: '', color: '', timeout: 4000 })
+const isLoading = ref(true)
+const isSaving  = ref(false)
+const showConfirmDialog = ref(false)
+const showSnackbar = (m:string,c='info',t=4000)=>{ snackbar.value = { show:true, message:m, color:c, timeout:t } }
+
+/** Pretty / helpers */
+const FMT = 'dd/MM/yyyy HH:mm:ss'
+const fechaBonita = computed(() => {
+  const dt = form.value.fecha ? DateTime.fromISO(form.value.fecha).setZone('America/Bogota') : null
+  return dt && dt.isValid ? dt.toFormat('dd/MM/yyyy') : ''
+})
+const servicioCodigoActual = computed(() => {
+  const id = form.value.servicioId
+  return id ? serviciosMapById.value[id]?.codigo : form.value.servicioCodigo || null
+})
+const createdFmt = computed(() => {
+  const iso = (originalRaw.value?.createdAt || originalRaw.value?.created_at) as string | undefined
+  const dt = iso ? DateTime.fromISO(iso).setZone('America/Bogota') : null
+  return dt && dt.isValid ? dt.toFormat(FMT) : '—'
+})
+const updatedFmt = computed(() => {
+  const iso = (originalRaw.value?.updatedAt || originalRaw.value?.updated_at) as string | undefined
+  const dt = iso ? DateTime.fromISO(iso).setZone('America/Bogota') : null
+  return dt && dt.isValid ? dt.toFormat(FMT) : '—'
+})
+const usuarioNombre = computed(() => {
+  const u = originalRaw.value?.usuario
+  return u ? `${u.nombres} ${u.apellidos}` : '—'
+})
+const sedeNombre = computed(() => originalRaw.value?.sede?.nombre || '—')
+const vehiculoClase = computed(() =>
+  vehiculo.value?.clase?.nombre || vehiculo.value?.clase?.codigo || '—'
+)
+
+/** Captación / Dateo pretty */
+const canalPretty = computed(() => {
+  const c = (originalRaw.value?.canalAtribucion || '').toUpperCase()
+  if (c === 'TELE') return 'Telemercadeo'
+  if (c === 'ASESOR') return 'Asesor'
+  if (c === 'REDES') return 'Redes Sociales'
+  if (c === 'FACHADA') return 'Fachada'
+  return '—'
+})
+const agenteChip = computed(() => {
+  const a = agente.value
+  if (!a) return ''
+  const tipo = (a.tipo || '').toUpperCase()
+  const tipoPretty =
+    tipo === 'ASESOR_INTERNO' ? 'Asesor Interno' :
+    tipo === 'ASESOR_EXTERNO' ? 'Asesor Externo' :
+    tipo === 'TELEMERCADEO'   ? 'Telemercadeo'   : (a.tipo || '')
+  return `${a.nombre} (${tipoPretty})`
+})
+const dateoOrigenPretty = computed(() => {
+  const raw = dateo.value?.origen || ''
+  const u = String(raw).toUpperCase()
+  const map: Record<string,string> = { 'IMPORT':'Importado', 'MANUAL':'Manual', 'API':'API' }
+  return map[u] ?? (raw || '—')
+})
+const dateoFechaFmt = computed(() => {
+  const iso = dateo.value?.createdAt || dateo.value?.created_at
+  if (!iso) return '—'
+  const dt = DateTime.fromISO(iso).setZone('America/Bogota')
+  return dt.isValid ? dt.toFormat(FMT) : '—'
 })
 
-// Title Case ↔ snake_case para medioEntero (vista usa snake_case ya)
-const mapToSnakeCase = (value: string | null): string | null => {
-  if (!value) return null
-  const found = medioEnteroOptions.find(o => o.title === value || o.value === value)
-  return found ? found.value : value
+/** raw turno para metadatos */
+const originalRaw = ref<any | null>(null)
+
+function onPlacaInput(e: Event) {
+  const target = e.target as HTMLInputElement | null
+  if (target) form.value.placa = target.value.toUpperCase().replace(/\s|-/g, '')
 }
 
-watch(() => turno.value.medioEntero, (newValue, oldValue) => {
-  if (isEditing.value && newValue !== oldValue) {
-    if (newValue !== 'convenio_referido_externo') turno.value.convenio = null
-    if (newValue !== 'referido_interno') turno.value.referidoInterno = null
-    if (newValue !== 'asesor_comercial') turno.value.asesorComercial = null
-  }
-})
+/** Mapas medio<->canal */
+function canalToMedio(canal: string | null | undefined): MedioEntero {
+  const c = (canal || '').toUpperCase()
+  if (c === 'REDES') return 'redes_sociales'
+  if (c === 'TELE')  return 'call_center'
+  if (c === 'ASESOR')return 'asesor'
+  return 'fachada'
+}
+function medioToCanal(medio: MedioEntero): 'FACHADA'|'TELE'|'REDES'|'ASESOR' {
+  if (medio === 'redes_sociales') return 'REDES'
+  if (medio === 'call_center')    return 'TELE'
+  if (medio === 'asesor')         return 'ASESOR'
+  return 'FACHADA'
+}
 
-/** Cargar catálogo de servicios (solo códigos RTM, PREV, PERI en la UI) */
-const loadServicios = async () => {
+/** Catálogo de servicios (única definición) */
+async function loadServicios() {
   serviciosLoading.value = true
   try {
-    const data = await TurnosDelDiaService.obtenerServicios() as ServicioDTO[]
-    const filtered = (data || []).filter((s) => ['RTM', 'PREV', 'PERI'].includes(s.codigo))
-    serviciosItems.value = filtered.map((s) => ({ title: s.codigo, value: s.id }))
-
-    // Si el turno ya tiene servicio (por id o relación), asegurar la selección
-    if (!turno.value.servicioId) {
-      const currentCode = turno.value.servicio?.codigoServicio ?? turno.value.servicioCodigo
-      if (currentCode) {
-        const found = filtered.find((s) => s.codigo === currentCode)
-        if (found) turno.value.servicioId = found.id
-      }
-    }
+    const data: ServicioDTO[] = await TurnosDelDiaService.getServicios()
+    serviciosItems.value = data.map(s => ({ title: `${s.codigo} — ${s.nombre}`, value: s.id }))
+    serviciosMapById.value = Object.fromEntries(data.map(s => [s.id, s]))
   } catch (e) {
-    console.error('Error al cargar servicios:', e)
-    showSnackbar('No se pudieron cargar los servicios.', 'error')
-    serviciosItems.value = []
+    console.error(e)
+    showSnackbar('No se pudieron cargar los servicios', 'error')
   } finally {
     serviciosLoading.value = false
   }
 }
 
-const fetchTurnoDetails = async (id: number) => {
+/** Cargar turno (incluye relaciones: cliente, vehiculo, agenteCaptacion, captacionDateo) */
+async function fetchTurno() {
   isLoading.value = true
   try {
-    const token = authStore.token
-    if (!token) {
-      showSnackbar('Error: No hay token de autenticación. Por favor, inicie sesión.', 'error')
-      authStore.logout()
-      router.push('/login')
-      return
+    const id = Number(route.params.id)
+    if (!id) { showSnackbar('ID inválido', 'error'); router.push('/rtm/turnos-dia'); return }
+
+    const data: any = await TurnosDelDiaService.fetchTurnoById(id) // sin token
+    originalRaw.value = data
+
+    // relaciones
+    vehiculo.value = data?.vehiculo ?? null
+    cliente.value  = data?.cliente ?? null
+    dateo.value    = data?.captacionDateo ?? null
+
+    // agente: preferimos agenteCaptacion del turno; si no, del dateo
+    agente.value   = data?.agenteCaptacion ?? data?.captacionDateo?.agente ?? null
+
+    // set form base
+    form.value.turnoNumero         = data?.turnoNumero ?? null
+    form.value.turnoNumeroServicio = data?.turnoNumeroServicio ?? data?.turno_numero_servicio ?? null
+    form.value.fecha               = data?.fecha ?? '' // ISO
+    form.value.horaIngreso         = data?.horaIngreso ?? ''
+    form.value.horaSalida          = data?.horaSalida ?? null
+    form.value.tiempoServicio      = data?.tiempoServicio ?? null
+    form.value.placa               = data?.placa ?? ''
+    form.value.tipoVehiculo        = data?.tipoVehiculo ?? ''
+    form.value.observaciones       = data?.observaciones ?? ''
+    form.value.estado              = data?.estado ?? 'activo'
+    form.value.servicioId          = data?.servicio?.id ?? data?.servicioId ?? null
+    form.value.servicioCodigo      = data?.servicio?.codigoServicio ?? data?.servicioCodigo ?? null
+
+    // medio/canal: prioriza canalAtribucion; si no, medioEntero guardado
+    const canal = data?.canalAtribucion ?? null
+    form.value.medioEntero = canal ? canalToMedio(canal) : ((): MedioEntero => {
+      const val = (data?.medioEntero || '').toLowerCase()
+      if (['redes_sociales','call_center','fachada','asesor'].includes(val)) return val as MedioEntero
+      return 'fachada'
+    })()
+
+    // asesor (si medio es ASESOR): tomar de agenteCaptacion/dateo o fallback
+    if (form.value.medioEntero === 'asesor' && agente.value) {
+      form.value.asesorNombre = agente.value.nombre || null
+      const t = String(agente.value.tipo || '').toUpperCase()
+      form.value.asesorTipo =
+        t === 'ASESOR_INTERNO' ? 'ASESOR_INTERNO' :
+        t === 'ASESOR_EXTERNO' ? 'ASESOR_EXTERNO' : null
+    } else {
+      form.value.asesorNombre = data?.asesorComercial ?? null
+      form.value.asesorTipo   = null
     }
-
-    // Nota: tu servicio acepta (id, token) en tu proyecto actual
-    const data = await TurnosDelDiaService.fetchTurnoById(id, token) as unknown as Turno
-
-    // Normaliza medioEntero a snake_case
-    const processedMedioEntero = mapToSnakeCase(data.medioEntero) as typeof turno.value.medioEntero
-
-    // Normaliza servicioId (desde relación o campo directo)
-    const servicioId = (data.servicio?.id ?? data.servicioId ?? null) as number | null
-    const servicioCodigo = (data.servicio?.codigoServicio ?? data.servicioCodigo) as Turno['servicioCodigo']
-
-    const processedData: Turno = {
-      ...data,
-      medioEntero: processedMedioEntero,
-      servicioId,
-      servicioCodigo,
-      servicio: data.servicio ?? null,
-    }
-
-    turno.value = { ...processedData }
-    originalTurno.value = { ...processedData }
-
-    // Luego de tener el turno, cargamos el catálogo y fijamos selección si aplica
-    await loadServicios()
-  } catch (error: unknown) {
-    console.error('Error al cargar los detalles del turno:', error)
-    let message = 'Error al cargar los detalles del turno. Intente recargar la página.'
-    if (error instanceof Error) {
-      message = error.message
-      if (message.includes('Sesión expirada') || message.includes('no autorizada')) {
-        authStore.logout()
-        router.push('/login')
-      } else if (message.includes('not found')) {
-        message = 'Turno no encontrado.'
-      }
-    }
-    showSnackbar(message, 'error')
+  } catch (e) {
+    console.error(e)
+    showSnackbar('No fue posible cargar el turno', 'error')
     router.push('/rtm/turnos-dia')
   } finally {
     isLoading.value = false
   }
 }
 
-const saveTurno = async () => {
-  confirmSaveDialog.value.show = false
+/** Guardar */
+function openConfirmDialog() { showConfirmDialog.value = true }
+async function save() {
+  showConfirmDialog.value = false
+  if (!formRef.value) return
+  const { valid } = await formRef.value.validate()
+  if (!valid) { showSnackbar('Completa los campos requeridos', 'warning'); return }
+
+  if (form.value.medioEntero === 'asesor') {
+    if (!form.value.asesorNombre) { showSnackbar('Indica el nombre del asesor', 'warning'); return }
+    if (!form.value.asesorTipo)   { showSnackbar('Selecciona el tipo de asesor', 'warning'); return }
+  }
+
   isSaving.value = true
   try {
-    const token = authStore.token
-    if (!token) {
-      showSnackbar('Error: No hay token de autenticación. Por favor, inicie sesión.', 'error')
-      authStore.logout()
-      router.push('/login')
-      return
+    const id = Number(route.params.id)
+    if (!id) throw new Error('ID inválido')
+
+    const canal = medioToCanal(form.value.medioEntero)
+    const payload: any = {
+      placa: form.value.placa,
+      tipoVehiculo: form.value.tipoVehiculo,
+      observaciones: form.value.observaciones,
+      horaIngreso: form.value.horaIngreso,
+      horaSalida: form.value.horaSalida,
+      tiempoServicio: form.value.tiempoServicio,
+      estado: form.value.estado,
+      servicioId: form.value.servicioId,
+      canal,               // Adonis puede derivar medio_entero desde aquí
+      medioEntero: form.value.medioEntero, // compat si lo usa
+
+      // 👇 Parche temporal SIN AUTH: enviar usuarioId requerido por backend
+      usuarioId: Number(tmpUsuarioId.value) || 1,
     }
 
-    const usuarioIdNum = Number(authStore.user?.id ?? turno.value.funcionarioId ?? NaN)
-    if (!Number.isFinite(usuarioIdNum) || usuarioIdNum <= 0) {
-      showSnackbar('No fue posible determinar el usuario que realiza la acción.', 'error')
-      return
+    // Si medio = asesor, enviamos los campos
+    if (form.value.medioEntero === 'asesor') {
+      payload.asesorComercial = form.value.asesorNombre
+      payload.asesorTipo = form.value.asesorTipo
+    } else {
+      payload.asesorComercial = null
+      payload.asesorTipo = null
     }
 
-    const updatePayload: any = {
-      placa: turno.value.placa,
-      tipoVehiculo: turno.value.tipoVehiculo as TipoVehiculoDB,
-      tieneCita: turno.value.tieneCita,
-      convenio: turno.value.convenio,
-      referidoInterno: turno.value.referidoInterno,
-      asesorComercial: turno.value.asesorComercial,
-      medioEntero: turno.value.medioEntero,
-      observaciones: turno.value.observaciones,
-      funcionarioId: turno.value.funcionarioId,
-      horaSalida: turno.value.horaSalida,
-      tiempoServicio: turno.value.tiempoServicio,
-      estado: turno.value.estado,
-      usuarioId: usuarioIdNum,
-    }
-
-    // ✅ incluir servicio si está seleccionado
-    if (turno.value.servicioId) {
-      updatePayload.servicioId = turno.value.servicioId
-    }
-
-    // Nota: tu servicio acepta (id, payload, token) en tu proyecto actual
-    await TurnosDelDiaService.updateTurno(turno.value.id, updatePayload, token)
-
-    showSnackbar('Turno guardado exitosamente!', 'success')
-    isEditing.value = false
-    originalTurno.value = { ...turno.value }
-  } catch (error: unknown) {
-    console.error('Error al guardar el turno:', error)
-    let message = 'Error al guardar el turno. Intente de nuevo.'
-    if (error instanceof Error) {
-      message = error.message
-      if (message.includes("Valor inválido para 'medioEntero'") || message.includes('invalid value for medioEntero')) {
-        message = 'Error: El valor seleccionado para "¿Cómo se enteró?" no es válido.'
-      } else if (message.includes('Sesión expirada') || message.includes('no autorizada')) {
-        authStore.logout()
-        router.push('/login')
-      } else if (message.includes('Failed to fetch')) {
-        message = 'No se pudo conectar con el servidor.'
-      }
-    }
-    showSnackbar(message, 'error')
+    await TurnosDelDiaService.updateTurno(id, payload) // sin token
+    showSnackbar('✅ Turno actualizado correctamente', 'success')
+  } catch (e:any) {
+    console.error(e)
+    showSnackbar(e?.message || 'Error al guardar el turno', 'error')
   } finally {
     isSaving.value = false
   }
 }
 
-const cancelEdit = () => {
-  if (originalTurno.value) turno.value = { ...originalTurno.value }
-  isEditing.value = false
-  showSnackbar('Edición cancelada. Los cambios no se guardaron.', 'info')
-}
+/** Navegación */
+function goBack() { router.push('/rtm/turnos-dia') }
 
-onMounted(() => {
-  const turnoId = Number(route.params.id)
-  if (turnoId) {
-    fetchTurnoDetails(turnoId)
-  } else {
-    showSnackbar('ID de turno no proporcionado.', 'error')
-    router.push('/rtm/turnos-dia')
-  }
-})
-
-watch(() => route.params.id, (newId) => {
-  if (newId && typeof newId === 'string') {
-    fetchTurnoDetails(Number(newId))
-  }
+onMounted(async () => {
+  await loadServicios()
+  await fetchTurno()
 })
 </script>
 
 <style scoped>
-/* Contenedor principal para la vista */
-.edit-turno-container {
-  display: flex;
-  justify-content: center;
-  align-items: flex-start;
-  min-height: calc(100vh - 40px);
-  padding: 20px;
-  box-sizing: border-box;
+/* El select de servicio se ve "corto" aunque esté en una fila completa */
+.servicio-fit { display:inline-block; min-width:120px; max-width:260px; }
+.servicio-fit :deep(.v-input__control) { width:100%; }
+
+/* —— Card base —— */
+.card-surface {
+  background: linear-gradient(180deg, #ffffff 0%, #f8f9fb 100%);
+  border: 1px solid rgba(16,24,40,0.06);
 }
 
-/* Tarjeta principal del formulario */
-.responsive-card {
-  width: 100%;
-  max-width: 900px;
-  padding: 16px;
-  box-sizing: border-box;
+/* —— Header —— */
+.card-header {
+  display:flex; align-items:center; justify-content:space-between; gap:16px;
+  background:
+    radial-gradient(1200px 200px at 20% -50%, rgba(25,118,210,.08), transparent 60%),
+    radial-gradient(900px 180px at 80% -60%, rgba(76,175,80,.10), transparent 60%),
+    linear-gradient(180deg, #ffffff, #f7f9fc);
+  border-top-left-radius:16px; border-top-right-radius:16px;
+}
+.header-left { display:flex; align-items:center; gap:14px; }
+.icon-pill {
+  display:inline-flex; align-items:center; justify-content:center;
+  height:40px; width:40px; border-radius:10px;
+  border:1px solid rgba(16,24,40,0.08); background:#fff;
+  box-shadow:0 1px 2px rgba(16,24,40,0.06);
+}
+.title-group .title { margin:0; font-weight:700; letter-spacing:.2px; line-height:1.2; font-size:1.35rem; color:#0f172a; }
+.title-group .subtitle { margin:2px 0 0 0; font-size:.925rem; color:#475569; }
+
+.turno-chip :deep(.v-chip__content) { font-weight:600; }
+.turno-chip {
+  --chip-bg:#0ea5e9; background: linear-gradient(180deg,#0ea5e9,#0284c7);
+  color:#fff; box-shadow:0 6px 16px rgba(2,132,199,0.25);
 }
 
-.v-card-title {
-  font-weight: bold;
-  letter-spacing: 0.05em;
-  font-size: 1.5rem;
+/* —— Divider —— */
+.divider-muted { border-color: rgba(16,24,40,0.08) !important; }
+
+/* —— Inputs —— */
+:deep(.v-text-field .v-input__control),
+:deep(.v-select .v-input__control) { border-radius:10px; }
+:deep(.v-input__prepend-inner .v-icon) { color:#1976D2; }
+
+/* —— Button principal —— */
+.action-btn {
+  border-radius:12px !important; text-transform:none; letter-spacing:.2px;
+  box-shadow:0 6px 16px rgba(25,118,210,.25) !important;
+  border:1px solid rgba(16,24,40,0.06);
+}
+.action-btn:hover {
+  transform: translateY(-1px);
+  box-shadow:0 10px 20px rgba(25,118,210,.28) !important;
 }
 
-@media (min-width: 600px) {
-  .responsive-card { padding: 24px; }
-  .v-card-title { font-size: 2rem; }
-}
+/* Tarjetas compactas 2×2 */
+.card-compact { padding: 12px; border-radius: 12px; border: 1px dashed rgba(16,24,40,0.12); }
+.card-header { display:flex; align-items:center; font-weight:700; margin-bottom:8px; }
 
-@media (min-width: 960px) {
-  .responsive-card { padding: 32px; }
-  .v-card-title { font-size: 2.25rem; }
-}
-
-.v-card {
-  box-shadow: 0 10px 20px rgba(0,0,0,.15), 0 6px 6px rgba(0,0,0,.1);
-  border-radius: 16px;
-  background: linear-gradient(145deg, #f0f2f5, #e0e2e5);
-}
-.v-btn {
-  border-radius: 10px;
-  transition: all .3s ease;
-  box-shadow: 0 4px 6px rgba(0,0,0,.1);
-}
-.v-btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 12px rgba(0,0,0,.2);
-}
-
-.responsive-actions .v-btn { flex-grow: 1; margin: 4px; }
-@media (min-width: 600px) {
-  .responsive-actions .v-btn { flex-grow: 0; margin: 0 8px; }
-}
+/* util */
+.radio-row :deep(.v-label) { font-weight: 500; }
 </style>

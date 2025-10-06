@@ -9,12 +9,14 @@ export interface DashboardData {
   siguienteTurno: number
   /** En proceso del día, por servicio */
   turnosEnProcesoPorServicio: {
+    soat: number
     rtm: number
     preventiva: number
     peritaje: number
   }
-  /** 👇 NUEVO: totales del día (en proceso + finalizados), por servicio */
+  /** 👇 Totales del día (en proceso + finalizados), por servicio */
   turnosTotalesPorServicio: {
+    soat: number
     rtm: number
     preventiva: number
     peritaje: number
@@ -54,10 +56,25 @@ function computeMinExpectedNext(turnos: Turno[]): number {
 /** helper: está "en proceso" = activo y sin horaSalida */
 const isEnProceso = (t: Turno) => t.estado === 'activo' && !t.horaSalida
 
-/** helper: normaliza el código del servicio de un turno */
+/**
+ * helper: normaliza el código del servicio de un turno.
+ * Acepta: RTM, PREV, PREVENTIVA, PERI, PERITAJE, SOAT.
+ * Devuelve: 'RTM' | 'PREV' | 'PERI' | 'SOAT' | ''.
+ */
 function getServicioCode(t: Turno): string {
-  const code = (t as any)?.servicio?.codigoServicio ?? (t as any)?.servicioCodigo
-  return typeof code === 'string' ? code.toUpperCase() : ''
+  const codeRaw =
+    (t as any)?.servicio?.codigoServicio ??
+    (t as any)?.servicio?.codigo ??
+    (t as any)?.servicioCodigo ??
+    (t as any)?.codigoServicio ??
+    ''
+
+  const code = typeof codeRaw === 'string' ? codeRaw.toUpperCase().trim() : ''
+  if (code === 'RTM') return 'RTM'
+  if (code === 'SOAT') return 'SOAT'
+  if (code === 'PREV' || code === 'PREVENTIVA') return 'PREV'
+  if (code === 'PERI' || code === 'PERITAJE') return 'PERI'
+  return ''
 }
 
 export async function fetchDashboard(usuarioId: number): Promise<DashboardData> {
@@ -74,30 +91,43 @@ export async function fetchDashboard(usuarioId: number): Promise<DashboardData> 
   const siguienteTurno = Math.max(nextFromBackend || 0, minExpected)
 
   // En proceso por servicio
-  let rtmProc = 0, prevProc = 0, periProc = 0
+  let rtmProc = 0, prevProc = 0, periProc = 0, soatProc = 0
   // Totales por servicio (en proceso + finalizados del día)
-  let rtmTot = 0,  prevTot = 0,  periTot = 0
+  let rtmTot = 0,  prevTot = 0,  periTot = 0,  soatTot = 0
 
   for (const t of turnos) {
     const code = getServicioCode(t)
-    // Totales (cuentan TODOS los turnos de hoy, sin importar estado)
+
+    // Totales (todos los turnos del día)
     if (code === 'RTM') rtmTot++
     else if (code === 'PREV') prevTot++
     else if (code === 'PERI') periTot++
+    else if (code === 'SOAT') soatTot++
 
-    // En proceso (como ya lo tenías)
+    // En proceso
     if (!isEnProceso(t)) continue
     if (code === 'RTM') rtmProc++
     else if (code === 'PREV') prevProc++
     else if (code === 'PERI') periProc++
+    else if (code === 'SOAT') soatProc++
   }
 
   return {
     turnosEnProceso,
     turnosFinalizados,
     siguienteTurno,
-    turnosEnProcesoPorServicio: { rtm: rtmProc, preventiva: prevProc, peritaje: periProc },
-    turnosTotalesPorServicio:  { rtm: rtmTot,  preventiva: prevTot,  peritaje: periTot  },
+    turnosEnProcesoPorServicio: {
+      rtm: rtmProc,
+      preventiva: prevProc,
+      peritaje: periProc,
+      soat: soatProc,
+    },
+    turnosTotalesPorServicio: {
+      rtm: rtmTot,
+      preventiva: prevTot,
+      peritaje: periTot,
+      soat: soatTot,
+    },
   }
 }
 

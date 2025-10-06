@@ -1,15 +1,7 @@
-<!--
-📌 DashboardView.vue (actualizada)
-- Mantiene KPIs generales
-- Mantiene "🛠️ Turnos en Proceso por Servicio (Hoy)" con tarjetas grandes
-- Debajo de cada tarjeta grande se agrega un mini indicador "Total (Hoy)"
-- Acciones rápidas y snackbar
--->
-
+<!-- DashboardView.vue -->
 <template>
   <v-container>
     <v-card class="welcome-card" elevation="10">
-      <!-- Encabezado de bienvenida -->
       <v-card-title class="text-h4 text-center font-bold mb-4" style="color: black;">
         ¡Bienvenido a ACTIVAUTOS CDA DEL CENTRO IBAGUÉ!
       </v-card-title>
@@ -20,13 +12,11 @@
 
       <v-divider class="my-6" />
 
-      <!-- Sección de KPIs -->
       <h3 class="text-h4 text-center mb-6 text-primary font-weight-bold">
         📊 Resumen del Día ({{ todayDate }})
       </h3>
 
       <v-row justify="center" class="mb-8">
-        <!-- KPI: Turnos en proceso -->
         <v-col cols="12" sm="6" md="4">
           <DashboardIndicador
             icon="mdi-car-multiple"
@@ -38,7 +28,6 @@
           />
         </v-col>
 
-        <!-- KPI: Turnos finalizados -->
         <v-col cols="12" sm="6" md="4">
           <DashboardIndicador
             icon="mdi-check-circle-outline"
@@ -50,7 +39,6 @@
           />
         </v-col>
 
-        <!-- KPI: Siguiente turno -->
         <v-col cols="12" sm="6" md="4">
           <DashboardIndicador
             icon="mdi-numeric"
@@ -65,15 +53,16 @@
 
       <v-divider class="my-6" />
 
-      <!-- KPIs por servicio (en proceso) + mini "Total (Hoy)" debajo -->
       <h3 class="text-h5 text-center mb-6 text-primary font-weight-bold">
         🛠️ Turnos en Proceso por Servicio (Hoy)
       </h3>
 
-      <v-row justify="center" class="mb-4">
+      <!-- 👇 4 columnas iguales: md=3 en los CUATRO -->
+      <v-row dense align="stretch" class="mb-4">
         <!-- RTM -->
-        <v-col cols="12" sm="6" md="4">
+        <v-col cols="12" sm="6" md="3" class="d-flex flex-column">
           <DashboardIndicador
+            class="flex-grow-1 indicador-card"
             icon="mdi-car-wrench"
             :valor="kpiServicios.rtm"
             titulo="RTM"
@@ -81,7 +70,7 @@
             color-card="indigo-lighten-5"
             color-icon="indigo-darken-2"
           />
-          <div class="mt-2">
+          <div class="mt-2 indicador-mini">
             <DashboardIndicadorMini
               icon="mdi-format-list-numbered"
               titulo="Total (Hoy)"
@@ -94,8 +83,9 @@
         </v-col>
 
         <!-- Preventiva -->
-        <v-col cols="12" sm="6" md="4">
+        <v-col cols="12" sm="6" md="3" class="d-flex flex-column">
           <DashboardIndicador
+            class="flex-grow-1 indicador-card"
             icon="mdi-shield-check-outline"
             :valor="kpiServicios.preventiva"
             titulo="Preventiva"
@@ -103,7 +93,7 @@
             color-card="deep-purple-lighten-5"
             color-icon="deep-purple-darken-2"
           />
-          <div class="mt-2">
+          <div class="mt-2 indicador-mini">
             <DashboardIndicadorMini
               icon="mdi-format-list-numbered"
               titulo="Total (Hoy)"
@@ -116,8 +106,9 @@
         </v-col>
 
         <!-- Peritaje -->
-        <v-col cols="12" sm="6" md="4">
+        <v-col cols="12" sm="6" md="3" class="d-flex flex-column">
           <DashboardIndicador
+            class="flex-grow-1 indicador-card"
             icon="mdi-clipboard-text-search-outline"
             :valor="kpiServicios.peritaje"
             titulo="Peritaje"
@@ -125,7 +116,7 @@
             color-card="cyan-lighten-5"
             color-icon="cyan-darken-2"
           />
-          <div class="mt-2">
+          <div class="mt-2 indicador-mini">
             <DashboardIndicadorMini
               icon="mdi-format-list-numbered"
               titulo="Total (Hoy)"
@@ -136,11 +127,33 @@
             />
           </div>
         </v-col>
+
+        <!-- SOAT -->
+        <v-col cols="12" sm="6" md="3" class="d-flex flex-column">
+          <DashboardIndicador
+            class="flex-grow-1 indicador-card"
+            icon="mdi-file-certificate-outline"
+            :valor="kpiServicios.soat"
+            titulo="SOAT"
+            :loading="isLoadingKpis"
+            color-card="amber-lighten-5"
+            color-icon="amber-darken-2"
+          />
+          <div class="mt-2 indicador-mini">
+            <DashboardIndicadorMini
+              icon="mdi-format-list-numbered"
+              titulo="Total (Hoy)"
+              :valor="kpiServiciosTotal.soat"
+              :loading="isLoadingKpis"
+              color-card="yellow-lighten-5"
+              color-icon="yellow-darken-2"
+            />
+          </div>
+        </v-col>
       </v-row>
 
       <v-divider class="my-6" />
 
-      <!-- Sección de acciones rápidas -->
       <h3 class="text-h4 text-center mb-6 text-primary font-weight-bold">🚀 Acciones Rápidas</h3>
       <DashboardAcciones
         @crear-turno="goCrearTurno"
@@ -149,28 +162,17 @@
       />
     </v-card>
 
-    <!-- Snackbar global para mostrar avisos -->
     <AvisoFlotante v-model="snackbar" />
   </v-container>
 </template>
 
 <script setup lang="ts">
-/**
- * 📌 Script del Dashboard
- * - Importa composables:
- *    useDashboardDatos → KPIs y fecha (incluye kpiServicios y kpiServiciosTotal).
- *    useAvisos         → Snackbar (avisos).
- * - Importa componentes:
- *    DashboardIndicador, DashboardIndicadorMini, DashboardAcciones, AvisoFlotante.
- * - Define funciones de navegación.
- * - Llama a cargarDashboard() al montar y maneja errores mostrando avisos.
- */
 import { useRouter } from 'vue-router'
 import { useDashboardDatos } from '@/composables/dashboard/useDashboardDatos'
 import { useAvisos } from '@/composables/dashboard/useAvisos'
 
 import DashboardIndicador from '@/components/dashboard/DashboardIndicador.vue'
-import DashboardIndicadorMini from '@/components/dashboard/DashboardIndicadorMini.vue' // 👈 nuevo
+import DashboardIndicadorMini from '@/components/dashboard/DashboardIndicadorMini.vue'
 import DashboardAcciones from '@/components/dashboard/DashboardAcciones.vue'
 import AvisoFlotante from '@/components/dashboard/AvisoFlotante.vue'
 
@@ -180,19 +182,17 @@ const {
   turnosEnProceso,
   turnosFinalizados,
   siguienteTurno,
-  kpiServicios,       // { rtm, preventiva, peritaje }
-  kpiServiciosTotal,  // { rtm, preventiva, peritaje }
+  kpiServicios,
+  kpiServiciosTotal,
   isLoadingKpis,
   todayDate,
   cargarDashboard,
 } = useDashboardDatos()
 
-// Navegación
 function goCrearTurno() { router.push('/rtm/crear-turno') }
 function goTurnosDia()  { router.push('/rtm/turnos-dia') }
 function goHistorico()  { router.push('/rtm/estado-turnos') }
 
-// Cargar datos al entrar
 cargarDashboard().catch((e) => {
   const msg = e?.message || 'No fue posible cargar el dashboard.'
   mostrarAviso(msg, 'error')
@@ -200,7 +200,6 @@ cargarDashboard().catch((e) => {
 </script>
 
 <style scoped>
-/* Estilos para la tarjeta principal del dashboard */
 .welcome-card {
   max-width: 1200px;
   width: 100%;
@@ -212,8 +211,11 @@ cargarDashboard().catch((e) => {
   margin: 0 auto;
 }
 
-/* Utilidades para compactar los bloques de servicios */
 .mb-4 { margin-bottom: 16px !important; }
 .mt-2 { margin-top: 8px !important; }
 .font-bold { font-weight: 700; }
+
+/* Fuerza a que las cards no conserven min-width y puedan encoger a 1/4 */
+.indicador-card :deep(.v-card) { min-width: 0; width: 100%; }
+.indicador-mini :deep(.v-card) { min-width: 0; }
 </style>

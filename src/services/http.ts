@@ -10,11 +10,11 @@ export interface RequestOptions<TBody = unknown> {
   body?: TBody
   params?: Params
   headers?: Record<string, string>
-  // Cookies de sesión (Adonis) → 'include'. Si usas sólo Bearer puedes dejar 'omit'.
+  // No usaremos cookies: por defecto 'omit'
   credentials?: RequestCredentials // 'include' | 'same-origin' | 'omit'
   // Forzar JSON (si false, devuelve Blob: útil para Excel/PDF/imagenes)
   expectJson?: boolean
-  // 💡 NUEVO: permite cancelar/abortar requests
+  // Permite cancelar/abortar requests
   signal?: AbortSignal
 }
 
@@ -23,12 +23,6 @@ export interface RequestOptions<TBody = unknown> {
 const ENV_BASE = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/+$/, '')
 const BASE_URL =
   ENV_BASE || (typeof window !== 'undefined' ? window.location.origin : '')
-
-// ===== Token global opcional (OAT) =====
-let tokenGetter: (() => string | null | undefined) | null = null
-export function setAuthTokenGetter(fn: () => string | null | undefined) {
-  tokenGetter = fn
-}
 
 // ===== Helpers internos =====
 function isFormData(value: unknown): value is FormData {
@@ -55,8 +49,7 @@ function makeHeaders(userHeaders?: Record<string, string>, body?: unknown) {
   if (body !== undefined && !isFormData(body) && !headers['Content-Type']) {
     headers['Content-Type'] = 'application/json'
   }
-  const t = tokenGetter?.()
-  if (t) headers['Authorization'] = `Bearer ${t}`
+  // ❌ SIN Authorization: Bearer
   return headers
 }
 
@@ -109,9 +102,9 @@ export async function http<TResp = unknown, TBody = unknown>(
     body,
     params,
     headers,
-    credentials = 'include', // ← cookies en Adonis. Cambia a 'omit' si usas sólo Bearer.
+    credentials = 'omit', // 👈 SIN cookies por defecto
     expectJson = true,
-    signal,                    // ← 💡 NUEVO
+    signal,
   }: RequestOptions<TBody> = {}
 ): Promise<TResp> {
   const url = buildUrl(path, params)
@@ -119,7 +112,7 @@ export async function http<TResp = unknown, TBody = unknown>(
     method,
     headers: makeHeaders(headers, body),
     credentials,
-    signal,                   // ← 💡 NUEVO
+    signal,
   }
 
   if (body !== undefined && method !== 'GET') {

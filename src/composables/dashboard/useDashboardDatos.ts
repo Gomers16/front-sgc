@@ -5,7 +5,7 @@
  *    • turnosEnProceso    → número de turnos que están en curso.
  *    • turnosFinalizados  → número de turnos ya terminados.
  *    • siguienteTurno     → identificador/número del próximo turno.
- *    • kpiServicios       → turnos en proceso por servicio (RTM, PREV, PERI).
+ *    • kpiServicios       → turnos en proceso por servicio (RTM, PREV, PERI, SOAT).
  *    • kpiServiciosTotal  → TOTAL del día por servicio (en proceso + finalizados) — NUEVO.
  *    • isLoadingKpis      → estado de carga (true mientras se consulta).
  *    • todayDate          → fecha actual en formato dd/MM/yyyy (zona Bogotá).
@@ -21,6 +21,13 @@ import { useRouter } from 'vue-router'
 import { authSetStore } from '@/stores/AuthStore'
 import { fetchDashboard } from '@/services/dashboardService'
 
+type KpiServicios = {
+  rtm: number
+  preventiva: number
+  peritaje: number
+  soat: number
+}
+
 export function useDashboardDatos() {
   const router = useRouter()
   const authStore = authSetStore()
@@ -31,17 +38,19 @@ export function useDashboardDatos() {
   const siguienteTurno    = ref(0)
 
   // 👇 KPIs por servicio (en proceso)
-  const kpiServicios = ref<{ rtm: number; preventiva: number; peritaje: number }>({
+  const kpiServicios = ref<KpiServicios>({
     rtm: 0,
     preventiva: 0,
     peritaje: 0,
+    soat: 0,
   })
 
   // 👇 NUEVO: KPIs por servicio (TOTAL del día = en proceso + finalizados)
-  const kpiServiciosTotal = ref<{ rtm: number; preventiva: number; peritaje: number }>({
+  const kpiServiciosTotal = ref<KpiServicios>({
     rtm: 0,
     preventiva: 0,
     peritaje: 0,
+    soat: 0,
   })
 
   // ⏳ Estado de carga de los KPIs
@@ -64,14 +73,28 @@ export function useDashboardDatos() {
       }
 
       const data = await fetchDashboard(userId)
-      turnosEnProceso.value   = data.turnosEnProceso
-      turnosFinalizados.value = data.turnosFinalizados
-      siguienteTurno.value    = data.siguienteTurno
+
+      turnosEnProceso.value   = Number(data?.turnosEnProceso ?? 0)
+      turnosFinalizados.value = Number(data?.turnosFinalizados ?? 0)
+      siguienteTurno.value    = Number(data?.siguienteTurno ?? 0)
 
       // Conteos por servicio (en proceso)
-      kpiServicios.value = data.turnosEnProcesoPorServicio ?? { rtm: 0, preventiva: 0, peritaje: 0 }
+      const enProceso = data?.turnosEnProcesoPorServicio ?? {}
+      kpiServicios.value = {
+        rtm: Number(enProceso?.rtm ?? 0),
+        preventiva: Number(enProceso?.preventiva ?? 0),
+        peritaje: Number(enProceso?.peritaje ?? 0),
+        soat: Number(enProceso?.soat ?? 0), // 👈 NUEVO
+      }
+
       // 👇 NUEVO: conteos por servicio (total del día)
-      kpiServiciosTotal.value = data.turnosTotalesPorServicio ?? { rtm: 0, preventiva: 0, peritaje: 0 }
+      const totales = data?.turnosTotalesPorServicio ?? {}
+      kpiServiciosTotal.value = {
+        rtm: Number(totales?.rtm ?? 0),
+        preventiva: Number(totales?.preventiva ?? 0),
+        peritaje: Number(totales?.peritaje ?? 0),
+        soat: Number(totales?.soat ?? 0), // 👈 NUEVO
+      }
     } catch (error: unknown) {
       // Mensaje por defecto
       let msg = 'Error al cargar los datos del dashboard. Intente recargar la página.'
