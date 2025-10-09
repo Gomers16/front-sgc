@@ -3,6 +3,8 @@
     <v-card elevation="8" class="rounded-xl">
       <v-card-title class="py-5 d-flex align-center justify-space-between flex-wrap">
         <div class="text-h5 font-weight-bold">👤 Prospectos</div>
+
+        <!-- 🔎 FILTROS -->
         <div class="d-flex gap-2 flex-wrap">
           <v-text-field v-model="filters.placa" label="Placa" variant="outlined" density="comfortable" hide-details clearable style="min-width: 130px" />
           <v-text-field v-model="filters.telefono" label="Teléfono" variant="outlined" density="comfortable" hide-details clearable style="min-width: 160px" />
@@ -56,6 +58,7 @@
         </div>
       </v-card-title>
 
+      <!-- 📋 TABLA -->
       <v-data-table-server
         class="px-4 pb-4"
         :headers="headers"
@@ -65,23 +68,42 @@
         v-model:items-per-page="itemsPerPage"
         :loading="loading"
         :sort-by="sortBy"
-        @update:options="loadItems"
+        @update:options="onUpdateOptions"
         item-value="id"
       >
+        <!-- SOAT -->
         <template #item.soat="{ item }">
-          <v-chip :color="item.soat_vigente ? 'success' : 'error'" size="small" variant="flat">
-            {{ item.soat_vigente ? 'Vigente' : 'Vencido' }}
+          <v-chip :color="docColor(item.soat_vigente)" size="small" variant="flat">
+            {{ docText(item.soat_vigente) }}
           </v-chip>
           <span class="text-caption text-medium-emphasis ms-2">{{ formatDate(item.soat_vencimiento) }}</span>
         </template>
 
+        <!-- RTM -->
         <template #item.tecno="{ item }">
-          <v-chip :color="item.tecno_vigente ? 'success' : 'error'" size="small" variant="flat">
-            {{ item.tecno_vigente ? 'Vigente' : 'Vencido' }}
+          <v-chip :color="docColor(item.tecno_vigente)" size="small" variant="flat">
+            {{ docText(item.tecno_vigente) }}
           </v-chip>
           <span class="text-caption text-medium-emphasis ms-2">{{ formatDate(item.tecno_vencimiento) }}</span>
         </template>
 
+        <!-- Preventiva -->
+        <template #item.preventiva="{ item }">
+          <v-chip :color="docColor(item.preventiva_vigente)" size="small" variant="flat">
+            {{ docText(item.preventiva_vigente) }}
+          </v-chip>
+          <span class="text-caption text-medium-emphasis ms-2">{{ formatDate(item.preventiva_vencimiento) }}</span>
+        </template>
+
+        <!-- Peritaje -->
+        <template #item.peritaje="{ item }">
+          <v-chip :color="item.peritaje_ultima_fecha ? 'success' : 'grey-darken-1'" size="small" variant="flat">
+            {{ item.peritaje_ultima_fecha ? 'Registrado' : 'Sin datos' }}
+          </v-chip>
+          <span class="text-caption text-medium-emphasis ms-2">{{ formatDate(item.peritaje_ultima_fecha) }}</span>
+        </template>
+
+        <!-- Acciones -->
         <template #item.acciones="{ item }">
           <div class="d-flex gap-1">
             <v-btn size="small" variant="text" icon="mdi-eye" @click="verDetalle(item.id)" />
@@ -92,7 +114,7 @@
       </v-data-table-server>
     </v-card>
 
-    <!-- Asignar -->
+    <!-- 📌 Asignar asesor -->
     <v-dialog v-model="dlgAsignar.visible" max-width="520">
       <v-card>
         <v-card-title class="text-h6">Asignar asesor</v-card-title>
@@ -116,7 +138,7 @@
       </v-card>
     </v-dialog>
 
-    <!-- Retirar -->
+    <!-- 📌 Retirar asesor -->
     <v-dialog v-model="dlgRetirar.visible" max-width="520">
       <v-card>
         <v-card-title class="text-h6">Retirar asesor</v-card-title>
@@ -143,28 +165,21 @@ import {
   listAgentesCaptacion,
   listConveniosLight,
   formatDate,
-  type Prospecto,
+  type ProspectoDetail as Prospecto,
 } from '@/services/prospectosService'
 
 const router = useRouter()
 
-/* Filtros */
-const filters = ref<{
-  placa: string
-  telefono: string
-  nombre: string
-  convenioId: number | null
-  asesorId: number | null
-  vigente: '' | 0 | 1 | boolean
-  desde: string
-  hasta: string
-}>({
+/* ============================
+   FILTROS
+============================ */
+const filters = ref({
   placa: '',
   telefono: '',
   nombre: '',
-  convenioId: null,
-  asesorId: null,
-  vigente: '',
+  convenioId: null as number | null,
+  asesorId: null as number | null,
+  vigente: '' as '' | 0 | 1 | boolean,
   desde: '',
   hasta: '',
 })
@@ -174,16 +189,21 @@ const vigenteItems = [
   { title: 'Sin asignación activa', value: 0 },
 ]
 
-/* Tabla */
+/* ============================
+   TABLA
+============================ */
 const headers = [
   { title: 'ID', key: 'id', sortable: true },
   { title: 'Nombre', key: 'nombre', sortable: true },
   { title: 'Teléfono', key: 'telefono', sortable: true },
   { title: 'Placa', key: 'placa', sortable: true },
   { title: 'SOAT', key: 'soat', sortable: false },
-  { title: 'Tecno', key: 'tecno', sortable: false },
+  { title: 'RTM', key: 'tecno', sortable: false },
+  { title: 'Preventiva', key: 'preventiva', sortable: false },  // 👈 NUEVA
+  { title: 'Peritaje', key: 'peritaje', sortable: false },      // 👈 NUEVA
   { title: 'Acciones', key: 'acciones', sortable: false, align: 'end' },
 ]
+
 const rows = ref<Prospecto[]>([])
 const totalItems = ref(0)
 const page = ref(1)
@@ -191,26 +211,99 @@ const itemsPerPage = ref(10)
 const sortBy = ref<any>([{ key: 'id', order: 'desc' }])
 const loading = ref(false)
 
-/* Catálogos */
-const asesoresItems = ref<{ id: number; nombre: string; tipo: string }[]>([])
+/* ============================
+   CATÁLOGOS
+============================ */
+const asesoresItems = ref<{ id: number; nombre: string; tipo?: string }[]>([])
 const asesoresLoading = ref(false)
 const conveniosItems = ref<{ id: number; nombre: string }[]>([])
 const conveniosLoading = ref(false)
 
 async function loadAsesores() {
   asesoresLoading.value = true
-  try { asesoresItems.value = await listAgentesCaptacion() } finally { asesoresLoading.value = false }
+  try { asesoresItems.value = await listAgentesCaptacion() }
+  finally { asesoresLoading.value = false }
 }
 async function loadConvenios() {
   conveniosLoading.value = true
-  try { conveniosItems.value = await listConveniosLight() } finally { conveniosLoading.value = false }
+  try { conveniosItems.value = await listConveniosLight() }
+  finally { conveniosLoading.value = false }
 }
 
-/* CRUD */
+/* ============================
+   HELPERS UI
+============================ */
+function docColor(v?: boolean | null) {
+  if (v === true) return 'success'
+  if (v === false) return 'error'
+  return 'grey-darken-1'
+}
+function docText(v?: boolean | null) {
+  if (v === true) return 'Vigente'
+  if (v === false) return 'Vencido'
+  return 'Sin datos'
+}
+
+/** Calcula vigente desde una fecha si falta el flag */
+function computeVigenteFromDate(flag: unknown, venc: unknown): boolean | null {
+  if (flag === true || flag === false) return flag as boolean
+  if (!venc) return null
+  const d = new Date(typeof venc === 'string' ? venc : String(venc))
+  if (isNaN(d.getTime())) return null
+  const today = new Date(); today.setHours(0,0,0,0)
+  d.setHours(0,0,0,0)
+  return d.getTime() >= today.getTime()
+}
+
+/** Normaliza claves y completa flags desde vencimientos */
+function normalizeRow(p: Record<string, unknown>) {
+  // SOAT / RTM
+  const soat_venc  = (p.soat_vencimiento ?? p.soatVencimiento ?? null) as string | null
+  const tecno_venc = (p.tecno_vencimiento ?? p.tecnoVencimiento ?? null) as string | null
+  const soat_flag  = computeVigenteFromDate(p.soat_vigente ?? p.soatVigente, soat_venc)
+  const tecno_flag = computeVigenteFromDate(p.tecno_vigente ?? p.tecnoVigente, tecno_venc)
+
+  // Preventiva
+  const prev_venc  = (p.preventiva_vencimiento ?? p.preventivaVencimiento ?? null) as string | null
+  const prev_flag  = computeVigenteFromDate(p.preventiva_vigente ?? p.preventivaVigente, prev_venc)
+
+  // Peritaje
+  const peri_fecha = (p.peritaje_ultima_fecha ?? p.peritajeUltimaFecha ?? null) as string | null
+
+  return {
+    ...p,
+    // soat / rtm
+    soat_vigente: soat_flag,
+    tecno_vigente: tecno_flag,
+    soat_vencimiento: soat_venc,
+    tecno_vencimiento: tecno_venc,
+    // preventiva / peritaje
+    preventiva_vigente: prev_flag,
+    preventiva_vencimiento: prev_venc,
+    peritaje_ultima_fecha: peri_fecha,
+    // timestamps normales en snake
+    created_at: (p.created_at ?? p.createdAt ?? null) as string | null,
+    updated_at: (p.updated_at ?? p.updatedAt ?? null) as string | null,
+  }
+}
+
+/* ============================
+   CRUD
+============================ */
+function onUpdateOptions(opts: { page?: number; itemsPerPage?: number; sortBy?: any }) {
+  if (opts?.page !== undefined) page.value = opts.page
+  if (opts?.itemsPerPage !== undefined) itemsPerPage.value = opts.itemsPerPage
+  if (opts?.sortBy !== undefined) sortBy.value = opts.sortBy
+  loadItems()
+}
+
 async function loadItems() {
   loading.value = true
   try {
-    const sort = Array.isArray(sortBy.value) && sortBy.value[0] ? sortBy.value[0] : { key: 'id', order: 'desc' }
+    const sort = Array.isArray(sortBy.value) && sortBy.value[0]
+      ? sortBy.value[0]
+      : { key: 'id', order: 'desc' }
+
     const res = await listProspectos({
       page: page.value,
       perPage: itemsPerPage.value,
@@ -225,9 +318,12 @@ async function loadItems() {
       sortBy: sort.key,
       order: sort.order,
     })
-    rows.value = res.data
+
+    rows.value = (res.data as unknown as Record<string, unknown>[]).map(normalizeRow) as unknown as Prospecto[]
     totalItems.value = res.total
-  } finally { loading.value = false }
+  } finally {
+    loading.value = false
+  }
 }
 
 function reload() { page.value = 1; loadItems() }
@@ -236,20 +332,20 @@ function resetFilters() {
   reload()
 }
 
-/* Acciones / navegación */
+/* ============================
+   NAVEGACIÓN
+============================ */
 function irCrear() {
-  // Ajusta al nombre real de tu ruta de creación
-  router.push({ name: 'comercial.prospectos.new' }).catch(() => {})
+  router.push({ name: 'ComercialProspectoNuevo' }).catch(() => {})
 }
 function verDetalle(id: number) {
-  // Ajusta al nombre real de tu ruta de detalle
-  router.push({ name: 'comercial.prospectos.detail', params: { id } }).catch(() => {})
+  router.push({ name: 'ComercialProspectoDetalle', params: { id } }).catch(() => {})
 }
 
-/* Diálogos */
-const dlgAsignar = ref<{ visible: boolean; id: number | null; asesorId: number | null; loading: boolean }>({
-  visible: false, id: null, asesorId: null, loading: false,
-})
+/* ============================
+   DIÁLOGOS
+============================ */
+const dlgAsignar = ref({ visible: false, id: null as number | null, asesorId: null as number | null, loading: false })
 function openAsignar(id: number) {
   dlgAsignar.value = { visible: true, id, asesorId: null, loading: false }
   if (!asesoresItems.value.length) loadAsesores()
@@ -261,12 +357,12 @@ async function confirmAsignar() {
     await asignarAsesor(dlgAsignar.value.id, { asesor_id: dlgAsignar.value.asesorId })
     dlgAsignar.value.visible = false
     loadItems()
-  } finally { dlgAsignar.value.loading = false }
+  } finally {
+    dlgAsignar.value.loading = false
+  }
 }
 
-const dlgRetirar = ref<{ visible: boolean; id: number | null; motivo: string; loading: boolean }>({
-  visible: false, id: null, motivo: '', loading: false,
-})
+const dlgRetirar = ref({ visible: false, id: null as number | null, motivo: '', loading: false })
 function openRetirar(id: number) {
   dlgRetirar.value = { visible: true, id, motivo: '', loading: false }
 }
@@ -277,10 +373,14 @@ async function confirmRetirar() {
     await retirarAsesor(dlgRetirar.value.id, { motivo: dlgRetirar.value.motivo || undefined })
     dlgRetirar.value.visible = false
     loadItems()
-  } finally { dlgRetirar.value.loading = false }
+  } finally {
+    dlgRetirar.value.loading = false
+  }
 }
 
-/* Init */
+/* ============================
+   INIT
+============================ */
 loadAsesores()
 loadConvenios()
 loadItems()
@@ -289,4 +389,5 @@ loadItems()
 <style scoped>
 .gap-1 { gap: 4px; }
 .gap-2 { gap: 8px; }
+.text-h5 { font-weight: bold; }
 </style>

@@ -25,7 +25,7 @@
             density="comfortable"
             hide-details
             clearable
-            style="min-width: 200px"
+            style="min-width: 220px"
           />
 
           <v-select
@@ -69,12 +69,13 @@
         item-value="id"
       >
         <template #item.tipo="{ item }">
-          <v-chip size="small" variant="flat">{{ item.tipo }}</v-chip>
+          <v-chip size="small" variant="flat">{{ humanTipo(item.tipo) }}</v-chip>
         </template>
 
+        <!-- ✅ usa isActivo(item) para pintar y rotular -->
         <template #item.activo="{ item }">
-          <v-chip :color="item.activo ? 'success' : 'error'" size="small" variant="flat">
-            {{ item.activo ? 'Activo' : 'Inactivo' }}
+          <v-chip :color="isActivo(item) ? 'success' : 'error'" size="small" variant="flat">
+            {{ isActivo(item) ? 'Activo' : 'Inactivo' }}
           </v-chip>
         </template>
 
@@ -163,7 +164,6 @@
                   </div>
                 </template>
 
-                <!-- ⬇️ Fechas de vigencia (desde → hasta) calculadas desde la fecha de vencimiento -->
                 <template #append>
                   <div class="d-flex align-center gap-2">
                     <v-chip size="x-small" :color="p.soatVigente ? 'success' : 'error'" variant="flat">
@@ -244,42 +244,57 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
-
-// Servicios
-import asesoresApi, { type Agente, type TipoAsesor } from '@/services/asesoresService'
+import asesoresApi, { type Agente } from '@/services/asesoresService'
 const { listAsesores, listConveniosDelAsesor } = asesoresApi as any
 import { listConvenios, asignarAsesorConvenio, retirarAsesorConvenio } from '@/services/conveniosService'
-
-// HTTP base
 import { get } from '@/services/http'
 const API = '/api'
 
-type ConvenioLite = {
-  id: number
-  nombre: string
-  vigencia_desde?: string | null
-  vigencia_hasta?: string | null
-}
+type ConvenioLite = { id: number; nombre: string; vigencia_desde?: string | null; vigencia_hasta?: string | null }
 type ProspectoLite = {
-  id: number
-  nombre?: string | null
-  placa?: string | null
-  telefono?: string | null
-  observaciones?: string | null
-  soatVigente?: boolean | null
-  soatVencimiento?: string | null
-  tecnoVigente?: boolean | null
-  tecnoVencimiento?: string | null
-  created_at?: string
+  id: number; nombre?: string | null; placa?: string | null; telefono?: string | null;
+  observaciones?: string | null; soatVigente?: boolean | null; soatVencimiento?: string | null;
+  tecnoVigente?: boolean | null; tecnoVencimiento?: string | null; created_at?: string
 }
 
-const filters = ref<{ q: string; tipo: TipoAsesor | ''; activo: '' | 0 | 1 | boolean }>({
-  q: '', tipo: '', activo: ''
-})
+/* ===== Helpers ===== */
+function humanTipo(t?: string | null) {
+  const v = String(t || '').toUpperCase()
+  if (v === 'ASESOR_COMERCIAL') return 'Asesor comercial'
+  if (v === 'ASESOR_CONVENIO') return 'Asesor convenio'
+  if (v === 'ASESOR_TELEMERCADEO') return 'Asesor telemercadeo'
+  return t || '—'
+}
+function asBool(v: any) {
+  if (v === true || v === 1 || v === '1') return true
+  if (v === false || v === 0 || v === '0') return false
+  if (typeof v === 'string') {
+    const s = v.trim().toLowerCase()
+    if (s === 'true' || s === 'si' || s === 'sí' || s === 'activo') return true
+    if (s === 'false' || s === 'no' || s === 'inactivo') return false
+  }
+  return false
+}
+/** ✅ Prioriza campos booleanos y cae a 'estado' textual solo si no hay booleano */
+function isActivo(item: any): boolean {
+  const fuentes = [item?.activo, item?.activo_calc, item?.is_active, item?.isActive]
+  for (const v of fuentes) {
+    if (v !== undefined && v !== null) return asBool(v)
+  }
+  if (typeof item?.estado === 'string') {
+    const e = item.estado.trim().toLowerCase()
+    if (e === 'activo') return true
+    if (e === 'inactivo') return false
+  }
+  return false
+}
+
+const filters = ref<{ q: string; tipo: string | ''; activo: '' | 0 | 1 | boolean }>({ q: '', tipo: '', activo: '' })
+
 const tipoItems = [
-  { title: 'Asesor interno', value: 'ASESOR_INTERNO' },
-  { title: 'Asesor externo', value: 'ASESOR_EXTERNO' },
-  { title: 'Telemercadeo', value: 'TELEMERCADEO' },
+  { title: 'Asesor comercial', value: 'ASESOR_COMERCIAL' },
+  { title: 'Asesor convenio', value: 'ASESOR_CONVENIO' },
+  { title: 'Asesor telemercadeo', value: 'ASESOR_TELEMERCADEO' },
 ]
 const estadoItems = [
   { title: 'Activos', value: 1 },
@@ -295,6 +310,7 @@ const headers = [
   { title: 'Prospectos', key: 'prospectos', sortable: false },
   { title: 'Acciones', key: 'acciones', sortable: false, align: 'end' },
 ]
+
 const rows = ref<Agente[]>([])
 const totalItems = ref(0)
 const page = ref(1)
@@ -306,30 +322,21 @@ const globalError = ref<string | null>(null)
 const conveniosCount = ref<Record<number, number>>({})
 const prospectosCount = ref<Record<number, number>>({})
 
-const dlgVer = ref({
-  visible: false, asesor: null as Agente | null, convenios: [] as ConvenioLite[], loading: false, error: null as string | null
-})
-const dlgPros = ref({
-  visible: false, asesor: null as Agente | null, items: [] as ProspectoLite[], loading: false, error: null as string | null
-})
-const dlgAsignar = ref({
-  visible: false, asesor: null as Agente | null, convenioId: null as number | null, loading: false, error: null as string | null
-})
+const dlgVer = ref({ visible: false, asesor: null as Agente | null, convenios: [] as ConvenioLite[], loading: false, error: null as string | null })
+const dlgPros = ref({ visible: false, asesor: null as Agente | null, items: [] as ProspectoLite[], loading: false, error: null as string | null })
+const dlgAsignar = ref({ visible: true === false, asesor: null as Agente | null, convenioId: null as number | null, loading: false, error: null as string | null })
 const conveniosOpciones = ref<ConvenioLite[]>([])
 const conveniosOpcionesLoading = ref(false)
-const dlgRetirar = ref({
-  visible: false, asesor: null as Agente | null, convenioId: null as number | null, motivo: '', convenios: [] as ConvenioLite[], loading: false, error: null as string | null
-})
+const dlgRetirar = ref({ visible: false, asesor: null as Agente | null, convenioId: null as number | null, motivo: '', convenios: [] as ConvenioLite[], loading: false, error: null as string | null })
 
 function vigenciaText(c: ConvenioLite) {
   const f = (s?: string | null) => (!s ? '—' : new Date(s).toLocaleDateString())
   return `${f(c.vigencia_desde)} – ${f(c.vigencia_hasta)}`
 }
 
-/** ✅ Helpers de fechas para SOAT/Tecno **/
 function fmtDate(d?: string | Date | null) {
   if (!d) return '—'
-  if (typeof d === 'string' && /^\d{2}\/\d{2}\/\d{4}$/.test(d)) return d // ya viene DD/MM/YYYY
+  if (typeof d === 'string' && /^\d{2}\/\d{2}\/\d{4}$/.test(d)) return d
   const dt = d instanceof Date ? d : new Date(d)
   return isNaN(dt.getTime()) ? '—' : dt.toLocaleDateString()
 }
@@ -337,7 +344,7 @@ function desdeSegunVenc(venc?: string | null) {
   if (!venc) return null
   const d = new Date(venc)
   if (isNaN(d.getTime())) return null
-  d.setFullYear(d.getFullYear() - 1) // "desde" = vencimiento - 1 año
+  d.setFullYear(d.getFullYear() - 1)
   return d
 }
 function rangoVigencia(venc?: string | null) {
@@ -350,8 +357,7 @@ async function loadItems() {
   loading.value = true
   globalError.value = null
   try {
-    const sort =
-      Array.isArray(sortBy.value) && sortBy.value[0] ? sortBy.value[0] : { key: 'id', order: 'asc' }
+    const sort = Array.isArray(sortBy.value) && sortBy.value[0] ? sortBy.value[0] : { key: 'id', order: 'asc' }
     const res = await listAsesores({
       page: page.value,
       perPage: itemsPerPage.value,
@@ -363,7 +369,6 @@ async function loadItems() {
     } as any)
     rows.value = res.data
     totalItems.value = Number(res.total || 0)
-
     await Promise.all([cargarConteoConvenios(), cargarConteoProspectos()])
   } catch (e: any) {
     rows.value = []
@@ -378,52 +383,43 @@ function resetFilters() { filters.value = { q: '', tipo: '', activo: '' }; reloa
 
 async function cargarConteoConvenios() {
   const map: Record<number, number> = {}
-  await Promise.all(
-    rows.value.map(async (a) => {
-      try {
-        const lista = await listConveniosDelAsesor(a.id)
-        map[a.id] = Array.isArray(lista) ? lista.length : 0
-      } catch {
-        map[a.id] = 0
-      }
-    })
-  )
+  await Promise.all(rows.value.map(async (a) => {
+    try {
+      const lista = await listConveniosDelAsesor(a.id)
+      map[a.id] = Array.isArray(lista) ? lista.length : 0
+    } catch {
+      map[a.id] = 0
+    }
+  }))
   conveniosCount.value = map
 }
 
-/** 🔎 Trae la lista de prospectos asignados al asesor.
- *   1) /agentes-captacion/:id/prospectos?vigente=1 (pivot)
- *   2) /asesores/:id/prospectos?vigente=1 (alias)
- *   3) /prospectos?creadoPor=:id (fallback)
- */
 async function fetchProspectosDelAsesor(asesorId: number): Promise<ProspectoLite[]> {
   try {
-    const r = await get<any>(`${API}/agentes-captacion/${asesorId}/prospectos`, { vigente: 1 })
+    const r = await get<any>(`${API}/agentes-captacion/${asesorId}/prospectos`, { params: { vigente: 1 } })
     const arr = r?.data ?? r
     if (Array.isArray(arr)) return arr
   } catch {}
   try {
-    const r2 = await get<any>(`${API}/asesores/${asesorId}/prospectos`, { vigente: 1 })
+    const r2 = await get<any>(`${API}/asesores/${asesorId}/prospectos`, { params: { vigente: 1 } })
     const arr2 = r2?.data ?? r2
     if (Array.isArray(arr2)) return arr2
   } catch {}
-  const r3 = await get<any>(`${API}/prospectos`, { creadoPor: asesorId, perPage: 500 })
+  const r3 = await get<any>(`${API}/prospectos`, { params: { creadoPor: asesorId, perPage: 500 } })
   const arr3 = r3?.data ?? r3
   return Array.isArray(arr3) ? arr3 : []
 }
 
 async function cargarConteoProspectos() {
   const map: Record<number, number> = {}
-  await Promise.all(
-    rows.value.map(async (a) => {
-      try {
-        const lista = await fetchProspectosDelAsesor(a.id)
-        map[a.id] = Array.isArray(lista) ? lista.length : 0
-      } catch {
-        map[a.id] = 0
-      }
-    })
-  )
+  await Promise.all(rows.value.map(async (a) => {
+    try {
+      const lista = await fetchProspectosDelAsesor(a.id)
+      map[a.id] = Array.isArray(lista) ? lista.length : 0
+    } catch {
+      map[a.id] = 0
+    }
+  }))
   prospectosCount.value = map
 }
 
@@ -463,13 +459,9 @@ async function confirmAsignar() {
   dlgAsignar.value.loading = true
   dlgAsignar.value.error = null
   try {
-    await asignarAsesorConvenio(dlgAsignar.value.convenioId, {
-      asesor_id: dlgAsignar.value.asesor.id,
-    })
+    await asignarAsesorConvenio(dlgAsignar.value.convenioId, { asesor_id: dlgAsignar.value.asesor.id })
     dlgAsignar.value.visible = false
-    if (dlgVer.value.visible && dlgVer.value.asesor?.id === dlgAsignar.value.asesor.id) {
-      openVerConvenios(dlgAsignar.value.asesor)
-    }
+    if (dlgVer.value.visible && dlgVer.value.asesor?.id === dlgAsignar.value.asesor.id) openVerConvenios(dlgAsignar.value.asesor)
     await Promise.all([cargarConteoConvenios(), cargarConteoProspectos()])
   } catch (e: any) {
     dlgAsignar.value.error = e?.message || 'No fue posible asignar el convenio'
@@ -479,9 +471,7 @@ async function confirmAsignar() {
 }
 
 function openRetirar(asesor: Agente) {
-  dlgRetirar.value = {
-    visible: true, asesor, convenioId: null, motivo: '', convenios: [], loading: false, error: null
-  }
+  dlgRetirar.value = { visible: true, asesor, convenioId: null, motivo: '', convenios: [], loading: false, error: null }
   listConveniosDelAsesor(asesor.id)
     .then((list) => (dlgRetirar.value.convenios = list as any))
     .catch((e: any) => {
@@ -495,13 +485,9 @@ async function confirmRetirar() {
   dlgRetirar.value.loading = true
   dlgRetirar.value.error = null
   try {
-    await retirarAsesorConvenio(dlgRetirar.value.convenioId, {
-      motivo: dlgRetirar.value.motivo || undefined,
-    })
+    await retirarAsesorConvenio(dlgRetirar.value.convenioId, { motivo: dlgRetirar.value.motivo || undefined })
     dlgRetirar.value.visible = false
-    if (dlgVer.value.visible && dlgVer.value.asesor?.id === dlgRetirar.value.asesor.id) {
-      openVerConvenios(dlgRetirar.value.asesor)
-    }
+    if (dlgVer.value.visible && dlgVer.value.asesor?.id === dlgRetirar.value.asesor.id) openVerConvenios(dlgRetirar.value.asesor)
     await Promise.all([cargarConteoConvenios(), cargarConteoProspectos()])
   } catch (e: any) {
     dlgRetirar.value.error = e?.message || 'No fue posible retirar el convenio'
@@ -516,10 +502,9 @@ async function retirarConvenio(convenioId: number) {
     await retirarAsesorConvenio(convenioId, { motivo: 'Retiro manual' })
     openVerConvenios(dlgVer.value.asesor)
     await Promise.all([cargarConteoConvenios(), cargarConteoProspectos()])
-  } catch { /* noop */ }
+  } catch {}
 }
 
-// init
 loadItems()
 </script>
 

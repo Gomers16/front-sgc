@@ -7,6 +7,8 @@ const API = '/api'
 export interface Convenio {
   id: number
   nombre: string
+  codigo?: string | null
+  tipo?: string | null
   activo?: boolean | 0 | 1
   vigencia_desde?: string | null
   vigencia_hasta?: string | null
@@ -31,7 +33,11 @@ export interface ListParams {
   order?: 'asc' | 'desc'
 }
 
-export interface AgenteLight { id: number; nombre: string; tipo: 'INTERNO'|'EXTERNO' }
+export interface AgenteLight {
+  id: number
+  nombre: string
+  tipo: 'INTERNO' | 'EXTERNO' | 'ASESOR_INTERNO' | 'ASESOR_EXTERNO' | 'TELEMERCADEO' | string
+}
 
 export interface AsesorActivoResp {
   convenio_id?: number
@@ -39,13 +45,14 @@ export interface AsesorActivoResp {
   activo?: boolean
   asesor: { id: number; nombre: string; tipo?: string } | null
   asignado_at?: string | null
+  asignacion_id?: number | null
 }
 
 /* ===== Helpers ===== */
 function normalizeListShape<T = any>(r: any, fallback: ListParams): ListResponse<T> {
   const data: T[] = Array.isArray(r) ? r : (r?.data ?? r?.items ?? r?.rows ?? [])
   const total = Array.isArray(r)
-    ? r.length
+    ? data.length
     : Number(r?.total ?? r?.meta?.total ?? r?.totalItems ?? r?.count ?? data.length) || 0
   const page = Number(r?.page ?? r?.meta?.current_page ?? fallback.page ?? 1)
   const perPage = Number(r?.perPage ?? r?.meta?.per_page ?? fallback.perPage ?? 10)
@@ -68,12 +75,14 @@ export async function listConvenios(params: ListParams = {}) {
   const activoParam =
     params.activo === '' || params.activo === undefined
       ? undefined
-      : (params.activo === true || params.activo === 1 ? 'true' : 'false')
+      : params.activo === true || params.activo === 1
+        ? 'true'
+        : 'false'
 
   const r = await get<any>(`${API}/convenios`, {
     params: {
-      q: params.texto || undefined,
-      activo: activoParam,
+      q: params.texto || undefined, // tu controlador usa 'q'
+      activo: activoParam,          // tu controlador espera 'activo'
       page: params.page,
       perPage: params.perPage,
       sortBy: params.sortBy,
@@ -87,14 +96,16 @@ export async function getConvenio(id: number) {
   return get<Convenio>(`${API}/convenios/${id}`)
 }
 
-/* ===== Catálogo de Agentes ===== */
+/* ===== Catálogo de Agentes (opc. para UI) ===== */
 export async function listAgentesCaptacion() {
   try {
-    const r = await get<{ data: AgenteLight[] }>(`${API}/agentes-captacion`, {
-      params: { activos: 1, select: 'id,nombre,tipo' },
+    const r = await get<{ data?: AgenteLight[] } | AgenteLight[]>(`${API}/agentes-captacion`, {
+      params: { activo: 1, perPage: 200 }, // tu backend usa 'activo'
     })
-    return r?.data ?? []
-  } catch { return [] }
+    return Array.isArray(r) ? r : (r?.data ?? [])
+  } catch {
+    return []
+  }
 }
 
 /* ===== Asesor activo del convenio ===== */
@@ -104,7 +115,8 @@ export async function getAsesorActivo(convenioId: number): Promise<AsesorActivoR
     convenio_id: r?.convenio_id ?? r?.convenioId ?? convenioId,
     activo: r?.activo ?? Boolean(r?.asesor),
     asesor: r?.asesor ?? null,
-    asignado_at: r?.asignado_at ?? r?.desde ?? null,
+    asignado_at: r?.asignado_at ?? r?.desde ?? null,           // el controller devuelve 'desde'
+    asignacion_id: r?.asignacion_id ?? r?.asignacionId ?? null // si viene en la respuesta
   }
 }
 
@@ -116,7 +128,7 @@ export async function getAsesorActivo(convenioId: number): Promise<AsesorActivoR
 export async function asignarAsesorConvenio(convenioId: number, payload: { asesor_id: number }) {
   return post<any, any>(`${API}/convenios/${convenioId}/asignar`, {
     asesor_id: payload.asesor_id,
-    // alias por compatibilidad, si el backend acepta otras keys:
+    // alias por compatibilidad; tu controller acepta 'asesor_id'
     asesorId: payload.asesor_id,
     agente_captacion_id: payload.asesor_id,
     agenteCaptacionId: payload.asesor_id,

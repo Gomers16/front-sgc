@@ -1,223 +1,247 @@
 <template>
   <v-container class="py-6">
-    <v-btn variant="text" class="mb-3" prepend-icon="mdi-arrow-left" @click="volver">Volver</v-btn>
+    <v-card elevation="8" class="rounded-xl">
+      <v-card-title class="py-5 d-flex align-center justify-space-between flex-wrap">
+        <div class="text-h5 font-weight-bold">👤 Detalle del Prospecto</div>
+        <v-btn color="primary" prepend-icon="mdi-arrow-left" @click="goBack">Volver</v-btn>
+      </v-card-title>
 
-    <v-skeleton-loader v-if="loading" type="card, card, table" />
+      <v-divider />
 
-    <v-row v-else class="g-4">
-      <!-- Ficha -->
-      <v-col cols="12" md="6">
-        <v-card elevation="4" class="rounded-lg">
-          <v-card-title class="text-subtitle-1 font-weight-bold">Prospecto #{{ prospecto?.id }}</v-card-title>
-          <v-divider />
-          <v-card-text>
-            <div class="text-body-2"><strong>Nombre:</strong> {{ prospecto?.nombre || '—' }}</div>
-            <div class="text-body-2"><strong>Teléfono:</strong> {{ prospecto?.telefono || '—' }}</div>
-            <div class="text-body-2"><strong>Placa:</strong> {{ prospecto?.placa || '—' }}</div>
-            <div class="text-body-2"><strong>Convenio:</strong> {{ prospecto?.convenio_id || '—' }}</div>
-            <v-divider class="my-3" />
-            <div class="text-body-2">
-              <strong>SOAT:</strong>
-              <v-chip :color="prospecto?.soat_vigente ? 'success' : 'error'" size="small" variant="flat" class="ms-2">
-                {{ prospecto?.soat_vigente ? 'Vigente' : 'Vencido' }}
+      <!-- Loading -->
+      <v-card-text v-if="loading" class="py-12 text-center">
+        <v-progress-circular indeterminate size="48" color="primary" />
+        <div class="mt-4 text-subtitle-1">Cargando datos del prospecto...</div>
+      </v-card-text>
+
+      <!-- Contenido -->
+      <v-card-text v-else-if="prospecto">
+        <!-- Datos principales -->
+        <v-row>
+          <v-col cols="12" md="6">
+            <v-list density="compact">
+              <v-list-item>
+                <v-list-item-title class="font-weight-bold">Nombre:</v-list-item-title>
+                <v-list-item-subtitle>{{ prospecto.nombre || '—' }}</v-list-item-subtitle>
+              </v-list-item>
+              <v-list-item>
+                <v-list-item-title class="font-weight-bold">Teléfono:</v-list-item-title>
+                <v-list-item-subtitle>{{ prospecto.telefono || '—' }}</v-list-item-subtitle>
+              </v-list-item>
+              <v-list-item>
+                <v-list-item-title class="font-weight-bold">Placa:</v-list-item-title>
+                <v-list-item-subtitle>{{ prospecto.placa || '—' }}</v-list-item-subtitle>
+              </v-list-item>
+            </v-list>
+          </v-col>
+
+          <v-col cols="12" md="6">
+            <v-list density="compact">
+              <v-list-item>
+                <v-list-item-title class="font-weight-bold">Creado por:</v-list-item-title>
+                <v-list-item-subtitle>
+                  <template v-if="prospecto.creador">
+                    {{ prospecto.creador.nombre }}
+                    <span v-if="prospecto.creador.fuente" class="text-caption text-medium-emphasis">
+                      · {{ prospecto.creador.fuente }}
+                    </span>
+                  </template>
+                  <template v-else>—</template>
+                </v-list-item-subtitle>
+              </v-list-item>
+
+              <v-list-item>
+                <v-list-item-title class="font-weight-bold">Origen:</v-list-item-title>
+                <v-list-item-subtitle>{{ prospecto.origen || '—' }}</v-list-item-subtitle>
+              </v-list-item>
+
+              <v-list-item>
+                <v-list-item-title class="font-weight-bold">Fecha creación:</v-list-item-title>
+                <v-list-item-subtitle>{{ formatDate(prospecto.created_at || prospecto.createdAt) }}</v-list-item-subtitle>
+              </v-list-item>
+
+              <v-list-item>
+                <v-list-item-title class="font-weight-bold">Última actualización:</v-list-item-title>
+                <v-list-item-subtitle>{{ formatDate(prospecto.updated_at || prospecto.updatedAt) }}</v-list-item-subtitle>
+              </v-list-item>
+            </v-list>
+          </v-col>
+        </v-row>
+
+        <v-divider class="my-4" />
+
+        <!-- Documentos -->
+        <v-row>
+          <v-col cols="12" md="6">
+            <v-card outlined class="pa-4">
+              <div class="text-h6 mb-2">📄 SOAT</div>
+              <v-chip :color="chipColor(soat.estado)" variant="flat" size="small">
+                {{ chipText(soat.estado) }}
               </v-chip>
-              <span class="text-caption text-medium-emphasis ms-2">{{ formatDate(prospecto?.soat_vencimiento) }}</span>
-            </div>
-            <div class="text-body-2 mt-1">
-              <strong>Tecno:</strong>
-              <v-chip :color="prospecto?.tecno_vigente ? 'success' : 'error'" size="small" variant="flat" class="ms-2">
-                {{ prospecto?.tecno_vigente ? 'Vigente' : 'Vencido' }}
+              <div class="mt-2 text-caption">
+                Vencimiento: {{ soat.vencimiento || formatDate(prospecto.soat_vencimiento) || '—' }}
+              </div>
+              <div class="text-caption">
+                Días restantes: <strong>{{ soat.dias_restantes ?? prospecto.dias_soat_restantes ?? '—' }}</strong>
+              </div>
+            </v-card>
+          </v-col>
+
+          <v-col cols="12" md="6">
+            <v-card outlined class="pa-4">
+              <div class="text-h6 mb-2">🧾 RTM</div>
+              <v-chip :color="chipColor(rtm.estado)" variant="flat" size="small">
+                {{ chipText(rtm.estado) }}
               </v-chip>
-              <span class="text-caption text-medium-emphasis ms-2">{{ formatDate(prospecto?.tecno_vencimiento) }}</span>
+              <div class="mt-2 text-caption">
+                Vencimiento: {{ rtm.vencimiento || formatDate(prospecto.tecno_vencimiento) || '—' }}
+              </div>
+              <div class="text-caption">
+                Días restantes: <strong>{{ rtm.dias_restantes ?? prospecto.dias_tecno_restantes ?? '—' }}</strong>
+              </div>
+            </v-card>
+          </v-col>
+        </v-row>
+
+        <v-row class="mt-2">
+          <v-col cols="12" md="6">
+            <v-card outlined class="pa-4">
+              <div class="text-h6 mb-2">🛠️ Preventiva</div>
+              <v-chip :color="chipColor(preventiva.estado)" variant="flat" size="small">
+                {{ chipText(preventiva.estado) }}
+              </v-chip>
+              <div class="mt-2 text-caption">
+                Vencimiento: {{ preventiva.vencimiento || '—' }}
+              </div>
+              <div class="text-caption">
+                Días restantes: <strong>{{ preventiva.dias_restantes ?? '—' }}</strong>
+              </div>
+            </v-card>
+          </v-col>
+
+          <v-col cols="12" md="6">
+            <v-card outlined class="pa-4">
+              <div class="text-h6 mb-2">🔍 Peritaje</div>
+              <v-chip :color="peritaje.estado === 'registrado' ? 'success' : 'grey-darken-1'" variant="flat" size="small">
+                {{ peritaje.estado === 'registrado' ? 'Registrado' : 'Sin datos' }}
+              </v-chip>
+              <div class="mt-2 text-caption">
+                Último / Próximo: {{ peritaje.fecha || '—' }}
+              </div>
+            </v-card>
+          </v-col>
+        </v-row>
+
+        <v-divider class="my-4" />
+
+        <!-- Observaciones -->
+        <v-card outlined class="pa-4">
+          <div class="text-h6 mb-2">📝 Observaciones</div>
+          <div>{{ prospecto.observaciones || 'Sin observaciones registradas.' }}</div>
+        </v-card>
+
+        <v-divider class="my-4" />
+
+        <!-- Asesor asignado -->
+        <v-card outlined class="pa-4">
+          <div class="text-h6 mb-2">👥 Asesor asignado</div>
+
+          <template v-if="prospecto.asignacion_activa">
+            <div class="mb-1">
+              <strong>{{ prospecto.asignacion_activa.asesor?.nombre || '—' }}</strong>
+              <span v-if="prospecto.asignacion_activa.asesor?.tipo" class="text-caption text-medium-emphasis">
+                · {{ prettyTipo(prospecto.asignacion_activa.asesor?.tipo) }}
+              </span>
             </div>
-          </v-card-text>
-          <v-card-actions class="px-4 pb-4 pt-0 d-flex flex-wrap gap-2">
-            <v-btn variant="tonal" prepend-icon="mdi-clipboard-plus" @click="irCrearDateo">Crear dateo</v-btn>
-            <v-btn variant="tonal" prepend-icon="mdi-clipboard-text-clock" @click="irCrearTurno">Crear turno</v-btn>
-          </v-card-actions>
-        </v-card>
-      </v-col>
-
-      <!-- Asignación -->
-      <v-col cols="12" md="6">
-        <v-card elevation="4" class="rounded-lg">
-          <v-card-title class="text-subtitle-1 font-weight-bold">Asignación de asesor</v-card-title>
-          <v-divider />
-          <v-card-text>
-            <div v-if="detalle?.asignacion_activa?.asesor" class="text-body-2">
-              <strong>{{ detalle.asignacion_activa.asesor.nombre }}</strong>
-              <span class="text-medium-emphasis"> ({{ detalle.asignacion_activa.asesor.tipo }})</span>
-              <div class="text-caption text-medium-emphasis">Desde: {{ formatDate(detalle.asignacion_activa.fecha_asignacion) }}</div>
+            <div class="text-caption text-medium-emphasis">
+              Asignado el: {{ formatDate(prospecto.asignacion_activa.fecha_asignacion) }}
             </div>
-            <div v-else class="text-medium-emphasis">Sin asignación activa.</div>
-          </v-card-text>
-          <v-card-actions class="px-4 pb-4 pt-0 d-flex gap-2 flex-wrap">
-            <v-btn variant="tonal" prepend-icon="mdi-account-plus" @click="openAsignar">Asignar asesor</v-btn>
-            <v-btn variant="tonal" color="error" prepend-icon="mdi-account-remove" @click="openRetirar" :disabled="!detalle?.asignacion_activa">Retirar</v-btn>
-          </v-card-actions>
+          </template>
+
+          <div v-else class="text-medium-emphasis">Sin asesor asignado.</div>
         </v-card>
-      </v-col>
+      </v-card-text>
 
-      <!-- Historial de asignaciones -->
-      <v-col cols="12">
-        <v-card elevation="4" class="rounded-lg">
-          <v-card-title class="text-subtitle-1 font-weight-bold">Historial de asignaciones</v-card-title>
-          <v-divider />
-          <v-card-text>
-            <v-table density="comfortable">
-              <thead>
-                <tr>
-                  <th>Asesor</th>
-                  <th>Desde</th>
-                  <th>Hasta</th>
-                  <th>Motivo fin</th>
-                  <th>Activo</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="a in detalle?.historial_asignaciones || []" :key="a.id">
-                  <td>{{ a.asesor?.nombre }}</td>
-                  <td>{{ formatDate(a.fecha_asignacion) }}</td>
-                  <td>{{ formatDate(a.fecha_fin) }}</td>
-                  <td>{{ a.motivo_fin || '—' }}</td>
-                  <td>
-                    <v-chip :color="a.activo ? 'success' : 'default'" size="small" variant="flat">
-                      {{ a.activo ? 'Sí' : 'No' }}
-                    </v-chip>
-                  </td>
-                </tr>
-                <tr v-if="!detalle?.historial_asignaciones?.length">
-                  <td colspan="5" class="text-medium-emphasis">Sin movimientos.</td>
-                </tr>
-              </tbody>
-            </v-table>
-          </v-card-text>
-        </v-card>
-      </v-col>
-    </v-row>
-
-    <!-- Diálogo Asignar -->
-    <v-dialog v-model="dlgAsignar.visible" max-width="520">
-      <v-card>
-        <v-card-title class="text-h6">Asignar asesor</v-card-title>
-        <v-card-text>
-          <v-autocomplete
-            v-model="dlgAsignar.asesorId"
-            :items="asesoresItems"
-            item-title="nombre"
-            item-value="id"
-            label="Asesor"
-            variant="outlined"
-            :loading="asesoresLoading"
-            hide-details
-          />
-        </v-card-text>
-        <v-card-actions>
-          <v-spacer />
-          <v-btn variant="text" @click="dlgAsignar.visible = false">Cancelar</v-btn>
-          <v-btn color="primary" :loading="dlgAsignar.loading" @click="confirmAsignar">Asignar</v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
-
-    <!-- Diálogo Retirar -->
-    <v-dialog v-model="dlgRetirar.visible" max-width="520">
-      <v-card>
-        <v-card-title class="text-h6">Retirar asesor</v-card-title>
-        <v-card-text>
-          <v-text-field v-model="dlgRetirar.motivo" label="Motivo (opcional)" variant="outlined" hide-details />
-        </v-card-text>
-        <v-card-actions>
-          <v-spacer />
-          <v-btn variant="text" @click="dlgRetirar.visible = false">Cancelar</v-btn>
-          <v-btn color="error" :loading="dlgRetirar.loading" @click="confirmRetirar">Retirar</v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
+      <v-card-text v-else>
+        <v-alert type="error" variant="tonal">❌ No se encontró información para este prospecto.</v-alert>
+      </v-card-text>
+    </v-card>
   </v-container>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { onMounted, ref, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import {
-  getProspecto,
-  asignarAsesor,
-  retirarAsesor,
-  listAgentesCaptacion,
-  formatDate,
-  type ProspectoDetail,
-} from '@/services/prospectosService'
+import { getProspectoById, formatDate, type ProspectoDetail } from '@/services/prospectosService'
 
 const route = useRoute()
 const router = useRouter()
-const id = Number(route.params.id)
 
 const loading = ref(true)
 const prospecto = ref<ProspectoDetail | null>(null)
-const detalle = prospecto // alias para legibilidad
 
-async function load() {
+/* Chips helpers */
+const badge = {
+  vigente:   { text: 'Vigente',  color: 'success' },
+  vencido:   { text: 'Vencido',  color: 'error' },
+  sin_datos: { text: 'Sin datos', color: 'grey-darken-1' },
+} as const
+const chipColor = (e: keyof typeof badge) => badge[e]?.color || 'grey-darken-1'
+const chipText  = (e: keyof typeof badge) => badge[e]?.text  || '—'
+
+function prettyTipo(t?: string | null) {
+  if (!t) return ''
+  const map: Record<string, string> = {
+    ASESOR_COMERCIAL: 'Asesor comercial',
+    ASESOR_CONVENIO:  'Asesor convenio',
+    TELEMERCADEO:     'Telemercadeo',
+    SISTEMA:          'Sistema',
+    USUARIO:          'Usuario',
+  }
+  return map[t] ?? t
+}
+
+/* Fallbacks si no llega resumenVigencias */
+const soat = computed(() => {
+  const rv = prospecto.value?.resumenVigencias?.soat
+  if (rv) return rv
+  const estado: 'vigente'|'vencido'|'sin_datos' =
+    prospecto.value?.soat_vigente == null ? 'sin_datos' : (prospecto.value?.soat_vigente ? 'vigente' : 'vencido')
+  return { estado, vencimiento: prospecto.value?.soat_vencimiento ?? null, dias_restantes: prospecto.value?.dias_soat_restantes ?? null }
+})
+const rtm = computed(() => {
+  const rv = prospecto.value?.resumenVigencias?.rtm
+  if (rv) return rv
+  const estado: 'vigente'|'vencido'|'sin_datos' =
+    prospecto.value?.tecno_vigente == null ? 'sin_datos' : (prospecto.value?.tecno_vigente ? 'vigente' : 'vencido')
+  return { estado, vencimiento: prospecto.value?.tecno_vencimiento ?? null, dias_restantes: prospecto.value?.dias_tecno_restantes ?? null }
+})
+const preventiva = computed(() =>
+  prospecto.value?.resumenVigencias?.preventiva ?? { estado: 'sin_datos', vencimiento: null, dias_restantes: null }
+)
+const peritaje = computed(() =>
+  prospecto.value?.resumenVigencias?.peritaje ?? { estado: 'sin_datos', fecha: null }
+)
+
+async function fetchProspecto() {
   loading.value = true
-  try { prospecto.value = await getProspecto(id) }
-  finally { loading.value = false }
-}
-
-/* Navegación a otros módulos */
-function irCrearDateo() {
-  router.push({ name: 'comercial.dateos.create', query: { placa: prospecto.value?.placa || '', telefono: prospecto.value?.telefono || '' } })
-}
-function irCrearTurno() {
-  router.push({ name: 'rtm.crear', query: { placa: prospecto.value?.placa || '' } })
-}
-
-/* Asignar/Retirar */
-const asesoresItems = ref<{ id: number; nombre: string; tipo: string }[]>([])
-const asesoresLoading = ref(false)
-
-async function ensureAsesores() {
-  if (asesoresItems.value.length) return
-  asesoresLoading.value = true
-  try { asesoresItems.value = await listAgentesCaptacion() } finally { asesoresLoading.value = false }
-}
-
-const dlgAsignar = ref<{ visible: boolean; asesorId: number | null; loading: boolean }>({
-  visible: false, asesorId: null, loading: false,
-})
-function openAsignar() {
-  dlgAsignar.value = { visible: true, asesorId: null, loading: false }
-  ensureAsesores()
-}
-async function confirmAsignar() {
-  if (!dlgAsignar.value.asesorId) return
-  dlgAsignar.value.loading = true
   try {
-    await asignarAsesor(id, { asesor_id: dlgAsignar.value.asesorId })
-    await load()
-    dlgAsignar.value.visible = false
-  } finally { dlgAsignar.value.loading = false }
+    const id = Number(route.params.id)
+    prospecto.value = await getProspectoById(id)
+  } catch (err) {
+    console.error('❌ Error cargando prospecto:', err)
+  } finally {
+    loading.value = false
+  }
 }
 
-const dlgRetirar = ref<{ visible: boolean; motivo: string; loading: boolean }>({
-  visible: false, motivo: '', loading: false,
-})
-function openRetirar() {
-  dlgRetirar.value = { visible: true, motivo: '', loading: false }
-}
-async function confirmRetirar() {
-  dlgRetirar.value.loading = true
-  try {
-    await retirarAsesor(id, { motivo: dlgRetirar.value.motivo || undefined })
-    await load()
-    dlgRetirar.value.visible = false
-  } finally { dlgRetirar.value.loading = false }
+function goBack() {
+  router.push({ name: 'ComercialProspectos' }).catch(() => {})
 }
 
-function volver() { router.push({ name: 'comercial.prospectos.list' }) }
-
-onMounted(load)
+onMounted(fetchProspecto)
 </script>
 
 <style scoped>
-.g-4 { gap: 16px; }
+.text-h5 { font-weight: bold; }
 </style>
