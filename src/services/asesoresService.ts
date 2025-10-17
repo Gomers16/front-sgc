@@ -14,6 +14,7 @@ export interface Agente {
   telefono?: string | null
   docTipo?: 'CC' | 'NIT' | null
   docNumero?: string | null
+  /** Bandera final calculada por el backend (true/false) */
   activo?: boolean
   created_at?: string | null
   updated_at?: string | null
@@ -86,7 +87,12 @@ function normalizeTipo(value?: string | null): TipoAsesor | string | null {
 
 function normalizeBool(v: any): boolean {
   if (v === true || v === 1 || v === '1') return true
-  if (typeof v === 'string' && v.toLowerCase() === 'true') return true
+  if (v === false || v === 0 || v === '0') return false
+  if (typeof v === 'string') {
+    const s = v.trim().toLowerCase()
+    if (['true', 't', 'sí', 'si', 'activo', 'yes', 'y'].includes(s)) return true
+    if (['false', 'f', 'no', 'inactivo', 'n'].includes(s)) return false
+  }
   return false
 }
 
@@ -94,24 +100,17 @@ function mapAgente(raw: any): Agente {
   const created = raw?.created_at ?? raw?.createdAt ?? null
   const updated = raw?.updated_at ?? raw?.updatedAt ?? null
 
-  // ✅ PRIORIDAD CORRECTA:
-  // 1) activo_calc (cálculo con usuarios.estado)
-  // 2) activo de la tabla (para convenios)
-  // 3) otros alias posibles
+  // ✅ PRIORIDAD:
+  // 1) 'activo' ya calculado por el backend (boolean)
+  // 2) 'activo_calc' que viene como 0/1
+  // 3) variantes legacy (is_active / isActive)
   let activoFinal: boolean | undefined
-
-  if (raw?.activo_calc !== undefined) {
+  if (raw?.activo !== undefined) {
+    activoFinal = normalizeBool(raw.activo)
+  } else if (raw?.activo_calc !== undefined) {
     activoFinal = normalizeBool(raw.activo_calc)
-  } else if (raw?.usuario_estado !== undefined) {
-    // por si el backend envía el estado textual del usuario
-    const s = String(raw.usuario_estado || '').toLowerCase()
-    if (s === 'activo') activoFinal = true
-    else if (s === 'inactivo') activoFinal = false
-  }
-
-  if (activoFinal === undefined) {
-    const fallback = raw?.activo ?? raw?.is_active ?? raw?.isActive ?? null
-    activoFinal = normalizeBool(fallback)
+  } else if (raw?.is_active !== undefined || raw?.isActive !== undefined) {
+    activoFinal = normalizeBool(raw?.is_active ?? raw?.isActive)
   }
 
   return {
@@ -121,7 +120,7 @@ function mapAgente(raw: any): Agente {
     telefono: raw?.telefono ?? null,
     docTipo: raw?.docTipo ?? raw?.doc_tipo ?? null,
     docNumero: raw?.docNumero ?? raw?.doc_numero ?? null,
-    activo: !!activoFinal,
+    activo: activoFinal, // <- no forzamos !! para no convertir undefined a false
     created_at: typeof created === 'string' ? created : (created?.toString?.() ?? null),
     updated_at: typeof updated === 'string' ? updated : (updated?.toString?.() ?? null),
   }

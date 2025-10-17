@@ -6,9 +6,33 @@
 
         <!-- 🔎 FILTROS -->
         <div class="d-flex gap-2 flex-wrap">
-          <v-text-field v-model="filters.placa" label="Placa" variant="outlined" density="comfortable" hide-details clearable style="min-width: 130px" />
-          <v-text-field v-model="filters.telefono" label="Teléfono" variant="outlined" density="comfortable" hide-details clearable style="min-width: 160px" />
-          <v-text-field v-model="filters.nombre" label="Nombre" variant="outlined" density="comfortable" hide-details clearable style="min-width: 200px" />
+          <v-text-field
+            v-model="filters.placa"
+            label="Placa"
+            variant="outlined"
+            density="comfortable"
+            hide-details
+            clearable
+            style="min-width: 130px"
+          />
+          <v-text-field
+            v-model="filters.telefono"
+            label="Teléfono"
+            variant="outlined"
+            density="comfortable"
+            hide-details
+            clearable
+            style="min-width: 160px"
+          />
+          <v-text-field
+            v-model="filters.nombre"
+            label="Nombre"
+            variant="outlined"
+            density="comfortable"
+            hide-details
+            clearable
+            style="min-width: 200px"
+          />
 
           <v-autocomplete
             v-model="filters.convenioId"
@@ -49,8 +73,24 @@
             style="min-width: 180px"
           />
 
-          <v-text-field v-model="filters.desde" type="date" label="Desde" variant="outlined" density="comfortable" hide-details style="min-width: 150px" />
-          <v-text-field v-model="filters.hasta" type="date" label="Hasta" variant="outlined" density="comfortable" hide-details style="min-width: 150px" />
+          <v-text-field
+            v-model="filters.desde"
+            type="date"
+            label="Desde"
+            variant="outlined"
+            density="comfortable"
+            hide-details
+            style="min-width: 150px"
+          />
+          <v-text-field
+            v-model="filters.hasta"
+            type="date"
+            label="Hasta"
+            variant="outlined"
+            density="comfortable"
+            hide-details
+            style="min-width: 150px"
+          />
 
           <v-btn color="primary" :loading="loading" @click="reload">Aplicar</v-btn>
           <v-btn variant="text" :disabled="loading" @click="resetFilters">Limpiar</v-btn>
@@ -73,34 +113,42 @@
       >
         <!-- SOAT -->
         <template #item.soat="{ item }">
-          <v-chip :color="docColor(item.soat_vigente)" size="small" variant="flat">
-            {{ docText(item.soat_vigente) }}
-          </v-chip>
-          <span class="text-caption text-medium-emphasis ms-2">{{ formatDate(item.soat_vencimiento) }}</span>
+          <div class="doc-cell">
+            <v-chip :color="docColor(item.soat_vigente)" size="small" variant="flat" label>
+              {{ docText(item.soat_vigente) }}
+            </v-chip>
+            <span class="doc-date">{{ formatDate(item.soat_vencimiento) }}</span>
+          </div>
         </template>
 
         <!-- RTM -->
         <template #item.tecno="{ item }">
-          <v-chip :color="docColor(item.tecno_vigente)" size="small" variant="flat">
-            {{ docText(item.tecno_vigente) }}
-          </v-chip>
-          <span class="text-caption text-medium-emphasis ms-2">{{ formatDate(item.tecno_vencimiento) }}</span>
+          <div class="doc-cell">
+            <v-chip :color="docColor(item.tecno_vigente)" size="small" variant="flat" label>
+              {{ docText(item.tecno_vigente) }}
+            </v-chip>
+            <span class="doc-date">{{ formatDate(item.tecno_vencimiento) }}</span>
+          </div>
         </template>
 
         <!-- Preventiva -->
         <template #item.preventiva="{ item }">
-          <v-chip :color="docColor(item.preventiva_vigente)" size="small" variant="flat">
-            {{ docText(item.preventiva_vigente) }}
-          </v-chip>
-          <span class="text-caption text-medium-emphasis ms-2">{{ formatDate(item.preventiva_vencimiento) }}</span>
+          <div class="doc-cell">
+            <v-chip :color="docColor(item.preventiva_vigente)" size="small" variant="flat" label>
+              {{ docText(item.preventiva_vigente) }}
+            </v-chip>
+            <span class="doc-date">{{ formatDate(item.preventiva_vencimiento) }}</span>
+          </div>
         </template>
 
         <!-- Peritaje -->
         <template #item.peritaje="{ item }">
-          <v-chip :color="item.peritaje_ultima_fecha ? 'success' : 'grey-darken-1'" size="small" variant="flat">
-            {{ item.peritaje_ultima_fecha ? 'Registrado' : 'Sin datos' }}
-          </v-chip>
-          <span class="text-caption text-medium-emphasis ms-2">{{ formatDate(item.peritaje_ultima_fecha) }}</span>
+          <div class="doc-cell">
+            <v-chip :color="item.peritaje_ultima_fecha ? 'success' : 'grey-darken-1'" size="small" variant="flat" label>
+              {{ item.peritaje_ultima_fecha ? 'Registrado' : 'Sin datos' }}
+            </v-chip>
+            <span class="doc-date">{{ formatDate(item.peritaje_ultima_fecha) }}</span>
+          </div>
         </template>
 
         <!-- Acciones -->
@@ -199,8 +247,8 @@ const headers = [
   { title: 'Placa', key: 'placa', sortable: true },
   { title: 'SOAT', key: 'soat', sortable: false },
   { title: 'RTM', key: 'tecno', sortable: false },
-  { title: 'Preventiva', key: 'preventiva', sortable: false },  // 👈 NUEVA
-  { title: 'Peritaje', key: 'peritaje', sortable: false },      // 👈 NUEVA
+  { title: 'Preventiva', key: 'preventiva', sortable: false },
+  { title: 'Peritaje', key: 'peritaje', sortable: false },
   { title: 'Acciones', key: 'acciones', sortable: false, align: 'end' },
 ]
 
@@ -221,13 +269,19 @@ const conveniosLoading = ref(false)
 
 async function loadAsesores() {
   asesoresLoading.value = true
-  try { asesoresItems.value = await listAgentesCaptacion() }
-  finally { asesoresLoading.value = false }
+  try {
+    asesoresItems.value = await listAgentesCaptacion()
+  } finally {
+    asesoresLoading.value = false
+  }
 }
 async function loadConvenios() {
   conveniosLoading.value = true
-  try { conveniosItems.value = await listConveniosLight() }
-  finally { conveniosLoading.value = false }
+  try {
+    conveniosItems.value = await listConveniosLight()
+  } finally {
+    conveniosLoading.value = false
+  }
 }
 
 /* ============================
@@ -390,4 +444,25 @@ loadItems()
 .gap-1 { gap: 4px; }
 .gap-2 { gap: 8px; }
 .text-h5 { font-weight: bold; }
+
+/* Layout consistente: chip arriba, fecha abajo */
+.doc-cell{
+  display:flex;
+  flex-direction:column;
+  align-items:flex-start;
+  line-height:1.1;
+}
+.doc-date{
+  font-size:12px;
+  opacity:.7;
+  margin-top:2px;
+}
+
+/* Evitar columnas demasiado estrechas */
+:deep(th[data-key="soat"]), :deep(td[data-key="soat"]),
+:deep(th[data-key="tecno"]), :deep(td[data-key="tecno"]),
+:deep(th[data-key="preventiva"]), :deep(td[data-key="preventiva"]),
+:deep(th[data-key="peritaje"]), :deep(td[data-key="peritaje"]) {
+  min-width: 132px;
+}
 </style>

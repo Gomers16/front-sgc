@@ -1,4 +1,3 @@
-<!-- src/views/comercial/asesores/AsesoresConveniosView.vue -->
 <template>
   <v-container class="py-6">
     <v-card elevation="8" class="rounded-xl">
@@ -68,36 +67,72 @@
         @update:options="loadItems"
         item-value="id"
       >
+        <!-- Compatibilidad item/raw -->
         <template #item.tipo="{ item }">
-          <v-chip size="small" variant="flat">{{ humanTipo(item.tipo) }}</v-chip>
+          <v-chip size="small" variant="flat">{{ humanTipo(unwrap(item)?.tipo) }}</v-chip>
         </template>
 
-        <!-- ✅ usa isActivo(item) para pintar y rotular -->
+        <!-- ✅ Ahora la vista solo pinta el booleano que manda el backend en row.activo -->
         <template #item.activo="{ item }">
-          <v-chip :color="isActivo(item) ? 'success' : 'error'" size="small" variant="flat">
-            {{ isActivo(item) ? 'Activo' : 'Inactivo' }}
+          <v-chip :color="unwrap(item)?.activo ? 'success' : 'error'" size="small" variant="flat">
+            {{ unwrap(item)?.activo ? 'Activo' : 'Inactivo' }}
           </v-chip>
         </template>
 
         <template #item.convenios="{ item }">
-          <v-chip size="small" variant="tonal" class="cursor-pointer" @click="openVerConvenios(item)">
-            {{ conveniosCount[item.id] ?? '—' }}
+          <v-chip
+            size="small"
+            variant="tonal"
+            class="cursor-pointer"
+            @click="openVerConvenios(unwrap(item))"
+          >
+            {{ conveniosCount[unwrap(item)?.id] ?? '—' }}
           </v-chip>
         </template>
 
         <template #item.prospectos="{ item }">
-          <v-chip size="small" variant="tonal" class="cursor-pointer" @click="openVerProspectos(item)">
-            {{ prospectosCount[item.id] ?? '—' }}
+          <v-chip
+            size="small"
+            variant="tonal"
+            class="cursor-pointer"
+            @click="openVerProspectos(unwrap(item))"
+          >
+            {{ prospectosCount[unwrap(item)?.id] ?? '—' }}
           </v-chip>
         </template>
 
         <template #item.acciones="{ item }">
           <div class="d-flex gap-1">
-            <v-btn size="small" variant="text" icon="mdi-eye" :title="'Ver convenios'" @click="openVerConvenios(item)" />
-            <v-btn size="small" variant="text" icon="mdi-account-eye" :title="'Ver prospectos'" @click="openVerProspectos(item)" />
+            <v-btn
+              size="small"
+              variant="text"
+              icon="mdi-eye"
+              :title="'Ver convenios'"
+              @click="openVerConvenios(unwrap(item))"
+            />
+            <v-btn
+              size="small"
+              variant="text"
+              icon="mdi-account-eye"
+              :title="'Ver prospectos'"
+              @click="openVerProspectos(unwrap(item))"
+            />
             <v-divider vertical class="mx-1" />
-            <v-btn size="small" variant="text" icon="mdi-account-plus" :title="'Asignar convenio'" @click="openAsignar(item)" />
-            <v-btn size="small" variant="text" icon="mdi-account-remove" color="error" :title="'Retirar convenio'" @click="openRetirar(item)" />
+            <v-btn
+              size="small"
+              variant="text"
+              icon="mdi-account-plus"
+              :title="'Asignar convenio'"
+              @click="openAsignar(unwrap(item))"
+            />
+            <v-btn
+              size="small"
+              variant="text"
+              icon="mdi-account-remove"
+              color="error"
+              :title="'Retirar convenio'"
+              @click="openRetirar(unwrap(item))"
+            />
           </div>
         </template>
       </v-data-table-server>
@@ -106,9 +141,13 @@
     <!-- Modal: Ver convenios -->
     <v-dialog v-model="dlgVer.visible" max-width="560">
       <v-card>
-        <v-card-title class="text-h6">Convenios de {{ dlgVer.asesor?.nombre || '—' }}</v-card-title>
+        <v-card-title class="text-h6">
+          Convenios de {{ dlgVer.asesor?.nombre || '—' }}
+        </v-card-title>
         <v-card-text>
-          <v-alert v-if="dlgVer.error" type="error" variant="tonal" class="mb-3">{{ dlgVer.error }}</v-alert>
+          <v-alert v-if="dlgVer.error" type="error" variant="tonal" class="mb-3">
+            {{ dlgVer.error }}
+          </v-alert>
           <v-list v-if="dlgVer.loading" density="comfortable">
             <v-list-item title="Cargando..." prepend-icon="mdi-progress-clock" />
           </v-list>
@@ -140,9 +179,13 @@
     <!-- Modal: Ver prospectos -->
     <v-dialog v-model="dlgPros.visible" max-width="820">
       <v-card>
-        <v-card-title class="text-h6">Prospectos de {{ dlgPros.asesor?.nombre || '—' }}</v-card-title>
+        <v-card-title class="text-h6">
+          Prospectos de {{ dlgPros.asesor?.nombre || '—' }}
+        </v-card-title>
         <v-card-text>
-          <v-alert v-if="dlgPros.error" type="error" variant="tonal" class="mb-3">{{ dlgPros.error }}</v-alert>
+          <v-alert v-if="dlgPros.error" type="error" variant="tonal" class="mb-3">
+            {{ dlgPros.error }}
+          </v-alert>
           <div v-if="dlgPros.loading" class="d-flex align-center">
             <v-progress-circular indeterminate class="mr-2" /> Cargando...
           </div>
@@ -192,9 +235,13 @@
     <!-- Modal: Asignar convenio -->
     <v-dialog v-model="dlgAsignar.visible" max-width="520">
       <v-card>
-        <v-card-title class="text-h6">Asignar convenio a {{ dlgAsignar.asesor?.nombre || '—' }}</v-card-title>
+        <v-card-title class="text-h6">
+          Asignar convenio a {{ dlgAsignar.asesor?.nombre || '—' }}
+        </v-card-title>
         <v-card-text>
-          <v-alert v-if="dlgAsignar.error" type="error" variant="tonal" class="mb-3">{{ dlgAsignar.error }}</v-alert>
+          <v-alert v-if="dlgAsignar.error" type="error" variant="tonal" class="mb-3">
+            {{ dlgAsignar.error }}
+          </v-alert>
           <v-autocomplete
             v-model="dlgAsignar.convenioId"
             :items="conveniosOpciones"
@@ -217,9 +264,13 @@
     <!-- Modal: Retirar convenio -->
     <v-dialog v-model="dlgRetirar.visible" max-width="520">
       <v-card>
-        <v-card-title class="text-h6">Retirar convenio de {{ dlgRetirar.asesor?.nombre || '—' }}</v-card-title>
+        <v-card-title class="text-h6">
+          Retirar convenio de {{ dlgRetirar.asesor?.nombre || '—' }}
+        </v-card-title>
         <v-card-text class="d-flex flex-column gap-2">
-          <v-alert v-if="dlgRetirar.error" type="error" variant="tonal" class="mb-3">{{ dlgRetirar.error }}</v-alert>
+          <v-alert v-if="dlgRetirar.error" type="error" variant="tonal" class="mb-3">
+            {{ dlgRetirar.error }}
+          </v-alert>
 
           <v-autocomplete
             v-model="dlgRetirar.convenioId"
@@ -265,28 +316,11 @@ function humanTipo(t?: string | null) {
   if (v === 'ASESOR_TELEMERCADEO') return 'Asesor telemercadeo'
   return t || '—'
 }
-function asBool(v: any) {
-  if (v === true || v === 1 || v === '1') return true
-  if (v === false || v === 0 || v === '0') return false
-  if (typeof v === 'string') {
-    const s = v.trim().toLowerCase()
-    if (s === 'true' || s === 'si' || s === 'sí' || s === 'activo') return true
-    if (s === 'false' || s === 'no' || s === 'inactivo') return false
-  }
-  return false
-}
-/** ✅ Prioriza campos booleanos y cae a 'estado' textual solo si no hay booleano */
-function isActivo(item: any): boolean {
-  const fuentes = [item?.activo, item?.activo_calc, item?.is_active, item?.isActive]
-  for (const v of fuentes) {
-    if (v !== undefined && v !== null) return asBool(v)
-  }
-  if (typeof item?.estado === 'string') {
-    const e = item.estado.trim().toLowerCase()
-    if (e === 'activo') return true
-    if (e === 'inactivo') return false
-  }
-  return false
+/** Compatibilidad item/raw */
+function unwrap(rowOrWrapper: any) {
+  return rowOrWrapper && typeof rowOrWrapper === 'object' && 'raw' in rowOrWrapper
+    ? rowOrWrapper.raw
+    : rowOrWrapper
 }
 
 const filters = ref<{ q: string; tipo: string | ''; activo: '' | 0 | 1 | boolean }>({ q: '', tipo: '', activo: '' })
@@ -324,16 +358,16 @@ const prospectosCount = ref<Record<number, number>>({})
 
 const dlgVer = ref({ visible: false, asesor: null as Agente | null, convenios: [] as ConvenioLite[], loading: false, error: null as string | null })
 const dlgPros = ref({ visible: false, asesor: null as Agente | null, items: [] as ProspectoLite[], loading: false, error: null as string | null })
-const dlgAsignar = ref({ visible: true === false, asesor: null as Agente | null, convenioId: null as number | null, loading: false, error: null as string | null })
+const dlgAsignar = ref({ visible: false, asesor: null as Agente | null, convenioId: null as number | null, loading: false, error: null as string | null })
 const conveniosOpciones = ref<ConvenioLite[]>([])
 const conveniosOpcionesLoading = ref(false)
 const dlgRetirar = ref({ visible: false, asesor: null as Agente | null, convenioId: null as number | null, motivo: '', convenios: [] as ConvenioLite[], loading: false, error: null as string | null })
 
+/* ===== util de UI ===== */
 function vigenciaText(c: ConvenioLite) {
   const f = (s?: string | null) => (!s ? '—' : new Date(s).toLocaleDateString())
   return `${f(c.vigencia_desde)} – ${f(c.vigencia_hasta)}`
 }
-
 function fmtDate(d?: string | Date | null) {
   if (!d) return '—'
   if (typeof d === 'string' && /^\d{2}\/\d{2}\/\d{4}$/.test(d)) return d
@@ -353,6 +387,7 @@ function rangoVigencia(venc?: string | null) {
   return `${fmtDate(desde)} → ${fmtDate(venc)}`
 }
 
+/* ===== carga ===== */
 async function loadItems() {
   loading.value = true
   globalError.value = null
@@ -423,6 +458,7 @@ async function cargarConteoProspectos() {
   prospectosCount.value = map
 }
 
+/* ===== acciones ===== */
 function openVerConvenios(asesor: Agente) {
   dlgVer.value = { visible: true, asesor, convenios: [], loading: true, error: null }
   listConveniosDelAsesor(asesor.id)
@@ -430,7 +466,6 @@ function openVerConvenios(asesor: Agente) {
     .catch((e: any) => (dlgVer.value.error = e?.message || 'No fue posible cargar los convenios'))
     .finally(() => (dlgVer.value.loading = false))
 }
-
 function openVerProspectos(asesor: Agente) {
   dlgPros.value = { visible: true, asesor, items: [], loading: true, error: null }
   fetchProspectosDelAsesor(asesor.id)
@@ -438,7 +473,6 @@ function openVerProspectos(asesor: Agente) {
     .catch((e: any) => (dlgPros.value.error = e?.message || 'No fue posible cargar los prospectos'))
     .finally(() => (dlgPros.value.loading = false))
 }
-
 function openAsignar(asesor: Agente) {
   dlgAsignar.value = { visible: true, asesor, convenioId: null, loading: false, error: null }
   conveniosOpcionesLoading.value = true
@@ -453,7 +487,6 @@ function openAsignar(asesor: Agente) {
     })
     .finally(() => (conveniosOpcionesLoading.value = false))
 }
-
 async function confirmAsignar() {
   if (!dlgAsignar.value.asesor || !dlgAsignar.value.convenioId) return
   dlgAsignar.value.loading = true
@@ -469,7 +502,6 @@ async function confirmAsignar() {
     dlgAsignar.value.loading = false
   }
 }
-
 function openRetirar(asesor: Agente) {
   dlgRetirar.value = { visible: true, asesor, convenioId: null, motivo: '', convenios: [], loading: false, error: null }
   listConveniosDelAsesor(asesor.id)
@@ -479,7 +511,6 @@ function openRetirar(asesor: Agente) {
       dlgRetirar.value.convenios = []
     })
 }
-
 async function confirmRetirar() {
   if (!dlgRetirar.value.asesor || !dlgRetirar.value.convenioId) return
   dlgRetirar.value.loading = true
@@ -495,7 +526,6 @@ async function confirmRetirar() {
     dlgRetirar.value.loading = false
   }
 }
-
 async function retirarConvenio(convenioId: number) {
   if (!dlgVer.value.asesor) return
   try {

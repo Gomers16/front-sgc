@@ -23,11 +23,11 @@ import UsuariosView from '@/views/usuarios/UsuariosView.vue'
 import ContratosView from '@/views/gestion-documental/ContratosView.vue'
 import UserProfileView from '@/views/usuarios/UserProfileView.vue'
 
-import DateosList from '../views/comercial/dateos/DateosList.vue'
-import DateoCreate from '../views/comercial/dateos/DateoCreate.vue'
-import DateoDetail from '../views/comercial/dateos/DateoDetail.vue'
-import ComisionesList from '../views/comercial/comisiones/ComisionesList.vue'
-import ComisionDetail from '../views/comercial/comisiones/ComisionesDetail.vue'
+import DateosList from '@/views/comercial/dateos/DateosList.vue'
+import DateoCreate from '@/views/comercial/dateos/DateoCreate.vue'
+import DateoDetail from '@/views/comercial/dateos/DateoDetail.vue'
+import ComisionesList from '@/views/comercial/comisiones/ComisionesList.vue'
+import ComisionDetail from '@/views/comercial/comisiones/ComisionesDetail.vue'
 
 const routes = [
   { path: '/', redirect: '/login' },
@@ -81,7 +81,6 @@ const routes = [
     props: true,
     meta: { layout: 'MainLayout' },
   },
-  // Alias legacy para navegaciones antiguas
   {
     path: '/comercial/prospectos/:id(\\d+)',
     name: 'comercial.prospectos.detail',
@@ -91,6 +90,16 @@ const routes = [
   // Comisiones
   { path: '/comercial/comisiones', name: 'ComercialComisiones', component: ComisionesList, meta: { layout: 'MainLayout' } },
   { path: '/comercial/comisiones/:id', name: 'ComercialComisionDetalle', component: ComisionDetail, props: true, meta: { layout: 'MainLayout' } },
+
+  // 👇👇👇 CLIENTES
+  { path: '/clientes', name: 'ClientesList', component: () => import('@/views/comercial/clientes/ClientesList.vue'), meta: { layout: 'MainLayout' } },
+  {
+    path: '/clientes/:id(\\d+)',
+    name: 'ClienteDetalle',
+    component: () => import('@/views/comercial/clientes/ClienteDetail.vue'),
+    props: true,
+    meta: { layout: 'MainLayout' },
+  },
 ]
 
 const router = createRouter({
@@ -127,7 +136,9 @@ function cleanParamsForRoute(to: RouteLocationRaw): RouteLocationRaw {
   return changed ? { ...to, params: cleanParams } : to
 }
 const originalResolve = router.resolve.bind(router)
-;(router as { resolve: typeof router.resolve }).resolve = (rawTo: string | RouteLocationAsRelativeGeneric | RouteLocationAsPathGeneric, current: RouteLocationNormalizedLoadedGeneric | undefined) =>
-  originalResolve(cleanParamsForRoute(rawTo), current)
+;(router as { resolve: typeof router.resolve }).resolve = (
+  rawTo: string | RouteLocationAsRelativeGeneric | RouteLocationAsPathGeneric,
+  current: RouteLocationNormalizedLoadedGeneric | undefined
+) => originalResolve(cleanParamsForRoute(rawTo), current)
 
 export default router

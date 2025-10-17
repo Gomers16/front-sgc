@@ -1,4 +1,3 @@
-// src/services/clientes_service.ts
 import { get, post, put, del } from './http'
 
 /**
@@ -9,29 +8,85 @@ import { get, post, put, del } from './http'
  *  - POST   /api/clientes   { nombre?, doc_tipo?, doc_numero?, telefono, email?, ciudad_id? }
  *  - PUT    /api/clientes/:id { nombre?, doc_tipo?, doc_numero?, telefono?, email?, ciudad_id? }
  *  - DELETE /api/clientes/:id
+ *  - GET    /api/clientes/:id/detalle
+ *  - GET    /api/clientes/:id/historial?page=&perPage=&servicioId=&servicioCodigo=&sedeId=&placa=&desde=&hasta=&estado=
  */
+
 const base = 'api/clientes'
 
+/* ===== Tipos ===== */
+export type Cliente = {
+  id: number
+  nombre: string | null
+  docTipo: 'CC' | 'NIT' | 'CE' | 'PAS' | null
+  docNumero: string | null
+  telefono: string
+  email: string | null
+  ciudadId: number | null
+}
+
+type ResumenMetricas = {
+  vehiculos_count: number
+  visitas_count: number
+  ultima_visita_at: string | null
+  dias_desde_ultima_visita: string | null
+  servicios_top: Array<{ servicio_id: number; cnt: number }>
+}
+
+export type ClienteDetalle = {
+  cliente: Cliente
+  vehiculos: Array<{
+    id: number
+    placa: string
+    marca?: string | null
+    linea?: string | null
+    modelo?: number | null
+    clase?: { id: number; nombre?: string }
+  }>
+  /** backend nuevo */
+  metricas?: ResumenMetricas
+  /** compat: backend viejo */
+  kpis?: ResumenMetricas
+}
+
+export type ClienteHistorialItem = {
+  id: number
+  fecha: string
+  horaIngreso: string | null
+  horaSalida: string | null
+  tiempoServicio: string | null
+  turnoNumero: number
+  turnoNumeroServicio: number | null
+  turnoCodigo: string
+  placa: string
+  tipoVehiculo: string | null
+  estado: 'activo' | 'cancelado' | 'finalizado'
+  medioEntero: string | null
+  canalAtribucion: string | null
+  observaciones: string | null
+  servicioCodigo: string | null
+  servicioNombre: string | null
+  sedeNombre: string | null
+}
+
+export type Paginated<T> = {
+  data: T[]
+  page: number
+  perPage: number
+  total: number
+  lastPage: number
+}
+
+/* ===== Service ===== */
 export const ClientesService = {
-  /**
-   * Lista paginada con búsqueda opcional (q busca por nombre/telefono/doc_numero)
-   */
   list(params?: { page?: number; perPage?: number; q?: string }) {
     return get(`${base}`, { params })
   },
 
-  /**
-   * Obtiene un cliente por id
-   */
   getById(id: number | string) {
     return get(`${base}/${id}`)
   },
 
-  /**
-   * Crea un cliente
-   * body mínimo: { telefono }
-   * opcionales: { nombre?, doc_tipo?, doc_numero?, email?, ciudad_id? }
-   */
   create(body: {
     nombre?: string | null
     doc_tipo?: 'CC' | 'NIT' | 'CE' | 'PAS' | null
@@ -43,9 +98,6 @@ export const ClientesService = {
     return post(`${base}`, body)
   },
 
-  /**
-   * Actualiza un cliente (parcial)
-   */
   update(
     id: number | string,
     body: {
@@ -60,10 +112,30 @@ export const ClientesService = {
     return put(`${base}/${id}`, body)
   },
 
-  /**
-   * Elimina un cliente (bloquea si tiene vehículos asociados)
-   */
   remove(id: number | string) {
     return del(`${base}/${id}`)
+  },
+
+  /** KPIs/Metricas + vehículos del cliente */
+  detalle(id: number | string) {
+    return get<ClienteDetalle>(`${base}/${id}/detalle`)
+  },
+
+  /** Trazabilidad paginada del cliente */
+  historial(
+    id: number | string,
+    params?: {
+      page?: number
+      perPage?: number
+      servicioId?: number
+      servicioCodigo?: string
+      sedeId?: number
+      placa?: string
+      desde?: string // YYYY-MM-DD
+      hasta?: string // YYYY-MM-DD
+      estado?: 'activo' | 'cancelado' | 'finalizado' | 'inactivo'
+    }
+  ) {
+    return get<Paginated<ClienteHistorialItem>>(`${base}/${id}/historial`, { params })
   },
 }

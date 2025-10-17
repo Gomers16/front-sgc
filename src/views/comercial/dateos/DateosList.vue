@@ -7,6 +7,7 @@
           <v-text-field v-model="filters.placa" label="Placa" variant="outlined" density="comfortable" hide-details clearable style="min-width: 130px" />
           <v-text-field v-model="filters.telefono" label="Teléfono" variant="outlined" density="comfortable" hide-details clearable style="min-width: 160px" />
 
+          <!-- Canal fijo ASESOR -->
           <v-select
             v-model="filters.canal"
             :items="canalItems"
@@ -14,7 +15,6 @@
             variant="outlined"
             density="comfortable"
             hide-details
-            clearable
             style="min-width: 160px"
           />
 
@@ -23,7 +23,7 @@
             :items="agentesVisibles"
             item-title="nombre"
             item-value="id"
-            :label="filters.canal === 'CONVENIO' ? 'Convenio' : 'Agente / Convenio'"
+            label="Agente"
             variant="outlined"
             density="comfortable"
             hide-details
@@ -35,23 +35,38 @@
             <template #item="{ props, item }">
               <v-list-item v-bind="props" :title="item?.raw?.nombre">
                 <template #append>
-                  <v-chip size="x-small" variant="flat">{{ mapTipo(item?.raw?.tipo) }}</v-chip>
+                  <v-chip size="x-small" variant="flat">{{ mapTipoCorto(item?.raw?.tipo) }}</v-chip>
                 </template>
               </v-list-item>
             </template>
             <!-- selected -->
             <template #selection="{ item }">
               <div class="d-flex align-center gap-1">
-                <span>{{ item?.raw?.nombre }}</span>
-                <v-chip size="x-small" variant="flat">{{ mapTipo(item?.raw?.tipo) }}</v-chip>
+                <span>{{ safe(item?.raw?.nombre) }}</span>
+                <v-chip size="x-small" variant="flat">{{ mapTipoCorto(item?.raw?.tipo) }}</v-chip>
               </div>
             </template>
           </v-autocomplete>
 
+          <!-- ✅ Filtro de Convenio -->
+          <v-autocomplete
+            v-model="filters.convenioId"
+            :items="conveniosItems"
+            item-title="nombre"
+            item-value="id"
+            label="Convenio"
+            variant="outlined"
+            density="comfortable"
+            hide-details
+            clearable
+            :loading="conveniosLoading"
+            style="min-width: 240px"
+          />
+
           <v-select
             v-model="filters.resultado"
             :items="resultadoItems"
-            label="Resultado"
+            label="Estado"
             variant="outlined"
             density="comfortable"
             hide-details
@@ -69,13 +84,7 @@
       </v-card-title>
 
       <v-expand-transition>
-        <v-alert
-          v-if="errorMsg"
-          type="error"
-          variant="tonal"
-          class="mx-6 mb-3"
-          density="comfortable"
-        >
+        <v-alert v-if="errorMsg" type="error" variant="tonal" class="mx-6 mb-3" density="comfortable">
           {{ errorMsg }}
         </v-alert>
       </v-expand-transition>
@@ -92,42 +101,80 @@
         @update:options="loadItems"
         item-value="id"
       >
-        <template #item.canal="{ item }">
-          <v-chip size="small" variant="flat">{{ canalMostrado(item) }}</v-chip>
+        <!-- Foto -->
+        <template #item.imagen_url="{ item }">
+          <div class="d-flex items-center">
+            <v-avatar v-if="item.imagen_url" size="42" class="evidence-thumb" @click="openViewer(item.imagen_url)">
+              <v-img :src="item.imagen_url" alt="evidencia" cover />
+            </v-avatar>
+            <v-btn
+              v-else
+              icon="mdi-image-off"
+              variant="text"
+              size="small"
+              class="text-medium-emphasis"
+              :disabled="true"
+              :ripple="false"
+            />
+          </div>
         </template>
 
+        <!-- Canal fijo: ASESOR -->
+        <template #item.canal>
+          <v-chip size="small" variant="flat">ASESOR</v-chip>
+        </template>
+
+        <!-- Agente con tipo corto -->
         <template #item.agente="{ item }">
           <div class="d-flex align-center gap-1">
-            <span>{{ item.agente?.nombre || '—' }}</span>
+            <span>{{ safe(item.agente?.nombre) }}</span>
             <v-chip v-if="item.agente?.tipo" size="x-small" variant="flat">
-              {{ mapTipo(item.agente.tipo) }}
+              {{ mapTipoCorto(item.agente.tipo) }}
             </v-chip>
           </div>
         </template>
 
-        <template #item.created_at="{ item }">
-          {{ formatDateTime(item.created_at) }}
+        <!-- ✅ Convenio -->
+        <template #item.convenio="{ item }">
+          <v-chip v-if="item.convenio?.nombre" size="small" variant="flat">
+            {{ item.convenio.nombre }}
+          </v-chip>
+          <span v-else class="text-medium-emphasis">—</span>
         </template>
 
+        <!-- Creado -->
+        <template #item.created_at="{ item }">
+          {{ item.created_at_fmt || formatDateTime(item.created_at) }}
+        </template>
+
+        <!-- Estado -->
         <template #item.resultado="{ item }">
           <v-chip
-            v-if="item.resultado && item.resultado !== 'PENDIENTE'"
-            :color="item.resultado === 'EXITOSO' ? 'success' : 'error'"
+            :color="item.resultado === 'EXITOSO' ? 'success'
+                    : item.resultado === 'NO_EXITOSO' ? 'error'
+                    : item.resultado === 'EN_PROCESO' ? 'info'
+                    : 'warning'"
             size="small"
             variant="flat"
           >
-            {{ item.resultado }}
+            {{
+              item.resultado === 'EN_PROCESO' ? 'En proceso'
+              : item.resultado === 'NO_EXITOSO' ? 'No exitoso'
+              : item.resultado === 'PENDIENTE' ? 'Pendiente'
+              : 'Exitoso'
+            }}
           </v-chip>
-          <span v-else class="text-medium-emphasis">PENDIENTE</span>
         </template>
 
+        <!-- Turno -->
         <template #item.consumido_turno_id="{ item }">
-          <span class="text-medium-emphasis">{{ item.consumido_turno_id || '—' }}</span>
+          <span class="text-medium-emphasis">{{ safe(item.consumido_turno_id) }}</span>
         </template>
 
         <template #item.acciones="{ item }">
           <div class="d-flex gap-1">
             <v-btn size="small" variant="text" icon="mdi-eye" @click="verDetalle(item.id)" />
+            <v-btn size="small" variant="text" icon="mdi-progress-clock" color="info" @click="marcarResultado(item.id, 'EN_PROCESO')" />
             <v-btn size="small" variant="text" icon="mdi-clipboard-check" color="success" @click="marcarResultado(item.id, 'EXITOSO')" />
             <v-btn size="small" variant="text" icon="mdi-clipboard-remove" color="error" @click="marcarResultado(item.id, 'NO_EXITOSO')" />
             <v-btn size="small" variant="text" icon="mdi-clipboard-text-clock" @click="marcarResultado(item.id, 'PENDIENTE')" />
@@ -137,6 +184,23 @@
         </template>
       </v-data-table-server>
     </v-card>
+
+    <!-- Visor de imagen -->
+    <v-dialog v-model="viewer.visible" max-width="720">
+      <v-card>
+        <v-card-title class="text-h6">Evidencia</v-card-title>
+        <v-card-text>
+          <v-img v-if="viewer.url" :src="viewer.url" class="rounded" height="420" cover />
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn v-if="viewer.url" variant="text" :href="viewer.url" target="_blank" prepend-icon="mdi-open-in-new">
+            Abrir en pestaña
+          </v-btn>
+          <v-btn color="primary" @click="viewer.visible = false">Cerrar</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
 
     <!-- Vincular turno -->
     <v-dialog v-model="dlgTurno.visible" max-width="420">
@@ -169,17 +233,17 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import {
   listDateos,
   updateDateo,
   deleteDateo,
   listAgentesCaptacion,
+  listConveniosLight,
   formatDateTime,
   type Dateo,
   type ResultadoDateo,
-  type CanalCaptacion,
 } from '@/services/dateosService'
 
 const router = useRouter()
@@ -188,31 +252,28 @@ const router = useRouter()
 const filters = ref<{
   placa: string
   telefono: string
-  canal: CanalCaptacion | '' | 'CONVENIO'
+  canal: 'ASESOR'
   agenteId: number | null
+  convenioId: number | null
   resultado: ResultadoDateo | ''
   desde: string
   hasta: string
 }>({
   placa: '',
   telefono: '',
-  canal: '',
+  canal: 'ASESOR',
   agenteId: null,
+  convenioId: null,
   resultado: '',
   desde: '',
   hasta: '',
 })
 
-/** Canales: añadimos CONVENIO para la UI */
-const canalItems: { title: string; value: CanalCaptacion | 'CONVENIO' }[] = [
-  { title: 'Fachada', value: 'FACHADA' },
-  { title: 'Asesor', value: 'ASESOR' },
-  { title: 'Telemercadeo', value: 'TELE' },
-  { title: 'Redes/Ads', value: 'REDES' },
-  { title: 'Convenio', value: 'CONVENIO' },
-]
+const canalItems = [{ title: 'Asesor', value: 'ASESOR' as const }]
 
 const resultadoItems: { title: string; value: ResultadoDateo }[] = [
+  { title: 'Pendiente', value: 'PENDIENTE' },
+  { title: 'En proceso', value: 'EN_PROCESO' },
   { title: 'Exitoso', value: 'EXITOSO' },
   { title: 'No exitoso', value: 'NO_EXITOSO' },
 ]
@@ -220,126 +281,95 @@ const resultadoItems: { title: string; value: ResultadoDateo }[] = [
 /* Tabla */
 const headers = [
   { title: 'ID', key: 'id', sortable: true },
-  { title: 'Canal', key: 'canal', sortable: true },
+  { title: 'Foto', key: 'imagen_url', sortable: false },
+  { title: 'Canal', key: 'canal', sortable: false },
   { title: 'Agente', key: 'agente', sortable: false },
+  { title: 'Convenio', key: 'convenio', sortable: false },
   { title: 'Placa', key: 'placa', sortable: true },
   { title: 'Teléfono', key: 'telefono', sortable: true },
   { title: 'Creado', key: 'created_at', sortable: true },
-  { title: 'Resultado', key: 'resultado', sortable: true },
+  { title: 'Estado', key: 'resultado', sortable: true },
   { title: 'Turno', key: 'consumido_turno_id', sortable: true },
   { title: 'Acciones', key: 'acciones', sortable: false, align: 'end' },
 ]
+
 const rows = ref<Dateo[]>([])
 const totalItems = ref(0)
 const page = ref(1)
 const itemsPerPage = ref(10)
-const sortBy = ref<any>([{ key: 'id', order: 'desc' }])
+const sortBy = ref<{ key: string; order: 'asc' | 'desc' }[]>([{ key: 'id', order: 'desc' }])
 const loading = ref(false)
 const errorMsg = ref<string | null>(null)
 
-/* Catálogo asesores (incluye ASESOR_INTERNO, TELEMERCADEO, CONVENIO, ASESOR_EXTERNO) */
-const asesoresItems = ref<{ id: number; nombre: string; tipo: 'ASESOR_INTERNO' | 'TELEMERCADEO' | 'CONVENIO' | 'ASESOR_EXTERNO' }[]>([])
-const asesoresLoading = ref(false)
+/* Visor de imagen */
+const viewer = ref<{ visible: boolean; url: string | null }>({ visible: false, url: null })
+function openViewer(url: string) { viewer.value = { visible: true, url } }
 
+/* Catálogo asesores */
+const asesoresItems = ref<{ id: number; nombre: string; tipo: string }[]>([])
+const asesoresLoading = ref(false)
 async function loadAsesores() {
   asesoresLoading.value = true
-  try {
-    asesoresItems.value = await listAgentesCaptacion()
-  } finally {
-    asesoresLoading.value = false
-  }
+  try { asesoresItems.value = await listAgentesCaptacion() }
+  finally { asesoresLoading.value = false }
 }
 
-/** Mapeo de tipo para UI (ocultar “externo”) */
-function mapTipo(t?: string) {
-  if (t === 'ASESOR_INTERNO') return 'Asesor'
-  if (t === 'TELEMERCADEO') return 'Tele'
-  if (t === 'CONVENIO' || t === 'ASESOR_EXTERNO') return 'Convenio'
-  return t || '—'
+/* Catálogo convenios */
+const conveniosItems = ref<{ id: number; nombre: string }[]>([])
+const conveniosLoading = ref(false)
+async function loadConvenios() {
+  conveniosLoading.value = true
+  try { conveniosItems.value = await listConveniosLight() }
+  finally { conveniosLoading.value = false }
 }
 
-/** ¿Este row es de convenio? (incluye los antiguos externos) */
-function esConvenioRow(row: any) {
-  const tipo = row?.agente?.tipo
-  return tipo === 'CONVENIO' || tipo === 'ASESOR_EXTERNO'
+/* Helpers */
+function mapTipoCorto(t?: string) {
+  const u = String(t || '').toUpperCase()
+  if (u.includes('CONVENIO')) return 'Convenio'
+  if (u.includes('COMERCIAL')) return 'Comercial'
+  if (u.includes('TELE')) return 'Tele'
+  return ''
 }
-
-/** Canal mostrado en UI */
-function canalMostrado(row: any) {
-  // Si el agente es convenio/externo → mostrar "CONVENIO"
-  if (esConvenioRow(row)) return 'CONVENIO'
-  return row?.canal || '—'
+function safe(val?: string | number | null) {
+  return (val === null || val === undefined || val === '') ? '' : String(val)
 }
-
-/** Filtrado dinámico del combo según canal */
-const agentesVisibles = computed(() => {
-  const canal = filters.value.canal
-  if (canal === 'ASESOR') {
-    return asesoresItems.value.filter(a => a.tipo === 'ASESOR_INTERNO')
-  }
-  if (canal === 'TELE') {
-    return asesoresItems.value.filter(a => a.tipo === 'TELEMERCADEO')
-  }
-  if (canal === 'CONVENIO') {
-    // considerar también ASESOR_EXTERNO como convenio para UI
-    return asesoresItems.value.filter(a => a.tipo === 'CONVENIO' || a.tipo === 'ASESOR_EXTERNO')
-  }
-  return asesoresItems.value
-})
-
-/** Si cambia el canal y el agente ya no aplica, lo limpiamos */
-watch(() => filters.value.canal, () => {
-  if (!filters.value.agenteId) return
-  const stillValid = agentesVisibles.value.some(a => a.id === filters.value.agenteId)
-  if (!stillValid) filters.value.agenteId = null
-})
+const agentesVisibles = computed(() => asesoresItems.value)
 
 /* CRUD */
 async function loadItems() {
   loading.value = true
   errorMsg.value = null
   try {
-    const sort = Array.isArray(sortBy.value) && sortBy.value[0] ? sortBy.value[0] : { key: 'id', order: 'desc' }
-
-    // Si filtran por “CONVENIO”, intentamos mandar un hint al backend (si no lo soporta, lo ignorará)
-    const canalParam = filters.value.canal === 'CONVENIO' ? undefined : (filters.value.canal as any) || undefined
-    const agenteTipoParam = filters.value.canal === 'CONVENIO' ? 'CONVENIO' : undefined
-
+    const sort = Array.isArray(sortBy.value) && sortBy.value[0] ? sortBy.value[0] : { key: 'id', order: 'desc' as const }
     const res = await listDateos({
       page: page.value,
       perPage: itemsPerPage.value,
       placa: filters.value.placa || undefined,
       telefono: filters.value.telefono || undefined,
-      canal: canalParam,
+      canal: 'ASESOR',
       agenteId: filters.value.agenteId || undefined,
-      agenteTipo: agenteTipoParam,   // ← opcional para tu API; si no existe, lo ignoras en backend
-      resultado: (filters.value.resultado as any) || undefined,
+      convenioId: filters.value.convenioId || undefined,
+      resultado: (filters.value.resultado as ResultadoDateo) || undefined,
       desde: filters.value.desde || undefined,
       hasta: filters.value.hasta || undefined,
       sortBy: sort.key,
       order: sort.order,
     })
-
-    let data = res.data as Dateo[]
-
-    // Post-filtro en cliente por si tu API no soporta agenteTipo
-    if (filters.value.canal === 'CONVENIO') {
-      data = data.filter(r => esConvenioRow(r))
-    }
-
-    rows.value = data
-    totalItems.value = Number(res.total || data.length || 0)
-  } catch (e: any) {
+    rows.value = res.data as Dateo[]
+    totalItems.value = Number(res.total || rows.value.length || 0)
+  } catch (e) {
     rows.value = []
     totalItems.value = 0
-    errorMsg.value = e?.message || 'No fue posible cargar los dateos'
+    errorMsg.value = e instanceof Error ? e.message : 'No fue posible cargar los dateos'
   } finally {
     loading.value = false
   }
 }
+
 function reload() { page.value = 1; loadItems() }
 function resetFilters() {
-  filters.value = { placa: '', telefono: '', canal: '', agenteId: null, resultado: '', desde: '', hasta: '' }
+  filters.value = { placa: '', telefono: '', canal: 'ASESOR', agenteId: null, convenioId: null, resultado: '', desde: '', hasta: '' }
   reload()
 }
 
@@ -348,12 +378,8 @@ function irCrear() { router.push({ name: 'ComercialDateosNuevo' }) }
 function verDetalle(id: number) { router.push({ name: 'ComercialDateoDetalle', params: { id } }) }
 
 async function marcarResultado(id: number, resultado: ResultadoDateo) {
-  try {
-    await updateDateo(id, { resultado })
-    loadItems()
-  } catch {
-    errorMsg.value = 'No se pudo actualizar el resultado'
-  }
+  try { await updateDateo(id, { resultado }); loadItems() }
+  catch { errorMsg.value = 'No se pudo actualizar el estado' }
 }
 
 const dlgTurno = ref<{ visible: boolean; id: number | null; turnoId: number | null; loading: boolean }>({
@@ -379,29 +405,24 @@ async function confirmVincular() {
 const dlgEliminar = ref<{ visible: boolean; id: number | null; loading: boolean }>({
   visible: false, id: null, loading: false,
 })
-function confirmEliminar(id: number) {
-  dlgEliminar.value = { visible: true, id, loading: false }
-}
+function confirmEliminar(id: number) { dlgEliminar.value = { visible: true, id, loading: false } }
 async function doEliminar() {
   if (!dlgEliminar.value.id) return
   dlgEliminar.value.loading = true
-  try {
-    await deleteDateo(dlgEliminar.value.id)
-    dlgEliminar.value.visible = false
-    loadItems()
-  } catch {
-    errorMsg.value = 'No se pudo eliminar el dateo'
-  } finally {
-    dlgEliminar.value.loading = false
-  }
+  try { await deleteDateo(dlgEliminar.value.id); dlgEliminar.value.visible = false; loadItems() }
+  catch { errorMsg.value = 'No se pudo eliminar el dateo' }
+  finally { dlgEliminar.value.loading = false }
 }
 
 /* Init */
 loadAsesores()
+loadConvenios()
 loadItems()
 </script>
 
 <style scoped>
 .gap-1 { gap: 4px; }
 .gap-2 { gap: 8px; }
+.text-h5 { font-weight: bold; }
+.evidence-thumb { cursor: zoom-in; }
 </style>

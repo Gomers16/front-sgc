@@ -62,7 +62,7 @@
           link
         />
 
-        <!-- 👇 NUEVO: Asesores -->
+        <!-- Asesores -->
         <v-list-group
           value="comercial-asesores"
           prepend-icon="mdi-account-tie"
@@ -122,6 +122,20 @@
 
           <v-list-item title="Listado" :to="{ path: '/comercial/prospectos' }" link />
           <v-list-item title="Nuevo prospecto" :to="{ path: '/comercial/prospectos/nuevo' }" link />
+        </v-list-group>
+
+        <!-- 🔥 NUEVO: Clientes -->
+        <v-list-group
+          value="comercial-clientes"
+          prepend-icon="mdi-account-multiple-outline"
+          class="nav-item"
+          color="black"
+        >
+          <template #activator="{ props }">
+            <v-list-item v-bind="props" title="Clientes" />
+          </template>
+
+          <v-list-item title="Listado" :to="{ path: '/clientes' }" link />
         </v-list-group>
 
         <!-- Comisiones -->

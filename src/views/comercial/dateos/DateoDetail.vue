@@ -14,11 +14,21 @@
           </v-card-title>
           <v-divider />
           <v-card-text>
-            <div class="text-body-2"><strong>Creado:</strong> {{ fmt(dateo?.created_at) }}</div>
-            <div class="text-body-2"><strong>Agente:</strong> {{ dateo?.agente?.nombre || '—' }} <span v-if="dateo?.agente" class="text-medium-emphasis">({{ dateo?.agente?.tipo }})</span></div>
+            <div class="text-body-2">
+              <strong>Creado:</strong>
+              {{ dateo?.created_at_fmt || fmt(dateo?.created_at) }}
+            </div>
+            <div class="text-body-2">
+              <strong>Agente:</strong> {{ dateo?.agente?.nombre || '—' }}
+              <span v-if="dateo?.agente" class="text-medium-emphasis">
+                ({{ mapTipoCorto(dateo?.agente?.tipo) }})
+              </span>
+            </div>
             <div class="text-body-2"><strong>Placa:</strong> {{ dateo?.placa || '—' }}</div>
             <div class="text-body-2"><strong>Teléfono:</strong> {{ dateo?.telefono || '—' }}</div>
-            <div class="text-body-2"><strong>Convenio:</strong> {{ dateo?.convenio_id || '—' }}</div>
+            <div class="text-body-2">
+              <strong>Convenio:</strong> {{ dateo?.convenio?.nombre || '—' }}
+            </div>
           </v-card-text>
         </v-card>
       </v-col>
@@ -69,9 +79,61 @@
               <v-col cols="12" sm="8">
                 <v-textarea v-model="form.observacion" label="Observación" variant="outlined" rows="3" />
               </v-col>
+
               <v-col cols="12" sm="4">
-                <v-text-field v-model="form.imagen_url" label="URL evidencia" variant="outlined" />
-                <v-img v-if="form.imagen_url" :src="form.imagen_url" class="mt-2 rounded" height="160" cover />
+                <v-file-input
+                  v-model="evidenciaModel"
+                  label="Cambiar evidencia (foto)"
+                  variant="outlined"
+                  density="comfortable"
+                  accept="image/*"
+                  prepend-icon="mdi-image"
+                  :clearable="true"
+                  :multiple="false"
+                  show-size
+                  :rules="[maxSizeRule]"
+                  :disabled="uploading"
+                />
+                <small class="text-medium-emphasis">
+                  Tamaño máx. {{ MAX_IMAGE_MB }}MB. Formatos: JPG/PNG/WEBP/HEIC…
+                </small>
+
+                <!-- PREVISUALIZACIÓN -->
+                <v-img
+                  v-if="previewUrl || form.imagen_url"
+                  :src="previewUrl || form.imagen_url"
+                  class="mt-2 rounded"
+                  height="160"
+                  cover
+                />
+                <div v-else class="mt-2 text-medium-emphasis text-caption">
+                  No hay evidencia asociada.
+                </div>
+
+                <div class="d-flex gap-1 mt-2">
+                  <v-btn
+                    color="primary"
+                    variant="tonal"
+                    size="small"
+                    :loading="uploading"
+                    :disabled="!evidenciaFile || uploading"
+                    @click="subirYAplicar"
+                    prepend-icon="mdi-cloud-upload"
+                  >
+                    Subir evidencia
+                  </v-btn>
+                  <v-btn
+                    v-if="form.imagen_url"
+                    color="secondary"
+                    variant="text"
+                    size="small"
+                    :href="form.imagen_url"
+                    target="_blank"
+                    prepend-icon="mdi-open-in-new"
+                  >
+                    Ver original
+                  </v-btn>
+                </div>
               </v-col>
             </v-row>
           </v-card-text>
@@ -95,11 +157,16 @@
         </v-card-actions>
       </v-card>
     </v-dialog>
+
+    <!-- Mensaje -->
+    <v-snackbar v-model="snackbar.visible" :timeout="3500" :color="snackbar.color" variant="tonal">
+      {{ snackbar.msg }}
+    </v-snackbar>
   </v-container>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onBeforeUnmount, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
   getDateo,
@@ -109,43 +176,132 @@ import {
   type Dateo,
   type ResultadoDateo,
 } from '@/services/dateosService'
+import { uploadImage, type UploadImageResponse } from '@/services/uploadsService'
 
 const route = useRoute()
 const router = useRouter()
 const id = Number(route.params.id)
 
-const loading = ref(true)
-const saving = ref(false)
+const loading = ref<boolean>(true)
+const saving = ref<boolean>(false)
 const dateo = ref<Dateo | null>(null)
 
 const resultadoItems: { title: string; value: ResultadoDateo }[] = [
   { title: 'Pendiente', value: 'PENDIENTE' },
+  { title: 'En proceso', value: 'EN_PROCESO' },
   { title: 'Exitoso', value: 'EXITOSO' },
   { title: 'No exitoso', value: 'NO_EXITOSO' },
 ]
 
-const form = ref<{
+type FormShape = {
   resultado: ResultadoDateo
   consumido_turno_id: number | null
   observacion: string
   imagen_url: string
-}>({
+  imagen_mime?: string | null
+  imagen_tamano_bytes?: number | null
+  imagen_hash?: string | null
+  imagen_origen_id?: string | number | null
+}
+
+const form = ref<FormShape>({
   resultado: 'PENDIENTE',
   consumido_turno_id: null,
   observacion: '',
   imagen_url: '',
 })
 
+const snackbar = ref<{ visible: boolean; msg: string; color: 'error' | 'success' | 'info' }>(
+  { visible: false, msg: '', color: 'error' }
+)
+
+/* ===== Evidencia ===== */
+const evidenciaModel = ref<File | File[] | null>(null)
+const evidenciaFile = ref<File | null>(null)
+const previewUrl = ref<string | null>(null)
+const uploading = ref<boolean>(false)
+const MAX_IMAGE_MB = 8
+
+watch(evidenciaModel, (val) => {
+  const f = Array.isArray(val) ? val[0] : val
+  evidenciaFile.value = f ?? null
+
+  if (previewUrl.value) {
+    URL.revokeObjectURL(previewUrl.value)
+    previewUrl.value = null
+  }
+  if (evidenciaFile.value instanceof File) {
+    previewUrl.value = URL.createObjectURL(evidenciaFile.value)
+  }
+})
+
+onBeforeUnmount(() => {
+  if (previewUrl.value) URL.revokeObjectURL(previewUrl.value)
+})
+
+function maxSizeRule(v: File | File[] | null) {
+  const f = Array.isArray(v) ? v?.[0] : v
+  if (!f) return true
+  return f.size <= MAX_IMAGE_MB * 1024 * 1024 || `La imagen no debe superar ${MAX_IMAGE_MB}MB`
+}
+
+function mapTipoCorto(t?: string) {
+  const u = String(t || '').toUpperCase()
+  if (u.includes('CONVENIO')) return 'Convenio'
+  if (u.includes('COMERCIAL')) return 'Comercial'
+  if (u.includes('TELE')) return 'Tele'
+  return ''
+}
+
+async function uploadImagen() {
+  if (!evidenciaFile.value) return
+  uploading.value = true
+  try {
+    const data: UploadImageResponse = await uploadImage(evidenciaFile.value)
+    form.value.imagen_url = data.url
+    form.value.imagen_mime = data.mime ?? evidenciaFile.value.type ?? null
+    form.value.imagen_tamano_bytes = typeof data.size === 'number' ? data.size : evidenciaFile.value.size
+    form.value.imagen_hash = data.hash ?? null
+    form.value.imagen_origen_id = data.id ?? null
+  } finally {
+    uploading.value = false
+  }
+}
+
+async function subirYAplicar() {
+  try {
+    await uploadImagen()
+    if (!form.value.imagen_url) throw new Error('No se recibió la URL de la imagen')
+    await guardar()
+    snackbar.value = { visible: true, msg: 'Evidencia actualizada', color: 'success' }
+  } catch (e) {
+    const message = e instanceof Error ? e.message : 'No se pudo actualizar la evidencia'
+    snackbar.value = { visible: true, msg: message, color: 'error' }
+  }
+}
+
+/* ===== Carga y guardado ===== */
 async function load() {
   loading.value = true
   try {
     const d = await getDateo(id)
     dateo.value = d
-    form.value.resultado = (d.resultado as any) || 'PENDIENTE'
-    form.value.consumido_turno_id = d.consumido_turno_id || null
-    form.value.observacion = d.observacion || ''
-    form.value.imagen_url = d.imagen_url || ''
-  } finally { loading.value = false }
+    form.value.resultado = d.resultado ?? 'PENDIENTE'
+    form.value.consumido_turno_id = d.consumido_turno_id ?? null
+    form.value.observacion = d.observacion ?? ''
+    form.value.imagen_url = d.imagen_url ?? ''
+    form.value.imagen_mime = d.imagen_mime ?? null
+    form.value.imagen_tamano_bytes = d.imagen_tamano_bytes ?? null
+    form.value.imagen_hash = d.imagen_hash ?? null
+    form.value.imagen_origen_id = d.imagen_origen_id ?? null
+  } catch (e) {
+    const message =
+      (e as { response?: { data?: { message?: string } } }).response?.data?.message ||
+      'No se pudo cargar el dateo'
+    snackbar.value = { visible: true, msg: message, color: 'error' }
+  } finally {
+    loading.value = false
+  }
 }
 
 async function guardar() {
@@ -153,18 +309,35 @@ async function guardar() {
   try {
     await updateDateo(id, { ...form.value })
     await load()
-  } finally { saving.value = false }
+    snackbar.value = { visible: true, msg: 'Cambios guardados', color: 'success' }
+  } catch (e) {
+    const message =
+      (e as { response?: { data?: { message?: string } } }).response?.data?.message ||
+      'No se pudo guardar'
+    snackbar.value = { visible: true, msg: message, color: 'error' }
+  } finally {
+    saving.value = false
+  }
 }
 
 const dlgEliminar = ref<{ visible: boolean; loading: boolean }>({ visible: false, loading: false })
 function openEliminar() { dlgEliminar.value.visible = true }
 async function doEliminar() {
   dlgEliminar.value.loading = true
-  try { await deleteDateo(id); router.push({ name: 'comercial.dateos.list' }) }
-  finally { dlgEliminar.value.loading = false }
+  try {
+    await deleteDateo(id)
+    router.push({ name: 'ComercialDateos' })
+  } catch (e) {
+    const message =
+      (e as { response?: { data?: { message?: string } } }).response?.data?.message ||
+      'No se pudo eliminar'
+    snackbar.value = { visible: true, msg: message, color: 'error' }
+  } finally {
+    dlgEliminar.value.loading = false
+  }
 }
 
-function volver() { router.push({ name: 'comercial.dateos.list' }) }
+function volver() { router.push({ name: 'ComercialDateos' }) }
 
 onMounted(load)
 </script>
@@ -172,4 +345,5 @@ onMounted(load)
 <style scoped>
 .g-4 { gap: 16px; }
 .g-2 { gap: 8px; }
+.gap-1 { gap: 4px; }
 </style>
