@@ -60,7 +60,20 @@ const routes = [
   { path: '/comercial/buscar', name: 'ComercialBuscar', component: () => import('@/views/comercial/BuscarView.vue'), meta: { layout: 'MainLayout' } },
 
   // Asesores + convenios
-  { path: '/comercial/asesores', name: 'ComercialAsesores', component: () => import('@/views/comercial/asesores/AsesoresConveniosView.vue'), meta: { layout: 'MainLayout' } },
+  {
+    path: '/comercial/asesores',
+    name: 'ComercialAsesores',
+    component: () => import('@/views/comercial/asesores/AsesoresConveniosView.vue'),
+    meta: { layout: 'MainLayout' },
+  },
+  // ✅ Ficha comercial del asesor
+  {
+    path: '/comercial/asesores/:id/ficha',
+    name: 'FichaComercialAsesor',
+    component: () => import('@/views/comercial/asesores/FichaComercialAsesor.vue'),
+    props: true,
+    meta: { layout: 'MainLayout', title: 'Ficha comercial del asesor' },
+  },
 
   // Dateos
   { path: '/comercial/dateos', name: 'ComercialDateos', component: DateosList, meta: { layout: 'MainLayout' } },
@@ -113,17 +126,17 @@ type ParamLocation = { params?: RouteParamsRaw }
 function isObject(v: unknown): v is Record<string, unknown> { return typeof v === 'object' && v !== null }
 function hasName(v: unknown): v is NamedLocation { return isObject(v) && 'name' in v }
 function hasParams(v: unknown): v is ParamLocation { return isObject(v) && 'params' in v }
-function toRouteParam(v: unknown): RouteParamValueRaw | (string|number)[] {
-  if (Array.isArray(v)) return v.map(x => typeof x === 'string' || typeof x === 'number' ? x : String(x))
+function toRouteParam(v: unknown): RouteParamValueRaw | (string | number)[] {
+  if (Array.isArray(v)) return v.map((x) => (typeof x === 'string' || typeof x === 'number' ? x : String(x)))
   if (typeof v === 'string' || typeof v === 'number') return v
   return String(v ?? '')
 }
 function cleanParamsForRoute(to: RouteLocationRaw): RouteLocationRaw {
   if (typeof to === 'string') return to
   if (!isObject(to) || !hasName(to)) return to
-  const record = router.getRoutes().find(r => r.name === to.name)
+  const record = router.getRoutes().find((r) => r.name === to.name)
   if (!record) return to
-  const declared = new Set((record.path.match(/:(\w+)/g) || []).map(s => s.slice(1)))
+  const declared = new Set((record.path.match(/:(\w+)/g) || []).map((s) => s.slice(1)))
   const rawParams: RouteParamsRaw = hasParams(to) && to.params ? to.params : {}
   const keys = Object.keys(rawParams)
   if (!keys.length) return to

@@ -67,12 +67,23 @@
         @update:options="loadItems"
         item-value="id"
       >
+        <!-- 👇 NUEVO: Nombre clicable que abre la Ficha Comercial -->
+        <template #item.nombre="{ item }">
+          <RouterLink
+            class="text-primary text-decoration-none font-weight-medium"
+            :to="{ name: 'FichaComercialAsesor', params: { id: unwrap(item)?.id } }"
+            :title="`Ver ficha comercial de ${unwrap(item)?.nombre || 'asesor'}`"
+          >
+            {{ unwrap(item)?.nombre || '—' }}
+          </RouterLink>
+        </template>
+
         <!-- Compatibilidad item/raw -->
         <template #item.tipo="{ item }">
           <v-chip size="small" variant="flat">{{ humanTipo(unwrap(item)?.tipo) }}</v-chip>
         </template>
 
-        <!-- ✅ Ahora la vista solo pinta el booleano que manda el backend en row.activo -->
+        <!-- ✅ Solo pinta el booleano que manda el backend en row.activo -->
         <template #item.activo="{ item }">
           <v-chip :color="unwrap(item)?.activo ? 'success' : 'error'" size="small" variant="flat">
             {{ unwrap(item)?.activo ? 'Activo' : 'Inactivo' }}

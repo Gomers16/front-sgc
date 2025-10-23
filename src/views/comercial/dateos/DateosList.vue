@@ -1,13 +1,30 @@
+<!-- src/views/Dateos.vue -->
 <template>
   <v-container class="py-6">
     <v-card elevation="8" class="rounded-xl">
       <v-card-title class="py-5 d-flex align-center justify-space-between flex-wrap">
         <div class="text-h5 font-weight-bold">🗒️ Dateos</div>
-        <div class="d-flex gap-2 flex-wrap">
-          <v-text-field v-model="filters.placa" label="Placa" variant="outlined" density="comfortable" hide-details clearable style="min-width: 130px" />
-          <v-text-field v-model="filters.telefono" label="Teléfono" variant="outlined" density="comfortable" hide-details clearable style="min-width: 160px" />
 
-          <!-- Canal fijo ASESOR -->
+        <div class="d-flex gap-2 flex-wrap">
+          <v-text-field
+            v-model="filters.placa"
+            label="Placa"
+            variant="outlined"
+            density="comfortable"
+            hide-details
+            clearable
+            style="min-width: 130px"
+          />
+          <v-text-field
+            v-model="filters.telefono"
+            label="Teléfono cliente"
+            variant="outlined"
+            density="comfortable"
+            hide-details
+            clearable
+            style="min-width: 160px"
+          />
+
           <v-select
             v-model="filters.canal"
             :items="canalItems"
@@ -35,20 +52,41 @@
             <template #item="{ props, item }">
               <v-list-item v-bind="props" :title="item?.raw?.nombre">
                 <template #append>
-                  <v-chip size="x-small" variant="flat">{{ mapTipoCorto(item?.raw?.tipo) }}</v-chip>
+                  <v-chip
+                    size="small"
+                    class="agent-type-chip"
+                    :class="{
+                      'agent-type--comercial': /COMERCIAL/i.test(item?.raw?.tipo),
+                      'agent-type--convenio': /CONVENIO/i.test(item?.raw?.tipo),
+                      'agent-type--tele': /TELE/i.test(item?.raw?.tipo),
+                    }"
+                  >
+                    {{ mapTipoCorto(item?.raw?.tipo) }}
+                  </v-chip>
                 </template>
               </v-list-item>
             </template>
+
             <!-- selected -->
             <template #selection="{ item }">
               <div class="d-flex align-center gap-1">
                 <span>{{ safe(item?.raw?.nombre) }}</span>
-                <v-chip size="x-small" variant="flat">{{ mapTipoCorto(item?.raw?.tipo) }}</v-chip>
+                <v-chip
+                  size="small"
+                  class="agent-type-chip"
+                  :class="{
+                    'agent-type--comercial': /COMERCIAL/i.test(item?.raw?.tipo),
+                    'agent-type--convenio': /CONVENIO/i.test(item?.raw?.tipo),
+                    'agent-type--tele': /TELE/i.test(item?.raw?.tipo),
+                  }"
+                >
+                  {{ mapTipoCorto(item?.raw?.tipo) }}
+                </v-chip>
               </div>
             </template>
           </v-autocomplete>
 
-          <!-- ✅ Filtro de Convenio -->
+          <!-- Convenio -->
           <v-autocomplete
             v-model="filters.convenioId"
             :items="conveniosItems"
@@ -74,8 +112,24 @@
             style="min-width: 170px"
           />
 
-          <v-text-field v-model="filters.desde" type="date" label="Desde" variant="outlined" density="comfortable" hide-details style="min-width: 150px" />
-          <v-text-field v-model="filters.hasta" type="date" label="Hasta" variant="outlined" density="comfortable" hide-details style="min-width: 150px" />
+          <v-text-field
+            v-model="filters.desde"
+            type="date"
+            label="Desde"
+            variant="outlined"
+            density="comfortable"
+            hide-details
+            style="min-width: 150px"
+          />
+          <v-text-field
+            v-model="filters.hasta"
+            type="date"
+            label="Hasta"
+            variant="outlined"
+            density="comfortable"
+            hide-details
+            style="min-width: 150px"
+          />
 
           <v-btn color="primary" :loading="loading" @click="reload">Aplicar</v-btn>
           <v-btn variant="text" :disabled="loading" @click="resetFilters">Limpiar</v-btn>
@@ -101,10 +155,15 @@
         @update:options="loadItems"
         item-value="id"
       >
-        <!-- Foto -->
+        <!-- Foto (simple, sin tooltips) -->
         <template #item.imagen_url="{ item }">
           <div class="d-flex items-center">
-            <v-avatar v-if="item.imagen_url" size="42" class="evidence-thumb" @click="openViewer(item.imagen_url)">
+            <v-avatar
+              v-if="item.imagen_url"
+              size="42"
+              class="evidence-thumb"
+              @click="openViewer(item.imagen_url)"
+            >
               <v-img :src="item.imagen_url" alt="evidencia" cover />
             </v-avatar>
             <v-btn
@@ -115,6 +174,8 @@
               class="text-medium-emphasis"
               :disabled="true"
               :ripple="false"
+              aria-label="Sin evidencia"
+              :title="'Sin evidencia'"
             />
           </div>
         </template>
@@ -124,17 +185,26 @@
           <v-chip size="small" variant="flat">ASESOR</v-chip>
         </template>
 
-        <!-- Agente con tipo corto -->
+        <!-- Agente con chip ancho/legible -->
         <template #item.agente="{ item }">
           <div class="d-flex align-center gap-1">
             <span>{{ safe(item.agente?.nombre) }}</span>
-            <v-chip v-if="item.agente?.tipo" size="x-small" variant="flat">
+            <v-chip
+              v-if="item.agente?.tipo"
+              size="small"
+              class="agent-type-chip"
+              :class="{
+                'agent-type--comercial': /COMERCIAL/i.test(item.agente.tipo),
+                'agent-type--convenio': /CONVENIO/i.test(item.agente.tipo),
+                'agent-type--tele': /TELE/i.test(item.agente.tipo),
+              }"
+            >
               {{ mapTipoCorto(item.agente.tipo) }}
             </v-chip>
           </div>
         </template>
 
-        <!-- ✅ Convenio -->
+        <!-- Convenio -->
         <template #item.convenio="{ item }">
           <v-chip v-if="item.convenio?.nombre" size="small" variant="flat">
             {{ item.convenio.nombre }}
@@ -147,39 +217,113 @@
           {{ item.created_at_fmt || formatDateTime(item.created_at) }}
         </template>
 
-        <!-- Estado -->
+        <!-- Estado (resultado del dateo) -->
         <template #item.resultado="{ item }">
-          <v-chip
-            :color="item.resultado === 'EXITOSO' ? 'success'
-                    : item.resultado === 'NO_EXITOSO' ? 'error'
-                    : item.resultado === 'EN_PROCESO' ? 'info'
-                    : 'warning'"
-            size="small"
-            variant="flat"
-          >
-            {{
-              item.resultado === 'EN_PROCESO' ? 'En proceso'
-              : item.resultado === 'NO_EXITOSO' ? 'No exitoso'
-              : item.resultado === 'PENDIENTE' ? 'Pendiente'
-              : 'Exitoso'
-            }}
+          <v-chip :color="chipColorResultado(item.resultado)" size="small" variant="flat">
+            {{ textoResultado(item.resultado) }}
           </v-chip>
         </template>
 
-        <!-- Turno -->
-        <template #item.consumido_turno_id="{ item }">
-          <span class="text-medium-emphasis">{{ safe(item.consumido_turno_id) }}</span>
+        <!-- Turno: centrado + chips -->
+        <template #item.turnoInfo="{ item }">
+          <div v-if="item.turnoInfo" class="d-flex align-center justify-center" style="gap:6px">
+            <v-chip size="x-small" color="primary" variant="tonal" class="font-weight-600">
+              {{ (item.turnoInfo.fecha && formatDateOnly(item.turnoInfo.fecha)) || '—' }}
+            </v-chip>
+            <v-chip size="x-small" color="indigo" variant="tonal" class="font-weight-600">
+              G: {{ item.turnoInfo.numeroGlobal ?? '—' }}
+            </v-chip>
+            <v-chip size="x-small" color="deep-purple" variant="tonal" class="font-weight-600">
+              S: {{ item.turnoInfo.numeroServicio ?? '—' }}
+            </v-chip>
+            <v-chip v-if="item.turnoInfo.servicioCodigo" size="x-small" variant="tonal" class="font-weight-600">
+              {{ item.turnoInfo.servicioCodigo }}
+            </v-chip>
+            <v-chip
+              size="x-small"
+              :color="chipColorEstadoTurno(item.turnoInfo.estado || item.resultado)"
+              variant="elevated"
+              prepend-icon="mdi-progress-clock"
+              class="font-weight-600"
+            >
+              {{ textoEstadoTurno(item.turnoInfo.estado || item.resultado) }}
+            </v-chip>
+          </div>
+          <span v-else class="text-medium-emphasis d-flex justify-center">—</span>
         </template>
 
+        <!-- Acciones (con tooltips) -->
         <template #item.acciones="{ item }">
           <div class="d-flex gap-1">
-            <v-btn size="small" variant="text" icon="mdi-eye" @click="verDetalle(item.id)" />
-            <v-btn size="small" variant="text" icon="mdi-progress-clock" color="info" @click="marcarResultado(item.id, 'EN_PROCESO')" />
-            <v-btn size="small" variant="text" icon="mdi-clipboard-check" color="success" @click="marcarResultado(item.id, 'EXITOSO')" />
-            <v-btn size="small" variant="text" icon="mdi-clipboard-remove" color="error" @click="marcarResultado(item.id, 'NO_EXITOSO')" />
-            <v-btn size="small" variant="text" icon="mdi-clipboard-text-clock" @click="marcarResultado(item.id, 'PENDIENTE')" />
-            <v-btn size="small" variant="text" icon="mdi-link-variant" @click="openVincularTurno(item.id)" />
-            <v-btn size="small" variant="text" icon="mdi-delete" color="error" @click="confirmEliminar(item.id)" />
+            <v-tooltip text="Ver detalle del dateo">
+              <template #activator="{ props }">
+                <v-btn size="small" variant="text" icon="mdi-eye" v-bind="props" @click="verDetalle(item.id)" />
+              </template>
+            </v-tooltip>
+
+            <v-tooltip text="Marcar EN PROCESO">
+              <template #activator="{ props }">
+                <v-btn
+                  size="small"
+                  variant="text"
+                  icon="mdi-progress-clock"
+                  color="info"
+                  v-bind="props"
+                  @click="marcarResultado(item.id, 'EN_PROCESO')"
+                />
+              </template>
+            </v-tooltip>
+
+            <v-tooltip text="Marcar EXITOSO">
+              <template #activator="{ props }">
+                <v-btn
+                  size="small"
+                  variant="text"
+                  icon="mdi-clipboard-check"
+                  color="success"
+                  v-bind="props"
+                  @click="marcarResultado(item.id, 'EXITOSO')"
+                />
+              </template>
+            </v-tooltip>
+
+            <v-tooltip text="Marcar NO EXITOSO">
+              <template #activator="{ props }">
+                <v-btn
+                  size="small"
+                  variant="text"
+                  icon="mdi-clipboard-remove"
+                  color="error"
+                  v-bind="props"
+                  @click="marcarResultado(item.id, 'NO_EXITOSO')"
+                />
+              </template>
+            </v-tooltip>
+
+            <v-tooltip text="Marcar PENDIENTE">
+              <template #activator="{ props }">
+                <v-btn
+                  size="small"
+                  variant="text"
+                  icon="mdi-clipboard-text-clock"
+                  v-bind="props"
+                  @click="marcarResultado(item.id, 'PENDIENTE')"
+                />
+              </template>
+            </v-tooltip>
+
+            <v-tooltip text="Eliminar dateo">
+              <template #activator="{ props }">
+                <v-btn
+                  size="small"
+                  variant="text"
+                  icon="mdi-delete"
+                  color="error"
+                  v-bind="props"
+                  @click="confirmEliminar(item.id)"
+                />
+              </template>
+            </v-tooltip>
           </div>
         </template>
       </v-data-table-server>
@@ -194,25 +338,16 @@
         </v-card-text>
         <v-card-actions>
           <v-spacer />
-          <v-btn v-if="viewer.url" variant="text" :href="viewer.url" target="_blank" prepend-icon="mdi-open-in-new">
+          <v-btn
+            v-if="viewer.url"
+            variant="text"
+            :href="viewer.url"
+            target="_blank"
+            prepend-icon="mdi-open-in-new"
+          >
             Abrir en pestaña
           </v-btn>
           <v-btn color="primary" @click="viewer.visible = false">Cerrar</v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
-
-    <!-- Vincular turno -->
-    <v-dialog v-model="dlgTurno.visible" max-width="420">
-      <v-card>
-        <v-card-title class="text-h6">Vincular turno al dateo</v-card-title>
-        <v-card-text>
-          <v-text-field v-model.number="dlgTurno.turnoId" label="ID del turno" type="number" variant="outlined" hide-details />
-        </v-card-text>
-        <v-card-actions>
-          <v-spacer />
-          <v-btn variant="text" @click="dlgTurno.visible = false">Cancelar</v-btn>
-          <v-btn color="primary" :loading="dlgTurno.loading" @click="confirmVincular">Guardar</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
@@ -286,11 +421,11 @@ const headers = [
   { title: 'Agente', key: 'agente', sortable: false },
   { title: 'Convenio', key: 'convenio', sortable: false },
   { title: 'Placa', key: 'placa', sortable: true },
-  { title: 'Teléfono', key: 'telefono', sortable: true },
+  { title: 'Teléfono cliente', key: 'telefono', sortable: true },
   { title: 'Creado', key: 'created_at', sortable: true },
   { title: 'Estado', key: 'resultado', sortable: true },
-  { title: 'Turno', key: 'consumido_turno_id', sortable: true },
-  { title: 'Acciones', key: 'acciones', sortable: false, align: 'end' },
+  { title: 'Turno', key: 'turnoInfo', sortable: false, align: 'center' as const },
+  { title: 'Acciones', key: 'acciones', sortable: false, align: 'end' as const },
 ]
 
 const rows = ref<Dateo[]>([])
@@ -303,15 +438,20 @@ const errorMsg = ref<string | null>(null)
 
 /* Visor de imagen */
 const viewer = ref<{ visible: boolean; url: string | null }>({ visible: false, url: null })
-function openViewer(url: string) { viewer.value = { visible: true, url } }
+function openViewer(url: string) {
+  viewer.value = { visible: true, url }
+}
 
 /* Catálogo asesores */
 const asesoresItems = ref<{ id: number; nombre: string; tipo: string }[]>([])
 const asesoresLoading = ref(false)
 async function loadAsesores() {
   asesoresLoading.value = true
-  try { asesoresItems.value = await listAgentesCaptacion() }
-  finally { asesoresLoading.value = false }
+  try {
+    asesoresItems.value = await listAgentesCaptacion()
+  } finally {
+    asesoresLoading.value = false
+  }
 }
 
 /* Catálogo convenios */
@@ -319,8 +459,11 @@ const conveniosItems = ref<{ id: number; nombre: string }[]>([])
 const conveniosLoading = ref(false)
 async function loadConvenios() {
   conveniosLoading.value = true
-  try { conveniosItems.value = await listConveniosLight() }
-  finally { conveniosLoading.value = false }
+  try {
+    conveniosItems.value = await listConveniosLight()
+  } finally {
+    conveniosLoading.value = false
+  }
 }
 
 /* Helpers */
@@ -332,16 +475,51 @@ function mapTipoCorto(t?: string) {
   return ''
 }
 function safe(val?: string | number | null) {
-  return (val === null || val === undefined || val === '') ? '' : String(val)
+  return val === null || val === undefined || val === '' ? '' : String(val)
 }
 const agentesVisibles = computed(() => asesoresItems.value)
+
+/* Texto/Color chips */
+function chipColorResultado(r?: string) {
+  if (r === 'EXITOSO') return 'success'
+  if (r === 'NO_EXITOSO') return 'error'
+  if (r === 'EN_PROCESO') return 'info'
+  return 'warning'
+}
+function textoResultado(r?: string) {
+  if (r === 'EXITOSO') return 'Exitoso'
+  if (r === 'NO_EXITOSO') return 'No exitoso'
+  if (r === 'EN_PROCESO') return 'En proceso'
+  return 'Pendiente'
+}
+function chipColorEstadoTurno(e?: string) {
+  const v = String(e || '').toLowerCase()
+  if (v.includes('proceso')) return 'info'
+  if (v.includes('final')) return 'success'
+  if (v.includes('cancel')) return 'error'
+  return 'warning'
+}
+function textoEstadoTurno(e?: string) {
+  const v = String(e || '').toUpperCase()
+  if (v === 'EN_PROCESO') return 'En proceso'
+  if (v === 'FINALIZADO') return 'Finalizado'
+  if (v === 'CANCELADO') return 'Cancelado'
+  if (v === 'ACTIVO') return 'Activo'
+  return 'Pendiente'
+}
+function formatDateOnly(iso: string) {
+  const p = iso.split('T')[0] || iso
+  const [y, m, d] = p.split('-')
+  return `${d}/${m}/${y}`
+}
 
 /* CRUD */
 async function loadItems() {
   loading.value = true
   errorMsg.value = null
   try {
-    const sort = Array.isArray(sortBy.value) && sortBy.value[0] ? sortBy.value[0] : { key: 'id', order: 'desc' as const }
+    const sort =
+      Array.isArray(sortBy.value) && sortBy.value[0] ? sortBy.value[0] : { key: 'id', order: 'desc' as const }
     const res = await listDateos({
       page: page.value,
       perPage: itemsPerPage.value,
@@ -367,51 +545,62 @@ async function loadItems() {
   }
 }
 
-function reload() { page.value = 1; loadItems() }
+function reload() {
+  page.value = 1
+  loadItems()
+}
 function resetFilters() {
-  filters.value = { placa: '', telefono: '', canal: 'ASESOR', agenteId: null, convenioId: null, resultado: '', desde: '', hasta: '' }
+  filters.value = {
+    placa: '',
+    telefono: '',
+    canal: 'ASESOR',
+    agenteId: null,
+    convenioId: null,
+    resultado: '',
+    desde: '',
+    hasta: '',
+  }
   reload()
 }
 
 /* Acciones */
-function irCrear() { router.push({ name: 'ComercialDateosNuevo' }) }
-function verDetalle(id: number) { router.push({ name: 'ComercialDateoDetalle', params: { id } }) }
+function irCrear() {
+  router.push({ name: 'ComercialDateosNuevo' })
+}
+function verDetalle(id: number) {
+  router.push({ name: 'ComercialDateoDetalle', params: { id } })
+}
 
 async function marcarResultado(id: number, resultado: ResultadoDateo) {
-  try { await updateDateo(id, { resultado }); loadItems() }
-  catch { errorMsg.value = 'No se pudo actualizar el estado' }
-}
-
-const dlgTurno = ref<{ visible: boolean; id: number | null; turnoId: number | null; loading: boolean }>({
-  visible: false, id: null, turnoId: null, loading: false,
-})
-function openVincularTurno(id: number) {
-  dlgTurno.value = { visible: true, id, turnoId: null, loading: false }
-}
-async function confirmVincular() {
-  if (!dlgTurno.value.id) return
-  dlgTurno.value.loading = true
   try {
-    await updateDateo(dlgTurno.value.id, { consumido_turno_id: dlgTurno.value.turnoId || null })
-    dlgTurno.value.visible = false
+    await updateDateo(id, { resultado })
     loadItems()
   } catch {
-    errorMsg.value = 'No se pudo vincular el turno'
-  } finally {
-    dlgTurno.value.loading = false
+    errorMsg.value = 'No se pudo actualizar el estado'
   }
 }
 
+/* Eliminar */
 const dlgEliminar = ref<{ visible: boolean; id: number | null; loading: boolean }>({
-  visible: false, id: null, loading: false,
+  visible: false,
+  id: null,
+  loading: false,
 })
-function confirmEliminar(id: number) { dlgEliminar.value = { visible: true, id, loading: false } }
+function confirmEliminar(id: number) {
+  dlgEliminar.value = { visible: true, id, loading: false }
+}
 async function doEliminar() {
   if (!dlgEliminar.value.id) return
   dlgEliminar.value.loading = true
-  try { await deleteDateo(dlgEliminar.value.id); dlgEliminar.value.visible = false; loadItems() }
-  catch { errorMsg.value = 'No se pudo eliminar el dateo' }
-  finally { dlgEliminar.value.loading = false }
+  try {
+    await deleteDateo(dlgEliminar.value.id)
+    dlgEliminar.value.visible = false
+    loadItems()
+  } catch {
+    errorMsg.value = 'No se pudo eliminar el dateo'
+  } finally {
+    dlgEliminar.value.loading = false
+  }
 }
 
 /* Init */
@@ -425,4 +614,25 @@ loadItems()
 .gap-2 { gap: 8px; }
 .text-h5 { font-weight: bold; }
 .evidence-thumb { cursor: zoom-in; }
+
+/* Chip del tipo de agente: más alto, ancho mínimo y sin recortar texto */
+.agent-type-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 26px;
+  padding: 0 12px;
+  min-width: 92px;       /* asegura que 'Comercial' entre completo */
+  font-size: 12.6px;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+  overflow: visible;
+  border-radius: 9999px;
+}
+
+/* Colores por tipo (opcional) */
+.agent-type--comercial { background: #E3F2FD; color: #0D47A1; }
+.agent-type--convenio  { background: #E8F5E9; color: #1B5E20; }
+.agent-type--tele      { background: #FFF3E0; color: #E65100; }
 </style>

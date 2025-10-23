@@ -29,18 +29,55 @@
             <div class="text-body-2">
               <strong>Convenio:</strong> {{ dateo?.convenio?.nombre || '—' }}
             </div>
+
+            <!-- Turno (solo visual) -->
+            <v-divider class="my-3" />
+            <div class="text-subtitle-2 mb-2 font-weight-600">Turno vinculado</div>
+
+            <div v-if="dateo?.turnoInfo" class="d-flex align-center flex-wrap" style="gap:6px">
+              <v-chip size="x-small" color="primary" variant="tonal" class="font-weight-600">
+                {{ (dateo?.turnoInfo?.fecha && formatDateOnly(dateo.turnoInfo.fecha)) || '—' }}
+              </v-chip>
+              <v-chip size="x-small" color="indigo" variant="tonal" class="font-weight-600">
+                G: {{ dateo?.turnoInfo?.numeroGlobal ?? '—' }}
+              </v-chip>
+              <v-chip size="x-small" color="deep-purple" variant="tonal" class="font-weight-600">
+                S: {{ dateo?.turnoInfo?.numeroServicio ?? '—' }}
+              </v-chip>
+
+              <!-- ✅ Nuevo: Servicio al ladito, igual que en la lista -->
+              <v-chip
+                v-if="dateo?.turnoInfo?.servicioCodigo"
+                size="x-small"
+                variant="tonal"
+                class="font-weight-600"
+              >
+                {{ dateo?.turnoInfo?.servicioCodigo }}
+              </v-chip>
+
+              <v-chip
+                size="x-small"
+                :color="chipColorEstadoTurno(dateo?.turnoInfo?.estado || dateo?.resultado)"
+                variant="elevated"
+                prepend-icon="mdi-progress-clock"
+                class="font-weight-600"
+              >
+                {{ textoEstadoTurno(dateo?.turnoInfo?.estado || dateo?.resultado) }}
+              </v-chip>
+            </div>
+            <div v-else class="text-medium-emphasis">— Sin turno vinculado —</div>
           </v-card-text>
         </v-card>
       </v-col>
 
-      <!-- Resultado / Turno -->
+      <!-- Resultado -->
       <v-col cols="12" md="6">
         <v-card elevation="4" class="rounded-lg">
           <v-card-title class="text-subtitle-1 font-weight-bold">Resultado</v-card-title>
           <v-divider />
           <v-card-text>
             <v-row class="g-2">
-              <v-col cols="12" sm="6">
+              <v-col cols="12">
                 <v-select
                   v-model="form.resultado"
                   :items="resultadoItems"
@@ -49,22 +86,16 @@
                   density="comfortable"
                 />
               </v-col>
-              <v-col cols="12" sm="6">
-                <v-text-field
-                  v-model.number="form.consumido_turno_id"
-                  type="number"
-                  label="Turno consumido (opcional)"
-                  variant="outlined"
-                  density="comfortable"
-                  hide-details
-                />
-              </v-col>
             </v-row>
           </v-card-text>
           <v-card-actions class="px-4 pb-4 pt-0">
             <v-spacer />
-            <v-btn color="primary" @click="guardar" :loading="saving" prepend-icon="mdi-content-save">Guardar</v-btn>
-            <v-btn color="error" variant="tonal" @click="openEliminar" prepend-icon="mdi-delete">Eliminar</v-btn>
+            <v-btn color="primary" @click="guardar" :loading="saving" prepend-icon="mdi-content-save">
+              Guardar
+            </v-btn>
+            <v-btn color="error" variant="tonal" @click="openEliminar" prepend-icon="mdi-delete">
+              Eliminar
+            </v-btn>
           </v-card-actions>
         </v-card>
       </v-col>
@@ -101,7 +132,7 @@
                 <!-- PREVISUALIZACIÓN -->
                 <v-img
                   v-if="previewUrl || form.imagen_url"
-                  :src="previewUrl || form.imagen_url"
+                  :src="previewUrl || form.imagen_url!"
                   class="mt-2 rounded"
                   height="160"
                   cover
@@ -127,7 +158,7 @@
                     color="secondary"
                     variant="text"
                     size="small"
-                    :href="form.imagen_url"
+                    :href="form.imagen_url!"
                     target="_blank"
                     prepend-icon="mdi-open-in-new"
                   >
@@ -139,7 +170,9 @@
           </v-card-text>
           <v-card-actions class="px-4 pb-4 pt-0">
             <v-spacer />
-            <v-btn color="primary" @click="guardar" :loading="saving" prepend-icon="mdi-content-save">Guardar</v-btn>
+            <v-btn color="primary" @click="guardar" :loading="saving" prepend-icon="mdi-content-save">
+              Guardar
+            </v-btn>
           </v-card-actions>
         </v-card>
       </v-col>
@@ -195,9 +228,8 @@ const resultadoItems: { title: string; value: ResultadoDateo }[] = [
 
 type FormShape = {
   resultado: ResultadoDateo
-  consumido_turno_id: number | null
   observacion: string
-  imagen_url: string
+  imagen_url: string | null
   imagen_mime?: string | null
   imagen_tamano_bytes?: number | null
   imagen_hash?: string | null
@@ -206,9 +238,8 @@ type FormShape = {
 
 const form = ref<FormShape>({
   resultado: 'PENDIENTE',
-  consumido_turno_id: null,
   observacion: '',
-  imagen_url: '',
+  imagen_url: null,
 })
 
 const snackbar = ref<{ visible: boolean; msg: string; color: 'error' | 'success' | 'info' }>(
@@ -253,31 +284,27 @@ function mapTipoCorto(t?: string) {
   return ''
 }
 
-async function uploadImagen() {
-  if (!evidenciaFile.value) return
-  uploading.value = true
-  try {
-    const data: UploadImageResponse = await uploadImage(evidenciaFile.value)
-    form.value.imagen_url = data.url
-    form.value.imagen_mime = data.mime ?? evidenciaFile.value.type ?? null
-    form.value.imagen_tamano_bytes = typeof data.size === 'number' ? data.size : evidenciaFile.value.size
-    form.value.imagen_hash = data.hash ?? null
-    form.value.imagen_origen_id = data.id ?? null
-  } finally {
-    uploading.value = false
-  }
+/* ===== Turno helpers (visual) ===== */
+function chipColorEstadoTurno(e?: string) {
+  const v = String(e || '').toLowerCase()
+  if (v.includes('proceso')) return 'info'
+  if (v.includes('final')) return 'success'
+  if (v.includes('cancel')) return 'error'
+  return 'warning'
 }
-
-async function subirYAplicar() {
-  try {
-    await uploadImagen()
-    if (!form.value.imagen_url) throw new Error('No se recibió la URL de la imagen')
-    await guardar()
-    snackbar.value = { visible: true, msg: 'Evidencia actualizada', color: 'success' }
-  } catch (e) {
-    const message = e instanceof Error ? e.message : 'No se pudo actualizar la evidencia'
-    snackbar.value = { visible: true, msg: message, color: 'error' }
-  }
+function textoEstadoTurno(e?: string) {
+  const v = String(e || '').toUpperCase()
+  if (v === 'EN_PROCESO') return 'En proceso'
+  if (v === 'FINALIZADO') return 'Finalizado'
+  if (v === 'CANCELADO') return 'Cancelado'
+  if (v === 'ACTIVO') return 'Activo'
+  return 'Pendiente'
+}
+function formatDateOnly(iso?: string) {
+  if (!iso) return ''
+  const p = iso.split('T')[0] || iso
+  const [y, m, d] = p.split('-')
+  return `${d}/${m}/${y}`
 }
 
 /* ===== Carga y guardado ===== */
@@ -287,13 +314,20 @@ async function load() {
     const d = await getDateo(id)
     dateo.value = d
     form.value.resultado = d.resultado ?? 'PENDIENTE'
-    form.value.consumido_turno_id = d.consumido_turno_id ?? null
     form.value.observacion = d.observacion ?? ''
-    form.value.imagen_url = d.imagen_url ?? ''
+    form.value.imagen_url = d.imagen_url ?? null
     form.value.imagen_mime = d.imagen_mime ?? null
     form.value.imagen_tamano_bytes = d.imagen_tamano_bytes ?? null
     form.value.imagen_hash = d.imagen_hash ?? null
     form.value.imagen_origen_id = d.imagen_origen_id ?? null
+
+    // siempre que recargo desde BD, elimino cualquier preview local
+    if (previewUrl.value) {
+      URL.revokeObjectURL(previewUrl.value)
+      previewUrl.value = null
+    }
+    evidenciaModel.value = null
+    evidenciaFile.value = null
   } catch (e) {
     const message =
       (e as { response?: { data?: { message?: string } } }).response?.data?.message ||
@@ -307,7 +341,10 @@ async function load() {
 async function guardar() {
   saving.value = true
   try {
-    await updateDateo(id, { ...form.value })
+    await updateDateo(id, {
+      resultado: form.value.resultado,
+      observacion: form.value.observacion,
+    })
     await load()
     snackbar.value = { visible: true, msg: 'Cambios guardados', color: 'success' }
   } catch (e) {
@@ -317,6 +354,50 @@ async function guardar() {
     snackbar.value = { visible: true, msg: message, color: 'error' }
   } finally {
     saving.value = false
+  }
+}
+
+/* Subida + persistencia de imagen */
+async function uploadImagen() {
+  if (!evidenciaFile.value) return
+  uploading.value = true
+  try {
+    const data: UploadImageResponse = await uploadImage(evidenciaFile.value)
+    form.value.imagen_url = data.url ?? null
+    form.value.imagen_mime = data.mime ?? evidenciaFile.value.type ?? null
+    form.value.imagen_tamano_bytes = typeof data.size === 'number' ? data.size : evidenciaFile.value.size
+    form.value.imagen_hash = data.hash ?? null
+    form.value.imagen_origen_id = data.id ?? null
+  } finally {
+    uploading.value = false
+  }
+}
+
+async function subirYAplicar() {
+  try {
+    await uploadImagen()
+    if (!form.value.imagen_url) throw new Error('No se recibió la URL de la imagen')
+
+    await updateDateo(id, {
+      imagen_url: form.value.imagen_url,
+      imagen_mime: form.value.imagen_mime ?? null,
+      imagen_tamano_bytes: form.value.imagen_tamano_bytes ?? null,
+      imagen_hash: form.value.imagen_hash ?? null,
+      imagen_origen_id: form.value.imagen_origen_id ?? null,
+    })
+
+    evidenciaModel.value = null
+    evidenciaFile.value = null
+    if (previewUrl.value) {
+      URL.revokeObjectURL(previewUrl.value)
+      previewUrl.value = null
+    }
+
+    await load()
+    snackbar.value = { visible: true, msg: 'Evidencia actualizada', color: 'success' }
+  } catch (e) {
+    const message = e instanceof Error ? e.message : 'No se pudo actualizar la evidencia'
+    snackbar.value = { visible: true, msg: message, color: 'error' }
   }
 }
 
@@ -346,4 +427,5 @@ onMounted(load)
 .g-4 { gap: 16px; }
 .g-2 { gap: 8px; }
 .gap-1 { gap: 4px; }
+.font-weight-600 { font-weight: 600; }
 </style>

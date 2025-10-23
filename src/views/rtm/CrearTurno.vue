@@ -182,19 +182,6 @@
                   :rules="[v => !!v || 'El nombre del asesor es requerido']"
                 />
               </v-col>
-              <v-col cols="12" sm="6">
-                <v-radio-group
-                  v-model="form.asesorTipo"
-                  label="Tipo de Asesor"
-                  row
-                  density="comfortable"
-                  class="radio-row"
-                  :rules="[v => !!v || 'Seleccione tipo de asesor']"
-                >
-                  <v-radio label="Interno" value="ASESOR_INTERNO" color="primary" />
-                  <v-radio label="Externo" value="ASESOR_EXTERNO" color="primary" />
-                </v-radio-group>
-              </v-col>
             </template>
 
             <!-- 👇 Panel “Datos detectados” SOLO si hay resultados -->
@@ -206,6 +193,8 @@
                     <strong>Datos detectados</strong>
                     <v-progress-circular v-if="buscando" indeterminate size="18" class="ml-2" />
                   </div>
+
+                  <!-- CHIP sugerencia de captación -->
                   <v-chip
                     v-if="captacionChipText"
                     color="primary"
@@ -213,6 +202,42 @@
                     prepend-icon="mdi-bullhorn"
                   >
                     {{ captacionChipText }}
+                  </v-chip>
+                </div>
+
+                <!-- 💙 FILA CHIPS: CONVENIO / ASESOR / ÚLTIMA VISITA -->
+                <div class="d-flex flex-wrap mb-3" style="gap:8px">
+                  <!-- Convenio detectado (sin SIN-COD) -->
+                  <v-chip
+                    v-if="convenioDetectado"
+                    color="deep-purple-accent-4"
+                    class="text-white"
+                    variant="elevated"
+                    prepend-icon="mdi-file-document-outline"
+                  >
+                    Convenio: {{ formatConvenioChip(convenioDetectado) }}
+                  </v-chip>
+
+                  <!-- Asesor asignado (sin el texto 'Asesor convenio') -->
+                  <v-chip
+                    v-if="asesorAsignadoLabel"
+                    color="indigo"
+                    class="text-white"
+                    variant="elevated"
+                    prepend-icon="mdi-account-tie"
+                  >
+                    {{ asesorAsignadoLabel }}
+                  </v-chip>
+
+                  <!-- Última visita -->
+                  <v-chip
+                    v-if="ultimaVisitaChip"
+                    color="teal"
+                    class="text-white"
+                    variant="elevated"
+                    prepend-icon="mdi-calendar-clock"
+                  >
+                    {{ ultimaVisitaChip }}
                   </v-chip>
                 </div>
 
@@ -310,6 +335,13 @@
                             </div>
                             <div class="text-body-2 text-medium-emphasis" v-if="busquedaDateo.observacion">
                               {{ busquedaDateo.observacion }}
+                            </div>
+
+                            <!-- Convenio del dateo (sin SIN-COD) -->
+                            <div class="mt-2" v-if="busquedaDateoConvenio">
+                              <v-chip color="deep-purple" text-color="white" variant="elevated" prepend-icon="mdi-file-document-multiple-outline">
+                                Convenio (dateo): {{ formatConvenioChip(busquedaDateoConvenio) }}
+                              </v-chip>
                             </div>
                           </div>
                         </div>
@@ -498,75 +530,40 @@ type TipoVehiculoFrontend =
   | 'Motocicleta'
 
 type MedioEntero = 'redes_sociales' | 'call_center' | 'fachada' | 'asesor'
-type AsesorTipo = 'ASESOR_INTERNO' | 'ASESOR_EXTERNO'
-
-interface ServicioDTO {
-  id: number
-  codigo: string
-  nombre: string
-}
-interface ServicioItem { title: string; value: number }
-
-interface SnackbarState {
-  show: boolean
-  message: string
-  color: string
-  timeout: number
-}
-
-interface ClaseVehiculoDTO {
-  codigo?: string
-  nombre?: string
-}
-interface VehiculoDTO {
-  id?: number
-  placa?: string
-  marca?: string
-  linea?: string
-  modelo?: number
-  clase?: ClaseVehiculoDTO | null
-  clienteId?: number | null
-}
-interface ClienteDTO {
-  id?: number
-  nombre?: string
-  telefono?: string
-  email?: string
-}
 type CanalAtrib = 'FACHADA' | 'ASESOR' | 'TELE' | 'REDES'
 type AgenteTipo = 'ASESOR_INTERNO' | 'ASESOR_EXTERNO' | 'TELEMERCADEO' | string
 
-interface AgenteDTO {
-  id: number
-  nombre: string
-  tipo: AgenteTipo
-}
+interface ServicioDTO { id: number; codigo: string; nombre: string }
+interface ServicioItem { title: string; value: number }
 
+interface SnackbarState { show: boolean; message: string; color: string; timeout: number }
+
+interface ClaseVehiculoDTO { codigo?: string; nombre?: string }
+interface VehiculoDTO {
+  id?: number; placa?: string; marca?: string; linea?: string; modelo?: number;
+  clase?: ClaseVehiculoDTO | null; clienteId?: number | null
+}
+interface ClienteDTO { id?: number; nombre?: string; telefono?: string; email?: string }
+
+interface AgenteDTO { id: number; nombre: string; tipo: AgenteTipo }
+interface ConvenioDTO { id: number; nombre: string; codigo: string | null }
 interface DateoRecienteDTO {
-  id: number
-  canal: CanalAtrib
-  agente: AgenteDTO | null
-  placa: string | null
-  telefono: string | null
-  origen: string | null
-  observacion: string | null
-  imagen_url: string | null
-  created_at: string
-  consumido_turno_id: number | null
-  consumido_at: string | null
+  id: number; canal: CanalAtrib; agente: AgenteDTO | null;
+  placa: string | null; telefono: string | null; origen: string | null;
+  observacion: string | null; imagen_url: string | null; created_at: string;
+  consumido_turno_id: number | null; consumido_at: string | null;
+  convenio?: ConvenioDTO | null;
 }
-
-interface ReservaDTO {
-  vigente: boolean
-  bloqueaHasta: string | null
-}
-
-interface CaptacionSugeridaDTO {
-  canal: CanalAtrib
-  agente: AgenteDTO | null
-}
-
+interface ReservaDTO { vigente: boolean; bloqueaHasta: string | null }
+interface CaptacionSugeridaDTO { canal: CanalAtrib; agente: AgenteDTO | null }
 type OrigenBusqueda = 'placa' | 'telefono'
+interface UltimaVisitaDTO {
+  fecha: string | null; servicioCodigo: string | null; servicioNombre: string | null;
+  sedeNombre: string | null; estado: string | null;
+  placa?: string | null;
+  clase?: ClaseVehiculoDTO | null;
+  marca?: string | null; linea?: string | null; modelo?: number | null;
+}
 
 interface BusquedaResp {
   vehiculo: VehiculoDTO | null
@@ -574,7 +571,13 @@ interface BusquedaResp {
   dateoReciente: DateoRecienteDTO | null
   reserva: ReservaDTO | null
   captacionSugerida: CaptacionSugeridaDTO | null
+  convenio: ConvenioDTO | null
+  asesorAsignado: AgenteDTO | null
   origenBusqueda: OrigenBusqueda
+  detectadoPorConvenio: boolean
+  ultimaVisita: UltimaVisitaDTO | null
+  vehiculos?: VehiculoDTO[] | null
+  vehiculosCliente?: VehiculoDTO[] | null
 }
 
 /** ===== Stores y estado base ===== **/
@@ -586,7 +589,6 @@ const isSubmitting = ref(false)
 
 const serviciosItems = ref<ServicioItem[]>([])
 const serviciosLoading = ref<boolean>(false)
-/** Mapa para recuperar código de servicio por id */
 const serviciosMapById = ref<Record<number, ServicioDTO>>({})
 
 const telefonoBusqueda = ref<string>('')   // búsqueda por teléfono
@@ -621,7 +623,6 @@ interface TurnoForm {
   usuarioId: number
   servicioId: number | null
   asesorNombre: string | null
-  asesorTipo: AsesorTipo | null
   _dateoId?: number | null
   _captacionCanal?: CanalAtrib | null
   _captacionAgenteId?: number | null
@@ -637,7 +638,6 @@ const form = ref<TurnoForm>({
   usuarioId: 0,
   servicioId: null,
   asesorNombre: null,
-  asesorTipo: null,
   _dateoId: null,
   _captacionCanal: null,
   _captacionAgenteId: null,
@@ -648,7 +648,36 @@ const hasBusqueda = computed(() => !!busqueda.value)
 const busquedaVehiculo = computed(() => busqueda.value?.vehiculo ?? null)
 const busquedaCliente  = computed(() => busqueda.value?.cliente ?? null)
 const busquedaDateo    = computed(() => busqueda.value?.dateoReciente ?? null)
+const busquedaDateoConvenio = computed(() => busqueda.value?.dateoReciente?.convenio ?? null)
 const reserva          = computed(() => busqueda.value?.reserva ?? null)
+
+const convenioDetectado = computed<ConvenioDTO | null>(() => {
+  return busquedaDateoConvenio.value || busqueda.value?.convenio || null
+})
+
+/** Etiqueta del asesor: "Nombre (Comercial|Convenio|Interno|Externo|Telemercadeo)" */
+function shortAsesorRol(tipo?: string): string {
+  const t = (tipo || '').toUpperCase()
+  if (t.includes('COMERCIAL')) return 'Comercial'
+  if (t.includes('CONVENIO')) return 'Convenio'
+  if (t.includes('INTERNO')) return 'Interno'
+  if (t.includes('EXTERNO')) return 'Externo'
+  if (t.includes('TELE')) return 'Telemercadeo'
+  return tipo || ''
+}
+const asesorAsignadoLabel = computed<string | null>(() => {
+  const a = busqueda.value?.asesorAsignado
+  return a ? `${a.nombre} (${shortAsesorRol(a.tipo)})` : null
+})
+
+const ultimaVisitaChip = computed<string | null>(() => {
+  const u = busqueda.value?.ultimaVisita
+  if (!u || !u.fecha) return null
+  const svc = u.servicioCodigo ? `${u.servicioCodigo}` : 'SERV'
+  const sede = u.sedeNombre ? ` • ${u.sedeNombre}` : ''
+  const est = u.estado ? ` • ${u.estado}` : ''
+  return `Última visita: ${u.fecha} • ${svc}${sede}${est}`
+})
 
 const noResultados = computed(() =>
   !buscando.value && (form.value.placa || telefonoBusqueda.value) && !busqueda.value
@@ -658,9 +687,9 @@ const mensajeNoResultados = computed(() => {
   return `No encontramos registros por ${por}. Puedes crear el turno y se atribuye por defecto a FACHADA.`
 })
 
-const clienteNombre   = ref<string>('')
-const clienteTelefono = ref<string>('')
-const clienteEmail    = ref<string>('')
+const clienteNombre   = ref<string>('')   // para crear cliente básico si falta
+const clienteTelefono = ref<string>('')   // idem
+const clienteEmail    = ref<string>('')   // idem
 
 const formattedHoraIngreso = computed<string>(() => {
   const value = form.value.horaIngreso
@@ -691,6 +720,13 @@ const reservaBloqueaHasta = computed(() => {
   return dt.isValid ? dt.toFormat('dd LLL yyyy') : ''
 })
 
+/** Formatear texto del chip de convenio (sin mostrar "SIN-COD") */
+function formatConvenioChip(c?: ConvenioDTO | null): string {
+  if (!c) return ''
+  const code = (c.codigo || '').toUpperCase()
+  return code && code !== 'SIN-COD' ? `${code} — ${c.nombre}` : `${c.nombre}`
+}
+
 /** ===== Snackbar ===== **/
 const snackbar = ref<SnackbarState>({ show: false, message: '', color: '', timeout: 4000 })
 function showSnackbar(message: string, color: string = 'info', timeout: number = 4000) {
@@ -702,6 +738,19 @@ function normalizePhone(s: string) { return s.replace(/\D/g, '') }
 function onPlacaInput(e: Event) {
   const target = e.target as HTMLInputElement | null
   if (target) form.value.placa = target.value.toUpperCase().replace(/\s|-/g, '')
+}
+
+/** Mapea clase a tipo UI */
+function mapClaseToTipo(clase?: { codigo?: string; nombre?: string } | null): TipoVehiculoFrontend | '' {
+  if (!clase) return ''
+  const code = String(clase.codigo || '').toUpperCase()
+  const name = String(clase.nombre || '').toUpperCase()
+  if (code.includes('MOTO') || name.includes('MOTO')) return 'Motocicleta'
+  if (code.includes('LIV_TAXI') || name.includes('TAXI')) return 'Liviano Taxi'
+  if (code.includes('LIV_PUBLICO') || name.includes('PÚBLIC') || name.includes('PUBLIC')) return 'Liviano Público'
+  if (code.includes('LIV_PART') || name.includes('PARTIC')) return 'Liviano Particular'
+  if (name.includes('LIVIANO')) return 'Liviano Particular'
+  return ''
 }
 
 function mapCanalToMedioEntero(canal: CanalAtrib): MedioEntero {
@@ -774,16 +823,44 @@ async function doSearch(force: boolean = false) {
 
     busqueda.value = resp || null
 
-    // Autorrellenar tipoVehiculo desde código de clase
-    const codigo = resp?.vehiculo?.clase?.codigo
-    if (codigo) {
-      const map: Record<string, TipoVehiculoFrontend> = {
-        LIV_PART: 'Liviano Particular',
-        LIV_TAXI: 'Liviano Taxi',
-        LIV_PUBLICO: 'Liviano Público',
-        MOTO: 'Motocicleta',
+    // ===== Elegir vehículo preferido =====
+    let vehPreferido: VehiculoDTO | null = null
+    const uv = (resp?.ultimaVisita ?? null) as UltimaVisitaDTO | null
+    const placaUV = uv?.placa ? String(uv.placa).toUpperCase() : null
+    if (placaUV) {
+      vehPreferido = {
+        placa: placaUV,
+        clase: uv?.clase ?? null,
+        marca: (uv as any)?.marca ?? undefined,
+        linea: (uv as any)?.linea ?? undefined,
+        modelo: typeof (uv as any)?.modelo === 'number' ? (uv as any)?.modelo : undefined,
       }
-      form.value.tipoVehiculo = map[codigo] ?? form.value.tipoVehiculo
+    }
+    if (!vehPreferido && resp?.vehiculo?.placa) vehPreferido = resp.vehiculo
+    if (!vehPreferido) {
+      const candidatos: Array<VehiculoDTO[] | undefined | null> = [
+        resp?.vehiculos,
+        resp?.vehiculosCliente,
+        (resp as any)?.cliente?.vehiculos,
+      ]
+      for (const arr of candidatos) {
+        if (Array.isArray(arr) && arr.length) {
+          vehPreferido = arr.find(v => !!v?.placa) ?? arr[0] ?? null
+          if (vehPreferido) break
+        }
+      }
+    }
+
+    // Poblar placa/tipo detectados
+    if ((!placaOk || !form.value.placa) && vehPreferido?.placa) {
+      form.value.placa = String(vehPreferido.placa).toUpperCase()
+    }
+    const claseFuente = vehPreferido?.clase ?? resp?.vehiculo?.clase ?? null
+    const tipoDetectado = mapClaseToTipo(claseFuente)
+    if (tipoDetectado) form.value.tipoVehiculo = tipoDetectado
+
+    if (busqueda.value && vehPreferido) {
+      busqueda.value = { ...(busqueda.value as any), vehiculo: vehPreferido } as BusquedaResp
     }
 
     // Cliente
@@ -798,26 +875,15 @@ async function doSearch(force: boolean = false) {
       form.value.medioEntero = mapCanalToMedioEntero(canal)
       form.value._captacionCanal = canal
       form.value._captacionAgenteId = agente?.id ?? null
-
-      if (canal === 'ASESOR') {
-        form.value.asesorNombre = agente?.nombre ?? ''
-        const t = agente?.tipo
-        form.value.asesorTipo =
-          t === 'ASESOR_INTERNO' ? 'ASESOR_INTERNO'
-          : t === 'ASESOR_EXTERNO' ? 'ASESOR_EXTERNO'
-          : null
-      } else {
-        form.value.asesorNombre = null
-        form.value.asesorTipo = null
-      }
+      form.value.asesorNombre = canal === 'ASESOR' ? (agente?.nombre ?? '') : null
     } else {
       form.value.medioEntero = 'fachada'
       form.value._captacionCanal = null
       form.value._captacionAgenteId = null
       form.value.asesorNombre = null
-      form.value.asesorTipo = null
     }
 
+    // Guardar id de dateo (si hay)
     form.value._dateoId = resp?.dateoReciente?.id ?? null
   } catch (err) {
     if ((err as { name?: string })?.name === 'AbortError') return
@@ -833,7 +899,6 @@ function resetBusqueda() {
   busqueda.value = null
   form.value.medioEntero = ''
   form.value.asesorNombre = null
-  form.value.asesorTipo = null
   lastSearched.value = { placa: '', tel: '' }
 }
 
@@ -885,7 +950,6 @@ async function resetFormFields() {
     usuarioId: form.value.usuarioId,
     servicioId: keepServicioId,
     asesorNombre: null,
-    asesorTipo: null,
     _dateoId: null,
     _captacionCanal: null,
     _captacionAgenteId: null,
@@ -927,11 +991,9 @@ watch(() => telefonoBusqueda.value, () => {
 watch(() => form.value.medioEntero, () => {
   if (form.value.medioEntero !== 'asesor') {
     form.value.asesorNombre = null
-    form.value.asesorTipo = null
   }
 })
 watch(() => form.value.servicioId, async () => {
-  // Al cambiar el servicio, recalculamos consecutivos por servicio
   await fetchNextTurnNumbers()
 })
 
@@ -961,10 +1023,6 @@ async function openConfirmDialog() {
   if (form.value.medioEntero === 'asesor') {
     if (!form.value.asesorNombre) {
       showSnackbar('Indica el nombre del asesor.', 'warning')
-      return
-    }
-    if (!form.value.asesorTipo) {
-      showSnackbar('Selecciona si el asesor es Interno o Externo.', 'warning')
       return
     }
   }
@@ -1002,7 +1060,6 @@ async function submitForm() {
       return
     }
 
-    // Mapeo del medio (UI) -> canal (backend)
     const canal: CanalAtrib = form.value._captacionCanal ?? mapMedioEnteroToCanal(form.value.medioEntero)
 
     const payload: Record<string, unknown> = {
@@ -1013,20 +1070,12 @@ async function submitForm() {
       horaIngreso: form.value.horaIngreso,
       usuarioId: form.value.usuarioId,
       servicioId: form.value.servicioId,
-      canal, // <- el backend deriva medio_entero desde aquí
+      canal,
     }
 
-    // IDs técnicos de búsqueda / captación
     if (form.value._dateoId) (payload as any).dateoId = form.value._dateoId
     if (form.value._captacionAgenteId) (payload as any).agenteCaptacionId = form.value._captacionAgenteId
 
-    // Si el usuario selecciona ASESOR manualmente
-    if (form.value.medioEntero === 'asesor' && !payload['agenteCaptacionId']) {
-      // Si tienes un endpoint para resolver/crear agente por nombre-tipo, este es el lugar.
-      // Por ahora solo marcamos el canal; agente opcional.
-    }
-
-    // Datos cliente si no existen
     if (!busquedaCliente.value?.telefono && clienteTelefono.value) {
       (payload as any).clienteTelefono = clienteTelefono.value.replace(/\D/g, '')
     }
@@ -1036,6 +1085,9 @@ async function submitForm() {
     if (!busquedaCliente.value?.email && clienteEmail.value) {
       (payload as any).clienteEmail = clienteEmail.value
     }
+
+    const convenio = convenioDetectado.value
+    if (convenio?.id) (payload as any).convenioId = convenio.id
 
     await TurnosDelDiaService.createTurno(payload)
     showSnackbar('✅ Turno creado exitosamente', 'success')

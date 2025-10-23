@@ -124,168 +124,171 @@
 
       <v-divider class="my-6"></v-divider>
 
-      <v-data-table
-        :headers="headers"
-        :items="turnos"
-        :loading="isLoading"
-        loading-text="Cargando histórico de turnos..."
-        no-data-text="No hay turnos para mostrar con los filtros aplicados."
-        class="elevation-1"
-        :sort-by="defaultSort"
-      >
-        <!-- Turno # (global) -->
-        <template #item.turnoNumero="{ item }">
-          <span class="turno-number-display">
-            {{ item.turnoNumero }}
-          </span>
-        </template>
+      <!-- Contenedor con scroll horizontal opcional -->
+      <div class="table-scroll-x">
+        <v-data-table
+          :headers="headers"
+          :items="turnos"
+          :loading="isLoading"
+          loading-text="Cargando histórico de turnos..."
+          no-data-text="No hay turnos para mostrar con los filtros aplicados."
+          class="elevation-1"
+          :sort-by="defaultSort"
+        >
+          <!-- Turno # (global) -->
+          <template #item.turnoNumero="{ item }">
+            <span class="turno-number-display">
+              {{ item.turnoNumero }}
+            </span>
+          </template>
 
-        <!-- Svc # (por servicio) -->
-        <template #item.turnoNumeroServicio="{ item }">
-          <span class="turno-number-display turno-number-svc">
-            {{ item.turnoNumeroServicio ?? '—' }}
-          </span>
-        </template>
+          <!-- Svc # (por servicio) -->
+          <template #item.turnoNumeroServicio="{ item }">
+            <span class="turno-number-display turno-number-svc">
+              {{ item.turnoNumeroServicio ?? '—' }}
+            </span>
+          </template>
 
-        <!-- Fecha / Hora -->
-        <template #item.fecha="{ item }">
-          {{ formatDate(item.fecha) }}
-        </template>
-        <template #item.horaIngreso="{ item }">
-          {{ formatTime(item.horaIngreso ?? '') }}
-        </template>
+          <!-- Fecha / Hora (forzar una sola línea y ancho mínimo) -->
+          <template #item.fecha="{ item }">
+            <span class="nowrap col-fecha">{{ formatDate(item.fecha) }}</span>
+          </template>
+          <template #item.horaIngreso="{ item }">
+            <span class="nowrap col-hora">{{ formatTime(item.horaIngreso ?? '') }}</span>
+          </template>
 
-        <!-- Servicio -->
-        <template #item.servicio="{ item }">
-          <v-chip size="small" color="primary" variant="flat" class="font-weight-bold">
-            {{ item.servicio?.codigoServicio ?? '—' }}
-          </v-chip>
-        </template>
-
-        <!-- Tipo Vehículo -->
-        <template #item.tipoVehiculo="{ item }">
-          <v-chip size="small" color="grey-darken-1" variant="outlined">
-            {{ item.tipoVehiculo ?? '—' }}
-          </v-chip>
-        </template>
-
-        <!-- Vinc. Vehículo (trazabilidad) -->
-        <template #item.vehiculoVinculo="{ item }">
-          <v-chip
-            v-if="item.vehiculo?.id"
-            size="small"
-            color="teal"
-            variant="flat"
-            prepend-icon="mdi-car"
-          >
-            ID {{ item.vehiculo.id }}
-          </v-chip>
-          <span v-else>—</span>
-        </template>
-
-        <!-- Cliente (trazabilidad) -->
-        <template #item.cliente="{ item }">
-          <div class="d-flex align-center">
-            <v-icon size="18" class="mr-1">mdi-account</v-icon>
-            <span>{{ getClienteNombre(item) }}</span>
-          </div>
-        </template>
-
-        <!-- Teléfono cliente -->
-        <template #item.telefono="{ item }">
-          <div class="d-flex align-center">
-            <v-icon size="18" class="mr-1">mdi-phone</v-icon>
-            <span>{{ getClienteTelefono(item) }}</span>
-          </div>
-        </template>
-
-        <!-- Canal atribución -->
-        <template #item.canalAtribucion="{ item }">
-          <v-chip
-            size="small"
-            :color="getCanalColor(item.canalAtribucion)"
-            variant="flat"
-            prepend-icon="mdi-source-branch"
-          >
-            {{ prettifyCanal(item.canalAtribucion) }}
-          </v-chip>
-        </template>
-
-        <!-- Agente captación -->
-        <template #item.agente="{ item }">
-          <div v-if="item.agenteCaptacion?.id" class="d-flex flex-column">
-            <div class="d-flex align-center">
-              <v-icon size="18" class="mr-1">mdi-account-tie</v-icon>
-              <span class="font-weight-medium">{{ item.agenteCaptacion?.nombre }}</span>
-            </div>
-            <v-chip
-              size="x-small"
-              class="mt-1"
-              variant="outlined"
-              :color="getAgenteTipoColor(item.agenteCaptacion?.tipo)"
-            >
-              {{ prettifyAgenteTipo(item.agenteCaptacion?.tipo) }}
+          <!-- Servicio -->
+          <template #item.servicio="{ item }">
+            <v-chip size="small" color="primary" variant="flat" class="font-weight-bold">
+              {{ item.servicio?.codigoServicio ?? '—' }}
             </v-chip>
-          </div>
-          <span v-else>—</span>
-        </template>
+          </template>
 
-        <!-- Captación (dateo/atribución final) -->
-        <template #item.captacion="{ item }">
-          <v-chip
-            v-if="item.canalAtribucion"
-            size="small"
-            color="purple"
-            variant="flat"
-            prepend-icon="mdi-clipboard-text-clock"
-          >
-            {{ getCaptacionLabel(item) }}
-          </v-chip>
-          <span v-else>—</span>
-        </template>
+          <!-- Tipo Vehículo -->
+          <template #item.tipoVehiculo="{ item }">
+            <v-chip size="small" color="grey-darken-1" variant="outlined">
+              {{ item.tipoVehiculo ?? '—' }}
+            </v-chip>
+          </template>
 
-        <!-- Estado -->
-        <template #item.estado="{ item }">
-          <v-chip :color="getTurnoStatusColor(item.estado)" dark small>
-            {{ getTurnoStatusText(item.estado) }}
-          </v-chip>
-        </template>
+          <!-- Vinc. Vehículo (trazabilidad) -->
+          <template #item.vehiculoVinculo="{ item }">
+            <v-chip
+              v-if="item.vehiculo?.id"
+              size="small"
+              color="teal"
+              variant="flat"
+              prepend-icon="mdi-car"
+            >
+              ID {{ item.vehiculo.id }}
+            </v-chip>
+            <span v-else>—</span>
+          </template>
 
-        <!-- Usuario (funcionario) -->
-        <template #item.usuario="{ item }">
-          <div class="d-flex align-center">
-            <v-icon size="18" class="mr-1">mdi-badge-account</v-icon>
-            <span>{{ getUsuarioNombre(item) }}</span>
-          </div>
-        </template>
+          <!-- Cliente (trazabilidad) -->
+          <template #item.cliente="{ item }">
+            <div class="d-flex align-center">
+              <v-icon size="18" class="mr-1">mdi-account</v-icon>
+              <span>{{ getClienteNombre(item) }}</span>
+            </div>
+          </template>
 
-        <!-- Sede -->
-        <template #item.sede="{ item }">
-          <div class="d-flex align-center">
-            <v-icon size="18" class="mr-1">mdi-office-building</v-icon>
-            <span>{{ item.sede?.nombre ?? '—' }}</span>
-          </div>
-        </template>
+          <!-- Teléfono cliente -->
+          <template #item.telefono="{ item }">
+            <div class="d-flex align-center">
+              <v-icon size="18" class="mr-1">mdi-phone</v-icon>
+              <span>{{ getClienteTelefono(item) }}</span>
+            </div>
+          </template>
 
-        <!-- Observaciones (tooltip si es largo) -->
-        <template #item.observaciones="{ item }">
-          <v-tooltip v-if="item.observaciones && item.observaciones.length > 30" location="bottom">
-            <template #activator="{ props }">
-              <span v-bind="props">{{ trunc(item.observaciones, 30) }}</span>
-            </template>
-            <span>{{ item.observaciones }}</span>
-          </v-tooltip>
-          <span v-else>{{ item.observaciones ?? '—' }}</span>
-        </template>
+          <!-- Canal atribución -->
+          <template #item.canalAtribucion="{ item }">
+            <v-chip
+              size="small"
+              :color="getCanalColor(item.canalAtribucion)"
+              variant="flat"
+              prepend-icon="mdi-source-branch"
+            >
+              {{ prettifyCanal(item.canalAtribucion) }}
+            </v-chip>
+          </template>
 
-        <!-- Acciones -->
-        <template #item.actions="{ item }">
-          <v-btn color="info" variant="text" small @click="viewTurnoDetails(item.id)">
-            Ver Detalles
-            <v-icon right>mdi-eye</v-icon>
-          </v-btn>
-        </template>
-      </v-data-table>
+          <!-- Agente captación -->
+          <template #item.agente="{ item }">
+            <div v-if="item.agenteCaptacion?.id" class="d-flex flex-column">
+              <div class="d-flex align-center">
+                <v-icon size="18" class="mr-1">mdi-account-tie</v-icon>
+                <span class="font-weight-medium">{{ item.agenteCaptacion?.nombre }}</span>
+              </div>
+              <v-chip
+                size="x-small"
+                class="mt-1"
+                variant="outlined"
+                :color="getAgenteTipoColor(item.agenteCaptacion?.tipo)"
+              >
+                {{ prettifyAgenteTipo(item.agenteCaptacion?.tipo) }}
+              </v-chip>
+            </div>
+            <span v-else>—</span>
+          </template>
+
+          <!-- Captación (dateo/atribución final) -->
+          <template #item.captacion="{ item }">
+            <v-chip
+              v-if="item.canalAtribucion"
+              size="small"
+              color="purple"
+              variant="flat"
+              prepend-icon="mdi-clipboard-text-clock"
+            >
+              {{ getCaptacionLabel(item) }}
+            </v-chip>
+            <span v-else>—</span>
+          </template>
+
+          <!-- Estado -->
+          <template #item.estado="{ item }">
+            <v-chip :color="getTurnoStatusColor(item.estado)" dark small>
+              {{ getTurnoStatusText(item.estado) }}
+            </v-chip>
+          </template>
+
+          <!-- Usuario (funcionario) -->
+          <template #item.usuario="{ item }">
+            <div class="d-flex align-center">
+              <v-icon size="18" class="mr-1">mdi-badge-account</v-icon>
+              <span>{{ getUsuarioNombre(item) }}</span>
+            </div>
+          </template>
+
+          <!-- Sede -->
+          <template #item.sede="{ item }">
+            <div class="d-flex align-center">
+              <v-icon size="18" class="mr-1">mdi-office-building</v-icon>
+              <span>{{ item.sede?.nombre ?? '—' }}</span>
+            </div>
+          </template>
+
+          <!-- Observaciones (tooltip si es largo) -->
+          <template #item.observaciones="{ item }">
+            <v-tooltip v-if="item.observaciones && item.observaciones.length > 30" location="bottom">
+              <template #activator="{ props }">
+                <span v-bind="props">{{ trunc(item.observaciones, 30) }}</span>
+              </template>
+              <span>{{ item.observaciones }}</span>
+            </v-tooltip>
+            <span v-else>{{ item.observaciones ?? '—' }}</span>
+          </template>
+
+          <!-- Acciones -->
+          <template #item.actions="{ item }">
+            <v-btn color="info" variant="text" small @click="viewTurnoDetails(item.id)">
+              Ver Detalles
+              <v-icon right>mdi-eye</v-icon>
+            </v-btn>
+          </template>
+        </v-data-table>
+      </div>
     </v-card>
 
     <v-snackbar
@@ -354,7 +357,7 @@ type CanalAtrib = 'FACHADA' | 'ASESOR' | 'TELE' | 'REDES' | string
 interface Turno {
   id: number
   turnoNumero: number
-  turnoNumeroServicio?: number | null  // 👈 NUEVO
+  turnoNumeroServicio?: number | null
   turnoCodigo?: string | null
   fecha: string
   horaIngreso: string | null
@@ -367,7 +370,6 @@ interface Turno {
   funcionarioId: number
   estado: EstadoTurno
 
-  // Nuevos (preloads)
   servicioId?: number | null
   servicio?: ServicioEnTurno | null
   vehiculoId?: number | null
@@ -420,7 +422,7 @@ const snackbar = ref({
 /** === Headers: tabla completa con trazabilidad === */
 const headers = [
   { title: 'Turno #', key: 'turnoNumero', align: 'center' },
-  { title: 'Svc #', key: 'turnoNumeroServicio', align: 'center' }, // 👈 NUEVO
+  { title: 'Svc #', key: 'turnoNumeroServicio', align: 'center' },
   { title: 'Fecha', key: 'fecha', sortable: false },
   { title: 'Hora Ingreso', key: 'horaIngreso', sortable: false },
   { title: 'Placa', key: 'placa', sortable: false },
@@ -752,4 +754,12 @@ onMounted(async () => {
 .turno-number-svc {
   color: var(--v-theme-secondary);
 }
+
+/* Evitar salto de línea y asegurar ancho suficiente en fecha/hora */
+.nowrap { white-space: nowrap; display: inline-block; }
+.col-fecha { min-width: 140px; }
+.col-hora  { min-width: 140px; }
+
+/* Scroll horizontal opcional para la tabla */
+.table-scroll-x { overflow-x: auto; }
 </style>

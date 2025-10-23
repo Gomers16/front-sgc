@@ -68,13 +68,50 @@
           </v-col>
         </v-row>
 
+        <!-- Propietario + Convenio -->
+        <v-row class="mt-1">
+          <v-col cols="12" md="6">
+            <v-card variant="outlined" class="pa-4 rounded-lg">
+              <div class="text-h6 mb-2">👥 Propietario del prospecto</div>
+              <div>
+                <strong>{{ prospecto.creador?.nombre || '—' }}</strong>
+                <span class="text-caption text-medium-emphasis" v-if="prospecto.asignacion_activa?.fecha_asignacion">
+                  · asignado el {{ formatDate(prospecto.asignacion_activa?.fecha_asignacion) }}
+                </span>
+              </div>
+              <div class="mt-2">
+                <v-chip
+                  v-if="prospecto.asignacion_activa?.asesor?.tipo"
+                  size="small"
+                  variant="tonal"
+                  prepend-icon="mdi-account-tie"
+                >
+                  {{ prettyTipo(prospecto.asignacion_activa?.asesor?.tipo) }}
+                </v-chip>
+              </div>
+            </v-card>
+          </v-col>
+
+          <v-col cols="12" md="6">
+            <v-card variant="outlined" class="pa-4 rounded-lg">
+              <div class="text-h6 mb-2">📄 Convenio</div>
+              <template v-if="convenioNombre || convenioCodigo">
+                <v-chip size="small" color="deep-purple-accent-4" class="text-white" variant="elevated" prepend-icon="mdi-file-document-outline">
+                  {{ convenioChip }}
+                </v-chip>
+              </template>
+              <div v-else class="text-medium-emphasis">Sin convenio asociado.</div>
+            </v-card>
+          </v-col>
+        </v-row>
+
         <v-divider class="my-4" />
 
         <!-- Documentos -->
         <v-row>
           <v-col cols="12" md="6">
             <v-card outlined class="pa-4">
-              <div class="text-h6 mb-2">📄 SOAT</div>
+              <div class="text-h6 mb-2">🧾 SOAT</div>
               <v-chip :color="chipColor(soat.estado)" variant="flat" size="small">
                 {{ chipText(soat.estado) }}
               </v-chip>
@@ -89,7 +126,7 @@
 
           <v-col cols="12" md="6">
             <v-card outlined class="pa-4">
-              <div class="text-h6 mb-2">🧾 RTM</div>
+              <div class="text-h6 mb-2">🛠️ RTM</div>
               <v-chip :color="chipColor(rtm.estado)" variant="flat" size="small">
                 {{ chipText(rtm.estado) }}
               </v-chip>
@@ -106,7 +143,7 @@
         <v-row class="mt-2">
           <v-col cols="12" md="6">
             <v-card outlined class="pa-4">
-              <div class="text-h6 mb-2">🛠️ Preventiva</div>
+              <div class="text-h6 mb-2">🧯 Preventiva</div>
               <v-chip :color="chipColor(preventiva.estado)" variant="flat" size="small">
                 {{ chipText(preventiva.estado) }}
               </v-chip>
@@ -142,9 +179,9 @@
 
         <v-divider class="my-4" />
 
-        <!-- Asesor asignado -->
+        <!-- Asesor asignado (detalle) -->
         <v-card outlined class="pa-4">
-          <div class="text-h6 mb-2">👥 Asesor asignado</div>
+          <div class="text-h6 mb-2">👔 Asesor asignado</div>
 
           <template v-if="prospecto.asignacion_activa">
             <div class="mb-1">
@@ -223,6 +260,16 @@ const peritaje = computed(() =>
   prospecto.value?.resumenVigencias?.peritaje ?? { estado: 'sin_datos', fecha: null }
 )
 
+/* Convenio chip (oculta SIN-COD) */
+const convenioNombre = computed<string | null>(() => (prospecto.value as any)?.convenio?.nombre ?? (prospecto.value as any)?.convenioNombre ?? null)
+const convenioCodigo = computed<string | null>(() => (prospecto.value as any)?.convenio?.codigo ?? (prospecto.value as any)?.convenioCodigo ?? null)
+const convenioChip = computed<string>(() => {
+  const n = convenioNombre.value || ''
+  const c = (convenioCodigo.value || '').toUpperCase()
+  if (!n && !c) return ''
+  return c && c !== 'SIN-COD' ? `${c} — ${n}` : `${n}`
+})
+
 async function fetchProspecto() {
   loading.value = true
   try {
@@ -244,4 +291,5 @@ onMounted(fetchProspecto)
 
 <style scoped>
 .text-h5 { font-weight: bold; }
+.rounded-lg { border-radius: 12px; }
 </style>
