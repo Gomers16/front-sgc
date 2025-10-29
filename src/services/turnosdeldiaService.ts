@@ -11,14 +11,13 @@ export type TipoVehiculoFrontend =
 
 export type MedioEnteroFront = 'redes_sociales' | 'call_center' | 'fachada' | 'asesor'
 
-/** 👇 Este es el formato “bonito” que usa la DB/backend (derivado del canal) */
+/** 👇 Formato final que guarda la DB (derivado del canal) */
 export type MedioEnteroFinalDB = 'Redes Sociales' | 'Call Center' | 'Fachada' | 'Asesor Comercial'
 
 export type CanalAtrib = 'FACHADA' | 'ASESOR' | 'TELE' | 'REDES'
-
 export type ServicioCodigo = 'RTM' | 'PREV' | 'PERI' | 'SOAT'
 
-/** Mapeo Front -> DB (solo si el backend lo necesitara; hoy deriva desde canal) */
+/** Mapeo Front -> DB (informativo) */
 const MEDIO_MAP: Record<MedioEnteroFront, MedioEnteroFinalDB> = {
   redes_sociales: 'Redes Sociales',
   call_center: 'Call Center',
@@ -26,7 +25,7 @@ const MEDIO_MAP: Record<MedioEnteroFront, MedioEnteroFinalDB> = {
   asesor: 'Asesor Comercial',
 }
 
-/** Mapeo Front -> Canal (para construir el campo `canal` si no viene) */
+/** Mapeo Front -> Canal (para construir `canal` si no llega explícito) */
 const MEDIO_TO_CANAL: Record<MedioEnteroFront, CanalAtrib> = {
   redes_sociales: 'REDES',
   call_center: 'TELE',
@@ -35,8 +34,8 @@ const MEDIO_TO_CANAL: Record<MedioEnteroFront, CanalAtrib> = {
 }
 
 interface SiguienteTurnoResponse {
-  siguiente: number               // consecutivo global por sede + día
-  siguientePorServicio?: number   // consecutivo por sede + día + servicio
+  siguiente: number
+  siguientePorServicio?: number
   sedeId: number
 }
 
@@ -59,7 +58,8 @@ interface SedeLite { id: number; nombre: string }
 export interface AgenteCaptacionLite {
   id: number
   nombre: string
-  tipo: 'ASESOR_INTERNO' | 'ASESOR_EXTERNO' | 'TELEMERCADEO' | string
+  // 👇 Alineado con tu backend:
+  tipo: 'ASESOR_COMERCIAL' | 'ASESOR_CONVENIO' | 'ASESOR_TELEMERCADEO' | string
 }
 
 export interface Turno {
@@ -86,16 +86,15 @@ export interface Turno {
   agenteCaptacion?: AgenteCaptacionLite | null
 }
 
-/* ========== INTERFACES PARA EXPORTACIÓN MÚLTIPLE ========== */
-export interface ExportFiltersMultiple {
-  fechaInicio?: string
-  fechaFin?: string
+/* ========== Filtros de exportación alineados al backend ========== */
+export interface ExportFilters {
+  fechaInicio: string
+  fechaFin: string
   servicioCodigo?: ServicioCodigo
   servicioId?: number
-  medioEntero?: MedioEnteroFinalDB
-  serviciosCodigos?: ServicioCodigo[] | string
-  serviciosIds?: number[] | string
-  mediosEntero?: MedioEnteroFinalDB[] | string
+  canalAtribucion?: CanalAtrib
+  agenteId?: number
+  agenteTipo?: 'ASESOR_COMERCIAL' | 'ASESOR_CONVENIO' | 'ASESOR_TELEMERCADEO'
 }
 
 /* ========== Payloads ==========\ */
@@ -104,7 +103,7 @@ export interface CreateTurnoPayload {
   tipoVehiculo: TipoVehiculoFrontend
   observaciones?: string | null
   fecha: string              // YYYY-MM-DD
-  horaIngreso: string        // HH:mm o HH:mm:ss
+  horaIngreso: string        // HH:mm o HH:mm:ss o hh:mm(:ss) AM/PM
   usuarioId: number
   servicioId?: number
   servicioCodigo?: ServicioCodigo
@@ -113,17 +112,13 @@ export interface CreateTurnoPayload {
   canal?: CanalAtrib                    // recomendado
   agenteCaptacionId?: number | null     // opcional
 
-  // Compat / conveniencia (si el front solo tiene “medio”)
+  // Compat/front (si en UI solo manejas “medio”)
   medioEntero?: MedioEnteroFront        // si viene, se mapea a `canal`
 
   // Datos cliente opcionales cuando no existe
   clienteNombre?: string
   clienteTelefono?: string
   clienteEmail?: string
-
-  // Datos de “asesor manual” (opcional)
-  asesorNombre?: string | null
-  asesorTipo?: 'ASESOR_INTERNO' | 'ASESOR_EXTERNO' | null
 }
 
 export interface UpdateTurnoPayload {
@@ -136,14 +131,32 @@ export interface UpdateTurnoPayload {
   estado?: 'activo' | 'inactivo' | 'cancelado' | 'finalizado'
   servicioId?: number
   servicioCodigo?: ServicioCodigo
-  // También puedes permitir cambiar canal/agente desde la UI si lo necesitas:
   canal?: CanalAtrib
   agenteCaptacionId?: number | null
+}
+
+/* ===== Helpers front ===== */
+function normalizePlate(v?: string) {
+  return v ? v.replace(/[\s-]/g, '').toUpperCase() : ''
+}
+function to24hFrom12(s?: string) {
+  if (!s) return ''
+  const clean = s.trim().replace(/\./g, ':').toUpperCase()
+  const rx = /^(\d{1,2})(?::?(\d{2}))?(?::?(\d{2}))?\s*(AM|PM)$/i
+  const m = clean.match(rx)
+  if (!m) return s // ya venía en 24h
+  let h = Number(m[1]); const mm = m[2] ?? '00'; const ss = m[3] ?? '00'; const ap = (m[4] || 'AM').toUpperCase()
+  if (ap === 'PM' && h < 12) h += 12
+  if (ap === 'AM' && h === 12) h = 0
+  return `${String(h).padStart(2,'0')}:${mm}:${ss}`
 }
 
 /* ================== SERVICE ================== */
 class TurnosDelDiaService {
   private static readonly BASE = '/api/turnos-rtm'
+  // ⚠️ Asegúrate que tu routes.ts mapea GET `${BASE}/export-excel` al método exportExcel del controlador.
+  // Si lo tienes como `/reporte/excel`, cambia aquí la constante.
+  private static readonly EXPORT_PATH = `${TurnosDelDiaService.BASE}/export-excel`
 
   /* ====== Servicios catálogo ====== */
   public static obtenerServicios() {
@@ -157,7 +170,6 @@ class TurnosDelDiaService {
 
   /**
    * GET /api/turnos-rtm/siguiente-turno?usuarioId=...&servicioId=...
-   * Devuelve { siguiente, siguientePorServicio?, sedeId }
    */
   public static fetchNextTurnNumber(usuarioId: number, servicioId?: number) {
     const params: Record<string, string | number> = { usuarioId }
@@ -198,21 +210,26 @@ class TurnosDelDiaService {
   /**
    * POST /api/turnos-rtm
    * Enviar UNO de: servicioId ó servicioCodigo ('RTM' | 'PREV' | 'PERI' | 'SOAT')
-   * Recomendado: enviar `canal` ('FACHADA'|'ASESOR'|'TELE'|'REDES'). El backend derivará `medio_entero`.
+   * Recomendado: enviar `canal` ('FACHADA'|'ASESOR'|'TELE'|'REDES').
    */
   public static async createTurno(payload: CreateTurnoPayload) {
     // Derivar canal desde medioEntero si no viene
     const canal: CanalAtrib =
-      payload.canal ??
-      (payload.medioEntero ? MEDIO_TO_CANAL[payload.medioEntero] : 'FACHADA')
+      payload.canal ?? (payload.medioEntero ? MEDIO_TO_CANAL[payload.medioEntero] : 'FACHADA')
 
-    // Construir body limpio
+    // Normalizar placa y hora a 24h si el front la envía en AM/PM
+    const placaOk = normalizePlate(payload.placa)
+    const horaOk =
+      /^\d{2}:\d{2}(:\d{2})?$/.test(String(payload.horaIngreso))
+        ? payload.horaIngreso
+        : to24hFrom12(String(payload.horaIngreso))
+
     const body: Record<string, unknown> = {
-      placa: payload.placa,
+      placa: placaOk,
       tipoVehiculo: payload.tipoVehiculo,
       observaciones: payload.observaciones ?? null,
       fecha: payload.fecha,
-      horaIngreso: payload.horaIngreso,
+      horaIngreso: horaOk || payload.horaIngreso,
       usuarioId: payload.usuarioId,
       canal, // <- importante para backend
 
@@ -229,10 +246,6 @@ class TurnosDelDiaService {
       ...(payload.clienteNombre ? { clienteNombre: payload.clienteNombre } : {}),
       ...(payload.clienteTelefono ? { clienteTelefono: payload.clienteTelefono } : {}),
       ...(payload.clienteEmail ? { clienteEmail: payload.clienteEmail } : {}),
-
-      // asesor manual (si quieres almacenarlo/usar en backend)
-      ...(payload.asesorNombre ? { asesorNombre: payload.asesorNombre } : {}),
-      ...(payload.asesorTipo ? { asesorTipo: payload.asesorTipo } : {}),
     }
 
     try {
@@ -290,55 +303,25 @@ class TurnosDelDiaService {
     )
   }
 
-  /* ====== Exportaciones ====== */
-  public static async exportTurnosExcel(filters: ExportFiltersMultiple): Promise<{ data: Blob; filename: string }> {
+  /* ====== Exportaciones (alineadas al controlador) ====== */
+  public static async exportTurnosExcel(filters: ExportFilters): Promise<{ data: Blob; filename: string }> {
     const params: Record<string, string | number> = {}
 
     if (filters.fechaInicio) params.fechaInicio = filters.fechaInicio
     if (filters.fechaFin) params.fechaFin = filters.fechaFin
 
-    if (filters.serviciosIds) {
-      params.serviciosIds = Array.isArray(filters.serviciosIds)
-        ? (filters.serviciosIds as number[]).join(',')
-        : (filters.serviciosIds as unknown as string)
-    } else if (filters.serviciosCodigos) {
-      params.serviciosCodigos = Array.isArray(filters.serviciosCodigos)
-        ? (filters.serviciosCodigos as ServicioCodigo[]).join(',')
-        : (filters.serviciosCodigos as unknown as string)
-    } else if (typeof filters.servicioId === 'number') {
-      params.servicioId = filters.servicioId
-    } else if (filters.servicioCodigo) {
-      params.servicioCodigo = filters.servicioCodigo
-    }
+    if (typeof filters.servicioId === 'number') params.servicioId = filters.servicioId
+    else if (filters.servicioCodigo) params.servicioCodigo = filters.servicioCodigo
 
-    if (filters.mediosEntero) {
-      params.mediosEntero = Array.isArray(filters.mediosEntero)
-        ? (filters.mediosEntero as MedioEnteroFinalDB[]).join(',')
-        : (filters.mediosEntero as unknown as string)
-    } else if (filters.medioEntero) {
-      params.medioEntero = filters.medioEntero
-    }
+    if (filters.canalAtribucion) params.canalAtribucion = filters.canalAtribucion
+    if (typeof filters.agenteId === 'number') params.agenteId = filters.agenteId
+    if (filters.agenteTipo) params.agenteTipo = filters.agenteTipo
 
     try {
-      const blob = await download(`${this.BASE}/reporte/excel`, params)
-      let filename = `reporte_captacion_${DateTime.local().toISODate()}`
-
-      if (filters.serviciosCodigos || filters.serviciosIds) {
-        filename += '_servicios_multiples'
-      } else if (filters.servicioCodigo) {
-        filename += `_${filters.servicioCodigo}`
-      }
-
-      if (filters.mediosEntero) {
-        const mediosCount = Array.isArray(filters.mediosEntero)
-          ? filters.mediosEntero.length
-          : typeof filters.mediosEntero === 'string'
-            ? (filters.mediosEntero as string).split(',').length
-            : 1
-        filename += `_medios_${mediosCount}items`
-      } else if (filters.medioEntero) {
-        filename += `_${filters.medioEntero.replace(/\s+/g, '_')}`
-      }
+      const blob = await download(this.EXPORT_PATH, params)
+      let filename = `reporte_turnos_${DateTime.local().toISODate()}`
+      if (filters.servicioCodigo) filename += `_${filters.servicioCodigo}`
+      if (filters.canalAtribucion) filename += `_${filters.canalAtribucion}`
       filename += '.xlsx'
       return { data: blob, filename }
     } catch (error) {
@@ -347,40 +330,8 @@ class TurnosDelDiaService {
     }
   }
 
-  public static async exportTurnosExcelMultiple(options: {
-    fechaInicio: string
-    fechaFin: string
-    serviciosSeleccionados?: ServicioCodigo[]
-    mediosSeleccionados?: MedioEnteroFinalDB[]
-  }): Promise<{ data: Blob; filename: string }> {
-    const filters: ExportFiltersMultiple = {
-      fechaInicio: options.fechaInicio,
-      fechaFin: options.fechaFin,
-    }
-    if (options.serviciosSeleccionados?.length) filters.serviciosCodigos = options.serviciosSeleccionados
-    if (options.mediosSeleccionados?.length) filters.mediosEntero = options.mediosSeleccionados
-    return this.exportTurnosExcel(filters)
-  }
-
-  public static async exportTurnosByServicio(
-    fechaInicio: string,
-    fechaFin: string,
-    servicioCodigo: ServicioCodigo
-  ): Promise<{ data: Blob; filename: string }> {
-    return this.exportTurnosExcel({ fechaInicio, fechaFin, servicioCodigo })
-  }
-
-  public static async exportTurnosByMedio(
-    fechaInicio: string,
-    fechaFin: string,
-    medioEntero: MedioEnteroFinalDB
-  ): Promise<{ data: Blob; filename: string }> {
-    return this.exportTurnosExcel({ fechaInicio, fechaFin, medioEntero })
-  }
-
   /* ====== Utils ====== */
   private static extractServerMessage(err: unknown): string {
-    // axios-like error shape
     const maybe = err as { response?: { data?: unknown } ; message?: string }
     const data = maybe?.response?.data
     if (data && typeof data === 'object') {

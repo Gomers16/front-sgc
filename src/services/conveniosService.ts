@@ -120,13 +120,13 @@ export async function getAsesorActivo(convenioId: number): Promise<AsesorActivoR
   }
 }
 
-/* ===== Asignar/Retirar asesor del convenio =====
-   -> Usa exactamente estas rutas:
-      POST /api/convenios/:id/asignar
-      POST /api/convenios/:id/retirar
+/* ===== Vincular / desvincular asesor activo =====
+   -> Coinciden con tu controller:
+      POST /api/convenios/:id/asignar-asesor
+      POST /api/convenios/:id/retirar-asesor
 */
 export async function asignarAsesorConvenio(convenioId: number, payload: { asesor_id: number }) {
-  return post<any, any>(`${API}/convenios/${convenioId}/asignar`, {
+  return post<any, any>(`${API}/convenios/${convenioId}/asignar-asesor`, {
     asesor_id: payload.asesor_id,
     // alias por compatibilidad; tu controller acepta 'asesor_id'
     asesorId: payload.asesor_id,
@@ -136,7 +136,34 @@ export async function asignarAsesorConvenio(convenioId: number, payload: { aseso
 }
 
 export async function retirarAsesorConvenio(convenioId: number, payload?: { motivo?: string }) {
-  return post<any, any>(`${API}/convenios/${convenioId}/retirar`, {
+  return post<any, any>(`${API}/convenios/${convenioId}/retirar-asesor`, {
     motivo: payload?.motivo,
   })
+}
+
+/* ===== Crear dateo auto por convenio =====
+   -> Usa tu endpoint general de dateos: POST /api/captacion-dateos
+   -> Bandera detectado_por_convenio para que backend lo vincule
+*/
+export interface CrearDateoAutoInput {
+  convenio_id: number
+  placa?: string | null
+  telefono?: string | null
+  origen?: 'UI' | 'IMPORT' | 'WHATSAPP'
+  canal?: 'FACHADA' | 'ASESOR' | 'TELE' | 'REDES'
+  agente_id?: number | null
+  observacion?: string | null
+}
+
+export async function crearDateoAutoPorConvenio(body: CrearDateoAutoInput) {
+  const payload = {
+    canal: body.canal ?? 'ASESOR',
+    origen: body.origen ?? 'UI',
+    agente_id: body.agente_id ?? null,
+    placa: body.placa ?? null,
+    telefono: body.telefono ?? null,
+    observacion: body.observacion ?? null,
+    detectado_por_convenio: body.convenio_id, // 👈 clave que tu backend debe leer
+  }
+  return post(`${API}/captacion-dateos`, payload)
 }

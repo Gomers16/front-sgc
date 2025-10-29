@@ -91,13 +91,33 @@
               <p class="text-subtitle-1 mt-3 font-weight-bold text-on-primary-text">📌 Etapas:</p>
               <v-list dense class="py-0 bg-transparent">
                 <v-list-item v-for="(etapa, i) in getEtapas(turno)" :key="i" class="py-0 px-0">
-                  <template v-slot:prepend>
+                  <template #prepend>
                     <v-icon :color="etapa.completed ? 'success' : 'on-primary-text-light'">
                       {{ etapa.completed ? 'mdi-check-circle' : 'mdi-circle-outline' }}
                     </v-icon>
                   </template>
-                  <v-list-item-title :class="{ 'text-decoration-line-through text-on-primary-text-faded': etapa.completed }" class="text-on-primary-text">
+
+                  <!-- 👇 ÚNICO CAMBIO: Etapa 'Facturación' clickeable -->
+                  <v-list-item-title
+                    v-if="etapa.name !== 'Facturación'"
+                    :class="{
+                      'text-decoration-line-through text-on-primary-text-faded': etapa.completed
+                    }"
+                    class="text-on-primary-text"
+                  >
                     {{ etapa.name }}
+                  </v-list-item-title>
+
+                  <v-list-item-title v-else class="text-on-primary-text">
+                    <v-btn
+                      variant="text"
+                      color="button-text-light-secondary"
+                      prepend-icon="mdi-cash-register"
+                      class="pa-0 text-capitalize"
+                      @click.stop="goToFacturacion(turno)"
+                    >
+                      Facturación
+                    </v-btn>
                   </v-list-item-title>
                 </v-list-item>
               </v-list>
@@ -177,7 +197,7 @@
                 <v-list density="compact">
                   <v-list-item v-for="(count, medio) in statsData.medioEntero" :key="medio">
                     <v-list-item-title class="font-weight-medium text-capitalize">{{ medio }}:</v-list-item-title>
-                    <template v-slot:append>
+                    <template #append>
                       <v-chip color="blue-grey" label>{{ count }}</v-chip>
                     </template>
                   </v-list-item>
@@ -313,6 +333,11 @@ const handleConfirmAction = () => {
   } else if (action === 'continuar') {
     router.push(`/rtm/proximamente`)
   }
+}
+
+// 👉 Navegar a Facturación con el turnoId como query
+const goToFacturacion = (turno: Turno) => {
+  router.push({ path: '/facturacion/subir-ticket', query: { turnoId: String(turno.id) } })
 }
 
 // Utilidades

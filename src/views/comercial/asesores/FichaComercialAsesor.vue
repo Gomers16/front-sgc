@@ -84,8 +84,8 @@
                 <template v-if="asesor && !loading">
                   <div class="mb-1"><strong>Nombre:</strong> {{ asesor.nombre ?? '—' }}</div>
                   <div class="mb-1"><strong>Tipo:</strong> {{ humanTipo(asesor?.tipo) }}</div>
-                  <div class="mb-1"><strong>Correo:</strong> {{ asesor?.email ?? asesor?.correo ?? '—' }}</div>
-                  <div class="mb-1"><strong>Teléfono:</strong> {{ asesor?.telefono ?? '—' }}</div>
+                  <div class="mb-1"><strong>Correo:</strong> {{ asesor.email || asesor.correo || '—' }}</div>
+                  <div class="mb-1"><strong>Teléfono:</strong> {{ asesor.telefono ?? '—' }}</div>
                   <div class="mb-1"><strong>Documento:</strong> {{ docFull(asesor) }}</div>
                   <div class="mb-1"><strong>Estado:</strong>
                     <v-chip size="small" :color="asesor?.activo ? 'success' : 'error'" variant="flat">
@@ -274,6 +274,7 @@ type Asesor = {
   telefono?: string | null
   doc_tipo?: string | null
   doc_numero?: string | null
+  documento?: string | null
   activo?: boolean | 0 | 1
 }
 type Prospecto = { id: number; nombre?: string | null; placa?: string | null; telefono?: string | null; observaciones?: string | null; created_at?: string }
@@ -290,7 +291,6 @@ type Dateo = {
   comision?: number | null
   monto?: number | null
   valor?: number | null
-  /* posibles campos de autoría */
   asesor_id?: number | null
   agente_id?: number | null
   creado_por?: number | null
@@ -317,7 +317,6 @@ const tab = ref<'prospectos' | 'convenios' | 'dateos'>('prospectos')
 /* ===== Rango de fechas ===== */
 const filtros = ref<{ desde: string; hasta: string }>({ desde: '', hasta: '' })
 function toInputDate(d: Date) {
-  // corrige desfase por timezone
   return new Date(d.getTime() - d.getTimezoneOffset()*60000).toISOString().slice(0, 10)
 }
 function setUltimosNDias(n: number) {
@@ -378,13 +377,18 @@ function humanTipo(t?: string | null) {
 }
 function docFull(a?: Asesor | null) {
   if (!a) return '—'
-  const t = a.doc_tipo || ''
-  const n = a.doc_numero || ''
-  return (t || n) ? `${t} ${n}`.trim() : '—'
+  // Soporte a múltiples convenciones
+  const tipo = a.doc_tipo || (a as any).tipo_documento || (a as any).tipoDoc || ''
+  const num  = a.doc_numero || (a as any).numero_documento || (a as any).numDocumento || a.documento || (a as any).cedula || ''
+  if (tipo || num) return `${tipo} ${num}`.trim()
+  return '—'
 }
 function vigenciaText(c: Convenio) {
   const f = (s?: string | null) => (!s ? '—' : new Date(s as string).toLocaleDateString())
   return `${f(c.vigencia_desde)} – ${f(c.vigencia_hasta)}`
+}
+function normalizeCreatedAt(obj: any) {
+  return obj?.created_at || obj?.createdAt || obj?.fecha || obj?.fecha_creacion || obj?.creado || obj?.created || null
 }
 function fmtDate(d?: string) {
   if (!d) return '—'
@@ -403,16 +407,8 @@ function getMontoDateo(d: Dateo) {
   const n = candidates.find((x) => typeof x === 'number' && !Number.isNaN(x as number))
   return (n as number | undefined) ?? 0
 }
-
-/* 🔎 NUEVO: detectar si el dateo fue hecho por este asesor */
 function isFromAsesor(d: Dateo, id: number) {
-  const candidates = [
-    d.asesor_id,
-    d.agente_id,
-    d.creado_por,
-    d.creadoPor,
-    d.user_id,
-  ]
+  const candidates = [d.asesor_id, d.agente_id, d.creado_por, d.creadoPor, d.user_id]
   return candidates.some(v => Number(v) === Number(id))
 }
 
@@ -426,9 +422,12 @@ const dateosFiltrados = computed(() => {
   return dateos.value.filter((d) => {
     const pertenece = isFromAsesor(d, asesorId)
     if (!pertenece) return false
-    const t = d.created_at ? new Date(d.created_at) : null
+    const tRaw = normalizeCreatedAt(d)
+    const t = tRaw ? new Date(tRaw) : null
     const enRango = t ? t >= desde && t <= hasta : true
     const porExito = filtrosDateo.value.soloExitosos ? isExitoso(d) : true
+    // Normaliza created_at para la tabla
+    d.created_at = tRaw || d.created_at
     return enRango && porExito
   })
 })
@@ -445,83 +444,104 @@ const saldoEstimado = computed(() => (kpi.value.montoGenerado - kpi.value.pagosR
 const totalDateosFiltrados = computed(() => dateosFiltrados.value.length)
 const totalExitosos = computed(() => dateosFiltrados.value.filter(isExitoso).length)
 const totalMonto = computed(() => dateosFiltrados.value.reduce((acc, it) => acc + (getMontoDateo(it) || 0), 0))
-/* ===== API helpers (prioriza filtrar en el backend) ===== */
+
+/* ===== API helpers (usa tus rutas reales) ===== */
 function rangoParams() {
   return { desde: filtros.value.desde, hasta: filtros.value.hasta, perPage: 500 }
 }
 
+function normalizeAsesor(raw: any): Asesor {
+  if (!raw) return null as any
+  const nombre =
+    raw.nombre ||
+    [raw.nombres, raw.apellidos].filter(Boolean).join(' ') ||
+    raw.fullname ||
+    raw.displayName ||
+    '—'
+  const email = raw.email || raw.correo || raw.email_personal || raw?.user?.email || null
+  const telefono = raw.telefono || raw.celular || raw.cel || raw.phone || null
+
+  // documento
+  const doc_tipo = raw.doc_tipo || raw.tipo_documento || raw.tipoDoc || null
+  const doc_numero =
+    raw.doc_numero || raw.numero_documento || raw.numDocumento || raw.documento || raw.cedula || null
+
+  const activo =
+    typeof raw.activo !== 'undefined'
+      ? !!raw.activo
+      : (String(raw.estado || '').toUpperCase() === 'ACTIVO' ? true : undefined)
+
+  return {
+    id: Number(raw.id),
+    nombre,
+    tipo: raw.tipo || raw.rol || raw.cargo || null,
+    email,
+    correo: raw.correo || null,
+    telefono,
+    doc_tipo,
+    doc_numero,
+    documento: raw.documento || null,
+    activo: (activo as any) ?? true,
+  }
+}
+
 async function fetchAsesor(id: number) {
+  // 1) Tu ruta real
   try {
-    const r1 = await get<any>(`${API}/asesores/${id}`)
-    return r1?.data ?? r1
+    const r = await get<any>(`${API}/agentes-captacion/${id}`)
+    const a = r?.data ?? r
+    if (a) return normalizeAsesor(a)
   } catch {}
+  // 2) Fallback a usuarios/:id por si allí está el correo/documento
   try {
-    const r2 = await get<any>(`${API}/agentes-captacion/${id}`)
-    return r2?.data ?? r2
+    const r2 = await get<any>(`${API}/usuarios/${id}`)
+    const a2 = r2?.data ?? r2
+    if (a2) return normalizeAsesor(a2)
   } catch {}
   return null
 }
 
 async function fetchProspectos(id: number) {
-  // Preferido: endpoint por asesor/agente
   try {
-    const r = await get<any>(`${API}/asesores/${id}/prospectos`, { params: rangoParams() })
+    const r = await get<any>(`${API}/agentes-captacion/${id}/prospectos`, { params: rangoParams() })
     const arr = r?.data ?? r
-    if (Array.isArray(arr)) return arr
+    if (Array.isArray(arr)) {
+      return arr.map((p: any) => ({ ...p, created_at: normalizeCreatedAt(p) }))
+    }
   } catch {}
-  try {
-    const r2 = await get<any>(`${API}/agentes-captacion/${id}/prospectos`, { params: rangoParams() })
-    const arr2 = r2?.data ?? r2
-    if (Array.isArray(arr2)) return arr2
-  } catch {}
-  // Fallback: query genérica con autor
+  // Fallback: por creadoPor
   const r3 = await get<any>(`${API}/prospectos`, { params: { ...rangoParams(), creadoPor: id } })
   const arr3 = r3?.data ?? r3
-  return Array.isArray(arr3) ? arr3 : []
+  return Array.isArray(arr3) ? arr3.map((p: any) => ({ ...p, created_at: normalizeCreatedAt(p) })) : []
 }
 
 async function fetchConvenios(id: number) {
   try {
-    const r = await get<any>(`${API}/asesores/${id}/convenios`, { params: { perPage: 500 } })
+    const r = await get<any>(`${API}/agentes-captacion/${id}/convenios`, { params: { perPage: 500 } })
     const arr = r?.data ?? r
     if (Array.isArray(arr)) return arr
-  } catch {}
-  try {
-    const r2 = await get<any>(`${API}/agentes-captacion/${id}/convenios`, { params: { perPage: 500 } })
-    const arr2 = r2?.data ?? r2
-    if (Array.isArray(arr2)) return arr2
   } catch {}
   return []
 }
 
 async function fetchDateos(id: number) {
-  // Preferido: ya filtrados por el backend
+  // ÚNICO index real en tus rutas
+  const params = { ...rangoParams(), asesor_id: id, agente_id: id, creadoPor: id, user_id: id }
   try {
-    const r = await get<any>(`${API}/asesores/${id}/dateos`, { params: rangoParams() })
+    const r = await get<any>(`${API}/captacion-dateos`, { params })
     const arr = r?.data ?? r
-    if (Array.isArray(arr)) return arr.filter(d => isFromAsesor(d, id))
+    if (Array.isArray(arr)) {
+      // Asegura autoría + normaliza fecha para "Creado"
+      return arr
+        .filter((d: any) => isFromAsesor(d, id))
+        .map((d: any) => ({ ...d, created_at: normalizeCreatedAt(d) }))
+    }
   } catch {}
-  try {
-    const r2 = await get<any>(`${API}/agentes-captacion/${id}/dateos`, { params: rangoParams() })
-    const arr2 = r2?.data ?? r2
-    if (Array.isArray(arr2)) return arr2.filter(d => isFromAsesor(d, id))
-  } catch {}
-
-  // Fallback: pedir todo pero con pistas de autoría para que el backend filtre si puede
-  const r3 = await get<any>(`${API}/captacion-dateos`, {
-    params: { ...rangoParams(), asesor_id: id, creadoPor: id, agente_id: id, user_id: id }
-  })
-  const arr3 = r3?.data ?? r3
-  // Si aún así trae de más, filtro en frontend
-  return Array.isArray(arr3) ? arr3.filter(d => isFromAsesor(d, id)) : []
+  return []
 }
 
-async function fetchPagos(id: number) {
-  try {
-    const r = await get<any>(`${API}/asesores/${id}/pagos`, { params: rangoParams() })
-    const arr = r?.data ?? r
-    if (Array.isArray(arr)) return arr
-  } catch {}
+async function fetchPagos(_id: number) {
+  // No hay ruta en tu backend ahora mismo
   return []
 }
 
@@ -534,14 +554,14 @@ async function loadAll() {
       fetchAsesor(asesorId),
       fetchProspectos(asesorId),
       fetchConvenios(asesorId),
-      fetchDateos(asesorId), // ← ya retorna SOLO del asesor
+      fetchDateos(asesorId),
       fetchPagos(asesorId),
     ])
 
     asesor.value = a || null
     prospectos.value = Array.isArray(p) ? p : []
     convenios.value = Array.isArray(c) ? c : []
-    dateos.value = Array.isArray(d) ? d : [] // ← ya vienen filtrados por autor
+    dateos.value = Array.isArray(d) ? d : []
     pagos.value = Array.isArray(pg) ? pg : []
 
     // KPIs (con base en dateos del asesor y rango)
@@ -549,7 +569,8 @@ async function loadAll() {
     const hasta = new Date(filtros.value.hasta + 'T23:59:59')
 
     const dateosEnRango = dateos.value.filter((x) => {
-      const t = x.created_at ? new Date(x.created_at) : null
+      const tRaw = normalizeCreatedAt(x)
+      const t = tRaw ? new Date(tRaw) : null
       return t ? t >= desde && t <= hasta : true
     })
     const exitosos = dateosEnRango.filter(isExitoso)

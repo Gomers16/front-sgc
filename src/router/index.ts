@@ -44,6 +44,14 @@ const routes = [
   { path: '/rtm/contador-captacion', name: 'ContadorCaptacion', component: ContadorConvenios, meta: { layout: 'MainLayout' } },
   { path: '/rtm/proximamente', name: 'Proximamente', component: Vistadesarrollo, meta: { layout: 'MainLayout' } },
 
+  // 🧾 FACTURACIÓN
+  {
+    path: '/facturacion/subir-ticket',
+    name: 'FacturacionSubirTicket',
+    component: () => import('@/views/facturacion/FacturacionSubirTicket.vue'),
+    meta: { layout: 'MainLayout', title: 'Facturación / Subir ticket' },
+  },
+
   // Gestión Documental / Usuarios
   { path: '/gestion-documental/usuarios', name: 'Usuarios', component: UsuariosView, meta: { layout: 'MainLayout' } },
   { path: '/usuarios/:id', name: 'UserProfile', component: UserProfileView, props: true, meta: { layout: 'MainLayout' } },

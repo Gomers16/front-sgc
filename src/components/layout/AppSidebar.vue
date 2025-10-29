@@ -36,12 +36,21 @@
         color="black"
       >
         <template #activator="{ props }">
-          <v-list-item v-bind="props" title="RTM" />
+          <!-- 🔁 'RTM' → 'Turnos' -->
+          <v-list-item v-bind="props" title="Turnos" />
         </template>
 
         <v-list-item title="Crear turno" :to="{ path: '/rtm/crear-turno' }" link />
         <v-list-item title="Turnos del día" :to="{ path: '/rtm/turnos-dia' }" link />
         <v-list-item title="Estado turno" :to="{ path: '/rtm/estado-turnos' }" link />
+
+        <!-- 🧾 Facturación -->
+        <v-list-item
+          title="Facturación "
+          
+          :to="{ path: '/facturacion/subir-ticket' }"
+          link
+        />
       </v-list-group>
 
       <!-- Comercial -->
