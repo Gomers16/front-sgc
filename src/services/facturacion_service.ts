@@ -24,6 +24,23 @@ export interface FacturacionTicket {
   total: number | null
   fecha_pago: string | null // ISO en API
 
+  // Totales explícitos
+  subtotal: number | null
+  iva: number | null
+  total_factura: number | null
+
+  // Datos OCR/extra
+  nit: string | null
+  pin: string | null
+  marca: string | null
+  vendedor_text: string | null
+
+  // Detalle de pago
+  pago_consignacion: number | null
+  pago_tarjeta: number | null
+  pago_efectivo: number | null
+  pago_cambio: number | null
+
   // Relaciones (ids)
   agente_id: number | null
   sede_id: number | null
@@ -68,8 +85,16 @@ export interface FacturacionTicket {
 
   // Auditoría
   created_by_id: number | null
+  confirmed_by_id: number | null
   created_at: string
   updated_at: string
+
+  // 🔹 Enriquecidos (virtuales del backend al preloade ar turno/servicio)
+  turnoGlobal?: number | null
+  turnoServicio?: number | null
+  tipoVehiculoSnapshot?: string | null
+  servicioCodigo?: string | null
+  servicioNombre?: string | null
 }
 
 export interface Paginated<T> {
@@ -89,15 +114,12 @@ export interface Paginated<T> {
 
 /* =============================== Endpoints =============================== */
 
-const base = 'api/facturacion/tickets'
+const base = '/api/facturacion/tickets' // ⬅️ con slash inicial
 
 export const FacturacionService = {
   /**
    * Listado con filtros y paginación.
-   * Filtros soportados por backend:
-   *  - desde, hasta (ISO)
-   *  - sede_id, agente_id, placa, estado, turno_id, dateo_id
-   *  - page, limit
+   * Filtros: desde, hasta (ISO), sede_id, agente_id, placa, estado, turno_id, dateo_id, page, limit
    */
   list(params?: {
     desde?: string
@@ -139,9 +161,7 @@ export const FacturacionService = {
   },
 
   /**
-   * Crea ticket desde archivo (image/*) + datos opcionales
-   * - file: File/Blob (jpg/jpeg/png)
-   * - turno_id?, dateo_id?, sede_id?, servicio_id?, image_rotation?
+   * Crea ticket subiendo SOLO archivo (image/*) + metadatos planos (turno_id, etc.)
    */
   async createFromFile(args: {
     file: File | Blob
@@ -150,20 +170,52 @@ export const FacturacionService = {
     sede_id?: number | null
     servicio_id?: number | null
     image_rotation?: number | null
-    /** Puedes pasar nombre sugerido para el archivo (solo UI) */
     filename?: string
   }) {
     const form = new FormData()
-    const fileName = args.filename || 'ticket.jpg'
-    form.append('archivo', args.file, fileName)
-
-    if (args.turno_id !== undefined && args.turno_id !== null) form.append('turno_id', String(args.turno_id))
-    if (args.dateo_id !== undefined && args.dateo_id !== null) form.append('dateo_id', String(args.dateo_id))
-    if (args.sede_id !== undefined && args.sede_id !== null) form.append('sede_id', String(args.sede_id))
-    if (args.servicio_id !== undefined && args.servicio_id !== null) form.append('servicio_id', String(args.servicio_id))
-    if (args.image_rotation !== undefined && args.image_rotation !== null) form.append('image_rotation', String(args.image_rotation))
+    form.append('archivo', args.file, args.filename || 'ticket.jpg')
+    if (args.turno_id != null) form.append('turno_id', String(args.turno_id))
+    if (args.dateo_id != null) form.append('dateo_id', String(args.dateo_id))
+    if (args.sede_id != null) form.append('sede_id', String(args.sede_id))
+    if (args.servicio_id != null) form.append('servicio_id', String(args.servicio_id))
+    if (args.image_rotation != null) form.append('image_rotation', String(args.image_rotation))
 
     return upload<FacturacionTicket>(`${base}`, form)
+  },
+
+  /**
+   * Crea ticket con "data" (JSON) + archivo en el mismo FormData.
+   */
+  async createFromFormData(args: {
+    data: Partial<{
+      turno_id: number | null
+      placa: string | null
+      fecha_pago: string | null // YYYY-MM-DD
+      hora_pago: string | null  // HH:mm:ss
+      total: number | null
+      vendedor: string | null
+      prefijo: string | null
+      consecutivo: string | null
+      nit: string | null
+      pin: string | null
+      marca: string | null
+      subtotal: number | null
+      iva: number | null
+      total_factura: number | null
+      image_rotation: number | null
+      sede_id?: number | null
+      dateo_id?: number | null
+      servicio_id?: number | null
+    }>
+    archivo?: File | Blob | null
+    filename?: string
+  }) {
+    const fd = new FormData()
+    fd.append('data', JSON.stringify(args.data || {}))
+    if (args.archivo) {
+      fd.append('archivo', args.archivo, args.filename || 'ticket.jpg')
+    }
+    return upload<FacturacionTicket>(`${base}`, fd)
   },
 
   /** Reintentar OCR */
@@ -173,7 +225,6 @@ export const FacturacionService = {
 
   /**
    * Actualiza campos editables del formulario.
-   * Enviar solo los campos que quieras cambiar.
    */
   update(
     id: number | string,
@@ -194,6 +245,20 @@ export const FacturacionService = {
       observaciones: string | null
       ocr_conf_baja_revisado: boolean
       image_rotation: number
+
+      // OCR / totales explícitos
+      nit: string | null
+      pin: string | null
+      marca: string | null
+      vendedor_text: string | null
+      subtotal: number | null
+      iva: number | null
+      total_factura: number | null
+
+      pago_consignacion: number | null
+      pago_tarjeta: number | null
+      pago_efectivo: number | null
+      pago_cambio: number | null
     }>
   ) {
     return patch<FacturacionTicket>(`${base}/${id}`, body)

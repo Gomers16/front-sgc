@@ -1,4 +1,3 @@
-<!-- src/views/facturacion/FacturacionSubirTicket.vue -->
 <template>
   <v-container class="py-6">
     <!-- HEADER -->
@@ -29,8 +28,12 @@
           </v-chip>
 
           <v-btn prepend-icon="mdi-plus" @click="resetAll" color="primary" variant="flat">Nueva carga</v-btn>
-          <v-btn prepend-icon="mdi-history" variant="tonal" @click="$router.push({ path: '/facturacion/historico' })">Histórico</v-btn>
-          <v-btn prepend-icon="mdi-help-circle-outline" variant="text" @click="dialogAyuda=true">Ayuda</v-btn>
+          <v-btn prepend-icon="mdi-history" variant="tonal" @click="$router.push({ path: '/facturacion/historico' })">
+            Histórico
+          </v-btn>
+          <v-btn prepend-icon="mdi-help-circle-outline" variant="text" @click="dialogAyuda=true">
+            Ayuda
+          </v-btn>
         </div>
       </v-card-title>
     </v-card>
@@ -162,7 +165,7 @@
                 <div class="value">{{ turnoCard.funcionario || '—' }}</div>
               </v-col>
 
-              <v-col cols="6">
+              <v-col cols="12">
                 <div class="label">Tipo de vehículo</div>
                 <div class="value">{{ turnoCard.tipoVehiculo || '—' }}</div>
               </v-col>
@@ -179,7 +182,7 @@
               </v-chip>
             </div>
 
-            <!-- Asesor Comercial: solo si hay agente -->
+            <!-- Asesor Comercial -->
             <div class="capt-line" v-if="turnoCard.agenteComercialNombre">
               <v-chip size="small" color="secondary" variant="tonal">Asesor comercial</v-chip>
               <span class="text-medium-emphasis">{{ turnoCard.agenteComercialNombre }}</span>
@@ -283,7 +286,7 @@
 
             <div class="d-flex align-center justify-end" style="gap:10px">
               <v-btn variant="text" @click="resetAll">Limpiar</v-btn>
-              <v-btn color="primary" :disabled="!requeridosOk" @click="confirmar">
+              <v-btn color="primary" :disabled="!requeridosOk" @click="openConfirm">
                 Confirmar facturación
               </v-btn>
             </div>
@@ -310,30 +313,150 @@
       </v-card>
     </v-dialog>
 
+    <!-- MODAL CONFIRMACIÓN -->
+    <v-dialog v-model="dialogConfirm" max-width="780">
+      <v-card>
+        <v-card-title class="d-flex align-center">
+          <v-icon class="mr-2">mdi-shield-check</v-icon>
+          Confirmar facturación
+        </v-card-title>
+        <v-divider />
+        <v-card-text>
+          <div class="text-body-2 mb-3">
+            Revisa los datos. Al confirmar se guardará la facturación asociada al turno mostrado y se procesará la comisión automática si aplica.
+          </div>
+
+          <v-row>
+            <v-col cols="12" md="6">
+              <div class="section-title">Ticket</div>
+              <div class="label">Placa</div>
+              <div class="value mb-2">{{ form.placa || '—' }}</div>
+
+              <div class="label">Fecha y hora de pago</div>
+              <div class="value mb-2">{{ form.fecha || '—' }} • {{ hora12 || '—' }}</div>
+
+              <div class="label">Total</div>
+              <div class="value mb-2">{{ totalFacturaDisplay || totalDisplay || '—' }}</div>
+
+              <div class="label">Vendedor</div>
+              <div class="value mb-2">{{ form.vendedor || '—' }}</div>
+
+              <div class="label">Prefijo / Consecutivo</div>
+              <div class="value mb-2">{{ form.prefijo || '—' }} {{ form.consecutivo || '' }}</div>
+
+              <div class="label">NIT / PIN / Marca</div>
+              <div class="value">{{ form.nit || '—' }} / {{ form.pin || '—' }} / {{ form.marca || '—' }}</div>
+            </v-col>
+
+            <v-col cols="12" md="6">
+              <div class="section-title">Turno asociado</div>
+              <div class="label">Turno / Servicio</div>
+              <div class="value mb-2">#{{ turnoCard.numero ?? '—' }} • {{ turnoCard.servicioNombre || '—' }}</div>
+
+              <div class="label">Placa (turno)</div>
+              <div class="value mb-2">{{ turnoCard.placa || '—' }}</div>
+
+              <div class="label">Sede / Funcionario</div>
+              <div class="value mb-2">{{ turnoCard.sede || '—' }} • {{ turnoCard.funcionario || '—' }}</div>
+
+              <div class="label">Canal</div>
+              <div class="value mb-2">
+                <v-chip v-if="turnoCard.captacionCanal" :color="canalChipColor(turnoCard.captacionCanal)" size="small" variant="tonal">
+                  {{ humanCanal(turnoCard.captacionCanal) }}
+                </v-chip>
+                <span v-else>—</span>
+              </div>
+
+              <div class="label">Asesores / Convenio</div>
+              <div class="value">
+                <div class="capt-line" v-if="turnoCard.agenteComercialNombre">
+                  <v-chip size="x-small" color="secondary" variant="tonal">Comercial</v-chip>
+                  <span class="text-medium-emphasis">{{ turnoCard.agenteComercialNombre }}</span>
+                </div>
+                <div class="capt-line" v-if="turnoCard.asesorConvenioNombre">
+                  <v-chip size="x-small" color="teal" variant="tonal">Convenio</v-chip>
+                  <span class="text-medium-emphasis">{{ turnoCard.asesorConvenioNombre }}</span>
+                </div>
+                <div class="capt-line" v-if="turnoCard.convenioNombre">
+                  <v-chip size="x-small" color="blue-grey" variant="tonal">Convenio</v-chip>
+                  <span class="text-medium-emphasis">{{ turnoCard.convenioNombre }}</span>
+                </div>
+                <div v-if="!turnoCard.agenteComercialNombre && !turnoCard.asesorConvenioNombre && !turnoCard.convenioNombre">—</div>
+              </div>
+            </v-col>
+          </v-row>
+        </v-card-text>
+
+        <v-card-actions class="px-4 pb-4">
+          <v-spacer />
+          <v-btn variant="text" @click="dialogConfirm=false">Cancelar</v-btn>
+          <v-btn color="primary" :loading="saving" :disabled="saving" @click="confirmarYGuardar">
+            Confirmar y guardar
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <!-- MODAL RESULTADO / DETALLE GUARDADO -->
+    <v-dialog v-model="dialogResult" max-width="680">
+      <v-card>
+        <v-card-title class="d-flex align-center">
+          <v-icon class="mr-2" color="success">mdi-check-decagram</v-icon>
+          Facturación registrada
+        </v-card-title>
+        <v-divider />
+        <v-card-text>
+          <div class="mb-2">
+            Se guardó la facturación correctamente.
+          </div>
+          <v-alert type="success" variant="tonal" class="mb-4" v-if="result?.folio || result?.id || result?.data?.id">
+            <div class="d-flex flex-column">
+              <span v-if="result?.folio"><b>Folio:</b> {{ result.folio }}</span>
+              <span v-if="result?.id"><b>ID:</b> {{ result.id }}</span>
+              <span v-if="result?.data?.id"><b>ID:</b> {{ result.data.id }}</span>
+              <span v-if="result?.estado"><b>Estado:</b> {{ result.estado }}</span>
+            </div>
+          </v-alert>
+
+          <div class="text-body-2">
+            <b>Placa:</b> {{ form.placa || '—' }} •
+            <b>Fecha:</b> {{ form.fecha || '—' }} •
+            <b>Hora:</b> {{ hora12 || '—' }} •
+            <b>Total:</b> {{ totalFacturaDisplay || totalDisplay || '—' }}
+          </div>
+        </v-card-text>
+        <v-card-actions class="px-4 pb-4">
+          <v-spacer />
+          <v-btn color="primary" variant="flat" @click="closeResult">Cerrar</v-btn>
+          <v-btn variant="tonal" prepend-icon="mdi-open-in-new" v-if="result?.id || result?.data?.id" @click="goToDetalle(result?.id || result?.data?.id)">
+            Ver detalle
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
     <v-snackbar v-model="snack.show" :timeout="3000">{{ snack.text }}</v-snackbar>
   </v-container>
 </template>
 
-<style scoped>
-.v-card { box-shadow: 0 10px 20px rgba(0,0,0,0.08), 0 6px 6px rgba(0,0,0,0.05); border-radius: 16px; }
-.section-title { font-weight: 700; margin-bottom: 10px; font-size: 0.95rem; letter-spacing: .3px; }
-.label { font-size: .75rem; color: #6b7280; text-transform: uppercase; letter-spacing: .04em; }
-.value { font-weight: 600; }
 
-.dropzone { border: 2px dashed rgba(0,0,0,.25); padding: 22px; cursor: pointer; background: #fffceb; transition: 0.3s; }
-.dropzone--active { background: #fff4c0; border-color: #e3b505; }
-.preview-wrapper .preview-canvas { width: 100%; max-height: 60vh; overflow: auto; background: #fafafa; border: 1px solid #eee; border-radius: 12px; padding: 8px; text-align: center; }
-.preview-canvas img { max-width: 100%; transition: transform .2s ease; }
-
-.capt-line { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
-</style>
 <script setup lang="ts">
+/**
+ * Facturación / Subir ticket — BLOQUE SCRIPT (actualizado para evitar 409 por duplicado)
+ * Reglas clave del flujo:
+ *  - Se crea el ticket **una sola vez** (al subir la imagen) y se guarda su id en `currentTicketId`.
+ *  - Si ya existe un ticket para el `turno_id`, NO se crea otro: se reutiliza ese ticket.
+ *  - Reintentos de OCR / confirmación usan `PATCH` + `POST /confirmar` sobre el mismo id. Nunca vuelven a hacer POST con el archivo.
+ */
+
 import { ref, reactive, computed, onMounted, onBeforeUnmount } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import TurnosDelDiaService from '@/services/turnosdeldiaService'
+import { FacturacionService } from '@/services/facturacion_service'
 
 /* ===================== Router / Query ===================== */
 const route = useRoute()
+const router = useRouter()
 
 /* ===================== Estado UI ===================== */
 const dragging = ref(false)
@@ -345,7 +468,16 @@ const imageScale = ref(1)
 const dialogAyuda = ref(false)
 const snack = reactive({ show: false, text: '' })
 
-/* ===================== OCR ===================== */
+/* ====== Diálogos y guardado ====== */
+const dialogConfirm = ref(false)
+const dialogResult = ref(false)
+const saving = ref(false)
+const result = ref<any>(null)
+
+/* ====== Ticket actual (id en backend) ====== */
+const currentTicketId = ref<number | null>(null)
+
+/* ===================== OCR (cliente y backend) ===================== */
 type OCRStatus = 'idle' | 'running' | 'done'
 const ocr = reactive({
   status: 'idle' as OCRStatus,
@@ -365,7 +497,7 @@ const form = reactive({
   nit: '',
   pin: '',
   marca: '',
-  // Totales
+  // Totales explícitos
   subtotal: 0,
   iva: 0,
   totalFactura: 0,
@@ -377,7 +509,6 @@ const totalFacturaDisplay = ref('')
 
 /* ===== Hora en 12h para UI ===== */
 const hora12 = ref('') // ej: "05:03:14 PM"
-
 function to12h(hhmmss: string) {
   if (!hhmmss) return ''
   let [hh='00', mm='00', ss='00'] = hhmmss.split(':')
@@ -498,14 +629,12 @@ function splitISO(iso: string) {
   return { fecha, hora: normalizeHora(horaRaw) }
 }
 function normalizeFecha(s: string): string {
-  // dd/mm/yyyy o dd-mm-yyyy -> YYYY-MM-DD
   const [d, m, yRaw] = s.replace(/-/g, '/').split('/')
   const yyyy = (yRaw?.length === 2) ? `20${yRaw}` : yRaw
   if (!d || !m || !yyyy) return ''
   return `${yyyy}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`
 }
 function normalizeHora(h: string): string {
-  // "05:03:14 PM" | "05.03.14 PM" | "17:03:14" | "08:20 AM"
   const t = h.replace(/\./g, ':').trim()
   const ampm = /(AM|PM)$/i.test(t)
   let [hh, mm = '00', ss = '00'] = t.replace(/\s?(AM|PM)$/i, '').split(':')
@@ -522,7 +651,7 @@ function toLocalDateAndTime(fecha: string, hora: string) {
   return { fecha: normalizeFecha(fecha), hora: normalizeHora(hora) }
 }
 
-/* ===================== Parser (fallback) ===================== */
+/* ===================== Parser fallback local ===================== */
 function pullNumber(s?: string | null) {
   if (!s) return 0
   return Number(String(s).replace(/[^\d]/g, '')) || 0
@@ -604,7 +733,7 @@ function parseTicket(txt: string) {
   }
 }
 
-/* ===================== Helpers de llenado (desde OCR) ===================== */
+/* ===================== Helpers desde OCR backend ===================== */
 function splitISOField(v?: string) {
   if (!v) return { fecha: '', hora: '' }
   const [f, hRaw] = v.split('T')
@@ -639,9 +768,9 @@ function fillFromCampos(c?: any) {
   const iva = Number(c.iva || 0)
   const tf  = Number(c.totalFactura || 0)
   const tt  = Number(c.total || 0)
+  const tFinal = tf || tt
   if (sub) { form.subtotal = sub; subtotalDisplay.value = fmt(sub) }
   if (iva) { form.iva = iva; ivaDisplay.value = fmt(iva) }
-  const tFinal = tf || tt
   if (tFinal) {
     form.totalFactura = tFinal
     form.total = tFinal
@@ -652,7 +781,7 @@ function fillFromCampos(c?: any) {
 
 /* ===================== Turno asociado (tarjeta) ===================== */
 type Canal =
-  | 'FACHADA'
+
   | 'ASESOR_COMERCIAL'
   | 'ASESOR'
   | 'TELEMERCADEO'
@@ -663,12 +792,9 @@ type Canal =
   | string
 
 type Card = {
-  // Números
   numero?: number | null
   numeroGlobal?: number | null
   numeroServicio?: number | null
-
-  // Básicos
   placa?: string | null
   servicioCodigo?: string | null
   servicioNombre?: string | null
@@ -679,8 +805,6 @@ type Card = {
   estadoColor?: string
   sede?: string | null
   funcionario?: string | null
-
-  // Captación visible:
   captacionCanal?: Canal | null
   agenteComercialNombre?: string | null
   asesorConvenioNombre?: string | null
@@ -688,8 +812,7 @@ type Card = {
 }
 const turnoCard = reactive<Card>({})
 
-/* —— Helper para tipoVehiculo derivado de clase —— */
-function mapClaseToTipo(clase?: { codigo?: string; nombre?: string } | null): string | null {
+function mapClaseToTipo(clase?: { id?: number; codigo?: string; nombre?: string } | null): string | null {
   if (!clase) return null
   const code = String(clase.codigo || '').toUpperCase()
   const name = String(clase.nombre || '').toUpperCase()
@@ -699,13 +822,11 @@ function mapClaseToTipo(clase?: { codigo?: string; nombre?: string } | null): st
   if (code.includes('LIV_PART') || name.includes('PARTIC') || name.includes('LIVIANO')) return 'Liviano Particular'
   return null
 }
-
-/** Etiqueta humana del canal */
 function humanCanal(c?: Canal | null) {
   const v = String(c || '').toUpperCase()
   if (!v) return ''
   const map: Record<string,string> = {
-    'FACHADA': 'Fachada',
+   
     'ASESOR_COMERCIAL': 'Asesor comercial',
     'ASESOR': 'Asesor comercial',
     'TELEMERCADEO': 'Call Center',
@@ -716,12 +837,10 @@ function humanCanal(c?: Canal | null) {
   }
   return map[v] || v.charAt(0) + v.slice(1).toLowerCase()
 }
-
-/** Color del chip del canal */
 function canalChipColor(c?: Canal | null) {
   const v = String(c || '').toUpperCase()
   switch (v) {
-    case 'FACHADA': return 'orange'
+
     case 'ASESOR_COMERCIAL':
     case 'ASESOR': return 'purple'
     case 'TELEMERCADEO':
@@ -732,52 +851,22 @@ function canalChipColor(c?: Canal | null) {
     default: return 'grey'
   }
 }
-
-/** Toma un turno y rellena la tarjeta, con tolerancia a distintas formas/relaciones */
 function hydrateTurnoCard(turno: any) {
-  // ===== Números (global / por servicio / id visible) =====
   turnoCard.numeroGlobal =
-    turno.turnoNumeroGlobal ??
-    turno.numeroGlobal ??
-    turno.global ??
-    turno.consecutivoGlobal ??
-    null
-
+    turno.turnoNumeroGlobal ?? turno.numeroGlobal ?? turno.global ?? turno.consecutivoGlobal ?? null
   turnoCard.numeroServicio =
-    turno.turnoNumeroServicio ??
-    turno.numeroServicio ??
-    turno.consecutivoServicio ??
-    null
-
+    turno.turnoNumeroServicio ?? turno.numeroServicio ?? turno.consecutivoServicio ?? null
   turnoCard.numero = turno.turnoNumero ?? turno.numero ?? turno.id ?? null
-
-  // ===== Placa =====
   turnoCard.placa = (turno.placa ?? turno.vehiculo?.placa ?? '').toUpperCase() || null
-
-  // ===== Servicio =====
   const servCodigo =
-    turno.servicio?.codigoServicio ??
-    turno.servicioCodigo ??
-    turno.servicio?.codigo ??
-    null
+    turno.servicio?.codigoServicio ?? turno.servicioCodigo ?? turno.servicio?.codigo ?? null
   const servNombre =
-    turno.servicio?.nombreServicio ??
-    turno.servicioNombre ??
-    turno.servicio?.nombre ??
-    null
+    turno.servicio?.nombreServicio ?? turno.servicioNombre ?? turno.servicio?.nombre ?? null
   turnoCard.servicioCodigo = servCodigo
   turnoCard.servicioNombre = servNombre
-
-  // ===== Tipo de vehículo =====
-  turnoCard.tipoVehiculo =
-    turno.tipoVehiculo ??
-    mapClaseToTipo(turno.vehiculo?.clase ?? null) ??
-    null
-
-  // ===== Tiempos y fecha =====
+  turnoCard.tipoVehiculo = turno.tipoVehiculo ?? mapClaseToTipo(turno.vehiculo?.clase ?? null) ?? null
   const horaIng = turno.horaIngreso ?? turno.ingresoHora ?? null
   turnoCard.horaIngreso = horaIng ? to12h(normalizeHora(String(horaIng))) : null
-
   if (turno.fecha) {
     const f = String(turno.fecha)
     turnoCard.fecha = f.includes('T') ? splitISO(f).fecha : f
@@ -787,8 +876,6 @@ function hydrateTurnoCard(turno: any) {
   } else {
     turnoCard.fecha = null
   }
-
-  // ===== Estado =====
   const est = (turno.estado || '').toString().toLowerCase()
   turnoCard.estado = est ? est.charAt(0).toUpperCase() + est.slice(1) : null
   turnoCard.estadoColor =
@@ -796,8 +883,6 @@ function hydrateTurnoCard(turno: any) {
     : est === 'cancelado' ? 'error'
     : est === 'finalizado' ? 'blue-grey'
     : 'grey'
-
-  // ===== Sede / Funcionario =====
   turnoCard.sede = turno.sede?.nombre ?? turno.sedeNombre ?? null
   turnoCard.funcionario = (turno.usuario?.nombres && turno.usuario?.apellidos)
     ? `${turno.usuario.nombres} ${turno.usuario.apellidos}`
@@ -805,88 +890,27 @@ function hydrateTurnoCard(turno: any) {
       ? `${turno.funcionario.nombres} ${turno.funcionario.apellidos}`
       : turno.funcionarioNombre ?? null
 
-  // ===== Captación / Dateo =====
   const dateo =
     turno.captacionDateo ??
     turno.captacion ??
-    turno.dateo ??
-    null
+    turno.dateo ?? null
 
-  // Canal de captación — PRIORIDAD:
-  // 1) canalAtribucion (turno)  2) dateo.canal  3) otros campos tolerantes
-  turnoCard.captacionCanal =
-    turno.canalAtribucion ??
-    dateo?.canal ??
-    turno.canalCaptacion ??
-    turno.canal ??
-    null
-
-  // 1) Asesor Comercial (si existe)
+  turnoCard.captacionCanal = (dateo?.canal ?? turno.canalAtribucion ?? null) as Canal | null
   turnoCard.agenteComercialNombre =
-    turno.agenteCaptacion?.nombre ??
-    dateo?.agente?.nombre ??
-    turno.asesorComercial?.nombre ??
-    null
-
-  // 2) Asesor Convenio
+    turno.agenteCaptacion?.nombre ?? dateo?.agente?.nombre ?? turno.asesorComercial?.nombre ?? null
   turnoCard.asesorConvenioNombre =
-    dateo?.asesorConvenio?.nombre ??
-    turno.asesorConvenio?.nombre ??
-    turno.agenteConvenio?.nombre ??
-    null
-
-  // 3) Convenio
+    dateo?.asesorConvenio?.nombre ?? turno.asesorConvenio?.nombre ?? turno.agenteConvenio?.nombre ?? null
   turnoCard.convenioNombre =
-    dateo?.convenio?.nombre ??
-    turno.convenio?.nombre ??
-    turno.convenioNombre ??
-    null
+    dateo?.convenio?.nombre ?? turno.convenio?.nombre ?? turno.convenioNombre ?? null
 
-  // Si ya hay placa del ticket, re-sincroniza ahora con la del turno
   if (form.placa) syncPlacaWithTurno()
 }
 
-/** Busca el id de turno en la query (soporta varias llaves por tolerancia) */
-function getTurnoIdFromQuery(): number | null {
-  const q = route.query
-  const keys = ['turnoId', 'turno', 'id', 'turnold'] // 'turnold' por captura de typo
-  for (const k of keys) {
-    const v = (q as any)[k]
-    if (Array.isArray(v)) {
-      const n = Number(v[0])
-      if (!Number.isNaN(n)) return n
-    } else if (v != null) {
-      const n = Number(v)
-      if (!Number.isNaN(n)) return n
-    }
-  }
-  return null
-}
-
-async function fetchTurnoAndHydrate() {
-  const id = getTurnoIdFromQuery()
-  if (!id) return
-  try {
-    const t = await TurnosDelDiaService.fetchTurnoById(id)
-    // Backend recomendado:
-    // preload('vehiculo', q => q.preload('clase'))
-    // preload('servicio')
-    // preload('sede')
-    // preload('usuario')
-    // preload('captacionDateo', q => q.preload('agente').preload('asesorConvenio').preload('convenio'))
-    hydrateTurnoCard(t as any)
-  } catch (e) {
-    console.error('No se pudo cargar el turno asociado:', e)
-  }
-}
-
-/* ===================== Sincronización de PLACA (OCR ↔ Turno) ===================== */
-const RGX_CAR   = /^[A-Z]{3}\d{3}$/   // carro LLLDDD
-const RGX_MOTO  = /^[A-Z]{3}\d{2}[A-Z]$/ // moto LLLDD(L)
-
+/* ===================== Sincronización de PLACA ===================== */
+const RGX_CAR   = /^[A-Z]{3}\d{3}$/
+const RGX_MOTO  = /^[A-Z]{3}\d{2}[A-Z]$/
 const toLetter: Record<string,string> = { '0':'O','1':'I','2':'Z','3':'E','4':'A','5':'S','6':'G','7':'T','8':'B','9':'P' }
 const toDigit:  Record<string,string> = { 'O':'0','I':'1','Z':'2','E':'3','A':'4','S':'5','G':'6','T':'7','B':'8','P':'9' }
-
 function normalizePlate(raw: string) {
   return raw.toUpperCase().replace(/[^A-Z0-9]/g, '')
 }
@@ -954,49 +978,106 @@ function syncPlacaWithTurno() {
   }
 }
 
-/* ===================== OCR (usa backend con json.campos) ===================== */
-async function handleFile(file: File) {
-  previewBlob.value = file
-  previewUrl.value = URL.createObjectURL(file)
-  imageRotation.value = 0
-  imageScale.value = 1
-  await startOCR(file)
+/* ===================== ID del turno desde query ===================== */
+function getTurnoIdFromQuery(): number | null {
+  const q = route.query
+  const keys = ['turnoId', 'turno', 'id', 'turnold']
+  for (const k of keys) {
+    const v = (q as any)[k]
+    if (Array.isArray(v)) {
+      const n = Number(v[0])
+      if (!Number.isNaN(n)) return n
+    } else if (v != null) {
+      const n = Number(v)
+      if (!Number.isNaN(n)) return n
+    }
+  }
+  return null
 }
 
-async function retryOCR() {
-  if (!previewBlob.value) return
-  await startOCR(previewBlob.value)
+/* ===================== Utilidades de backend (evita duplicados) ===================== */
+async function findExistingTicketByTurno(turnoId: number) {
+  try {
+    const resp = await FacturacionService.list({ turno_id: turnoId, page: 1, limit: 1 })
+    return resp.data?.[0] || null
+  } catch {
+    return null
+  }
 }
 
+async function ensureTicketForTurnoWithFile(file: File) {
+  const turnoId = getTurnoIdFromQuery()
+  if (!turnoId) return null
+
+  // 1) ¿Ya hay ticket para este turno? → úsalo
+  const existing = await findExistingTicketByTurno(turnoId)
+  if (existing) {
+    currentTicketId.value = existing.id
+    return existing
+  }
+
+  // 2) Crear una sola vez (sin repetir POST). Rotación como metadato.
+  const created = await FacturacionService.createFromFile({
+    file,
+    turno_id: turnoId,
+    image_rotation: imageRotation.value || 0,
+  })
+  currentTicketId.value = created.id
+  return created
+}
+
+/* ===================== OCR y manejo de archivo ===================== */
 async function getRotatedBlob(file: File, deg: number): Promise<Blob> {
   if (!deg) return file
   const img = new Image()
   img.src = URL.createObjectURL(file)
   await new Promise((r) => (img.onload = () => r(null)))
-
   const canvas = document.createElement('canvas')
   const ctx = canvas.getContext('2d')!
-
   const w = img.width
   const h = img.height
   const rad = (deg % 360) * Math.PI / 180
   const swap = (deg % 180) !== 0
-
   canvas.width = swap ? h : w
   canvas.height = swap ? w : h
-
   ctx.translate(canvas.width / 2, canvas.height / 2)
   ctx.rotate(rad)
   ctx.drawImage(img, -w / 2, -h / 2)
-
   return await new Promise((res) => canvas.toBlob((b) => res(b!), file.type || 'image/jpeg'))
 }
 
-async function startOCR(file: File) {
+async function handleFile(file: File) {
+  previewBlob.value = file
+  previewUrl.value = URL.createObjectURL(file)
+  imageRotation.value = 0
+  imageScale.value = 1
+
+  // OCR cliente inmediato (para prellenar campos de UI)
+  await startLocalOCR(file)
+
+  // Crear/asegurar ticket en backend (solo una vez) y lanzar OCR backend
+  try {
+    const createdOrExisting = await ensureTicketForTurnoWithFile(file)
+    if (createdOrExisting?.id) {
+      // Si el usuario rotó, informamos al backend antes del reocr
+      if (imageRotation.value) {
+        await FacturacionService.update(createdOrExisting.id, { image_rotation: imageRotation.value })
+      }
+      await FacturacionService.reocr(createdOrExisting.id)
+      snack.text = '✅ OCR del servidor ejecutado'
+      snack.show = true
+    }
+  } catch (err: any) {
+    console.error('Error creando/asegurando ticket:', err)
+    snack.text = `❌ No se pudo crear el ticket: ${err?.message || 'Error'}`
+    snack.show = true
+  }
+}
+
+async function startLocalOCR(file: File) {
   ocr.status = 'running'
   ocr.progress = 10
   ocr.text = ''
-
   try {
     const blob = await getRotatedBlob(file, imageRotation.value)
     const fd = new FormData()
@@ -1005,40 +1086,50 @@ async function startOCR(file: File) {
     const resp = await fetch('/api/ocr/parse-ticket', { method: 'POST', body: fd })
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
     const json = await resp.json() as { ok:boolean; text?:string; message?:string; campos?:any }
-
     if (!json?.ok || (!json.text && !json.campos)) throw new Error(json?.message || 'OCR vacío')
 
     ocr.status = 'done'
     ocr.progress = 100
-
-    if (json.campos) {
-      fillFromCampos(json.campos)
-    } else if (json.text) {
-      parseTicket(json.text)
-    }
-
+    if (json.campos) fillFromCampos(json.campos)
+    else if (json.text) parseTicket(json.text)
     if (form.placa) syncPlacaWithTurno()
-
     snack.text = '✅ OCR completado'
     snack.show = true
   } catch (err) {
-    console.error('❌ OCR backend error:', err)
+    console.error('❌ OCR local error:', err)
     ocr.status = 'idle'
-    snack.text = '❌ Error al procesar OCR'
+    snack.text = '❌ Error al procesar OCR local'
     snack.show = true
   }
 }
 
-/* ===================== Reset / Confirmar ===================== */
+async function retryOCR() {
+  if (!previewBlob.value) return
+  // Actualiza rotación en backend y re-OCR server si ya existe
+  if (currentTicketId.value) {
+    try {
+      await FacturacionService.update(currentTicketId.value, { image_rotation: imageRotation.value })
+      await FacturacionService.reocr(currentTicketId.value)
+      snack.text = '🔄 Reintento de OCR en servidor'
+      snack.show = true
+    } catch (e) {
+      console.error('reocr server error', e)
+    }
+  }
+  // Reprocesa local para UI
+  await startLocalOCR(previewBlob.value)
+}
+
+/* ===================== Reset ===================== */
 function resetAll() {
   previewUrl.value = null
   previewBlob.value = null
   imageRotation.value = 0
   imageScale.value = 1
-
   ocr.status = 'idle'
   ocr.progress = 0
   ocr.text = ''
+  currentTicketId.value = null
 
   form.placa = ''
   form.total = 0
@@ -1060,18 +1151,178 @@ function resetAll() {
   totalFacturaDisplay.value = ''
   hora12.value = ''
 }
-function confirmar() {
-  snack.text = '✅ (demo) Datos listos para guardar/confirmar'
-  snack.show = true
+
+/* ===================== Confirmación y Guardado (sin re-POST de archivo) ===================== */
+function openConfirm() {
+  if (!requeridosOk.value) {
+    snack.text = 'Completa placa, total, fecha y hora antes de confirmar.'
+    snack.show = true
+    return
+  }
+  dialogConfirm.value = true
+}
+
+async function confirmarYGuardar() {
+  if (saving.value) return
+  saving.value = true
+  try {
+    // Asegura que exista un ticket en backend (si el usuario pegó imagen pero no se creó aún)
+    if (!currentTicketId.value && previewBlob.value) {
+      const ensured = await ensureTicketForTurnoWithFile(previewBlob.value)
+      if (ensured?.id) currentTicketId.value = ensured.id
+    }
+    const id = currentTicketId.value
+    if (!id) throw new Error('No hay ticket creado para este turno')
+
+    // 1) PATCH con campos finales
+    await FacturacionService.update(id, {
+      placa: String(form.placa || '').toUpperCase(),
+      fecha_pago: form.fecha, // ISO (YYYY-MM-DD) → backend la convertirá a ISO completo
+      // Enviamos hora aparte si tu backend la compone; si espera ISO completo, compón aquí.
+      // Campos de totales:
+      total: form.totalFactura || form.total || 0,
+      subtotal: form.subtotal || null,
+      iva: form.iva || null,
+      total_factura: form.totalFactura || null,
+      // Datos extra:
+      vendedor_text: form.vendedor || null,
+      prefijo: form.prefijo || null,
+      consecutivo: form.consecutivo || null,
+      nit: form.nit || null,
+      pin: form.pin || null,
+      marca: form.marca || null,
+      image_rotation: imageRotation.value || 0,
+    })
+
+    // 2) Confirmar
+    const confirmed = await FacturacionService.confirmar(id)
+    result.value = confirmed || { ok: true }
+    dialogConfirm.value = false
+    dialogResult.value = true
+    snack.text = '✅ Facturación guardada y confirmada'
+    snack.show = true
+  } catch (err: any) {
+    console.error('confirmarYGuardar error:', err)
+    snack.text = `❌ No se pudo guardar: ${err?.message || 'Error desconocido'}`
+    snack.show = true
+  } finally {
+    saving.value = false
+  }
+}
+
+function closeResult() { dialogResult.value = false }
+function goToDetalle(id: number | string) {
+  router.push({ path: '/facturacion/historico', query: { focus: String(id) } })
+}
+
+/* ===================== Carga del turno ===================== */
+async function fetchTurnoAndHydrate() {
+  const id = getTurnoIdFromQuery()
+  if (!id) return
+  try {
+    const t = await TurnosDelDiaService.fetchTurnoById(id)
+    hydrateTurnoCard(t as any)
+  } catch (e) {
+    console.error('No se pudo cargar el turno asociado:', e)
+  }
 }
 
 /* ===================== Listeners globales ===================== */
 onMounted(async () => {
   window.addEventListener('paste', onPaste)
   await fetchTurnoAndHydrate()
+
+  // Si ya existe ticket para el turno (entraron por "revisión"):
+  const turnoId = getTurnoIdFromQuery()
+  if (turnoId) {
+    const existing = await findExistingTicketByTurno(turnoId)
+    if (existing) currentTicketId.value = existing.id
+  }
+
   if (form.placa) syncPlacaWithTurno()
 })
 onBeforeUnmount(() => {
   window.removeEventListener('paste', onPaste)
 })
 </script>
+
+
+
+<style scoped>
+/* ===== Cards & layout ===== */
+.v-card {
+  box-shadow: 0 10px 20px rgba(0,0,0,0.08), 0 6px 6px rgba(0,0,0,0.05);
+  border-radius: 16px;
+}
+
+.section-title {
+  font-weight: 700;
+  margin-bottom: 10px;
+  font-size: 0.95rem;
+  letter-spacing: .3px;
+}
+
+.label {
+  font-size: .75rem;
+  color: #6b7280; /* text-gray-500 */
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+
+.value {
+  font-weight: 600;
+}
+
+/* ===== Dropzone & preview ===== */
+.dropzone {
+  border: 2px dashed rgba(0,0,0,.25);
+  padding: 22px;
+  cursor: pointer;
+  background: #fffceb;
+  transition: 0.3s;
+  border-radius: 12px;
+}
+
+.dropzone--active {
+  background: #fff4c0;
+  border-color: #e3b505;
+}
+
+.preview-wrapper .preview-canvas {
+  width: 100%;
+  max-height: 60vh;
+  overflow: auto;
+  background: #fafafa;
+  border: 1px solid #eee;
+  border-radius: 12px;
+  padding: 8px;
+  text-align: center;
+}
+
+.preview-canvas img {
+  max-width: 100%;
+  transition: transform .2s ease;
+}
+
+/* ===== Captación chips / lines ===== */
+.capt-line {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+/* ===== Small helpers ===== */
+.text-medium-emphasis {
+  color: rgba(0,0,0,.6);
+}
+
+.rounded-xl { border-radius: 16px; }
+.rounded-2xl { border-radius: 20px; }
+
+/* Make dialog content breathe a bit more on desktop */
+:deep(.v-dialog .v-card) {
+  border-radius: 16px;
+}
+</style>
