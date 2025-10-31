@@ -175,12 +175,7 @@
             <v-divider class="my-4" />
             <div class="text-subtitle-2 mb-2">Captación / Dateo</div>
 
-            <!-- Canal (si existe) -->
-            <div class="capt-line" v-if="turnoCard.captacionCanal">
-              <v-chip size="small" :color="canalChipColor(turnoCard.captacionCanal)" variant="tonal">
-                {{ humanCanal(turnoCard.captacionCanal) }}
-              </v-chip>
-            </div>
+
 
             <!-- Asesor Comercial -->
             <div class="capt-line" v-if="turnoCard.agenteComercialNombre">
@@ -438,8 +433,6 @@
     <v-snackbar v-model="snack.show" :timeout="3000">{{ snack.text }}</v-snackbar>
   </v-container>
 </template>
-
-
 <script setup lang="ts">
 /**
  * Facturación / Subir ticket — BLOQUE SCRIPT (actualizado para evitar 409 por duplicado)
@@ -812,6 +805,19 @@ type Card = {
 }
 const turnoCard = reactive<Card>({})
 
+/* === IDs crudos del turno para snapshots/asincronía === */
+const turnoMeta = reactive<{
+  servicioId: number | null
+  sedeId: number | null
+  dateoId: number | null
+  agenteId: number | null
+}>({
+  servicioId: null,
+  sedeId: null,
+  dateoId: null,
+  agenteId: null,
+})
+
 function mapClaseToTipo(clase?: { id?: number; codigo?: string; nombre?: string } | null): string | null {
   if (!clase) return null
   const code = String(clase.codigo || '').toUpperCase()
@@ -826,7 +832,7 @@ function humanCanal(c?: Canal | null) {
   const v = String(c || '').toUpperCase()
   if (!v) return ''
   const map: Record<string,string> = {
-   
+
     'ASESOR_COMERCIAL': 'Asesor comercial',
     'ASESOR': 'Asesor comercial',
     'TELEMERCADEO': 'Call Center',
@@ -904,6 +910,13 @@ function hydrateTurnoCard(turno: any) {
     dateo?.convenio?.nombre ?? turno.convenio?.nombre ?? turno.convenioNombre ?? null
 
   if (form.placa) syncPlacaWithTurno()
+
+  // === IDs crudos para sincronía con backend ===
+  turnoMeta.servicioId = (turno.servicio?.id ?? turno.servicio_id ?? null) as number | null
+  turnoMeta.sedeId     = (turno.sede?.id     ?? turno.sede_id     ?? null) as number | null
+  const _dateo = turno.captacionDateo ?? turno.dateo ?? null
+  turnoMeta.dateoId    = (_dateo?.id ?? turno.dateo_id ?? null) as number | null
+  turnoMeta.agenteId   = (turno.agenteCaptacion?.id ?? turno.agente_id ?? null) as number | null
 }
 
 /* ===================== Sincronización de PLACA ===================== */
@@ -931,6 +944,7 @@ function correctByExpected(ocr: string, expected: 'carro'|'moto'|'desconocido'):
     if (s.length >= 6) {
       const l1 = s.slice(0,3).replace(/\d/g, ch => toLetter[ch] ?? ch)
       const d2 = s.slice(3,5).replace(/[A-Z]/g, ch => toDigit[ch] ?? ch)
+
       const l3 = (toLetter[s[5]] ?? s[5] ?? '')
       s = l1 + d2 + l3
     }
@@ -1016,10 +1030,13 @@ async function ensureTicketForTurnoWithFile(file: File) {
     return existing
   }
 
-  // 2) Crear una sola vez (sin repetir POST). Rotación como metadato.
+  // 2) Crear una sola vez (sin repetir POST). Rotación como metadato + IDs de snapshot.
   const created = await FacturacionService.createFromFile({
     file,
     turno_id: turnoId,
+    dateo_id: turnoMeta.dateoId ?? undefined,
+    sede_id: turnoMeta.sedeId ?? undefined,
+    servicio_id: turnoMeta.servicioId ?? undefined,
     image_rotation: imageRotation.value || 0,
   })
   currentTicketId.value = created.id
@@ -1174,11 +1191,15 @@ async function confirmarYGuardar() {
     const id = currentTicketId.value
     if (!id) throw new Error('No hay ticket creado para este turno')
 
-    // 1) PATCH con campos finales
+    // Componer fecha_pago en ISO completo (America/Bogota = -05:00)
+    const fechaPagoISO = form.fecha && form.hora
+      ? `${form.fecha}T${form.hora}-05:00`
+      : null
+
+    // 1) PATCH con campos finales (+ IDs por si el ticket se creó sin alguno)
     await FacturacionService.update(id, {
       placa: String(form.placa || '').toUpperCase(),
-      fecha_pago: form.fecha, // ISO (YYYY-MM-DD) → backend la convertirá a ISO completo
-      // Enviamos hora aparte si tu backend la compone; si espera ISO completo, compón aquí.
+      fecha_pago: fechaPagoISO, // ISO completo
       // Campos de totales:
       total: form.totalFactura || form.total || 0,
       subtotal: form.subtotal || null,
@@ -1192,6 +1213,11 @@ async function confirmarYGuardar() {
       pin: form.pin || null,
       marca: form.marca || null,
       image_rotation: imageRotation.value || 0,
+      // IDs de asociación/snapshot
+      turno_id: getTurnoIdFromQuery(),
+      dateo_id: turnoMeta.dateoId,
+      sede_id: turnoMeta.sedeId,
+      servicio_id: turnoMeta.servicioId,
     })
 
     // 2) Confirmar
@@ -1245,9 +1271,6 @@ onBeforeUnmount(() => {
   window.removeEventListener('paste', onPaste)
 })
 </script>
-
-
-
 <style scoped>
 /* ===== Cards & layout ===== */
 .v-card {

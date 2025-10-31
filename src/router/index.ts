@@ -51,6 +51,13 @@ const routes = [
     component: () => import('@/views/facturacion/FacturacionSubirTicket.vue'),
     meta: { layout: 'MainLayout', title: 'Facturación / Subir ticket' },
   },
+  // 🧾 NUEVO: Histórico
+  {
+    path: '/facturacion/historico',
+    name: 'FacturacionHistorico',
+    component: () => import('@/views/facturacion/FacturacionHistorico.vue'),
+    meta: { layout: 'MainLayout', title: 'Facturación / Histórico' },
+  },
 
   // Gestión Documental / Usuarios
   { path: '/gestion-documental/usuarios', name: 'Usuarios', component: UsuariosView, meta: { layout: 'MainLayout' } },

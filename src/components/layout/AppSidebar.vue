@@ -46,9 +46,14 @@
 
         <!-- 🧾 Facturación -->
         <v-list-item
-          title="Facturación "
-          
+          title="Facturación / Subir ticket"
           :to="{ path: '/facturacion/subir-ticket' }"
+          link
+        />
+        <!-- 🧾 NUEVO: Histórico facturación -->
+        <v-list-item
+          title="Histórico facturación"
+          :to="{ path: '/facturacion/historico' }"
           link
         />
       </v-list-group>
