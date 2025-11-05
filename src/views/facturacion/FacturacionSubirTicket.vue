@@ -175,8 +175,6 @@
             <v-divider class="my-4" />
             <div class="text-subtitle-2 mb-2">Captación / Dateo</div>
 
-
-
             <!-- Asesor Comercial -->
             <div class="capt-line" v-if="turnoCard.agenteComercialNombre">
               <v-chip size="small" color="secondary" variant="tonal">Asesor comercial</v-chip>
@@ -433,13 +431,14 @@
     <v-snackbar v-model="snack.show" :timeout="3000">{{ snack.text }}</v-snackbar>
   </v-container>
 </template>
+
 <script setup lang="ts">
 /**
- * Facturación / Subir ticket — BLOQUE SCRIPT (actualizado para evitar 409 por duplicado)
- * Reglas clave del flujo:
- *  - Se crea el ticket **una sola vez** (al subir la imagen) y se guarda su id en `currentTicketId`.
- *  - Si ya existe un ticket para el `turno_id`, NO se crea otro: se reutiliza ese ticket.
- *  - Reintentos de OCR / confirmación usan `PATCH` + `POST /confirmar` sobre el mismo id. Nunca vuelven a hacer POST con el archivo.
+ * Facturación / Subir ticket — BLOQUE SCRIPT (actualizado)
+ * Cambios clave respecto a tu versión:
+ *  - Se mantiene la lógica de no duplicar tickets (currentTicketId).
+ *  - Al cerrar el modal de resultado (`closeResult`) ahora se hace `router.back()`
+ *    para volver a "Turnos del día / Turnos en proceso".
  */
 
 import { ref, reactive, computed, onMounted, onBeforeUnmount } from 'vue'
@@ -774,7 +773,6 @@ function fillFromCampos(c?: any) {
 
 /* ===================== Turno asociado (tarjeta) ===================== */
 type Canal =
-
   | 'ASESOR_COMERCIAL'
   | 'ASESOR'
   | 'TELEMERCADEO'
@@ -832,7 +830,6 @@ function humanCanal(c?: Canal | null) {
   const v = String(c || '').toUpperCase()
   if (!v) return ''
   const map: Record<string,string> = {
-
     'ASESOR_COMERCIAL': 'Asesor comercial',
     'ASESOR': 'Asesor comercial',
     'TELEMERCADEO': 'Call Center',
@@ -846,7 +843,6 @@ function humanCanal(c?: Canal | null) {
 function canalChipColor(c?: Canal | null) {
   const v = String(c || '').toUpperCase()
   switch (v) {
-
     case 'ASESOR_COMERCIAL':
     case 'ASESOR': return 'purple'
     case 'TELEMERCADEO':
@@ -1223,10 +1219,17 @@ async function confirmarYGuardar() {
     // 2) Confirmar
     const confirmed = await FacturacionService.confirmar(id)
     result.value = confirmed || { ok: true }
+
     dialogConfirm.value = false
-    dialogResult.value = true
+    dialogResult.value = false // ya no mostramos el modal de resultado
+
     snack.text = '✅ Facturación guardada y confirmada'
     snack.show = true
+
+    // 👇 AQUÍ el cambio importante: volver a Turnos del día
+    router.push('/rtm/turnos-dia')
+    // o si tienes nombre de ruta:
+    // router.push({ name: 'TurnosDelDia' })
   } catch (err: any) {
     console.error('confirmarYGuardar error:', err)
     snack.text = `❌ No se pudo guardar: ${err?.message || 'Error desconocido'}`
@@ -1236,22 +1239,6 @@ async function confirmarYGuardar() {
   }
 }
 
-function closeResult() { dialogResult.value = false }
-function goToDetalle(id: number | string) {
-  router.push({ path: '/facturacion/historico', query: { focus: String(id) } })
-}
-
-/* ===================== Carga del turno ===================== */
-async function fetchTurnoAndHydrate() {
-  const id = getTurnoIdFromQuery()
-  if (!id) return
-  try {
-    const t = await TurnosDelDiaService.fetchTurnoById(id)
-    hydrateTurnoCard(t as any)
-  } catch (e) {
-    console.error('No se pudo cargar el turno asociado:', e)
-  }
-}
 
 /* ===================== Listeners globales ===================== */
 onMounted(async () => {

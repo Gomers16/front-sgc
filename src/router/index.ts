@@ -37,12 +37,52 @@ const routes = [
 
   // RTM
   { path: '/rtm', name: 'RTM', component: RTMView, meta: { layout: 'MainLayout' } },
-  { path: '/rtm/crear-turno', name: 'CrearTurno', component: CrearTurnoView, meta: { layout: 'MainLayout' } },
-  { path: '/rtm/turnos-dia', name: 'TurnosDelDia', component: TurnosDelDia, meta: { layout: 'MainLayout' } },
-  { path: '/rtm/editar-turno/:id', name: 'TurnoRtmEdit', component: TurnoRtmEdit, props: true, meta: { layout: 'MainLayout' } },
-  { path: '/rtm/estado-turnos', name: 'EstadoDeTurnos', component: EstadoDeTurnos, meta: { layout: 'MainLayout' } },
-  { path: '/rtm/contador-captacion', name: 'ContadorCaptacion', component: ContadorConvenios, meta: { layout: 'MainLayout' } },
-  { path: '/rtm/proximamente', name: 'Proximamente', component: Vistadesarrollo, meta: { layout: 'MainLayout' } },
+  {
+    path: '/rtm/crear-turno',
+    name: 'CrearTurno',
+    component: CrearTurnoView,
+    meta: { layout: 'MainLayout' },
+  },
+  {
+    path: '/rtm/turnos-dia',
+    name: 'TurnosDelDia',
+    component: TurnosDelDia,
+    meta: { layout: 'MainLayout' },
+  },
+  {
+    path: '/rtm/editar-turno/:id',
+    name: 'TurnoRtmEdit',
+    component: TurnoRtmEdit,
+    props: true,
+    meta: { layout: 'MainLayout' },
+  },
+  {
+    path: '/rtm/estado-turnos',
+    name: 'EstadoDeTurnos',
+    component: EstadoDeTurnos,
+    meta: { layout: 'MainLayout' },
+  },
+  {
+    path: '/rtm/contador-captacion',
+    name: 'ContadorCaptacion',
+    component: ContadorConvenios,
+    meta: { layout: 'MainLayout' },
+  },
+  {
+    path: '/rtm/proximamente',
+    name: 'Proximamente',
+    component: Vistadesarrollo,
+    meta: { layout: 'MainLayout' },
+  },
+
+  // ✅ NUEVO: Certificación RTM (pantallazo FLUR)
+  {
+    path: '/rtm/certificacion/:id',
+    name: 'RtmCertificacion',
+    component: () => import('@/views/rtm/CertificacionTurnoView.vue'),
+    props: true,
+    meta: { layout: 'MainLayout', title: 'Certificación / Evidencia' },
+  },
 
   // 🧾 FACTURACIÓN
   {
@@ -51,7 +91,6 @@ const routes = [
     component: () => import('@/views/facturacion/FacturacionSubirTicket.vue'),
     meta: { layout: 'MainLayout', title: 'Facturación / Subir ticket' },
   },
-  // 🧾 NUEVO: Histórico
   {
     path: '/facturacion/historico',
     name: 'FacturacionHistorico',
@@ -60,8 +99,19 @@ const routes = [
   },
 
   // Gestión Documental / Usuarios
-  { path: '/gestion-documental/usuarios', name: 'Usuarios', component: UsuariosView, meta: { layout: 'MainLayout' } },
-  { path: '/usuarios/:id', name: 'UserProfile', component: UserProfileView, props: true, meta: { layout: 'MainLayout' } },
+  {
+    path: '/gestion-documental/usuarios',
+    name: 'Usuarios',
+    component: UsuariosView,
+    meta: { layout: 'MainLayout' },
+  },
+  {
+    path: '/usuarios/:id',
+    name: 'UserProfile',
+    component: UserProfileView,
+    props: true,
+    meta: { layout: 'MainLayout' },
+  },
   {
     path: '/gestion-documental/razon-social/:id',
     name: 'RazonSocialDetalle',
@@ -69,10 +119,20 @@ const routes = [
     props: true,
     meta: { layout: 'MainLayout' },
   },
-  { path: '/gestion-documental/contratos', name: 'Contratos', component: ContratosView, meta: { layout: 'MainLayout' } },
+  {
+    path: '/gestion-documental/contratos',
+    name: 'Contratos',
+    component: ContratosView,
+    meta: { layout: 'MainLayout' },
+  },
 
   // COMERCIAL
-  { path: '/comercial/buscar', name: 'ComercialBuscar', component: () => import('@/views/comercial/BuscarView.vue'), meta: { layout: 'MainLayout' } },
+  {
+    path: '/comercial/buscar',
+    name: 'ComercialBuscar',
+    component: () => import('@/views/comercial/BuscarView.vue'),
+    meta: { layout: 'MainLayout' },
+  },
 
   // Asesores + convenios
   {
@@ -81,7 +141,6 @@ const routes = [
     component: () => import('@/views/comercial/asesores/AsesoresConveniosView.vue'),
     meta: { layout: 'MainLayout' },
   },
-  // ✅ Ficha comercial del asesor
   {
     path: '/comercial/asesores/:id/ficha',
     name: 'FichaComercialAsesor',
@@ -91,17 +150,54 @@ const routes = [
   },
 
   // Dateos
-  { path: '/comercial/dateos', name: 'ComercialDateos', component: DateosList, meta: { layout: 'MainLayout' } },
-  { path: '/comercial/dateos/nuevo', name: 'ComercialDateosNuevo', component: DateoCreate, meta: { layout: 'MainLayout' } },
-  { path: '/comercial/dateos/:id', name: 'ComercialDateoDetalle', component: DateoDetail, props: true, meta: { layout: 'MainLayout' } },
+  {
+    path: '/comercial/dateos',
+    name: 'ComercialDateos',
+    component: DateosList,
+    meta: { layout: 'MainLayout' },
+  },
+  {
+    path: '/comercial/dateos/nuevo',
+    name: 'ComercialDateosNuevo',
+    component: DateoCreate,
+    meta: { layout: 'MainLayout' },
+  },
+  {
+    path: '/comercial/dateos/:id',
+    name: 'ComercialDateoDetalle',
+    component: DateoDetail,
+    props: true,
+    meta: { layout: 'MainLayout' },
+  },
 
   // Convenios
-  { path: '/comercial/convenios', name: 'ComercialConvenios', component: () => import('@/views/comercial/convenios/ConveniosList.vue'), meta: { layout: 'MainLayout' } },
-  { path: '/comercial/convenios/:id', name: 'ComercialConvenioDetalle', component: () => import('@/views/comercial/convenios/ConvenioDetail.vue'), props: true, meta: { layout: 'MainLayout' } },
+  {
+    path: '/comercial/convenios',
+    name: 'ComercialConvenios',
+    component: () => import('@/views/comercial/convenios/ConveniosList.vue'),
+    meta: { layout: 'MainLayout' },
+  },
+  {
+    path: '/comercial/convenios/:id',
+    name: 'ComercialConvenioDetalle',
+    component: () => import('@/views/comercial/convenios/ConvenioDetail.vue'),
+    props: true,
+    meta: { layout: 'MainLayout' },
+  },
 
   // Prospectos
-  { path: '/comercial/prospectos', name: 'ComercialProspectos', component: () => import('@/views/comercial/prospectos/ProspectosList.vue'), meta: { layout: 'MainLayout' } },
-  { path: '/comercial/prospectos/nuevo', name: 'ComercialProspectoNuevo', component: () => import('@/views/comercial/prospectos/ProspectoCreate.vue'), meta: { layout: 'MainLayout' } },
+  {
+    path: '/comercial/prospectos',
+    name: 'ComercialProspectos',
+    component: () => import('@/views/comercial/prospectos/ProspectosList.vue'),
+    meta: { layout: 'MainLayout' },
+  },
+  {
+    path: '/comercial/prospectos/nuevo',
+    name: 'ComercialProspectoNuevo',
+    component: () => import('@/views/comercial/prospectos/ProspectoCreate.vue'),
+    meta: { layout: 'MainLayout' },
+  },
   {
     path: '/comercial/prospectos/:id(\\d+)',
     name: 'ComercialProspectoDetalle',
@@ -112,15 +208,34 @@ const routes = [
   {
     path: '/comercial/prospectos/:id(\\d+)',
     name: 'comercial.prospectos.detail',
-    redirect: (to: { params: any }) => ({ name: 'ComercialProspectoDetalle', params: to.params }),
+    redirect: (to: { params: any }) => ({
+      name: 'ComercialProspectoDetalle',
+      params: to.params,
+    }),
   },
 
   // Comisiones
-  { path: '/comercial/comisiones', name: 'ComercialComisiones', component: ComisionesList, meta: { layout: 'MainLayout' } },
-  { path: '/comercial/comisiones/:id', name: 'ComercialComisionDetalle', component: ComisionDetail, props: true, meta: { layout: 'MainLayout' } },
+  {
+    path: '/comercial/comisiones',
+    name: 'ComercialComisiones',
+    component: ComisionesList,
+    meta: { layout: 'MainLayout' },
+  },
+  {
+    path: '/comercial/comisiones/:id',
+    name: 'ComercialComisionDetalle',
+    component: ComisionDetail,
+    props: true,
+    meta: { layout: 'MainLayout' },
+  },
 
-  // 👇👇👇 CLIENTES
-  { path: '/clientes', name: 'ClientesList', component: () => import('@/views/comercial/clientes/ClientesList.vue'), meta: { layout: 'MainLayout' } },
+  // CLIENTES
+  {
+    path: '/clientes',
+    name: 'ClientesList',
+    component: () => import('@/views/comercial/clientes/ClientesList.vue'),
+    meta: { layout: 'MainLayout' },
+  },
   {
     path: '/clientes/:id(\\d+)',
     name: 'ClienteDetalle',
@@ -138,9 +253,15 @@ const router = createRouter({
 /** Limpieza de params extra en navegaciones por name (opcional pero inofensivo) */
 type NamedLocation = { name: string | symbol }
 type ParamLocation = { params?: RouteParamsRaw }
-function isObject(v: unknown): v is Record<string, unknown> { return typeof v === 'object' && v !== null }
-function hasName(v: unknown): v is NamedLocation { return isObject(v) && 'name' in v }
-function hasParams(v: unknown): v is ParamLocation { return isObject(v) && 'params' in v }
+function isObject(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null
+}
+function hasName(v: unknown): v is NamedLocation {
+  return isObject(v) && 'name' in v
+}
+function hasParams(v: unknown): v is ParamLocation {
+  return isObject(v) && 'params' in v
+}
 function toRouteParam(v: unknown): RouteParamValueRaw | (string | number)[] {
   if (Array.isArray(v)) return v.map((x) => (typeof x === 'string' || typeof x === 'number' ? x : String(x)))
   if (typeof v === 'string' || typeof v === 'number') return v
@@ -166,7 +287,7 @@ function cleanParamsForRoute(to: RouteLocationRaw): RouteLocationRaw {
 const originalResolve = router.resolve.bind(router)
 ;(router as { resolve: typeof router.resolve }).resolve = (
   rawTo: string | RouteLocationAsRelativeGeneric | RouteLocationAsPathGeneric,
-  current: RouteLocationNormalizedLoadedGeneric | undefined
+  current: RouteLocationNormalizedLoadedGeneric | undefined,
 ) => originalResolve(cleanParamsForRoute(rawTo), current)
 
 export default router

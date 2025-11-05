@@ -1,9 +1,12 @@
 <template>
   <v-container class="mt-6">
     <v-card elevation="8" class="pa-8 rounded-xl bg-background-light">
-      <v-card-title class="text-h4 mb-6 font-weight-bold d-flex justify-center title-full-bordered-container">
+      <v-card-title
+        class="text-h4 mb-6 font-weight-bold d-flex justify-center title-full-bordered-container"
+      >
         <span class="title-text-with-border">
-          📋 Turnos en Proceso <span class="text-secondary">(HOY - {{ todayDate }})</span>
+          📋 Turnos de Hoy
+          <span class="text-secondary">(HOY - {{ todayDate }})</span>
         </span>
       </v-card-title>
 
@@ -21,6 +24,7 @@
             Refrescar
           </v-btn>
         </v-col>
+
         <v-col cols="12" sm="6" md="4" class="text-sm-right text-md-center">
           <v-btn
             color="info"
@@ -33,6 +37,7 @@
             Ver estadísticas del día
           </v-btn>
         </v-col>
+
         <v-col cols="12" md="4" class="text-md-right">
           <v-btn
             color="success"
@@ -47,21 +52,36 @@
         </v-col>
       </v-row>
 
-      <v-divider class="my-6"></v-divider>
+      <v-divider class="my-6" />
 
+      <!-- Loading -->
       <v-row v-if="isLoading" class="justify-center my-10">
-        <v-progress-circular indeterminate color="primary" size="64"></v-progress-circular>
-        <p class="text-center text-subtitle-1 mt-4">Cargando turnos del día...</p>
+        <v-progress-circular
+          indeterminate
+          color="primary"
+          size="64"
+        />
+        <p class="text-center text-subtitle-1 mt-4">
+          Cargando turnos del día...
+        </p>
       </v-row>
 
+      <!-- Sin turnos -->
       <v-row v-else-if="turnos.length === 0" class="justify-center my-10">
         <v-col cols="12" class="text-center">
-          <v-icon size="64" color="grey-lighten-1">mdi-inbox-remove-outline</v-icon>
-          <p class="text-h6 text-grey-darken-1 mt-4">No hay turnos en proceso para hoy.</p>
-          <p class="text-body-1 text-grey-darken-1">¡Es un buen momento para crear uno nuevo!</p>
+          <v-icon size="64" color="grey-lighten-1">
+            mdi-inbox-remove-outline
+          </v-icon>
+          <p class="text-h6 text-grey-darken-1 mt-4">
+            No hay turnos para hoy.
+          </p>
+          <p class="text-body-1 text-grey-darken-1">
+            ¡Es un buen momento para crear uno nuevo!
+          </p>
         </v-col>
       </v-row>
 
+      <!-- Tarjetas -->
       <v-row v-else>
         <v-col
           v-for="turno in turnos"
@@ -71,54 +91,117 @@
           md="4"
           lg="3"
         >
-          <v-card class="turno-card pa-4 rounded-lg elevation-4" color="primary">
+          <v-card
+            class="turno-card pa-4 rounded-lg elevation-4"
+            :color="turno.estado === 'finalizado' ? 'success' : 'primary'"
+          >
             <v-card-title class="text-h6 font-weight-bold pb-2 text-on-primary-text">
               🔢 Turno: {{ turno.turnoNumero }}
             </v-card-title>
 
             <v-card-text>
+              <!-- Chip de estado (En proceso / Finalizado) -->
+              <v-chip
+                class="mb-3"
+                size="small"
+                :color="turno.estado === 'finalizado' ? 'light-green-accent-3' : 'amber'"
+                variant="elevated"
+                label
+              >
+                {{ turno.estado === 'finalizado' ? 'Finalizado' : 'En proceso' }}
+              </v-chip>
+
               <p class="text-subtitle-1 text-on-primary-text">
                 🛠 Servicio:
-                <span class="font-weight-medium">{{ getServicioCodigo(turno) }}</span>
+                <span class="font-weight-medium">
+                  {{ getServicioCodigo(turno) }}
+                </span>
               </p>
               <p class="text-subtitle-1 text-on-primary-text">
-                🚗 Placa: <span class="font-weight-medium">{{ turno.placa }}</span>
+                🚗 Placa:
+                <span class="font-weight-medium">{{ turno.placa }}</span>
               </p>
               <p class="text-subtitle-1 text-on-primary-text">
-                ⏰ Ingreso: <span class="font-weight-medium">{{ formatTime(turno.horaIngreso) }}</span>
+                ⏰ Ingreso:
+                <span class="font-weight-medium">
+                  {{ formatTime(turno.horaIngreso) }}
+                </span>
               </p>
 
-              <p class="text-subtitle-1 mt-3 font-weight-bold text-on-primary-text">📌 Etapas:</p>
+              <p
+                class="text-subtitle-1 mt-3 font-weight-bold text-on-primary-text"
+              >
+                📌 Etapas:
+              </p>
+
               <v-list dense class="py-0 bg-transparent">
-                <v-list-item v-for="(etapa, i) in getEtapas(turno)" :key="i" class="py-0 px-0">
+                <v-list-item
+                  v-for="(etapa, i) in getEtapas(turno)"
+                  :key="etapa.key || i"
+                  class="py-0 px-0"
+                >
                   <template #prepend>
-                    <v-icon :color="etapa.completed ? 'success' : 'on-primary-text-light'">
-                      {{ etapa.completed ? 'mdi-check-circle' : 'mdi-circle-outline' }}
+                    <v-icon
+                      :color="iconColor(etapa, turno)"
+                      :class="{
+                        'etapa-icon-completed-finalizado':
+                          etapa.completed && turno.estado === 'finalizado',
+                      }"
+                    >
+                      {{
+                        etapa.completed
+                          ? 'mdi-check-circle'
+                          : 'mdi-circle-outline'
+                      }}
                     </v-icon>
                   </template>
 
-                  <!-- 👇 ÚNICO CAMBIO: Etapa 'Facturación' clickeable -->
-                  <v-list-item-title
-                    v-if="etapa.name !== 'Facturación'"
-                    :class="{
-                      'text-decoration-line-through text-on-primary-text-faded': etapa.completed
-                    }"
-                    class="text-on-primary-text"
-                  >
-                    {{ etapa.name }}
-                  </v-list-item-title>
+                  <!-- Fila de etapa alineada: texto a la izq, hora a la der -->
+                  <div class="etapa-row">
+                    <div class="etapa-label">
+                      <!-- Texto / botón de etapa -->
+                      <template v-if="etapa.name === 'Facturación'">
+                        <v-btn
+                          variant="text"
+                          color="button-text-light-secondary"
+                          class="pa-0 text-capitalize text-on-primary-text"
+                          @click.stop="goToFacturacion(turno)"
+                        >
+                          Facturación
+                        </v-btn>
+                      </template>
 
-                  <v-list-item-title v-else class="text-on-primary-text">
-                    <v-btn
-                      variant="text"
-                      color="button-text-light-secondary"
-                      prepend-icon="mdi-cash-register"
-                      class="pa-0 text-capitalize"
-                      @click.stop="goToFacturacion(turno)"
+                      <template v-else-if="etapa.name === 'Certificación'">
+                        <v-btn
+                          variant="text"
+                          color="button-text-light-secondary"
+                          class="pa-0 text-capitalize text-on-primary-text"
+                          @click.stop="goToCertificacion(turno)"
+                        >
+                          Certificación
+                        </v-btn>
+                      </template>
+
+                      <span
+                        v-else
+                        :class="{
+                          'text-decoration-line-through text-on-primary-text-faded':
+                            etapa.completed && etapa.name !== 'Puerta',
+                        }"
+                        class="text-on-primary-text"
+                      >
+                        {{ etapa.name }}
+                      </span>
+                    </div>
+
+                    <!-- Hora alineada a la derecha y con ancho fijo -->
+                    <span
+                      v-if="etapa.time"
+                      class="text-on-primary-text-faded etapa-time"
                     >
-                      Facturación
-                    </v-btn>
-                  </v-list-item-title>
+                      {{ formatTime(etapa.time) }}
+                    </span>
+                  </div>
                 </v-list-item>
               </v-list>
             </v-card-text>
@@ -146,6 +229,7 @@
       </v-row>
     </v-card>
 
+    <!-- Snackbar -->
     <v-snackbar
       v-model="snackbar.show"
       :color="snackbar.color"
@@ -153,52 +237,90 @@
       location="top right"
     >
       {{ snackbar.message }}
-      <template v-slot:actions>
-        <v-btn color="white" variant="text" @click="snackbar.show = false">Cerrar</v-btn>
+      <template #actions>
+        <v-btn color="white" variant="text" @click="snackbar.show = false">
+          Cerrar
+        </v-btn>
       </template>
     </v-snackbar>
 
+    <!-- Diálogo confirmar acción -->
     <v-dialog v-model="confirmDialog.show" max-width="500">
       <v-card>
-        <v-card-title class="text-h6 font-weight-bold">{{ confirmDialog.title }}</v-card-title>
-        <v-card-text>{{ confirmDialog.message }}</v-card-text>
+        <v-card-title class="text-h6 font-weight-bold">
+          {{ confirmDialog.title }}
+        </v-card-title>
+        <v-card-text>
+          {{ confirmDialog.message }}
+        </v-card-text>
         <v-card-actions>
           <v-spacer />
-          <v-btn color="grey" variant="text" @click="confirmDialog.show = false">Cancelar</v-btn>
-          <v-btn :color="confirmDialog.color" variant="elevated" @click="handleConfirmAction" class="bordered-dialog-button">
+          <v-btn
+            color="grey"
+            variant="text"
+            @click="confirmDialog.show = false"
+          >
+            Cancelar
+          </v-btn>
+          <v-btn
+            :color="confirmDialog.color"
+            variant="elevated"
+            @click="handleConfirmAction"
+            class="bordered-dialog-button"
+          >
             Confirmar
           </v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
 
+    <!-- Modal estadísticas -->
     <v-dialog v-model="showStatsModal" max-width="800" content-class="elevation-24">
       <v-card class="rounded-xl bg-white">
-        <v-card-title class="text-h5 text-center text-primary font-weight-bold py-4">
-          📊 Estadísticas de Turnos en Proceso (Hoy)
+        <v-card-title
+          class="text-h5 text-center text-primary font-weight-bold py-4"
+        >
+          📊 Estadísticas de Turnos (Hoy)
         </v-card-title>
         <v-card-text>
-          <p class="text-h6 mb-4 text-center">Total de Turnos en Proceso: <strong>{{ turnos.length }}</strong></p>
+          <p class="text-h6 mb-4 text-center">
+            Total de Turnos (activos + finalizados):
+            <strong>{{ turnos.length }}</strong>
+          </p>
 
-          <v-divider class="my-4"></v-divider>
+          <v-divider class="my-4" />
 
           <v-row>
             <v-col cols="12" md="6">
               <v-card variant="outlined" class="pa-4">
-                <v-card-title class="text-h6 text-secondary">Por Tipo de Vehículo:</v-card-title>
-                <div style="height: 250px;">
+                <v-card-title class="text-h6 text-secondary">
+                  Por Tipo de Vehículo:
+                </v-card-title>
+                <div style="height: 250px">
                   <BarChart :data="chartDataTipoVehiculo" :options="chartOptions" />
                 </div>
               </v-card>
             </v-col>
+
             <v-col cols="12" md="6">
               <v-card variant="outlined" class="pa-4">
-                <v-card-title class="text-h6 text-secondary">Por Medio de Ingreso:</v-card-title>
+                <v-card-title class="text-h6 text-secondary">
+                  Por Medio de Ingreso:
+                </v-card-title>
                 <v-list density="compact">
-                  <v-list-item v-for="(count, medio) in statsData.medioEntero" :key="medio">
-                    <v-list-item-title class="font-weight-medium text-capitalize">{{ medio }}:</v-list-item-title>
+                  <v-list-item
+                    v-for="(count, medio) in statsData.medioEntero"
+                    :key="medio"
+                  >
+                    <v-list-item-title
+                      class="font-weight-medium text-capitalize"
+                    >
+                      {{ medio }}:
+                    </v-list-item-title>
                     <template #append>
-                      <v-chip color="blue-grey" label>{{ count }}</v-chip>
+                      <v-chip color="blue-grey" label>
+                        {{ count }}
+                      </v-chip>
                     </template>
                   </v-list-item>
                 </v-list>
@@ -207,7 +329,9 @@
           </v-row>
         </v-card-text>
         <v-card-actions class="justify-end py-4">
-          <v-btn color="primary" variant="elevated" @click="showStatsModal = false">Cerrar</v-btn>
+          <v-btn color="primary" variant="elevated" @click="showStatsModal = false">
+            Cerrar
+          </v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
@@ -230,33 +354,33 @@ import {
   CategoryScale,
   LinearScale,
   ArcElement,
-  type TooltipItem
-} from 'chart.js';
-import { Bar as BarChart } from 'vue-chartjs';
+  type TooltipItem,
+} from 'chart.js'
+import { Bar as BarChart } from 'vue-chartjs'
 
-ChartJS.register(Title, Tooltip, Legend, BarElement, CategoryScale, LinearScale, ArcElement);
+ChartJS.register(Title, Tooltip, Legend, BarElement, CategoryScale, LinearScale, ArcElement)
 
-// —— Tipos ——
+/* ===== Tipos ===== */
 interface ServicioEnTurno {
-  id: number;
-  codigoServicio: string;   // 'RTM' | 'PREV' | 'PERI'
-  nombreServicio: string;
+  id: number
+  codigoServicio: string   // 'RTM' | 'PREV' | 'PERI'
+  nombreServicio: string
 }
 
 interface Turno {
-  id: number;
-  fecha: string;
-  horaIngreso: string | null;
-  horaSalida: string | null;
-  tiempoServicio: string | null;
-  turnoNumero: number;
-  turnoCodigo?: string;
-  placa: string;
-  tipoVehiculo: 'carro' | 'moto' | 'taxi' | 'enseñanza' | null;
-  tieneCita: boolean;
-  convenio: string | null;
-  referidoInterno: string | null;
-  referidoExterno: string | null;
+  id: number
+  fecha: string
+  horaIngreso: string | null
+  horaSalida: string | null
+  tiempoServicio: string | null
+  turnoNumero: number
+  turnoCodigo?: string
+  placa: string
+  tipoVehiculo: 'carro' | 'moto' | 'taxi' | 'enseñanza' | null
+  tieneCita: boolean
+  convenio: string | null
+  referidoInterno: string | null
+  referidoExterno: string | null
   medioEntero:
     | 'Redes Sociales'
     | 'Convenio o Referido Externo'
@@ -264,32 +388,43 @@ interface Turno {
     | 'Fachada'
     | 'Referido Interno'
     | 'Asesor Comercial'
-    | null;
-  observaciones: string | null;
-  funcionarioId: number;
-  estado: 'activo' | 'inactivo' | 'cancelado' | 'finalizado';
+    | null
+  observaciones: string | null
+  funcionarioId: number
+  estado: 'activo' | 'inactivo' | 'cancelado' | 'finalizado'
 
-  // 👇 NUEVO: datos de servicio
-  servicioId?: number | null;
-  servicio?: ServicioEnTurno | null;
-  servicioCodigo?: 'RTM' | 'PREV' | 'PERI' | string;
-  servicioNombre?: string;
+  servicioId?: number | null
+  servicio?: ServicioEnTurno | null
+  servicioCodigo?: 'RTM' | 'PREV' | 'PERI' | string
+  servicioNombre?: string
 
   funcionario?: {
-    id: number;
-    nombres: string;
-    apellidos: string;
-  };
-  createdAt: string;
-  updatedAt: string;
+    id: number
+    nombres: string
+    apellidos: string
+  }
+  createdAt: string
+  updatedAt: string
+
+  // viene del back
+  tieneFacturacion?: boolean | null
+  // hora en la que se confirmó la factura
+  horaFacturacion?: string | null
 }
 
+interface Etapa {
+  key: string
+  name: string
+  completed: boolean
+  time: string | null
+}
+
+/* ===== Estado ===== */
 const router = useRouter()
 const turnos = ref<Turno[]>([])
 const isLoading = ref(true)
 const todayDate = ref('')
 
-// Snackbar
 const snackbar = ref({
   show: false,
   message: '',
@@ -301,7 +436,7 @@ const showSnackbar = (message: string, color = 'info', timeout = 4000) => {
   snackbar.value = { show: true, message, color, timeout }
 }
 
-// Confirm dialog
+/* ===== Confirm dialog editar/continuar ===== */
 const confirmDialog = ref({
   show: false,
   title: '',
@@ -317,7 +452,9 @@ const openConfirmDialog = (turno: Turno, action: 'editar' | 'continuar') => {
     turno,
     action,
     title: action === 'editar' ? 'Editar Turno' : 'Continuar Turno',
-    message: `¿Está seguro que desea ${action === 'editar' ? 'editar' : 'continuar con'} el turno ${turno.turnoNumero}?`,
+    message: `¿Está seguro que desea ${
+      action === 'editar' ? 'editar' : 'continuar con'
+    } el turno ${turno.turnoNumero}?`,
     color: action === 'editar' ? 'warning' : 'secondary',
   }
 }
@@ -335,60 +472,109 @@ const handleConfirmAction = () => {
   }
 }
 
-// 👉 Navegar a Facturación con el turnoId como query
+/* ===== Ir a facturación ===== */
 const goToFacturacion = (turno: Turno) => {
-  router.push({ path: '/facturacion/subir-ticket', query: { turnoId: String(turno.id) } })
+  router.push({
+    path: '/facturacion/subir-ticket',
+    query: { turnoId: String(turno.id) },
+  })
 }
 
-// Utilidades
+/* ===== Ir a certificación ===== */
+const goToCertificacion = (turno: Turno) => {
+  router.push({
+    name: 'RtmCertificacion',
+    params: { id: turno.id },
+  })
+}
+
+/* ===== Helpers ===== */
 const formatTime = (timeString: string | null): string => {
-  if (!timeString) return '';
-  let time: DateTime = DateTime.fromFormat(timeString, 'HH:mm:ss', { zone: 'America/Bogota' });
-  if (!time.isValid) time = DateTime.fromFormat(timeString, 'HH:mm', { zone: 'America/Bogota' });
-  return time.isValid ? time.toFormat('hh:mm a') : timeString ?? '';
-};
+  if (!timeString) return ''
+  let time: DateTime
 
-// 👇 NUEVO: función de presentación del código de servicio
+  // HH:mm / HH:mm:ss
+  if (/^\d{2}:\d{2}(:\d{2})?$/.test(timeString)) {
+    time = DateTime.fromFormat(
+      timeString,
+      timeString.length === 5 ? 'HH:mm' : 'HH:mm:ss',
+      { zone: 'America/Bogota' }
+    )
+  } else {
+    time = DateTime.fromISO(timeString, { zone: 'America/Bogota' })
+  }
+
+  return time.isValid ? time.toFormat('hh:mm a') : timeString ?? ''
+}
+
 const getServicioCodigo = (t: Turno): string => {
-  return t.servicio?.codigoServicio ?? t.servicioCodigo ?? '—';
-};
+  return t.servicio?.codigoServicio ?? t.servicioCodigo ?? '—'
+}
 
-// Datos del día
+/* ===== Color del ícono de la etapa (chulos blancos en finalizado) ===== */
+const iconColor = (etapa: Etapa, turno: Turno) => {
+  if (!etapa.completed) {
+    return 'on-primary-text-light'
+  }
+  if (turno.estado === 'finalizado') {
+    return 'white'
+  }
+  return 'success'
+}
+
+/* ===== Cargar turnos de hoy (activos + finalizados) ===== */
 const loadTurnosHoy = async () => {
   isLoading.value = true
   try {
-    const today = new Date();
+    const today = new Date()
     const options: Intl.DateTimeFormatOptions = {
       year: 'numeric',
       month: '2-digit',
       day: '2-digit',
-      timeZone: 'America/Bogota'
-    };
-    const formatter = new Intl.DateTimeFormat('es-CO', options);
-    const parts = formatter.formatToParts(today);
-    const year = parts.find(p => p.type === 'year')?.value;
-    const month = parts.find(p => p.type === 'month')?.value;
-    const day = parts.find(p => p.type === 'day')?.value;
-    const todayISO = `${year}-${month}-${day}`;
+      timeZone: 'America/Bogota',
+    }
+    const formatter = new Intl.DateTimeFormat('es-CO', options)
+    const parts = formatter.formatToParts(today)
+    const year = parts.find((p) => p.type === 'year')?.value
+    const month = parts.find((p) => p.type === 'month')?.value
+    const day = parts.find((p) => p.type === 'day')?.value
+    const todayISO = `${year}-${month}-${day}`
 
-    const filters = { fecha: todayISO };
-    const data = await TurnosDelDiaService.fetchTurnos(filters) as Turno[];
+    const filters = { fecha: todayISO }
+    const data = (await TurnosDelDiaService.fetchTurnos(filters)) as unknown as Turno[]
 
-    turnos.value = data.filter(turno => {
-      const turnoFechaNormalizada = turno.fecha ? new Date(turno.fecha).toISOString().slice(0, 10) : '';
-      const isToday = turnoFechaNormalizada === todayISO;
-      const isInProcess = turno.estado === 'activo' || (turno.horaIngreso && !turno.horaSalida);
-      return isToday && isInProcess;
-    });
+    turnos.value = data.filter((turno) => {
+      const turnoFechaNormalizada = turno.fecha
+        ? new Date(turno.fecha).toISOString().slice(0, 10)
+        : ''
+      const isToday = turnoFechaNormalizada === todayISO
 
-    showSnackbar(`Turnos en proceso para ${todayDate.value} cargados correctamente.`, 'success');
+      // mostramos activos y finalizados de hoy (pero no cancelados/inactivos)
+      const isVisibleEstado =
+        turno.estado === 'activo' ||
+        turno.estado === 'finalizado' ||
+        (turno.horaIngreso && !turno.horaSalida)
+
+      const notHidden =
+        turno.estado !== 'cancelado' && turno.estado !== 'inactivo'
+
+      return isToday && isVisibleEstado && notHidden
+    })
+
+    showSnackbar(
+      `Turnos de hoy cargados correctamente.`,
+      'success'
+    )
   } catch (error: unknown) {
     console.error('Error al cargar turnos del día:', error)
     let message = 'Error al cargar los turnos del día. Intente recargar la página.'
     if (error instanceof Error) {
       message = error.message
-      if (message.includes('Sesión expirada') || message.includes('no autorizada')) {
-        const authStore = authSetStore();
+      if (
+        message.includes('Sesión expirada') ||
+        message.includes('no autorizada')
+      ) {
+        const authStore = authSetStore()
         authStore.logout()
         router.push('/login')
       }
@@ -400,93 +586,116 @@ const loadTurnosHoy = async () => {
   }
 }
 
-// Etapas
-const getEtapas = (turno: Turno) => {
-  const etapas = [
-    { name: 'Puerta',        completed: !!turno.horaIngreso },
-    { name: 'Registro',      completed: false },
-    { name: 'Facturación',   completed: false },
-    { name: 'Revisión',      completed: false },
-    { name: 'Certificación', completed: !!turno.horaSalida },
-  ];
+/* ===== Etapas (Puerta, Facturación, Certificación) ===== */
+const getEtapas = (turno: Turno): Etapa[] => {
+  const etapas: Etapa[] = [
+    {
+      key: `puerta-${turno.id}`,
+      name: 'Puerta',
+      completed: !!turno.horaIngreso,
+      time: turno.horaIngreso,
+    },
+    {
+      key: `facturacion-${turno.id}`,
+      name: 'Facturación',
+      completed: !!turno.tieneFacturacion,
+      time: turno.horaFacturacion ?? null,
+    },
+    {
+      key: `certificacion-${turno.id}`,
+      name: 'Certificación',
+      completed: !!turno.horaSalida,
+      time: turno.horaSalida,
+    },
+  ]
+
   if (turno.estado === 'cancelado' || turno.estado === 'inactivo') {
-    etapas.forEach(etapa => etapa.completed = false);
+    etapas.forEach((etapa) => (etapa.completed = false))
   }
-  return etapas;
+
+  return etapas
 }
 
-// Stats modal
-const showStatsModal = ref(false);
+/* ===== Stats ===== */
+const showStatsModal = ref(false)
 const statsData = ref({
   tipoVehiculo: {
-    'carro': 0,
-    'moto': 0,
-    'taxi': 0,
-    'enseñanza': 0,
-    'Desconocido': 0,
+    carro: 0,
+    moto: 0,
+    taxi: 0,
+    enseñanza: 0,
+    Desconocido: 0,
   } as Record<string, number>,
   medioEntero: {
     'Redes Sociales': 0,
     'Convenio o Referido Externo': 0,
     'Call Center': 0,
-    'Fachada': 0,
+    Fachada: 0,
     'Referido Interno': 0,
     'Asesor Comercial': 0,
-    'Desconocido': 0,
+    Desconocido: 0,
   } as Record<string, number>,
-});
+})
 
 const calculateStats = () => {
-  statsData.value.tipoVehiculo = { 'carro': 0, 'moto': 0, 'taxi': 0, 'enseñanza': 0, 'Desconocido': 0 };
+  statsData.value.tipoVehiculo = {
+    carro: 0,
+    moto: 0,
+    taxi: 0,
+    enseñanza: 0,
+    Desconocido: 0,
+  }
   statsData.value.medioEntero = {
     'Redes Sociales': 0,
     'Convenio o Referido Externo': 0,
     'Call Center': 0,
-    'Fachada': 0,
+    Fachada: 0,
     'Referido Interno': 0,
     'Asesor Comercial': 0,
-    'Desconocido': 0,
-  };
+    Desconocido: 0,
+  }
 
-  turnos.value.forEach(turno => {
-    const tipo = turno.tipoVehiculo;
+  turnos.value.forEach((turno) => {
+    const tipo = turno.tipoVehiculo
     if (tipo && tipo in statsData.value.tipoVehiculo) {
-      statsData.value.tipoVehiculo[tipo]++;
+      statsData.value.tipoVehiculo[tipo]++
     } else {
-      statsData.value.tipoVehiculo['Desconocido']++;
+      statsData.value.tipoVehiculo.Desconocido++
     }
 
-    const medio = turno.medioEntero;
+    const medio = turno.medioEntero
     if (medio && medio in statsData.value.medioEntero) {
-      statsData.value.medioEntero[medio]++;
+      statsData.value.medioEntero[medio]++
     } else {
-      statsData.value.medioEntero['Desconocido']++;
+      statsData.value.medioEntero.Desconocido++
     }
-  });
-};
+  })
+}
 
 const openStatsModal = () => {
-  calculateStats();
-  showStatsModal.value = true;
-};
+  calculateStats()
+  showStatsModal.value = true
+}
 
-// Charts
+/* ===== Charts ===== */
 const chartDataTipoVehiculo = computed(() => {
-  const labels = Object.keys(statsData.value.tipoVehiculo);
-  const data = Object.values(statsData.value.tipoVehiculo);
-  const backgroundColors = ['#42A5F5', '#66BB6A', '#FFA726', '#EF5350', '#9E9E9E'];
+  const labels = Object.keys(statsData.value.tipoVehiculo)
+  const data = Object.values(statsData.value.tipoVehiculo)
+  const backgroundColors = ['#42A5F5', '#66BB6A', '#FFA726', '#EF5350', '#9E9E9E']
 
   return {
-    labels: labels.map(label => label.charAt(0).toUpperCase() + label.slice(1)),
+    labels: labels.map(
+      (label) => label.charAt(0).toUpperCase() + label.slice(1)
+    ),
     datasets: [
       {
         label: 'Cantidad de Turnos',
         backgroundColor: backgroundColors,
-        data: data,
+        data,
       },
     ],
-  };
-});
+  }
+})
 
 const chartOptions = {
   responsive: true,
@@ -495,30 +704,37 @@ const chartOptions = {
     legend: { position: 'top' as const },
     tooltip: {
       callbacks: {
-        label: function(context: TooltipItem<'bar'>) {
-          const label = context.label || '';
-          const value = context.parsed.y;
-          return `${label}: ${value}`;
-        }
-      }
-    }
-  }
-};
+        label: function (context: TooltipItem<'bar'>) {
+          const label = context.label || ''
+          const value = context.parsed.y
+          return `${label}: ${value}`
+        },
+      },
+    },
+  },
+}
 
+/* ===== Mounted ===== */
 onMounted(() => {
-  todayDate.value = new Date().toLocaleDateString('es-CO', { year: 'numeric', month: 'long', day: 'numeric' });
-  loadTurnosHoy();
+  todayDate.value = new Date().toLocaleDateString('es-CO', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  })
+  loadTurnosHoy()
 })
 </script>
 
 <style scoped>
 .v-card {
-  box-shadow: 0 10px 20px rgba(0,0,0,0.08), 0 6px 6px rgba(0,0,0,0.05);
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.08), 0 6px 6px rgba(0, 0, 0, 0.05);
   border-radius: 16px;
 }
 
 /* Título con borde */
-.title-full-bordered-container { padding: 0 !important; }
+.title-full-bordered-container {
+  padding: 0 !important;
+}
 
 .title-text-with-border {
   border: 2px solid black;
@@ -535,7 +751,7 @@ onMounted(() => {
 .title-text-with-border .text-secondary {
   display: inline;
   margin-left: 8px;
-  color: #4CAF50;
+  color: #4caf50;
 }
 
 /* Botones con borde */
@@ -544,47 +760,77 @@ onMounted(() => {
 .bordered-button-success {
   border-radius: 10px;
   transition: all 0.3s ease;
-  box-shadow: 0 4px 6px rgba(0,0,0,0.1), 0 0 0 2px black !important;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1), 0 0 0 2px black !important;
 }
 
 .bordered-button:hover,
 .bordered-button-info:hover,
 .bordered-button-success:hover {
   transform: translateY(-2px);
-  box-shadow: 0 6px 12px rgba(0,0,0,0.2), 0 0 0 3px black !important;
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2), 0 0 0 3px black !important;
 }
 
 /* Diálogo */
 .bordered-dialog-button {
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1), 0 0 0 1px black !important;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1), 0 0 0 1px black !important;
 }
 .bordered-dialog-button:hover {
-  box-shadow: 0 4px 8px rgba(0,0,0,0.2), 0 0 0 2px black !important;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2), 0 0 0 2px black !important;
 }
 
 /* Tarjetas de turno */
 .turno-card {
   transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
   border-radius: 12px;
-  box-shadow: 0 8px 15px rgba(0,0,0,0.2);
+  box-shadow: 0 8px 15px rgba(0, 0, 0, 0.2);
 }
 .turno-card:hover {
   transform: translateY(-7px);
-  box-shadow: 0 18px 35px rgba(0,0,0,0.3);
+  box-shadow: 0 18px 35px rgba(0, 0, 0, 0.3);
 }
 
-/* Textos sobre fondo primario */
+/* Textos sobre fondo primario/success */
 .text-on-primary-text {
   color: rgb(var(--v-theme-on-primary-text)) !important;
 }
 .text-on-primary-text-faded {
   color: rgb(var(--v-theme-on-primary-text-faded)) !important;
 }
-.v-list-item-title { font-size: 0.95rem; }
+
+/* Fila de etapa: nombre a la izq, hora a la der */
+.etapa-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.etapa-label {
+  display: flex;
+  align-items: center;
+}
+
+/* Hora de cada etapa (alineada y con ancho fijo) */
+.etapa-time {
+  text-align: right;
+  font-family: monospace;
+  font-size: 0.75rem;
+  min-width: 78px;
+}
+
+/* En tarjeta verde, chulos completados blancos (refuerzo visual) */
+.etapa-icon-completed-finalizado {
+  color: #ffffff !important;
+}
+
 .v-icon.on-primary-text-light {
   color: rgb(var(--v-theme-on-primary-text-light)) !important;
 }
 .v-list.bg-transparent {
   background-color: transparent !important;
+}
+
+.v-list-item-title {
+  font-size: 0.95rem;
 }
 </style>

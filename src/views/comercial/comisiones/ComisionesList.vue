@@ -53,7 +53,10 @@
       <!-- Resumen rápido -->
       <v-card-text class="pt-5">
         <div class="d-flex flex-wrap gap-3">
-          <v-chip variant="tonal" size="large">Total página: <strong class="ms-1">{{ formatCOP(totalPagina) }}</strong></v-chip>
+          <v-chip variant="tonal" size="large">
+            Total página:
+            <strong class="ms-1">{{ formatCOP(totalPagina) }}</strong>
+          </v-chip>
           <v-chip variant="tonal" size="large" color="warning" v-if="pendientesPagina > 0">
             Pendientes: <strong class="ms-1">{{ pendientesPagina }}</strong>
           </v-chip>
@@ -76,7 +79,39 @@
         item-value="id"
       >
         <template #item.estado="{ item }">
-          <v-chip :color="estadoColor(item.estado)" size="small" variant="flat">{{ item.estado }}</v-chip>
+          <v-chip :color="estadoColor(item.estado)" size="small" variant="flat">
+            {{ item.estado }}
+          </v-chip>
+        </template>
+
+        <template #item.turno="{ item }">
+          <div class="d-flex flex-column">
+            <span>
+              Turno global:
+              #{{ item.turno?.numero_global || item.turno?.numero || item.turno?.id }}
+            </span>
+            <span class="text-caption text-medium-emphasis">
+              Turno servicio:
+              <span v-if="item.turno?.numero_servicio">
+                {{ item.turno?.servicio?.codigo || 'SERV' }}
+                #{{ item.turno?.numero_servicio }}
+              </span>
+              <span v-else>
+                {{ item.turno?.servicio?.codigo || 'SERV' }}
+              </span>
+              ·
+              {{ item.turno?.placa || '—' }} ·
+              {{ item.turno?.servicio?.nombre || item.turno?.servicio?.codigo || '—' }}
+            </span>
+          </div>
+        </template>
+
+        <template #item.valor_unitario="{ item }">
+          {{ formatCOP(item.valor_unitario) }}
+        </template>
+
+        <template #item.valor_cliente="{ item }">
+          {{ formatCOP(item.valor_cliente ?? 0) }}
         </template>
 
         <template #item.valor_total="{ item }">
@@ -87,18 +122,18 @@
           {{ item.asesor?.nombre || '—' }}
         </template>
 
-        <template #item.turno="{ item }">
-          <div class="d-flex flex-column">
-            <span>#{{ item.turno?.numero || item.turno?.id }}</span>
-            <span class="text-caption text-medium-emphasis">
-              {{ item.turno?.placa || '—' }} · {{ item.turno?.servicio?.nombre || item.turno?.servicio?.codigo || '—' }}
-            </span>
-          </div>
+        <template #item.convenio="{ item }">
+          {{ item.convenio?.nombre || '—' }}
+        </template>
+
+        <!-- Fecha/hora en 12h -->
+        <template #item.generado_at="{ item }">
+          {{ formatDateTime(item.generado_at) }}
         </template>
 
         <template #item.acciones="{ item }">
           <div class="d-flex gap-1">
-            <v-btn size="small" variant="text" icon="mdi-eye" @click="verDetalle(item.id)" />
+            <v-btn size="small" variant="text" icon="mdi-eye" @click="verDetalle(item)" />
             <v-btn
               v-if="item.estado === 'PENDIENTE'"
               size="small"
@@ -140,12 +175,122 @@
         </v-card-actions>
       </v-card>
     </v-dialog>
+
+    <!-- 🧾 Modal de detalle de comisión -->
+    <v-dialog v-model="detailDialog.visible" max-width="560">
+      <v-card v-if="detailDialog.item">
+        <v-card-title class="text-h6 d-flex align-center justify-space-between">
+          <span>Detalle comisión #{{ detailDialog.item.id }}</span>
+          <v-chip :color="estadoColor(detailDialog.item.estado)" size="small" variant="flat">
+            {{ detailDialog.item.estado }}
+          </v-chip>
+        </v-card-title>
+        <v-card-text>
+          <v-row dense>
+            <v-col cols="12" md="6">
+              <strong>Generado:</strong>
+              <div>{{ formatDateTime(detailDialog.item.generado_at) }}</div>
+            </v-col>
+
+            <!-- Asesor + cuánto se le paga -->
+            <v-col cols="12" md="6">
+              <strong>Asesor:</strong>
+              <div>{{ detailDialog.item.asesor?.nombre || '—' }}</div>
+              <div class="text-caption text-medium-emphasis">
+                Comisión asesor:
+                <strong>{{ formatCOP(detailDialog.item.valor_unitario) }}</strong>
+              </div>
+            </v-col>
+
+            <!-- Convenio + cuánto se le paga -->
+            <v-col cols="12" md="6">
+              <strong>Convenio:</strong>
+              <div>{{ detailDialog.item.convenio?.nombre || '—' }}</div>
+              <div
+                v-if="detailDialog.item.valor_cliente && detailDialog.item.valor_cliente > 0"
+                class="text-caption text-medium-emphasis"
+              >
+                Comisión convenio:
+                <strong>{{ formatCOP(detailDialog.item.valor_cliente) }}</strong>
+              </div>
+            </v-col>
+
+            <!-- Turno global / servicio -->
+            <v-col cols="12" md="6">
+              <strong>Turno global:</strong>
+              <div>
+                #{{ detailDialog.item.turno?.numero_global
+                  || detailDialog.item.turno?.numero
+                  || detailDialog.item.turno?.id
+                  || '—'
+                }}
+              </div>
+              <div class="text-caption text-medium-emphasis">
+                Fecha turno: {{ formatDateTime(detailDialog.item.turno?.fecha) }}
+              </div>
+            </v-col>
+
+            <v-col cols="12" md="6">
+              <strong>Turno servicio:</strong>
+              <div>
+                <span v-if="detailDialog.item.turno?.numero_servicio">
+                  {{ detailDialog.item.turno?.servicio?.codigo || 'SERV' }}
+                  #{{ detailDialog.item.turno?.numero_servicio }}
+                </span>
+                <span v-else>
+                  {{ detailDialog.item.turno?.servicio?.codigo || 'SERV' }}
+                </span>
+              </div>
+              <div class="text-caption text-medium-emphasis">
+                {{ detailDialog.item.turno?.placa || '—' }} ·
+                {{
+                  detailDialog.item.turno?.servicio?.nombre ||
+                  detailDialog.item.turno?.servicio?.codigo ||
+                  '—'
+                }}
+              </div>
+            </v-col>
+
+            <v-col cols="12" class="mt-2">
+              <v-divider />
+            </v-col>
+
+            <v-col cols="12" md="4">
+              <strong>Cantidad:</strong>
+              <div>{{ detailDialog.item.cantidad }}</div>
+            </v-col>
+            <v-col cols="12" md="4">
+              <strong>Valor dateo (asesor):</strong>
+              <div>{{ formatCOP(detailDialog.item.valor_unitario) }}</div>
+            </v-col>
+            <v-col cols="12" md="4">
+              <strong>Cliente / Convenio:</strong>
+              <div>{{ formatCOP(detailDialog.item.valor_cliente ?? 0) }}</div>
+            </v-col>
+
+            <v-col cols="12" class="mt-2">
+              <v-divider />
+            </v-col>
+
+            <v-col cols="12" class="text-right">
+              <strong>Total comisión:</strong>
+              <div class="text-h6">
+                {{ formatCOP(detailDialog.item.valor_total) }}
+              </div>
+            </v-col>
+          </v-row>
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn variant="text" @click="detailDialog.visible = false">Cerrar</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
   </v-container>
 </template>
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import { useRouter } from 'vue-router'
 import {
   listComisiones,
   aprobarComision,
@@ -156,8 +301,6 @@ import {
   type ComisionListItem,
   type ComisionEstado,
 } from '@/services/comisionesService'
-
-const router = useRouter()
 
 /* Filtros */
 const filters = ref<{ mes: string; asesorId: number | null; estado: ComisionEstado | '' }>({
@@ -172,8 +315,9 @@ const headers = [
   { title: 'Estado', key: 'estado', sortable: true },
   { title: 'Turno', key: 'turno', sortable: false },
   { title: 'Asesor', key: 'asesor', sortable: false },
-  { title: 'Cantidad', key: 'cantidad', sortable: true },
-  { title: 'Valor unitario', key: 'valor_unitario', sortable: true },
+  { title: 'Convenio', key: 'convenio', sortable: false },
+  { title: 'Valor unitario (dateo)', key: 'valor_unitario', sortable: true },
+  { title: 'Comisión Placa', key: 'valor_cliente', sortable: false },
   { title: 'Valor total', key: 'valor_total', sortable: true },
   { title: 'Generado', key: 'generado_at', sortable: true },
   { title: 'Acciones', key: 'acciones', sortable: false, align: 'end' },
@@ -199,17 +343,37 @@ const estadoItems = [
 
 /* Resumen */
 const totalPagina = computed(() => rows.value.reduce((acc, r) => acc + (r.valor_total || 0), 0))
-const pendientesPagina = computed(() => rows.value.filter(r => r.estado === 'PENDIENTE').length)
-const pagadasPagina = computed(() => rows.value.filter(r => r.estado === 'PAGADA').length)
+const pendientesPagina = computed(() => rows.value.filter((r) => r.estado === 'PENDIENTE').length)
+const pagadasPagina = computed(() => rows.value.filter((r) => r.estado === 'PAGADA').length)
 
 function estadoColor(e: ComisionEstado) {
   switch (e) {
-    case 'PENDIENTE': return 'warning'
-    case 'APROBADA': return 'info'
-    case 'PAGADA': return 'success'
-    case 'ANULADA': return 'error'
-    default: return undefined
+    case 'PENDIENTE':
+      return 'warning'
+    case 'APROBADA':
+      return 'info'
+    case 'PAGADA':
+      return 'success'
+    case 'ANULADA':
+      return 'error'
+    default:
+      return undefined
   }
+}
+
+/** Formato bonito de fecha/hora (12h, sin segundos) */
+function formatDateTime(value?: string) {
+  if (!value) return '—'
+  const d = new Date(value)
+  if (Number.isNaN(d.getTime())) return value
+  return new Intl.DateTimeFormat('es-CO', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true,
+  }).format(d)
 }
 
 async function loadAsesores() {
@@ -236,8 +400,7 @@ async function loadItems() {
     })
     rows.value = res.data
     totalItems.value = res.total
-  } catch (e) {
-    // Puedes mostrar un toast aquí
+  } catch {
     rows.value = []
     totalItems.value = 0
   } finally {
@@ -255,7 +418,7 @@ function resetFilters() {
   reload()
 }
 
-/* Acciones fila */
+/* Dialogo confirmación */
 const dialog = ref<{ visible: boolean; title: string; message: string; color: string; onConfirm: () => void }>({
   visible: false,
   title: '',
@@ -290,8 +453,14 @@ function confirmAnular(id: number) {
   })
 }
 
-function verDetalle(id: number) {
-  router.push({ name: 'comercial.comisiones.detail', params: { id } })
+/* Modal de detalle */
+const detailDialog = ref<{ visible: boolean; item: ComisionListItem | null }>({
+  visible: false,
+  item: null,
+})
+
+function verDetalle(item: ComisionListItem) {
+  detailDialog.value = { visible: true, item }
 }
 
 /* Init */
@@ -300,7 +469,13 @@ loadItems()
 </script>
 
 <style scoped>
-.gap-1 { gap: 4px; }
-.gap-2 { gap: 8px; }
-.gap-3 { gap: 12px; }
+.gap-1 {
+  gap: 4px;
+}
+.gap-2 {
+  gap: 8px;
+}
+.gap-3 {
+  gap: 12px;
+}
 </style>

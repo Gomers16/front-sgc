@@ -62,8 +62,17 @@ function normalizeCanal(input?: string | null, medio?: MedioEnteroFront | null):
 
   if (['REDES', 'REDES_SOCIALES', 'SOCIAL', 'SOCIALES', 'RRSS'].includes(v)) return 'REDES'
   if (
-    ['CALLCENTER', 'CALL_CENTER', 'CALL-CENTER', 'CALL', 'TELEMERCADEO', 'TELEMARKETING', 'TELÉFONO', 'TELEFONO', 'TELE']
-      .includes(v)
+    [
+      'CALLCENTER',
+      'CALL_CENTER',
+      'CALL-CENTER',
+      'CALL',
+      'TELEMERCADEO',
+      'TELEMARKETING',
+      'TELÉFONO',
+      'TELEFONO',
+      'TELE',
+    ].includes(v)
   )
     return 'TELE'
   if (['FACHADA', 'PASO', 'PASEO', 'PUERTA'].includes(v)) return 'FACHADA'
@@ -112,7 +121,8 @@ export interface Turno {
   horaIngreso: string | null
   horaSalida: string | null
   fecha: string
-  medioEntero: MedioEnteroFinalDB
+  // medioEntero ahora puede venir null desde el back
+  medioEntero: MedioEnteroFinalDB | null
   observaciones: string | null
   funcionarioId: number
   tiempoServicio: string | null
@@ -122,6 +132,10 @@ export interface Turno {
   sede?: SedeLite
   canalAtribucion?: CanalAtrib
   agenteCaptacion?: AgenteCaptacionLite | null
+
+  // 👇 NUEVO: bandera de facturación confirmada y hora
+  tieneFacturacion?: boolean | null
+  horaFacturacion?: string | null
 }
 
 /* ========== Filtros exportación ========== */

@@ -1,5 +1,7 @@
 // src/services/comisionesService.ts
-const BASE = (import.meta.env.VITE_API_BASE_URL || '/api').replace(/\/$/, '')
+const BASE = import.meta.env.VITE_API_BASE_URL
+  ? `${import.meta.env.VITE_API_BASE_URL.replace(/\/$/, '')}/api`
+  : '/api'
 
 type HttpMethod = 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE'
 
@@ -19,9 +21,9 @@ async function apiFetch<T>(
   opts: { method?: HttpMethod; body?: any; query?: Record<string, any>; headers?: HeadersInit } = {}
 ) {
   const url = `${BASE}${endpoint}${buildQuery(opts.query)}`
+
   const headers: HeadersInit = { 'Content-Type': 'application/json', ...(opts.headers || {}) }
 
-  // Si usas token Bearer en localStorage:
   const token = localStorage.getItem('token')
   if (token) (headers as any).Authorization = `Bearer ${token}`
 
@@ -48,7 +50,7 @@ export type ComisionEstado = 'PENDIENTE' | 'APROBADA' | 'PAGADA' | 'ANULADA'
 export interface AgenteLight {
   id: number
   nombre: string
-  tipo: 'INTERNO' | 'EXTERNO'
+  tipo: 'INTERNO' | 'EXTERNO' | string
 }
 
 export interface ConvenioLight {
@@ -68,13 +70,17 @@ export interface TurnoLight {
   fecha?: string
   placa?: string
   servicio?: ServicioLight | null
+
+  numero_global?: number | string
+  numero_servicio?: number | string
 }
 
 export interface ComisionListItem {
   id: number
   estado: ComisionEstado
   cantidad: number
-  valor_unitario: number
+  valor_unitario: number          // asesor
+  valor_cliente?: number | null   // convenio/cliente
   valor_total: number
   generado_at?: string
   asesor?: AgenteLight | null
@@ -106,11 +112,7 @@ export interface ListResponse<T> {
   perPage: number
 }
 
-/* ===== Helpers de mapeo (backend → UI) =====
-   Tu DB/modelo trae: monto (string DECIMAL), fecha_calculo, etc.
-   La UI espera: cantidad, valor_unitario, valor_total, generado_at, ...
-   Acá convertimos sin tocar vistas.
-*/
+/* ===== Helpers de mapeo (backend → UI) ===== */
 function num(v: any): number {
   const n = typeof v === 'string' ? Number(v) : v
   return Number.isFinite(n) ? Number(n) : 0
@@ -133,6 +135,14 @@ function mapTurno(api: any): TurnoLight | null {
     fecha: api.fecha ?? api.created_at ?? api.createdAt ?? undefined,
     placa: api.placa ?? api.vehiculo?.placa ?? undefined,
     servicio: mapServicio(api.servicio),
+
+    numero_global: api.numero_global ?? api.numeroGlobal ?? api.turnoNumero ?? undefined,
+    numero_servicio:
+      api.numero_servicio ??
+      api.numeroServicio ??
+      api.turnoNumeroServicio ??
+      api.turno_numero_servicio ??
+      undefined,
   }
 }
 
@@ -150,14 +160,18 @@ function mapConvenio(api: any): ConvenioLight | null {
   return { id: api.id, nombre: api.nombre }
 }
 
-/** Map de un registro de comisión del backend (con `monto`) al shape que pide la tabla */
 function mapComisionToListItem(api: any): ComisionListItem {
-  // Política: por ahora tratamos la comisión como una sola línea “cantidad=1”.
-  const valor = num(api.valor_total ?? api.monto ?? 0)
+  // API ya trae valor_unitario (monto asesor), valor_cliente (base convenio) y valor_total
+  const valor_unitario = num(api.valor_unitario ?? api.monto ?? 0)
+  const valor_cliente = num(api.valor_cliente ?? api.base ?? 0)
+  const valor_total =
+    api.valor_total !== undefined
+      ? num(api.valor_total)
+      : valor_unitario + valor_cliente
+
   const generado = api.generado_at ?? api.fecha_calculo ?? api.created_at ?? api.createdAt
 
-  // Relaciones: algunos controladores devuelven anidados; si no, vienen como *_id
-  const turno = api.turno ?? null
+  const turno = api.turno ? mapTurno(api.turno) : null
   const asesor = api.asesor ?? null
   const convenio = api.convenio ?? null
 
@@ -165,12 +179,13 @@ function mapComisionToListItem(api: any): ComisionListItem {
     id: api.id,
     estado: (api.estado as ComisionEstado) ?? 'PENDIENTE',
     cantidad: num(api.cantidad ?? 1),
-    valor_unitario: num(api.valor_unitario ?? valor), // fallback: todo el valor en unitario
-    valor_total: valor,
+    valor_unitario,
+    valor_cliente,
+    valor_total,
     generado_at: generado ? String(generado) : undefined,
     asesor: asesor ? mapAsesor(asesor) : (api.asesor_id ? { id: api.asesor_id, nombre: '—', tipo: 'INTERNO' } : null),
     convenio: convenio ? mapConvenio(convenio) : (api.convenio_id ? { id: api.convenio_id, nombre: '—' } : null),
-    turno: turno ? mapTurno(turno) : (api.turno ? mapTurno(api.turno) : null),
+    turno,
   }
 }
 
@@ -188,9 +203,6 @@ function mapComisionToDetail(api: any): ComisionDetail {
 /* ===== Funciones ===== */
 
 export async function listComisiones(params: ListParams) {
-  // Permitimos que el backend devuelva:
-  // - Un ListResponse “clásico” con { data, total, page, perPage }
-  // - O un array paginado custom; lo normalizamos acá.
   const raw = await apiFetch<any>('/comisiones', { query: params as any })
   if (Array.isArray(raw?.data)) {
     const mapped = (raw.data as any[]).map(mapComisionToListItem)
@@ -204,7 +216,6 @@ export async function listComisiones(params: ListParams) {
     const mapped = (raw as any[]).map(mapComisionToListItem)
     return { data: mapped, total: mapped.length, page: 1, perPage: mapped.length }
   } else {
-    // Último recurso: intentar mapear raw como un solo item
     const one = mapComisionToListItem(raw)
     return { data: [one], total: 1, page: 1, perPage: 10 }
   }
@@ -238,7 +249,6 @@ export async function anularComision(id: number) {
   return mapComisionToDetail(raw)
 }
 
-/** Catálogo de asesores para filtros */
 export async function listAgentesCaptacion() {
   try {
     const res = await apiFetch<{ data: AgenteLight[] }>('/agentes-captacion', {
@@ -250,9 +260,12 @@ export async function listAgentesCaptacion() {
   }
 }
 
-/* Utilidad formato COP */
 export function formatCOP(value: number | string) {
   const n = typeof value === 'string' ? Number(value) : value
   if (Number.isNaN(n)) return '—'
-  return new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(n)
+  return new Intl.NumberFormat('es-CO', {
+    style: 'currency',
+    currency: 'COP',
+    maximumFractionDigits: 0,
+  }).format(n)
 }
