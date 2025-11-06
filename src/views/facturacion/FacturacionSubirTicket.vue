@@ -437,8 +437,7 @@
  * Facturación / Subir ticket — BLOQUE SCRIPT (actualizado)
  * Cambios clave respecto a tu versión:
  *  - Se mantiene la lógica de no duplicar tickets (currentTicketId).
- *  - Al cerrar el modal de resultado (`closeResult`) ahora se hace `router.back()`
- *    para volver a "Turnos del día / Turnos en proceso".
+ *  - Al cerrar el modal de resultado ahora se navega de vuelta a Turnos del día.
  */
 
 import { ref, reactive, computed, onMounted, onBeforeUnmount } from 'vue'
@@ -930,23 +929,25 @@ function inferTipoByPattern(p: string): 'carro'|'moto'|'desconocido' {
 }
 function correctByExpected(ocr: string, expected: 'carro'|'moto'|'desconocido'): string {
   let s = normalizePlate(ocr)
+
   if (expected === 'carro') {
     if (s.length >= 6) {
-      const head = s.slice(0,3).replace(/\d/g, ch => toLetter[ch] ?? ch)
-      const tail = s.slice(3,6).replace(/[A-Z]/g, ch => toDigit[ch] ?? ch)
+      const head = s.slice(0, 3).replace(/\d/g, ch => toLetter[ch] ?? ch)
+      const tail = s.slice(3, 6).replace(/[A-Z]/g, ch => toDigit[ch] ?? ch)
       s = head + tail
     }
   } else if (expected === 'moto') {
     if (s.length >= 6) {
-      const l1 = s.slice(0,3).replace(/\d/g, ch => toLetter[ch] ?? ch)
-      const d2 = s.slice(3,5).replace(/[A-Z]/g, ch => toDigit[ch] ?? ch)
-
+      const l1 = s.slice(0, 3).replace(/\d/g, ch => toLetter[ch] ?? ch)
+      const d2 = s.slice(3, 5).replace(/[A-Z]/g, ch => toDigit[ch] ?? ch)
       const l3 = (toLetter[s[5]] ?? s[5] ?? '')
       s = l1 + d2 + l3
     }
   }
+
   return s
 }
+
 function hamming(a: string, b: string) {
   if (a.length !== b.length) return 99
   let k = 0
@@ -1003,6 +1004,31 @@ function getTurnoIdFromQuery(): number | null {
     }
   }
   return null
+}
+
+/* ===================== Carga del turno asociado (hidratación tarjeta) ===================== */
+async function fetchTurnoAndHydrate() {
+  const turnoId = getTurnoIdFromQuery()
+  if (!turnoId) {
+    console.warn('No se encontró turnoId en la URL para Subir ticket')
+    return
+  }
+
+  try {
+    const resp = await TurnosDelDiaService.fetchTurnoById(turnoId)
+    const turno = (resp as any)?.data ?? resp
+
+    if (!turno) {
+      console.warn('La respuesta de fetchTurnoById está vacía:', resp)
+      return
+    }
+
+    hydrateTurnoCard(turno)
+  } catch (err) {
+    console.error('Error cargando turno asociado:', err)
+    snack.text = '❌ No se pudo cargar la información del turno'
+    snack.show = true
+  }
 }
 
 /* ===================== Utilidades de backend (evita duplicados) ===================== */
@@ -1221,15 +1247,13 @@ async function confirmarYGuardar() {
     result.value = confirmed || { ok: true }
 
     dialogConfirm.value = false
-    dialogResult.value = false // ya no mostramos el modal de resultado
+    dialogResult.value = false
 
     snack.text = '✅ Facturación guardada y confirmada'
     snack.show = true
 
-    // 👇 AQUÍ el cambio importante: volver a Turnos del día
+    // Volver a turnos del día
     router.push('/rtm/turnos-dia')
-    // o si tienes nombre de ruta:
-    // router.push({ name: 'TurnosDelDia' })
   } catch (err: any) {
     console.error('confirmarYGuardar error:', err)
     snack.text = `❌ No se pudo guardar: ${err?.message || 'Error desconocido'}`
@@ -1239,6 +1263,15 @@ async function confirmarYGuardar() {
   }
 }
 
+/* ===================== Navegación post-resultado ===================== */
+function closeResult() {
+  dialogResult.value = false
+}
+
+/* Opcional: ver detalle de facturación concreta */
+function goToDetalle(id: number) {
+  router.push({ path: `/facturacion/historico`, query: { ticketId: id } })
+}
 
 /* ===================== Listeners globales ===================== */
 onMounted(async () => {
@@ -1258,6 +1291,7 @@ onBeforeUnmount(() => {
   window.removeEventListener('paste', onPaste)
 })
 </script>
+
 <style scoped>
 /* ===== Cards & layout ===== */
 .v-card {

@@ -85,47 +85,60 @@ function normalizeCanal(input?: string | null, medio?: MedioEnteroFront | null):
 /* ================= Interfaces ================= */
 interface SiguienteTurnoResponse {
   siguiente: number
-  siguientePorServicio?: number
+  siguientePorServicio?: number | null
   sedeId: number
 }
+
 export interface ServicioCatalog {
   id: number
   codigo: ServicioCodigo | string
   nombre: string
 }
+
 interface ServicioEnTurno {
   id: number
   codigoServicio: string
   nombreServicio: string
 }
+
 interface UsuarioLite {
   id: number
   nombres: string
   apellidos: string
 }
+
 interface SedeLite {
   id: number
   nombre: string
 }
+
 export interface AgenteCaptacionLite {
   id: number
   nombre: string
   tipo: 'ASESOR_COMERCIAL' | 'ASESOR_CONVENIO' | 'ASESOR_TELEMERCADEO' | string
 }
+
 export interface Turno {
   id: number
   turnoNumero: number
+  /** Consecutivo por servicio (puede venir como turnoNumeroServicio/turno_numero_servicio) */
+  turnoNumeroServicio?: number
+  /** Código único del turno (ej: RTM-20241106123456) */
+  turnoCodigo?: string
+
   placa: string
   tipoVehiculo: TipoVehiculoFrontend
   estado: 'activo' | 'inactivo' | 'cancelado' | 'finalizado'
   horaIngreso: string | null
   horaSalida: string | null
   fecha: string
+
   // medioEntero ahora puede venir null desde el back
   medioEntero: MedioEnteroFinalDB | null
   observaciones: string | null
   funcionarioId: number
   tiempoServicio: string | null
+
   servicioId?: number
   servicio?: ServicioEnTurno | null
   usuario?: UsuarioLite
@@ -136,6 +149,9 @@ export interface Turno {
   // 👇 NUEVO: bandera de facturación confirmada y hora
   tieneFacturacion?: boolean | null
   horaFacturacion?: string | null
+
+  // 👇 NUEVO: al menos una certificación asociada
+  tieneCertificacion?: boolean | null
 }
 
 /* ========== Filtros exportación ========== */
@@ -165,7 +181,10 @@ export interface CreateTurnoPayload {
   clienteNombre?: string
   clienteTelefono?: string
   clienteEmail?: string
+  /** 👇 Para vincular/consumir un dateo existente */
+  dateoId?: number | null
 }
+
 export interface UpdateTurnoPayload {
   placa?: string
   tipoVehiculo?: TipoVehiculoFrontend
@@ -191,6 +210,7 @@ class TurnosDelDiaService {
       headers: { Accept: 'application/json' },
     })
   }
+
   public static getServicios() {
     return this.obtenerServicios()
   }
@@ -211,8 +231,9 @@ class TurnosDelDiaService {
       !['Liviano Particular', 'Liviano Taxi', 'Liviano Público', 'Motocicleta'].includes(
         filters.tipoVehiculo as string
       )
-    )
+    ) {
       delete filters.tipoVehiculo
+    }
 
     return get<Turno[]>(this.BASE, {
       params: filters,
@@ -221,7 +242,7 @@ class TurnosDelDiaService {
   }
 
   public static fetchTurnoById(id: number) {
-    return get<Turno>(`${this.BASE}/${id}`, {
+    return get<any>(`${this.BASE}/${id}`, {
       headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
     })
   }
@@ -242,6 +263,7 @@ class TurnosDelDiaService {
       fecha: payload.fecha,
       horaIngreso: horaOk || payload.horaIngreso,
       usuarioId: payload.usuarioId,
+
       ...(canalNorm ? { canal: canalNorm } : {}),
 
       ...(payload.servicioId ? { servicioId: payload.servicioId } : {}),
@@ -249,9 +271,11 @@ class TurnosDelDiaService {
       ...(payload.agenteCaptacionId !== undefined
         ? { agenteCaptacionId: payload.agenteCaptacionId }
         : {}),
+
       ...(payload.clienteNombre ? { clienteNombre: payload.clienteNombre } : {}),
       ...(payload.clienteTelefono ? { clienteTelefono: payload.clienteTelefono } : {}),
       ...(payload.clienteEmail ? { clienteEmail: payload.clienteEmail } : {}),
+      ...(payload.dateoId ? { dateoId: payload.dateoId } : {}),
     }
 
     try {
@@ -266,11 +290,12 @@ class TurnosDelDiaService {
   }
 
   /* ===== Actualizaciones ===== */
-  public static updateTurno(id: number, turnoData: UpdateTurnoPayload) {
+  public static updateTurno(id: number, turnoData: UpdateTurnoPayload | any) {
     return put<Turno, typeof turnoData>(`${this.BASE}/${id}`, turnoData, {
       headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
     })
   }
+
   public static registrarSalida(id: number, usuarioId: number) {
     return put<Turno, { usuarioId: number }>(
       `${this.BASE}/${id}/salida`,
@@ -278,6 +303,7 @@ class TurnosDelDiaService {
       { headers: { 'Content-Type': 'application/json', Accept: 'application/json' } }
     )
   }
+
   public static activarTurno(id: number, usuarioId: number) {
     return patch<Turno, { usuarioId: number }>(
       `${this.BASE}/${id}/activar`,
@@ -285,6 +311,7 @@ class TurnosDelDiaService {
       { headers: { 'Content-Type': 'application/json', Accept: 'application/json' } }
     )
   }
+
   public static cancelarTurno(id: number, usuarioId: number) {
     return patch<Turno, { usuarioId: number }>(
       `${this.BASE}/${id}/cancelar`,
@@ -292,6 +319,7 @@ class TurnosDelDiaService {
       { headers: { 'Content-Type': 'application/json', Accept: 'application/json' } }
     )
   }
+
   public static inhabilitarTurno(id: number, usuarioId: number) {
     return patch<Turno, { usuarioId: number }>(
       `${this.BASE}/${id}/inhabilitar`,

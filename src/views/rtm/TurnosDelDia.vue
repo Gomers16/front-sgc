@@ -11,7 +11,7 @@
       </v-card-title>
 
       <v-row class="mb-4 align-center">
-        <v-col cols="12" sm="6" md="4">
+        <v-col cols="12" sm="6" md="3">
           <v-btn
             color="primary"
             variant="elevated"
@@ -25,7 +25,20 @@
           </v-btn>
         </v-col>
 
-        <v-col cols="12" sm="6" md="4" class="text-sm-right text-md-center">
+        <!-- Nuevo filtro por servicio -->
+        <v-col cols="12" sm="6" md="3">
+          <v-select
+            v-model="servicioFiltro"
+            :items="servicioFiltroItems"
+            label="Filtrar por servicio"
+            variant="outlined"
+            density="comfortable"
+            prepend-inner-icon="mdi-filter-variant"
+            hide-details
+          />
+        </v-col>
+
+        <v-col cols="12" sm="6" md="3" class="text-sm-right text-md-center">
           <v-btn
             color="info"
             variant="outlined"
@@ -38,7 +51,7 @@
           </v-btn>
         </v-col>
 
-        <v-col cols="12" md="4" class="text-md-right">
+        <v-col cols="12" sm="6" md="3" class="text-md-right">
           <v-btn
             color="success"
             variant="elevated"
@@ -56,24 +69,20 @@
 
       <!-- Loading -->
       <v-row v-if="isLoading" class="justify-center my-10">
-        <v-progress-circular
-          indeterminate
-          color="primary"
-          size="64"
-        />
+        <v-progress-circular indeterminate color="primary" size="64" />
         <p class="text-center text-subtitle-1 mt-4">
           Cargando turnos del día...
         </p>
       </v-row>
 
       <!-- Sin turnos -->
-      <v-row v-else-if="turnos.length === 0" class="justify-center my-10">
+      <v-row v-else-if="turnosFiltrados.length === 0" class="justify-center my-10">
         <v-col cols="12" class="text-center">
           <v-icon size="64" color="grey-lighten-1">
             mdi-inbox-remove-outline
           </v-icon>
           <p class="text-h6 text-grey-darken-1 mt-4">
-            No hay turnos para hoy.
+            No hay turnos para hoy con el filtro seleccionado.
           </p>
           <p class="text-body-1 text-grey-darken-1">
             ¡Es un buen momento para crear uno nuevo!
@@ -84,7 +93,7 @@
       <!-- Tarjetas -->
       <v-row v-else>
         <v-col
-          v-for="turno in turnos"
+          v-for="turno in turnosFiltrados"
           :key="turno.id"
           cols="12"
           sm="6"
@@ -93,22 +102,33 @@
         >
           <v-card
             class="turno-card pa-4 rounded-lg elevation-4"
-            :color="turno.estado === 'finalizado' ? 'success' : 'primary'"
+            :color="cardColor(turno.estado)"
+            :class="`estado-${turno.estado}`"
           >
-            <v-card-title class="text-h6 font-weight-bold pb-2 text-on-primary-text">
-              🔢 Turno: {{ turno.turnoNumero }}
+            <v-card-title class="text-h6 font-weight-bold pb-1 text-on-primary-text">
+              🔢 Turno: {{ displayTurnoNumero(turno) }}
             </v-card-title>
 
+            <!-- Turno del servicio (RTM / SOAT / PREV / PERI) -->
+            <div
+              class="text-subtitle-2 mb-2 font-weight-medium text-on-primary-text"
+            >
+              {{ getServicioCodigo(turno) }}:
+              <span class="font-weight-bold">
+                {{ displayTurnoServicio(turno) }}
+              </span>
+            </div>
+
             <v-card-text>
-              <!-- Chip de estado (En proceso / Finalizado) -->
+              <!-- Chip de estado -->
               <v-chip
                 class="mb-3"
                 size="small"
-                :color="turno.estado === 'finalizado' ? 'light-green-accent-3' : 'amber'"
+                :color="estadoChipColor(turno.estado)"
                 variant="elevated"
                 label
               >
-                {{ turno.estado === 'finalizado' ? 'Finalizado' : 'En proceso' }}
+                {{ estadoChipLabel(turno.estado) }}
               </v-chip>
 
               <p class="text-subtitle-1 text-on-primary-text">
@@ -128,9 +148,7 @@
                 </span>
               </p>
 
-              <p
-                class="text-subtitle-1 mt-3 font-weight-bold text-on-primary-text"
-              >
+              <p class="text-subtitle-1 mt-3 font-weight-bold text-on-primary-text">
                 📌 Etapas:
               </p>
 
@@ -255,11 +273,7 @@
         </v-card-text>
         <v-card-actions>
           <v-spacer />
-          <v-btn
-            color="grey"
-            variant="text"
-            @click="confirmDialog.show = false"
-          >
+          <v-btn color="grey" variant="text" @click="confirmDialog.show = false">
             Cancelar
           </v-btn>
           <v-btn
@@ -277,14 +291,12 @@
     <!-- Modal estadísticas -->
     <v-dialog v-model="showStatsModal" max-width="800" content-class="elevation-24">
       <v-card class="rounded-xl bg-white">
-        <v-card-title
-          class="text-h5 text-center text-primary font-weight-bold py-4"
-        >
+        <v-card-title class="text-h5 text-center text-primary font-weight-bold py-4">
           📊 Estadísticas de Turnos (Hoy)
         </v-card-title>
         <v-card-text>
           <p class="text-h6 mb-4 text-center">
-            Total de Turnos (activos + finalizados):
+            Total de turnos visibles hoy (excepto inactivos):
             <strong>{{ turnos.length }}</strong>
           </p>
 
@@ -312,9 +324,7 @@
                     v-for="(count, medio) in statsData.medioEntero"
                     :key="medio"
                   >
-                    <v-list-item-title
-                      class="font-weight-medium text-capitalize"
-                    >
+                    <v-list-item-title class="font-weight-medium text-capitalize">
                       {{ medio }}:
                     </v-list-item-title>
                     <template #append>
@@ -363,7 +373,7 @@ ChartJS.register(Title, Tooltip, Legend, BarElement, CategoryScale, LinearScale,
 /* ===== Tipos ===== */
 interface ServicioEnTurno {
   id: number
-  codigoServicio: string   // 'RTM' | 'PREV' | 'PERI'
+  codigoServicio: string
   nombreServicio: string
 }
 
@@ -374,6 +384,7 @@ interface Turno {
   horaSalida: string | null
   tiempoServicio: string | null
   turnoNumero: number
+  turnoNumeroServicio?: number | null
   turnoCodigo?: string
   placa: string
   tipoVehiculo: 'carro' | 'moto' | 'taxi' | 'enseñanza' | null
@@ -395,7 +406,7 @@ interface Turno {
 
   servicioId?: number | null
   servicio?: ServicioEnTurno | null
-  servicioCodigo?: 'RTM' | 'PREV' | 'PERI' | string
+  servicioCodigo?: 'RTM' | 'SOAT' | 'PREV' | 'PERI' | string
   servicioNombre?: string
 
   funcionario?: {
@@ -406,9 +417,7 @@ interface Turno {
   createdAt: string
   updatedAt: string
 
-  // viene del back
   tieneFacturacion?: boolean | null
-  // hora en la que se confirmó la factura
   horaFacturacion?: string | null
 }
 
@@ -436,6 +445,25 @@ const showSnackbar = (message: string, color = 'info', timeout = 4000) => {
   snackbar.value = { show: true, message, color, timeout }
 }
 
+/* ===== Filtro por servicio ===== */
+const servicioFiltro = ref<string>('TODOS')
+const servicioFiltroItems = [
+  { title: 'Todos los servicios', value: 'TODOS' },
+  { title: 'RTM', value: 'RTM' },
+  { title: 'SOAT', value: 'SOAT' },
+  { title: 'Preventiva', value: 'PREV' },
+  { title: 'Peritaje', value: 'PERI' },
+]
+
+const turnosFiltrados = computed(() => {
+  return turnos.value.filter((t) => {
+    // ya vienen filtrados por fecha y no inactivos
+    if (servicioFiltro.value === 'TODOS') return true
+    const codigo = getServicioCodigo(t).toUpperCase()
+    return codigo === servicioFiltro.value.toUpperCase()
+  })
+})
+
 /* ===== Confirm dialog editar/continuar ===== */
 const confirmDialog = ref({
   show: false,
@@ -446,6 +474,31 @@ const confirmDialog = ref({
   color: 'primary',
 })
 
+const displayTurnoNumero = (turno: Turno) => {
+  if (
+    turno.estado === 'cancelado' ||
+    turno.estado === 'inactivo' ||
+    !turno.turnoNumero ||
+    turno.turnoNumero <= 0
+  ) {
+    return '—'
+  }
+  return turno.turnoNumero
+}
+
+const displayTurnoServicio = (turno: Turno) => {
+  const n = turno.turnoNumeroServicio ?? (turno as any).turno_numero_servicio ?? null
+  if (
+    turno.estado === 'cancelado' ||
+    turno.estado === 'inactivo' ||
+    !n ||
+    n <= 0
+  ) {
+    return '—'
+  }
+  return n
+}
+
 const openConfirmDialog = (turno: Turno, action: 'editar' | 'continuar') => {
   confirmDialog.value = {
     show: true,
@@ -454,7 +507,7 @@ const openConfirmDialog = (turno: Turno, action: 'editar' | 'continuar') => {
     title: action === 'editar' ? 'Editar Turno' : 'Continuar Turno',
     message: `¿Está seguro que desea ${
       action === 'editar' ? 'editar' : 'continuar con'
-    } el turno ${turno.turnoNumero}?`,
+    } el turno ${displayTurnoNumero(turno)}?`,
     color: action === 'editar' ? 'warning' : 'secondary',
   }
 }
@@ -493,7 +546,6 @@ const formatTime = (timeString: string | null): string => {
   if (!timeString) return ''
   let time: DateTime
 
-  // HH:mm / HH:mm:ss
   if (/^\d{2}:\d{2}(:\d{2})?$/.test(timeString)) {
     time = DateTime.fromFormat(
       timeString,
@@ -511,7 +563,29 @@ const getServicioCodigo = (t: Turno): string => {
   return t.servicio?.codigoServicio ?? t.servicioCodigo ?? '—'
 }
 
-/* ===== Color del ícono de la etapa (chulos blancos en finalizado) ===== */
+/* ===== Estado → label / colores ===== */
+const cardColor = (estado: Turno['estado']) => {
+  if (estado === 'finalizado') return 'success'
+  if (estado === 'cancelado') return 'error'
+  if (estado === 'inactivo') return 'grey-darken-1'
+  return 'primary'
+}
+
+const estadoChipLabel = (estado: Turno['estado']) => {
+  if (estado === 'finalizado') return 'Finalizado'
+  if (estado === 'cancelado') return 'Cancelado'
+  if (estado === 'inactivo') return 'Inactivo'
+  return 'En proceso'
+}
+
+const estadoChipColor = (estado: Turno['estado']) => {
+  if (estado === 'finalizado') return 'light-green-accent-3'
+  if (estado === 'cancelado') return 'red-accent-2'
+  if (estado === 'inactivo') return 'grey'
+  return 'amber'
+}
+
+/* ===== Color del ícono de la etapa ===== */
 const iconColor = (etapa: Etapa, turno: Turno) => {
   if (!etapa.completed) {
     return 'on-primary-text-light'
@@ -522,7 +596,7 @@ const iconColor = (etapa: Etapa, turno: Turno) => {
   return 'success'
 }
 
-/* ===== Cargar turnos de hoy (activos + finalizados) ===== */
+/* ===== Cargar turnos de hoy (incluye cancelados, excluye inactivos) ===== */
 const loadTurnosHoy = async () => {
   isLoading.value = true
   try {
@@ -549,22 +623,13 @@ const loadTurnosHoy = async () => {
         : ''
       const isToday = turnoFechaNormalizada === todayISO
 
-      // mostramos activos y finalizados de hoy (pero no cancelados/inactivos)
-      const isVisibleEstado =
-        turno.estado === 'activo' ||
-        turno.estado === 'finalizado' ||
-        (turno.horaIngreso && !turno.horaSalida)
+      // mostramos todos los estados de hoy excepto inactivos
+      const notInactivo = turno.estado !== 'inactivo'
 
-      const notHidden =
-        turno.estado !== 'cancelado' && turno.estado !== 'inactivo'
-
-      return isToday && isVisibleEstado && notHidden
+      return isToday && notInactivo
     })
 
-    showSnackbar(
-      `Turnos de hoy cargados correctamente.`,
-      'success'
-    )
+    showSnackbar('Turnos de hoy cargados correctamente.', 'success')
   } catch (error: unknown) {
     console.error('Error al cargar turnos del día:', error)
     let message = 'Error al cargar los turnos del día. Intente recargar la página.'
@@ -609,6 +674,7 @@ const getEtapas = (turno: Turno): Etapa[] => {
     },
   ]
 
+  // Si el turno está cancelado o inactivo, mostramos las etapas como no completadas
   if (turno.estado === 'cancelado' || turno.estado === 'inactivo') {
     etapas.forEach((etapa) => (etapa.completed = false))
   }
@@ -789,7 +855,18 @@ onMounted(() => {
   box-shadow: 0 18px 35px rgba(0, 0, 0, 0.3);
 }
 
-/* Textos sobre fondo primario/success */
+/* Acentos por estado (además del color del card) */
+.estado-cancelado {
+  border: 2px solid #fca5a5;
+}
+.estado-finalizado {
+  border: 2px solid #4ade80;
+}
+.estado-activo {
+  border: 2px solid #38bdf8;
+}
+
+/* Textos sobre fondo primario/success/error */
 .text-on-primary-text {
   color: rgb(var(--v-theme-on-primary-text)) !important;
 }
