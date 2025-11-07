@@ -1,29 +1,58 @@
 <!-- DashboardView.vue -->
 <template>
-  <v-container>
-    <v-card class="welcome-card" elevation="10">
-      <v-card-title class="text-h4 text-center font-bold mb-4" style="color: black;">
-        ¡Bienvenido a ACTIVAUTOS CDA DEL CENTRO IBAGUÉ!
+  <v-container class="dashboard-shell py-8">
+    <v-card class="welcome-card" elevation="6" variant="outlined">
+      <!-- Franja superior corporativa azul → amarillo -->
+      <div class="welcome-card__accent"></div>
+
+      <!-- Encabezado -->
+      <v-card-title
+        class="card-header d-flex flex-column flex-sm-row justify-space-between align-center"
+      >
+        <div class="card-header__left d-flex align-center">
+          <div class="card-header__icon mr-3">
+            <v-icon size="26">mdi-view-dashboard-outline</v-icon>
+          </div>
+
+          <div>
+            <div class="card-header__title">
+              Panel de operación diaria
+            </div>
+            <div class="card-header__subtitle">
+              <span class="brand-name">ACTIVAUTOS CDA DEL CENTRO IBAGUÉ</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="card-header__right d-flex flex-column align-end">
+          <div class="card-header__date-pill">
+            <v-icon size="18" class="mr-1">mdi-calendar-outline</v-icon>
+            {{ todayDate }}
+          </div>
+          <span class="card-header__date-helper mt-1">Jornada actual</span>
+        </div>
       </v-card-title>
 
-      <v-card-text class="text-center text-subtitle-1 mb-6">
-        Estamos felices de tenerte de vuelta. Aquí tienes un resumen de la operación de hoy.
+      <v-card-text class="card-header__description mb-4">
+        Resumen general de los turnos y servicios del día.
       </v-card-text>
 
-      <v-divider class="my-6" />
+      <v-divider class="my-4" />
 
-      <h3 class="text-h4 text-center mb-6 text-primary font-weight-bold">
-        📊 Resumen del Día ({{ todayDate }})
-      </h3>
+      <!-- Resumen del día -->
+      <div class="section-header mb-3">
+        <div class="section-header__bar"></div>
+        <h3 class="section-header__title">Resumen del día</h3>
+      </div>
 
-      <v-row justify="center" class="mb-8">
+      <v-row justify="center" class="mb-6">
         <v-col cols="12" sm="6" md="4">
           <DashboardIndicador
             icon="mdi-car-multiple"
             :valor="turnosEnProceso"
-            titulo="Turnos en Proceso"
+            titulo="Turnos en proceso"
             :loading="isLoadingKpis"
-            color-card="light-blue-lighten-5"
+            color-card="grey-lighten-4"
             color-icon="blue-darken-2"
           />
         </v-col>
@@ -32,10 +61,10 @@
           <DashboardIndicador
             icon="mdi-check-circle-outline"
             :valor="turnosFinalizados"
-            titulo="Turnos Finalizados"
+            titulo="Turnos finalizados"
             :loading="isLoadingKpis"
-            color-card="green-lighten-5"
-            color-icon="green-darken-2"
+            color-card="grey-lighten-4"
+            color-icon="blue-darken-2"
           />
         </v-col>
 
@@ -43,21 +72,22 @@
           <DashboardIndicador
             icon="mdi-numeric"
             :valor="siguienteTurno"
-            titulo="Siguiente Turno"
+            titulo="Siguiente turno"
             :loading="isLoadingKpis"
-            color-card="orange-lighten-5"
-            color-icon="orange-darken-2"
+            color-card="grey-lighten-4"
+            color-icon="amber-darken-2"
           />
         </v-col>
       </v-row>
 
-      <v-divider class="my-6" />
+      <v-divider class="my-4" />
 
-      <h3 class="text-h5 text-center mb-6 text-primary font-weight-bold">
-        🛠️ Turnos en Proceso por Servicio (Hoy)
-      </h3>
+      <!-- Turnos en proceso por servicio -->
+      <div class="section-header mb-3">
+        <div class="section-header__bar"></div>
+        <h3 class="section-header__title">Turnos en proceso por servicio (hoy)</h3>
+      </div>
 
-      <!-- 👇 4 columnas iguales: md=3 en los CUATRO -->
       <v-row dense align="stretch" class="mb-4">
         <!-- RTM -->
         <v-col cols="12" sm="6" md="3" class="d-flex flex-column">
@@ -67,17 +97,17 @@
             :valor="kpiServicios.rtm"
             titulo="RTM"
             :loading="isLoadingKpis"
-            color-card="indigo-lighten-5"
-            color-icon="indigo-darken-2"
+            color-card="grey-lighten-4"
+            color-icon="blue-darken-2"
           />
           <div class="mt-2 indicador-mini">
             <DashboardIndicadorMini
               icon="mdi-format-list-numbered"
-              titulo="Total (Hoy)"
+              titulo="Total hoy"
               :valor="kpiServiciosTotal.rtm"
               :loading="isLoadingKpis"
-              color-card="blue-lighten-5"
-              color-icon="blue-darken-2"
+              color-card="grey-lighten-5"
+              color-icon="grey-darken-2"
             />
           </div>
         </v-col>
@@ -90,17 +120,17 @@
             :valor="kpiServicios.preventiva"
             titulo="Preventiva"
             :loading="isLoadingKpis"
-            color-card="deep-purple-lighten-5"
-            color-icon="deep-purple-darken-2"
+            color-card="grey-lighten-4"
+            color-icon="blue-darken-2"
           />
           <div class="mt-2 indicador-mini">
             <DashboardIndicadorMini
               icon="mdi-format-list-numbered"
-              titulo="Total (Hoy)"
+              titulo="Total hoy"
               :valor="kpiServiciosTotal.preventiva"
               :loading="isLoadingKpis"
-              color-card="purple-lighten-5"
-              color-icon="purple-darken-2"
+              color-card="grey-lighten-5"
+              color-icon="grey-darken-2"
             />
           </div>
         </v-col>
@@ -113,17 +143,17 @@
             :valor="kpiServicios.peritaje"
             titulo="Peritaje"
             :loading="isLoadingKpis"
-            color-card="cyan-lighten-5"
-            color-icon="cyan-darken-2"
+            color-card="grey-lighten-4"
+            color-icon="blue-darken-2"
           />
           <div class="mt-2 indicador-mini">
             <DashboardIndicadorMini
               icon="mdi-format-list-numbered"
-              titulo="Total (Hoy)"
+              titulo="Total hoy"
               :valor="kpiServiciosTotal.peritaje"
               :loading="isLoadingKpis"
-              color-card="teal-lighten-5"
-              color-icon="teal-darken-2"
+              color-card="grey-lighten-5"
+              color-icon="grey-darken-2"
             />
           </div>
         </v-col>
@@ -136,25 +166,30 @@
             :valor="kpiServicios.soat"
             titulo="SOAT"
             :loading="isLoadingKpis"
-            color-card="amber-lighten-5"
+            color-card="grey-lighten-4"
             color-icon="amber-darken-2"
           />
           <div class="mt-2 indicador-mini">
             <DashboardIndicadorMini
               icon="mdi-format-list-numbered"
-              titulo="Total (Hoy)"
+              titulo="Total hoy"
               :valor="kpiServiciosTotal.soat"
               :loading="isLoadingKpis"
-              color-card="yellow-lighten-5"
-              color-icon="yellow-darken-2"
+              color-card="grey-lighten-5"
+              color-icon="grey-darken-2"
             />
           </div>
         </v-col>
       </v-row>
 
-      <v-divider class="my-6" />
+      <v-divider class="my-4" />
 
-      <h3 class="text-h4 text-center mb-6 text-primary font-weight-bold">🚀 Acciones Rápidas</h3>
+      <!-- Acciones rápidas -->
+      <div class="section-header mb-3">
+        <div class="section-header__bar"></div>
+        <h3 class="section-header__title">Acciones rápidas</h3>
+      </div>
+
       <DashboardAcciones
         @crear-turno="goCrearTurno"
         @ver-turnos-proceso="goTurnosDia"
@@ -167,6 +202,7 @@
 </template>
 
 <script setup lang="ts">
+/* === SCRIPT SIN CAMBIOS === */
 import { useRouter } from 'vue-router'
 import { useDashboardDatos } from '@/composables/dashboard/useDashboardDatos'
 import { useAvisos } from '@/composables/dashboard/useAvisos'
@@ -200,22 +236,139 @@ cargarDashboard().catch((e) => {
 </script>
 
 <style scoped>
-.welcome-card {
+/* Paleta corporativa local al dashboard */
+.dashboard-shell {
   max-width: 1200px;
-  width: 100%;
-  padding: 60px;
-  border-radius: 16px;
-  text-align: center;
-  background: linear-gradient(145deg, #e0e2e5, #f0f2f5);
-  box-shadow: 0 10px 20px rgba(0,0,0,0.15), 0 6px 6px rgba(0,0,0,0.1);
   margin: 0 auto;
+  --brand-blue: #0057b7;
+  --brand-blue-soft: #e3ecff;
+  --brand-yellow: #ffc800;
+  --brand-yellow-soft: #fff6cc;
 }
 
-.mb-4 { margin-bottom: 16px !important; }
-.mt-2 { margin-top: 8px !important; }
-.font-bold { font-weight: 700; }
+/* Fondo del card y sensación más empresarial */
+.welcome-card {
+  width: 100%;
+  padding: 24px 32px 32px;
+  border-radius: 16px;
+  text-align: left;
+  background: radial-gradient(circle at top left, #ffffff 0, #f3f4f6 55%, #e5e7eb 100%);
+  box-shadow: 0 10px 25px rgba(15, 23, 42, 0.10);
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  position: relative;
+  overflow: hidden;
+}
 
-/* Fuerza a que las cards no conserven min-width y puedan encoger a 1/4 */
-.indicador-card :deep(.v-card) { min-width: 0; width: 100%; }
-.indicador-mini :deep(.v-card) { min-width: 0; }
+/* Franja superior azul → amarillo */
+.welcome-card__accent {
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 5px;
+  background: linear-gradient(90deg, var(--brand-blue), #2563eb, var(--brand-yellow));
+}
+
+/* Encabezado */
+.card-header {
+  padding-top: 20px;
+  padding-bottom: 4px;
+}
+
+.card-header__icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  background: var(--brand-blue-soft);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--brand-blue);
+}
+
+.card-header__title {
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.card-header__subtitle {
+  font-size: 0.78rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  margin-top: 3px;
+}
+
+.brand-name {
+  color: var(--brand-blue);
+}
+
+/* Lado derecho del header */
+.card-header__date-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: var(--brand-yellow-soft);
+  color: #92400e;
+  font-size: 0.78rem;
+  font-weight: 600;
+  border: 1px solid var(--brand-yellow);
+}
+
+.card-header__date-helper {
+  font-size: 0.7rem;
+  color: #6b7280;
+}
+
+.card-header__description {
+  font-size: 0.9rem;
+  color: #4b5563;
+}
+
+/* Encabezados de sección */
+.section-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.section-header__bar {
+  width: 4px;
+  height: 20px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, var(--brand-blue), var(--brand-yellow));
+}
+
+.section-header__title {
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: #374151;
+}
+
+/* Helpers */
+.mb-3 { margin-bottom: 12px !important; }
+.mb-4 { margin-bottom: 16px !important; }
+.mb-6 { margin-bottom: 24px !important; }
+.mt-1 { margin-top: 4px !important; }
+.mt-2 { margin-top: 8px !important; }
+
+/* Cards de indicadores: más sobrios pero con presencia */
+.indicador-card :deep(.v-card) {
+  min-width: 0;
+  width: 100%;
+  background: #f3f4f6 !important;
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 4px 10px rgba(15, 23, 42, 0.06);
+}
+
+/* Mini tarjetas */
+.indicador-mini :deep(.v-card) {
+  min-width: 0;
+  background: #f9fafb !important;
+  border-radius: 10px;
+  border: 1px solid #e5e7eb;
+  box-shadow: none;
+}
 </style>

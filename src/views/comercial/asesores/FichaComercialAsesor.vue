@@ -1,4 +1,3 @@
-<!-- src/views/comercial/FichaComercialAsesor.vue -->
 <template>
   <v-container class="py-6">
     <v-card elevation="10" class="rounded-2xl">
@@ -42,7 +41,9 @@
 
           <v-menu>
             <template #activator="{ props }">
-              <v-btn v-bind="props" variant="tonal" prepend-icon="mdi-calendar-range">Rangos rápidos</v-btn>
+              <v-btn v-bind="props" variant="tonal" prepend-icon="mdi-calendar-range">
+                Rangos rápidos
+              </v-btn>
             </template>
             <v-list>
               <v-list-item @click="setUltimosNDias(7)">
@@ -79,15 +80,20 @@
         <v-row class="mb-6">
           <v-col cols="12" md="6" lg="5">
             <v-card variant="outlined" rounded="lg">
-              <v-card-title class="text-subtitle-1 font-weight-bold">Datos del asesor</v-card-title>
+              <v-card-title class="text-subtitle-1 font-weight-bold">
+                Datos del asesor
+              </v-card-title>
               <v-card-text class="pt-1">
                 <template v-if="asesor && !loading">
                   <div class="mb-1"><strong>Nombre:</strong> {{ asesor.nombre ?? '—' }}</div>
                   <div class="mb-1"><strong>Tipo:</strong> {{ humanTipo(asesor?.tipo) }}</div>
-                  <div class="mb-1"><strong>Correo:</strong> {{ asesor.email || asesor.correo || '—' }}</div>
+                  <div class="mb-1">
+                    <strong>Correo:</strong> {{ asesor.email || asesor.correo || '—' }}
+                  </div>
                   <div class="mb-1"><strong>Teléfono:</strong> {{ asesor.telefono ?? '—' }}</div>
                   <div class="mb-1"><strong>Documento:</strong> {{ docFull(asesor) }}</div>
-                  <div class="mb-1"><strong>Estado:</strong>
+                  <div class="mb-1">
+                    <strong>Estado:</strong>
                     <v-chip size="small" :color="asesor?.activo ? 'success' : 'error'" variant="flat">
                       {{ asesor?.activo ? 'Activo' : 'Inactivo' }}
                     </v-chip>
@@ -127,8 +133,10 @@
               <v-col cols="12" sm="6" lg="3">
                 <div class="kpi-card">
                   <div class="kpi-title">Generado por dateos</div>
-                  <div class="kpi-value">{{ money(kpi.montoGenerado) }}</div>
-                  <div class="kpi-sub">COP</div>
+                  <div class="kpi-value">
+                    {{ money(kpi.montoGenerado) }}
+                  </div>
+                  <div class="kpi-sub">solo comisión del asesor</div>
                 </div>
               </v-col>
             </v-row>
@@ -147,7 +155,7 @@
                   <div class="kpi-value" :class="saldoEstimado < 0 ? 'text-error' : ''">
                     {{ money(saldoEstimado) }}
                   </div>
-                  <div class="kpi-sub">monto - pagos</div>
+                  <div class="kpi-sub">comisiones - pagos</div>
                 </div>
               </v-col>
               <v-col cols="12" sm="12" lg="4">
@@ -167,21 +175,93 @@
         </v-tabs>
 
         <v-window v-model="tab">
-          <!-- Prospectos -->
+          <!-- Prospectos: mismo look que vista general -->
           <v-window-item value="prospectos">
+            <div class="d-flex justify-space-between align-center mb-2">
+              <div class="text-medium-emphasis">
+                <template v-if="verTodosProspectos">
+                  <strong>{{ totalProspectosTodos }}</strong> prospecto(s) del asesor (todos).
+                </template>
+                <template v-else>
+                  <strong>{{ totalProspectosEnRango }}</strong> prospecto(s) del asesor en el rango.
+                </template>
+              </div>
+              <v-switch
+                v-model="verTodosProspectos"
+                color="primary"
+                inset
+                label="Ver todos los prospectos"
+                hide-details
+              />
+            </div>
+
             <v-data-table
-              :items="prospectos"
+              :items="prospectosVisibles"
               :headers="headersProspectos"
               :loading="loading"
               class="elevation-1"
               item-key="id"
-              :no-data-text="'Sin prospectos en el rango'"
+              :no-data-text="'Sin prospectos para los filtros'"
             >
               <template #loading>
                 <v-skeleton-loader type="table-row@6" />
               </template>
-              <template #item.created_at="{ item }">
-                {{ fmtDate(item.created_at) }}
+
+              <!-- SOAT -->
+              <template #item.soat="{ item }">
+                <div class="doc-cell">
+                  <v-chip :color="docColor(item.soat_vigente)" size="small" variant="flat" label>
+                    {{ docText(item.soat_vigente) }}
+                  </v-chip>
+                  <span class="doc-date">{{ formatFechaDoc(item.soat_vencimiento) }}</span>
+                </div>
+              </template>
+
+              <!-- RTM -->
+              <template #item.tecno="{ item }">
+                <div class="doc-cell">
+                  <v-chip :color="docColor(item.tecno_vigente)" size="small" variant="flat" label>
+                    {{ docText(item.tecno_vigente) }}
+                  </v-chip>
+                  <span class="doc-date">{{ formatFechaDoc(item.tecno_vencimiento) }}</span>
+                </div>
+              </template>
+
+              <!-- Preventiva -->
+              <template #item.preventiva="{ item }">
+                <div class="doc-cell">
+                  <v-chip :color="docColor(item.preventiva_vigente)" size="small" variant="flat" label>
+                    {{ docText(item.preventiva_vigente) }}
+                  </v-chip>
+                  <span class="doc-date">{{ formatFechaDoc(item.preventiva_vencimiento) }}</span>
+                </div>
+              </template>
+
+              <!-- Peritaje -->
+              <template #item.peritaje="{ item }">
+                <div class="doc-cell">
+                  <v-chip
+                    :color="item.peritaje_ultima_fecha ? 'success' : 'grey-darken-1'"
+                    size="small"
+                    variant="flat"
+                    label
+                  >
+                    {{ item.peritaje_ultima_fecha ? 'Registrado' : 'Sin datos' }}
+                  </v-chip>
+                  <span class="doc-date">{{ formatFechaDoc(item.peritaje_ultima_fecha) }}</span>
+                </div>
+              </template>
+
+              <!-- Acciones -->
+              <template #item.acciones="{ item }">
+                <div class="d-flex gap-1">
+                  <v-btn
+                    size="small"
+                    variant="text"
+                    icon="mdi-eye"
+                    @click="verProspecto(item.id)"
+                  />
+                </div>
               </template>
             </v-data-table>
           </v-window-item>
@@ -211,9 +291,17 @@
               <div class="text-medium-emphasis">
                 <strong>{{ totalDateosFiltrados }}</strong> dateo(s) ·
                 Exitosos: <strong>{{ totalExitosos }}</strong> ·
-                Monto total: <strong>{{ money(totalMonto) }}</strong>
+                Monto total (comisiones asesor):
+                <strong>{{ money(totalComisionAsesor) }}</strong>
               </div>
               <div class="d-flex align-center" style="gap:8px">
+                <v-switch
+                  v-model="verTodosDateos"
+                  color="primary"
+                  inset
+                  label="Ver todos los dateos"
+                  hide-details
+                />
                 <v-switch
                   v-model="filtrosDateo.soloExitosos"
                   color="success"
@@ -221,8 +309,22 @@
                   label="Solo exitosos"
                   hide-details
                 />
-                <v-btn size="small" variant="tonal" prepend-icon="mdi-download" @click="exportCsv(false)">Exportar CSV</v-btn>
-                <v-btn size="small" color="success" prepend-icon="mdi-download" @click="exportCsv(true)">CSV (solo exitosos)</v-btn>
+                <v-btn
+                  size="small"
+                  variant="tonal"
+                  prepend-icon="mdi-download"
+                  @click="exportCsv(false)"
+                >
+                  Exportar CSV
+                </v-btn>
+                <v-btn
+                  size="small"
+                  color="success"
+                  prepend-icon="mdi-download"
+                  @click="exportCsv(true)"
+                >
+                  CSV (solo exitosos)
+                </v-btn>
               </div>
             </div>
 
@@ -238,31 +340,142 @@
                 <v-skeleton-loader type="table-row@6" />
               </template>
 
-              <template #item.exitoso="{ item }">
-                <v-chip size="small" :color="isExitoso(item) ? 'success' : 'error'" variant="flat">
-                  {{ isExitoso(item) ? 'Sí' : 'No' }}
+              <!-- Foto -->
+              <template #item.imagen_url="{ item }">
+                <div class="d-flex items-center">
+                  <v-avatar
+                    v-if="item.imagen_url"
+                    size="42"
+                    class="evidence-thumb"
+                    @click="openViewer(item.imagen_url)"
+                  >
+                    <v-img :src="item.imagen_url" alt="evidencia" cover />
+                  </v-avatar>
+                  <v-btn
+                    v-else
+                    icon="mdi-image-off"
+                    variant="text"
+                    size="small"
+                    class="text-medium-emphasis"
+                    :disabled="true"
+                    :ripple="false"
+                    aria-label="Sin evidencia"
+                    :title="'Sin evidencia'"
+                  />
+                </div>
+              </template>
+
+              <!-- Convenio -->
+              <template #item.convenio="{ item }">
+                <v-chip v-if="item.convenio?.nombre" size="small" variant="flat">
+                  {{ item.convenio.nombre }}
+                </v-chip>
+                <span v-else class="text-medium-emphasis">—</span>
+              </template>
+
+              <!-- Estado -->
+              <template #item.resultado="{ item }">
+                <v-chip :color="chipColorResultado(item.resultado)" size="small" variant="flat">
+                  {{ textoResultado(item.resultado) }}
                 </v-chip>
               </template>
 
-              <template #item.monto="{ item }">
-                {{ money(getMontoDateo(item)) }}
+              <!-- Turno -->
+              <template #item.turnoInfo="{ item }">
+                <div
+                  v-if="item.turnoInfo"
+                  class="d-flex align-center justify-center"
+                  style="gap:6px"
+                >
+                  <v-chip size="x-small" color="primary" variant="tonal" class="font-weight-600">
+                    {{
+                      (item.turnoInfo.fecha && formatDateOnly(item.turnoInfo.fecha)) ||
+                      '—'
+                    }}
+                  </v-chip>
+                  <v-chip size="x-small" color="indigo" variant="tonal" class="font-weight-600">
+                    G: {{ item.turnoInfo.numeroGlobal ?? '—' }}
+                  </v-chip>
+                  <v-chip
+                    size="x-small"
+                    color="deep-purple"
+                    variant="tonal"
+                    class="font-weight-600"
+                  >
+                    S: {{ item.turnoInfo.numeroServicio ?? '—' }}
+                  </v-chip>
+                  <v-chip
+                    v-if="item.turnoInfo.servicioCodigo"
+                    size="x-small"
+                    variant="tonal"
+                    class="font-weight-600"
+                  >
+                    {{ item.turnoInfo.servicioCodigo }}
+                  </v-chip>
+                  <v-chip
+                    size="x-small"
+                    :color="chipColorEstadoTurno(item.turnoInfo.estado || item.resultado)"
+                    variant="elevated"
+                    prepend-icon="mdi-progress-clock"
+                    class="font-weight-600"
+                  >
+                    {{ textoEstadoTurno(item.turnoInfo.estado || item.resultado) }}
+                  </v-chip>
+                </div>
+                <span v-else class="text-medium-emphasis d-flex justify-center">—</span>
               </template>
 
+              <!-- Comisión SOLO del asesor -->
+              <template #item.comisionAsesor="{ item }">
+                {{ money(getComisionAsesorForDateo(item.id)) }}
+              </template>
+
+              <!-- Fecha creado -->
               <template #item.created_at="{ item }">
-                {{ fmtDate(item.created_at) }}
+                {{ item.created_at_fmt || fmtDate(item.created_at) }}
               </template>
             </v-data-table>
           </v-window-item>
         </v-window>
       </v-card-text>
     </v-card>
+
+    <!-- Visor de imagen -->
+    <v-dialog v-model="viewer.visible" max-width="720">
+      <v-card>
+        <v-card-title class="text-h6">Evidencia</v-card-title>
+        <v-card-text>
+          <v-img v-if="viewer.url" :src="viewer.url" class="rounded" height="420" cover />
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn
+            v-if="viewer.url"
+            variant="text"
+            :href="viewer.url"
+            target="_blank"
+            prepend-icon="mdi-open-in-new"
+          >
+            Abrir en pestaña
+          </v-btn>
+          <v-btn color="primary" @click="viewer.visible = false">Cerrar</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
   </v-container>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { get } from '@/services/http'
+import { listDateos, type Dateo, formatDateTime } from '@/services/dateosService'
+import { listComisiones, type ComisionListItem } from '@/services/comisionesService'
+import {
+  listProspectos,
+  type ProspectoDetail,
+  formatDate as formatDateDocBase,
+} from '@/services/prospectosService'
 
 /* ===== Tipos ===== */
 type Asesor = {
@@ -277,27 +490,15 @@ type Asesor = {
   documento?: string | null
   activo?: boolean | 0 | 1
 }
-type Prospecto = { id: number; nombre?: string | null; placa?: string | null; telefono?: string | null; observaciones?: string | null; created_at?: string }
-type Convenio = { id: number; nombre: string; vigencia_desde?: string | null; vigencia_hasta?: string | null }
-type Dateo = {
+
+type Convenio = {
   id: number
-  placa?: string | null
-  telefono?: string | null
-  canal?: string | null
-  resultado?: string | null
-  exitoso?: boolean | null
-  consumido_exitoso?: boolean | null
-  bonificacion?: number | null
-  comision?: number | null
-  monto?: number | null
-  valor?: number | null
-  asesor_id?: number | null
-  agente_id?: number | null
-  creado_por?: number | null
-  creadoPor?: number | null
-  user_id?: number | null
-  created_at?: string
+  nombre: string
+  vigencia_desde?: string | null
+  vigencia_hasta?: string | null
 }
+
+const router = useRouter()
 
 /* ===== Constantes y estado base ===== */
 const API = '/api'
@@ -305,10 +506,11 @@ const route = useRoute()
 const asesorId = Number(route.params.id)
 
 const asesor = ref<Asesor | null>(null)
-const prospectos = ref<Prospecto[]>([])
+const prospectos = ref<ProspectoDetail[]>([]) // todos los prospectos del asesor
 const convenios = ref<Convenio[]>([])
-const dateos = ref<Dateo[]>([])
-const pagos = ref<{ id:number; valor:number; fecha?:string }[]>([])
+const dateos = ref<Dateo[]>([]) // todos los dateos del asesor
+const comisiones = ref<ComisionListItem[]>([])
+const pagos = ref<{ id: number; valor: number; fecha?: string }[]>([])
 
 const loading = ref(false)
 const globalError = ref<string | null>(null)
@@ -316,8 +518,11 @@ const tab = ref<'prospectos' | 'convenios' | 'dateos'>('prospectos')
 
 /* ===== Rango de fechas ===== */
 const filtros = ref<{ desde: string; hasta: string }>({ desde: '', hasta: '' })
+
 function toInputDate(d: Date) {
-  return new Date(d.getTime() - d.getTimezoneOffset()*60000).toISOString().slice(0, 10)
+  return new Date(d.getTime() - d.getTimezoneOffset() * 60000)
+    .toISOString()
+    .slice(0, 10)
 }
 function setUltimosNDias(n: number) {
   const hoy = new Date()
@@ -326,7 +531,9 @@ function setUltimosNDias(n: number) {
   filtros.value.desde = toInputDate(desde)
   filtros.value.hasta = toInputDate(hoy)
 }
-function setUltimos30() { setUltimosNDias(30) }
+function setUltimos30() {
+  setUltimosNDias(30)
+}
 function setEsteMes() {
   const hoy = new Date()
   const desde = new Date(hoy.getFullYear(), hoy.getMonth(), 1)
@@ -334,7 +541,10 @@ function setEsteMes() {
   filtros.value.desde = toInputDate(desde)
   filtros.value.hasta = toInputDate(hasta)
 }
-function resetRango() { setUltimos30(); reload() }
+function resetRango() {
+  setUltimos30()
+  reload()
+}
 setUltimos30()
 
 const rangoLegible = computed(() => {
@@ -344,11 +554,15 @@ const rangoLegible = computed(() => {
 
 /* ===== Headers de tablas ===== */
 const headersProspectos = [
-  { title: 'ID', key: 'id' },
-  { title: 'Nombre', key: 'nombre' },
-  { title: 'Placa', key: 'placa' },
-  { title: 'Teléfono', key: 'telefono' },
-  { title: 'Creado', key: 'created_at' },
+  { title: 'ID', key: 'id', sortable: true },
+  { title: 'Nombre', key: 'nombre', sortable: true },
+  { title: 'Teléfono', key: 'telefono', sortable: true },
+  { title: 'Placa', key: 'placa', sortable: true },
+  { title: 'SOAT', key: 'soat', sortable: false },
+  { title: 'RTM', key: 'tecno', sortable: false },
+  { title: 'Preventiva', key: 'preventiva', sortable: false },
+  { title: 'Peritaje', key: 'peritaje', sortable: false },
+  { title: 'Acciones', key: 'acciones', sortable: false, align: 'end' as const },
 ] as const
 
 const headersConvenios = [
@@ -359,12 +573,14 @@ const headersConvenios = [
 
 const headersDateos = [
   { title: 'ID', key: 'id' },
-  { title: 'Canal', key: 'canal' },
+  { title: 'Foto', key: 'imagen_url' },
   { title: 'Placa', key: 'placa' },
   { title: 'Teléfono', key: 'telefono' },
-  { title: 'Exitoso', key: 'exitoso' },
-  { title: 'Monto', key: 'monto', align: 'end' },
-  { title: 'Fecha', key: 'created_at' },
+  { title: 'Convenio', key: 'convenio' },
+  { title: 'Estado', key: 'resultado' },
+  { title: 'Turno', key: 'turnoInfo', align: 'center' as const },
+  { title: 'Comisión asesor', key: 'comisionAsesor', align: 'end' as const },
+  { title: 'Creado', key: 'created_at' },
 ] as const
 
 /* ===== Helpers UI/negocio ===== */
@@ -377,81 +593,202 @@ function humanTipo(t?: string | null) {
 }
 function docFull(a?: Asesor | null) {
   if (!a) return '—'
-  // Soporte a múltiples convenciones
   const tipo = a.doc_tipo || (a as any).tipo_documento || (a as any).tipoDoc || ''
-  const num  = a.doc_numero || (a as any).numero_documento || (a as any).numDocumento || a.documento || (a as any).cedula || ''
+  const num =
+    a.doc_numero ||
+    (a as any).numero_documento ||
+    (a as any).numDocumento ||
+    a.documento ||
+    (a as any).cedula ||
+    ''
   if (tipo || num) return `${tipo} ${num}`.trim()
   return '—'
 }
 function vigenciaText(c: Convenio) {
-  const f = (s?: string | null) => (!s ? '—' : new Date(s as string).toLocaleDateString())
+  const f = (s?: string | null) =>
+    !s ? '—' : new Date(s as string).toLocaleDateString()
   return `${f(c.vigencia_desde)} – ${f(c.vigencia_hasta)}`
 }
 function normalizeCreatedAt(obj: any) {
-  return obj?.created_at || obj?.createdAt || obj?.fecha || obj?.fecha_creacion || obj?.creado || obj?.created || null
+  return (
+    obj?.created_at ||
+    obj?.createdAt ||
+    obj?.fecha ||
+    obj?.fecha_creacion ||
+    obj?.creado ||
+    obj?.created ||
+    null
+  )
 }
 function fmtDate(d?: string) {
   if (!d) return '—'
-  const dt = new Date(d)
-  return isNaN(dt.getTime()) ? '—' : dt.toLocaleDateString()
+  return formatDateTime(d)
 }
 function money(n?: number | null) {
-  return new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(n || 0)
+  return new Intl.NumberFormat('es-CO', {
+    style: 'currency',
+    currency: 'COP',
+    maximumFractionDigits: 0,
+  }).format(n || 0)
 }
-function isExitoso(d: Dateo) {
+function isExitoso(d: any) {
   const r = String(d.resultado || '').toUpperCase()
-  return !!(d.exitoso || d.consumido_exitoso || r === 'EXITOSO' || r === 'COMPLETADO' || r === 'ATENDIDO' || r === 'CONVERTIDO')
-}
-function getMontoDateo(d: Dateo) {
-  const candidates = [d.monto, d.bonificacion, d.comision, d.valor]
-  const n = candidates.find((x) => typeof x === 'number' && !Number.isNaN(x as number))
-  return (n as number | undefined) ?? 0
-}
-function isFromAsesor(d: Dateo, id: number) {
-  const candidates = [d.asesor_id, d.agente_id, d.creado_por, d.creadoPor, d.user_id]
-  return candidates.some(v => Number(v) === Number(id))
+  return (
+    !!d.exitoso ||
+    !!d.consumido_exitoso ||
+    ['EXITOSO', 'COMPLETADO', 'ATENDIDO', 'CONVERTIDO'].includes(r)
+  )
 }
 
-/* ===== Filtros Dateos (solo exitosos) y listas derivadas ===== */
-const filtrosDateo = ref<{ soloExitosos: boolean }>({ soloExitosos: false })
+/* Prospectos: helpers de vigencias como en vista de prospectos */
+function docColor(v?: boolean | null) {
+  if (v === true) return 'success'
+  if (v === false) return 'error'
+  return 'grey-darken-1'
+}
+function docText(v?: boolean | null) {
+  if (v === true) return 'Vigente'
+  if (v === false) return 'Vencido'
+  return 'Sin datos'
+}
+function formatFechaDoc(d?: string | null) {
+  return formatDateDocBase(d || undefined)
+}
 
-/* Solo dateos DEL ASESOR + rango + (opcional) exitosos */
-const dateosFiltrados = computed(() => {
+/* Texto/Color chips dateos */
+function chipColorResultado(r?: string) {
+  if (r === 'EXITOSO') return 'success'
+  if (r === 'NO_EXITOSO') return 'error'
+  if (r === 'EN_PROCESO') return 'info'
+  return 'warning'
+}
+function textoResultado(r?: string) {
+  if (r === 'EXITOSO') return 'Exitoso'
+  if (r === 'NO_EXITOSO') return 'No exitoso'
+  if (r === 'EN_PROCESO') return 'En proceso'
+  return 'Pendiente'
+}
+function chipColorEstadoTurno(e?: string) {
+  const v = String(e || '').toLowerCase()
+  if (v.includes('proceso')) return 'info'
+  if (v.includes('final')) return 'success'
+  if (v.includes('cancel')) return 'error'
+  return 'warning'
+}
+function textoEstadoTurno(e?: string) {
+  const v = String(e || '').toUpperCase()
+  if (v === 'EN_PROCESO') return 'En proceso'
+  if (v === 'FINALIZADO') return 'Finalizado'
+  if (v === 'CANCELADO') return 'Cancelado'
+  if (v === 'ACTIVO') return 'Activo'
+  return 'Pendiente'
+}
+function formatDateOnly(iso: string) {
+  const p = iso.split('T')[0] || iso
+  const [y, m, d] = p.split('-')
+  return `${d}/${m}/${y}`
+
+}
+
+/* ===== Visor de imagen ===== */
+const viewer = ref<{ visible: boolean; url: string | null }>({
+  visible: false,
+  url: null,
+})
+function openViewer(url: string) {
+  viewer.value = { visible: true, url }
+}
+
+/* ===== Comisiones por dateo (solo comisión del asesor) ===== */
+const comisionesPorDateo = computed(() => {
+  const map = new Map<number, ComisionListItem[]>()
+  for (const c of comisiones.value) {
+    const dateoId = (c as any).captacionDateoId ?? (c as any).dateo_id ?? null
+    if (!dateoId) continue
+    const key = Number(dateoId)
+    if (!map.has(key)) map.set(key, [])
+    map.get(key)!.push(c)
+  }
+  return map
+})
+
+function getComisionAsesorForDateo(dateoId: number): number {
+  const arr = comisionesPorDateo.value.get(Number(dateoId)) || []
+  return arr.reduce((sum, c) => sum + (c.valor_unitario || 0), 0)
+}
+
+/* ===== Prospectos: ver todos / solo en rango ===== */
+const verTodosProspectos = ref(false)
+
+const prospectosEnRango = computed(() => {
   const desde = new Date(filtros.value.desde + 'T00:00:00')
   const hasta = new Date(filtros.value.hasta + 'T23:59:59')
-  return dateos.value.filter((d) => {
-    const pertenece = isFromAsesor(d, asesorId)
-    if (!pertenece) return false
-    const tRaw = normalizeCreatedAt(d)
-    const t = tRaw ? new Date(tRaw) : null
-    const enRango = t ? t >= desde && t <= hasta : true
-    const porExito = filtrosDateo.value.soloExitosos ? isExitoso(d) : true
-    // Normaliza created_at para la tabla
-    d.created_at = tRaw || d.created_at
-    return enRango && porExito
+  return prospectos.value.filter((p: any) => {
+    const created =
+      p.created_at ||
+      p.createdAt ||
+      p.asignacion_activa?.fecha_asignacion ||
+      null
+    if (!created) return true
+    const t = new Date(created)
+    return t >= desde && t <= hasta
   })
 })
 
-/* KPIs y totales dinámicos (en base a dateos del asesor) */
+const prospectosVisibles = computed(() =>
+  verTodosProspectos.value ? prospectos.value : prospectosEnRango.value,
+)
+
+const totalProspectosEnRango = computed(() => prospectosEnRango.value.length)
+const totalProspectosTodos = computed(() => prospectos.value.length)
+
+/* ===== Filtros Dateos (solo exitosos / ver todos) ===== */
+const filtrosDateo = ref<{ soloExitosos: boolean }>({ soloExitosos: false })
+const verTodosDateos = ref(false)
+
+const dateosFiltrados = computed(() => {
+  const desde = new Date(filtros.value.desde + 'T00:00:00')
+  const hasta = new Date(filtros.value.hasta + 'T23:59:59')
+  return dateos.value.filter((d: any) => {
+    const tRaw = normalizeCreatedAt(d)
+    const t = tRaw ? new Date(tRaw) : null
+    const enRango = t ? t >= desde && t <= hasta : true
+    const pasaRango = verTodosDateos.value ? true : enRango
+    const pasaExito = filtrosDateo.value.soloExitosos ? isExitoso(d) : true
+    d.created_at = tRaw || d.created_at
+    return pasaRango && pasaExito
+  })
+})
+
+const totalDateosFiltrados = computed(() => dateosFiltrados.value.length)
+const totalExitosos = computed(() =>
+  dateosFiltrados.value.filter((d) => isExitoso(d)).length,
+)
+const totalComisionAsesor = computed(() =>
+  dateosFiltrados.value
+    .filter((d) => isExitoso(d))
+    .reduce((acc, d: any) => acc + getComisionAsesorForDateo(d.id), 0),
+)
+
+/* ===== KPIs ===== */
 const kpi = ref({
   prospectos: 0,
   convenios: 0,
   dateosExitosos: 0,
-  montoGenerado: 0,
+  montoGenerado: 0, // SOLO comisión del asesor
   pagosRegistrados: 0,
 })
-const saldoEstimado = computed(() => (kpi.value.montoGenerado - kpi.value.pagosRegistrados))
-const totalDateosFiltrados = computed(() => dateosFiltrados.value.length)
-const totalExitosos = computed(() => dateosFiltrados.value.filter(isExitoso).length)
-const totalMonto = computed(() => dateosFiltrados.value.reduce((acc, it) => acc + (getMontoDateo(it) || 0), 0))
+const saldoEstimado = computed(
+  () => kpi.value.montoGenerado - kpi.value.pagosRegistrados,
+)
 
-/* ===== API helpers (usa tus rutas reales) ===== */
+/* ===== API helpers ===== */
 function rangoParams() {
   return { desde: filtros.value.desde, hasta: filtros.value.hasta, perPage: 500 }
 }
 
-function normalizeAsesor(raw: any): Asesor {
-  if (!raw) return null as any
+function normalizeAsesor(raw: any): Asesor | null {
+  if (!raw) return null
   const nombre =
     raw.nombre ||
     [raw.nombres, raw.apellidos].filter(Boolean).join(' ') ||
@@ -461,15 +798,21 @@ function normalizeAsesor(raw: any): Asesor {
   const email = raw.email || raw.correo || raw.email_personal || raw?.user?.email || null
   const telefono = raw.telefono || raw.celular || raw.cel || raw.phone || null
 
-  // documento
   const doc_tipo = raw.doc_tipo || raw.tipo_documento || raw.tipoDoc || null
   const doc_numero =
-    raw.doc_numero || raw.numero_documento || raw.numDocumento || raw.documento || raw.cedula || null
+    raw.doc_numero ||
+    raw.numero_documento ||
+    raw.numDocumento ||
+    raw.documento ||
+    raw.cedula ||
+    null
 
   const activo =
     typeof raw.activo !== 'undefined'
       ? !!raw.activo
-      : (String(raw.estado || '').toUpperCase() === 'ACTIVO' ? true : undefined)
+      : String(raw.estado || '').toUpperCase() === 'ACTIVO'
+      ? true
+      : undefined
 
   return {
     id: Number(raw.id),
@@ -486,13 +829,12 @@ function normalizeAsesor(raw: any): Asesor {
 }
 
 async function fetchAsesor(id: number) {
-  // 1) Tu ruta real
   try {
     const r = await get<any>(`${API}/agentes-captacion/${id}`)
     const a = r?.data ?? r
     if (a) return normalizeAsesor(a)
   } catch {}
-  // 2) Fallback a usuarios/:id por si allí está el correo/documento
+
   try {
     const r2 = await get<any>(`${API}/usuarios/${id}`)
     const a2 = r2?.data ?? r2
@@ -502,22 +844,28 @@ async function fetchAsesor(id: number) {
 }
 
 async function fetchProspectos(id: number) {
-  try {
-    const r = await get<any>(`${API}/agentes-captacion/${id}/prospectos`, { params: rangoParams() })
-    const arr = r?.data ?? r
-    if (Array.isArray(arr)) {
-      return arr.map((p: any) => ({ ...p, created_at: normalizeCreatedAt(p) }))
-    }
-  } catch {}
-  // Fallback: por creadoPor
-  const r3 = await get<any>(`${API}/prospectos`, { params: { ...rangoParams(), creadoPor: id } })
-  const arr3 = r3?.data ?? r3
-  return Array.isArray(arr3) ? arr3.map((p: any) => ({ ...p, created_at: normalizeCreatedAt(p) })) : []
+  const res = await listProspectos({
+    page: 1,
+    perPage: 500,
+    asesorId: id,
+    sortBy: 'updated_at',
+    order: 'desc',
+  })
+  return res.data.map((p) => {
+    const created =
+      p.created_at ||
+      p.createdAt ||
+      p.asignacion_activa?.fecha_asignacion ||
+      null
+    return { ...p, created_at: created } as ProspectoDetail
+  })
 }
 
 async function fetchConvenios(id: number) {
   try {
-    const r = await get<any>(`${API}/agentes-captacion/${id}/convenios`, { params: { perPage: 500 } })
+    const r = await get<any>(`${API}/agentes-captacion/${id}/convenios`, {
+      params: { perPage: 500 },
+    })
     const arr = r?.data ?? r
     if (Array.isArray(arr)) return arr
   } catch {}
@@ -525,23 +873,24 @@ async function fetchConvenios(id: number) {
 }
 
 async function fetchDateos(id: number) {
-  // ÚNICO index real en tus rutas
-  const params = { ...rangoParams(), asesor_id: id, agente_id: id, creadoPor: id, user_id: id }
-  try {
-    const r = await get<any>(`${API}/captacion-dateos`, { params })
-    const arr = r?.data ?? r
-    if (Array.isArray(arr)) {
-      // Asegura autoría + normaliza fecha para "Creado"
-      return arr
-        .filter((d: any) => isFromAsesor(d, id))
-        .map((d: any) => ({ ...d, created_at: normalizeCreatedAt(d) }))
-    }
-  } catch {}
-  return []
+  const res = await listDateos({
+    page: 1,
+    perPage: 500,
+    canal: 'ASESOR',
+    agenteId: id,
+    sortBy: 'id',
+    order: 'desc',
+  })
+  return res.data as Dateo[]
+}
+
+async function fetchComisiones(id: number) {
+  const res = await listComisiones({ asesorId: id, perPage: 500 })
+  return res.data as ComisionListItem[]
 }
 
 async function fetchPagos(_id: number) {
-  // No hay ruta en tu backend ahora mismo
+  // TODO: cuando tengas backend de pagos por asesor
   return []
 }
 
@@ -550,12 +899,13 @@ async function loadAll() {
   loading.value = true
   globalError.value = null
   try {
-    const [a, p, c, d, pg] = await Promise.all([
+    const [a, p, c, d, pg, cm] = await Promise.all([
       fetchAsesor(asesorId),
       fetchProspectos(asesorId),
       fetchConvenios(asesorId),
       fetchDateos(asesorId),
       fetchPagos(asesorId),
+      fetchComisiones(asesorId),
     ])
 
     asesor.value = a || null
@@ -563,25 +913,32 @@ async function loadAll() {
     convenios.value = Array.isArray(c) ? c : []
     dateos.value = Array.isArray(d) ? d : []
     pagos.value = Array.isArray(pg) ? pg : []
+    comisiones.value = Array.isArray(cm) ? cm : []
 
-    // KPIs (con base en dateos del asesor y rango)
+    // KPIs: siempre con datos EN RANGO, no con "ver todos"
     const desde = new Date(filtros.value.desde + 'T00:00:00')
     const hasta = new Date(filtros.value.hasta + 'T23:59:59')
 
-    const dateosEnRango = dateos.value.filter((x) => {
+    const dateosEnRango = dateos.value.filter((x: any) => {
       const tRaw = normalizeCreatedAt(x)
       const t = tRaw ? new Date(tRaw) : null
       return t ? t >= desde && t <= hasta : true
     })
-    const exitosos = dateosEnRango.filter(isExitoso)
-    const monto = exitosos.reduce((acc, it) => acc + (getMontoDateo(it) || 0), 0)
-    const pagosTotal = pagos.value.reduce((acc, it) => acc + (Number(it.valor) || 0), 0)
+    const exitosos = dateosEnRango.filter((x) => isExitoso(x))
+    const monto = exitosos.reduce(
+      (acc: number, it: any) => acc + getComisionAsesorForDateo(it.id),
+      0,
+    )
+    const pagosTotal = pagos.value.reduce(
+      (acc, it) => acc + (Number(it.valor) || 0),
+      0,
+    )
 
     kpi.value = {
-      prospectos: prospectos.value.length,
+      prospectos: prospectosEnRango.value.length,
       convenios: convenios.value.length,
       dateosExitosos: exitosos.length,
-      montoGenerado: monto,
+      montoGenerado: monto, // SOLO comisión del asesor
       pagosRegistrados: pagosTotal,
     }
   } catch (e: any) {
@@ -591,25 +948,48 @@ async function loadAll() {
   }
 }
 
-function reload() { loadAll() }
+function reload() {
+  loadAll()
+}
 onMounted(loadAll)
 
-/* ===== Exportar CSV ===== */
+/* ===== Navegación extra ===== */
+function verProspecto(id: number) {
+  router.push({ name: 'ComercialProspectoDetalle', params: { id } }).catch(() => {})
+}
+
+/* ===== Exportar CSV (dateos) ===== */
+function getMontoDateo(d: Dateo) {
+  return getComisionAsesorForDateo((d as any).id)
+}
+
 function exportCsv(soloExitosos: boolean) {
-  const rows = (soloExitosos ? dateosFiltrados.value.filter(isExitoso) : dateosFiltrados.value).map(d => ({
+  const baseRows = soloExitosos
+    ? dateosFiltrados.value.filter((d) => isExitoso(d))
+    : dateosFiltrados.value
+
+  const rows = baseRows.map((d: any) => ({
     id: d.id,
-    canal: d.canal ?? '',
     placa: d.placa ?? '',
     telefono: d.telefono ?? '',
+    convenio: d.convenio?.nombre ?? '',
     exitoso: isExitoso(d) ? 'SI' : 'NO',
-    monto: getMontoDateo(d),
+    monto_comision_asesor: getMontoDateo(d),
     fecha: fmtDate(d.created_at),
   }))
 
-  const headers = ['id','canal','placa','telefono','exitoso','monto','fecha']
+  const headers = [
+    'id',
+    'placa',
+    'telefono',
+    'convenio',
+    'exitoso',
+    'monto_comision_asesor',
+    'fecha',
+  ]
   const csv = [
     headers.join(','),
-    ...rows.map(r => headers.map(h => csvEscape((r as any)[h])).join(',')),
+    ...rows.map((r) => headers.map((h) => csvEscape((r as any)[h])).join(',')),
   ].join('\n')
 
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
@@ -621,23 +1001,66 @@ function exportCsv(soloExitosos: boolean) {
   a.click()
   URL.revokeObjectURL(url)
 }
+
 function csvEscape(val: unknown) {
   const s = String(val ?? '')
-  if (/[",\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`
+  if (/[",\n]/.test(s)) {
+    return `"${s.replace(/"/g, '""')}"`
+  }
   return s
 }
 </script>
 
 <style scoped>
 .kpi-card {
-  border: 1px solid rgba(0,0,0,0.06);
+  border: 1px solid rgba(0, 0, 0, 0.06);
   border-radius: 14px;
   padding: 14px 16px;
   height: 100%;
   background: rgb(var(--v-theme-surface));
 }
-.kpi-title { font-weight: 600; font-size: 0.9rem; color: rgba(0,0,0,0.6); }
-.kpi-value { font-weight: 800; font-size: 1.4rem; line-height: 1.2; margin: 6px 0; }
-.kpi-sub { font-size: .8rem; color: rgba(0,0,0,0.45); }
-.gap-2 { gap: 8px; }
+.kpi-title {
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: rgba(0, 0, 0, 0.6);
+}
+.kpi-value {
+  font-weight: 800;
+  font-size: 1.4rem;
+  line-height: 1.2;
+  margin: 6px 0;
+}
+.kpi-sub {
+  font-size: 0.8rem;
+  color: rgba(0, 0, 0, 0.45);
+}
+.gap-2 {
+  gap: 8px;
+}
+.evidence-thumb {
+  cursor: zoom-in;
+}
+
+/* Prospectos: misma estructura de docs que en vista general */
+.doc-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  line-height: 1.1;
+}
+.doc-date {
+  font-size: 12px;
+  opacity: 0.7;
+  margin-top: 2px;
+}
+:deep(th[data-key='soat']),
+:deep(td[data-key='soat']),
+:deep(th[data-key='tecno']),
+:deep(td[data-key='tecno']),
+:deep(th[data-key='preventiva']),
+:deep(td[data-key='preventiva']),
+:deep(th[data-key='peritaje']),
+:deep(td[data-key='peritaje']) {
+  min-width: 132px;
+}
 </style>

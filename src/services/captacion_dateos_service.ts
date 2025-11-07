@@ -4,9 +4,9 @@ import { get, post, put, del } from './http'
 /**
  * CAPTACIÓN / DATEOS
  * Endpoints:
- *  - GET    /api/captacion-dateos?placa=&telefono=&canal=&agente_id=&vigente=&consumido=&page=&perPage=
+ *  - GET    /api/captacion-dateos?placa=&telefono=&canal=&agente_id=&convenio_id=&vigente=&consumido=&page=&perPage=
  *  - GET    /api/captacion-dateos/:id
- *  - POST   /api/captacion-dateos       { canal, agente_id?, placa?, telefono?, origen, observacion?, imagen_url?, ... }
+ *  - POST   /api/captacion-dateos       { canal, agente_id?, convenio_id?, placa?, telefono?, origen, observacion?, imagen_url?, ... }
  *  - PUT    /api/captacion-dateos/:id   { observacion?, imagen_?*, consumido_turno_id? }
  *  - DELETE /api/captacion-dateos/:id
  */
@@ -18,6 +18,8 @@ export const CaptacionDateosService = {
    *  - placa (UPPER en backend), telefono (solo dígitos en backend)
    *  - canal: 'FACHADA' | 'ASESOR' | 'TELE' | 'REDES'
    *  - agente_id: number
+   *  - convenio_id: number
+   *  - resultado: PENDIENTE | EN_PROCESO | EXITOSO | NO_EXITOSO
    *  - vigente: true|false (calcula reserva en backend)
    *  - consumido: true|false
    */
@@ -28,6 +30,8 @@ export const CaptacionDateosService = {
     telefono?: string
     canal?: 'FACHADA' | 'ASESOR' | 'TELE' | 'REDES'
     agente_id?: number
+    convenio_id?: number
+    resultado?: 'PENDIENTE' | 'EN_PROCESO' | 'EXITOSO' | 'NO_EXITOSO'
     vigente?: boolean
     consumido?: boolean
   }) {
@@ -55,13 +59,14 @@ export const CaptacionDateosService = {
    *  - canal requerido
    *  - origen requerido: 'UI' | 'WHATSAPP' | 'IMPORT'
    *  - si canal = ASESOR o TELE ⇒ agente_id requerido
-   *  - se requiere al menos uno: placa o telefono
+   *  - se requiere al menos uno: placa o telefono (en tu backend ahora exiges placa)
    *  - imagen es por URL (opcional): imagen_url (+ metadatos opcionales)
    */
   create(body: {
     canal: 'FACHADA' | 'ASESOR' | 'TELE' | 'REDES'
     origen: 'UI' | 'WHATSAPP' | 'IMPORT'
     agente_id?: number | null
+    convenio_id?: number | null
     placa?: string | null
     telefono?: string | null
     observacion?: string | null

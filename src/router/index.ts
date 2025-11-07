@@ -28,6 +28,7 @@ import DateoCreate from '@/views/comercial/dateos/DateoCreate.vue'
 import DateoDetail from '@/views/comercial/dateos/DateoDetail.vue'
 import ComisionesList from '@/views/comercial/comisiones/ComisionesList.vue'
 import ComisionDetail from '@/views/comercial/comisiones/ComisionesDetail.vue'
+import ComisionesConfig from '@/views/comercial/comisiones/ComisionesConfig.vue'
 
 const routes = [
   { path: '/', redirect: '/login' },
@@ -75,7 +76,7 @@ const routes = [
     meta: { layout: 'MainLayout' },
   },
 
-  // ✅ NUEVO: Certificación RTM (pantallazo FLUR)
+  // ✅ Certificación RTM (pantallazo FLUR)
   {
     path: '/rtm/certificacion/:id',
     name: 'RtmCertificacion',
@@ -220,6 +221,13 @@ const routes = [
     name: 'ComercialComisiones',
     component: ComisionesList,
     meta: { layout: 'MainLayout' },
+  },
+  // ⚙️ Configuración de comisiones (nueva vista)
+  {
+    path: '/comercial/comisiones/config',
+    name: 'ComercialComisionesConfig',
+    component: ComisionesConfig,
+    meta: { layout: 'MainLayout', title: 'Configuración de comisiones' },
   },
   {
     path: '/comercial/comisiones/:id',

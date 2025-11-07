@@ -35,6 +35,18 @@
             style="min-width: 160px"
           />
 
+          <!-- 🔹 Nuevo: filtro de tipo de asesor -->
+          <v-select
+            v-model="filters.tipoAgente"
+            :items="tipoAgenteItems"
+            label="Tipo asesor"
+            variant="outlined"
+            density="comfortable"
+            hide-details
+            clearable
+            style="min-width: 160px"
+          />
+
           <v-autocomplete
             v-model="filters.agenteId"
             :items="agentesVisibles"
@@ -138,7 +150,13 @@
       </v-card-title>
 
       <v-expand-transition>
-        <v-alert v-if="errorMsg" type="error" variant="tonal" class="mx-6 mb-3" density="comfortable">
+        <v-alert
+          v-if="errorMsg"
+          type="error"
+          variant="tonal"
+          class="mx-6 mb-3"
+          density="comfortable"
+        >
           {{ errorMsg }}
         </v-alert>
       </v-expand-transition>
@@ -236,7 +254,12 @@
             <v-chip size="x-small" color="deep-purple" variant="tonal" class="font-weight-600">
               S: {{ item.turnoInfo.numeroServicio ?? '—' }}
             </v-chip>
-            <v-chip v-if="item.turnoInfo.servicioCodigo" size="x-small" variant="tonal" class="font-weight-600">
+            <v-chip
+              v-if="item.turnoInfo.servicioCodigo"
+              size="x-small"
+              variant="tonal"
+              class="font-weight-600"
+            >
               {{ item.turnoInfo.servicioCodigo }}
             </v-chip>
             <v-chip
@@ -257,7 +280,13 @@
           <div class="d-flex gap-1">
             <v-tooltip text="Ver detalle del dateo">
               <template #activator="{ props }">
-                <v-btn size="small" variant="text" icon="mdi-eye" v-bind="props" @click="verDetalle(item.id)" />
+                <v-btn
+                  size="small"
+                  variant="text"
+                  icon="mdi-eye"
+                  v-bind="props"
+                  @click="verDetalle(item.id)"
+                />
               </template>
             </v-tooltip>
 
@@ -368,7 +397,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import {
   listDateos,
@@ -388,6 +417,7 @@ const filters = ref<{
   placa: string
   telefono: string
   canal: 'ASESOR'
+  tipoAgente: '' | 'COMERCIAL' | 'CONVENIO'
   agenteId: number | null
   convenioId: number | null
   resultado: ResultadoDateo | ''
@@ -397,6 +427,7 @@ const filters = ref<{
   placa: '',
   telefono: '',
   canal: 'ASESOR',
+  tipoAgente: '',
   agenteId: null,
   convenioId: null,
   resultado: '',
@@ -405,6 +436,13 @@ const filters = ref<{
 })
 
 const canalItems = [{ title: 'Asesor', value: 'ASESOR' as const }]
+
+/* 🔹 Items para el filtro de tipo de asesor */
+const tipoAgenteItems = [
+  { title: 'Todos', value: '' },
+  { title: 'Comercial', value: 'COMERCIAL' },
+  { title: 'Convenio', value: 'CONVENIO' },
+]
 
 const resultadoItems: { title: string; value: ResultadoDateo }[] = [
   { title: 'Pendiente', value: 'PENDIENTE' },
@@ -477,7 +515,27 @@ function mapTipoCorto(t?: string) {
 function safe(val?: string | number | null) {
   return val === null || val === undefined || val === '' ? '' : String(val)
 }
-const agentesVisibles = computed(() => asesoresItems.value)
+
+/* 🔹 Agentes visibles según el tipo seleccionado (comercial / convenio) */
+const agentesVisibles = computed(() => {
+  const tipo = filters.value.tipoAgente
+  if (!tipo) return asesoresItems.value
+
+  return asesoresItems.value.filter((a) => {
+    const u = String(a.tipo || '').toUpperCase()
+    if (tipo === 'COMERCIAL') return u.includes('COMERCIAL')
+    if (tipo === 'CONVENIO') return u.includes('CONVENIO')
+    return true
+  })
+})
+
+/* Cuando cambias el tipo de asesor, limpio el agente seleccionado */
+watch(
+  () => filters.value.tipoAgente,
+  () => {
+    filters.value.agenteId = null
+  }
+)
 
 /* Texto/Color chips */
 function chipColorResultado(r?: string) {
@@ -519,7 +577,9 @@ async function loadItems() {
   errorMsg.value = null
   try {
     const sort =
-      Array.isArray(sortBy.value) && sortBy.value[0] ? sortBy.value[0] : { key: 'id', order: 'desc' as const }
+      Array.isArray(sortBy.value) && sortBy.value[0]
+        ? sortBy.value[0]
+        : { key: 'id', order: 'desc' as const }
     const res = await listDateos({
       page: page.value,
       perPage: itemsPerPage.value,
@@ -554,6 +614,7 @@ function resetFilters() {
     placa: '',
     telefono: '',
     canal: 'ASESOR',
+    tipoAgente: '',
     agenteId: null,
     convenioId: null,
     resultado: '',

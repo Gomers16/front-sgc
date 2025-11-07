@@ -1,69 +1,51 @@
-<!--
-📌 AccionesRapidas.vue
-- Renderiza los tres botones principales del dashboard.
-- Cada botón emite un evento distinto al hacer clic:
-    • crear-turno         → Para ir a la pantalla de creación de turno.
-    • ver-turnos-proceso  → Para ir a la pantalla de turnos en proceso.
-    • ver-historico       → Para ir a la pantalla del histórico de turnos.
-- La vista (DashboardView.vue) escucha estos eventos y decide a dónde navegar con el router.
--->
-
+<!-- src/components/dashboard/DashboardAcciones.vue (o AccionesRapidas.vue) -->
 <template>
-  <!-- Contenedor con fila centrada -->
-  <v-row justify="center">
-    <!-- Botón: Crear nuevo turno -->
+  <v-row justify="center" class="acciones-row">
+    <!-- Botón: Crear nuevo turno (principal) -->
     <v-col cols="12" sm="6" md="4">
       <v-btn
-        color="success"
         variant="elevated"
         size="large"
         block
         prepend-icon="mdi-plus-circle"
-        class="action-btn"
+        class="action-btn action-btn--primary"
         @click="$emit('crear-turno')"
       >
-        Crear Nuevo Turno
+        CREAR NUEVO TURNO
       </v-btn>
     </v-col>
 
-    <!-- Botón: Ver turnos en proceso -->
+    <!-- Botón: Ver turnos en proceso (secundario, azul más claro) -->
     <v-col cols="12" sm="6" md="4">
       <v-btn
-        color="info"
         variant="elevated"
         size="large"
         block
         prepend-icon="mdi-progress-check"
-        class="action-btn"
+        class="action-btn action-btn--secondary"
         @click="$emit('ver-turnos-proceso')"
       >
-        Ver Turnos en Proceso
+        VER TURNOS EN PROCESO
       </v-btn>
     </v-col>
 
-    <!-- Botón: Ver histórico de turnos -->
+    <!-- Botón: Ver histórico de turnos (terciario, amarillo sólido) -->
     <v-col cols="12" sm="6" md="4">
       <v-btn
-        color="primary"
         variant="elevated"
         size="large"
         block
         prepend-icon="mdi-history"
-        class="action-btn"
-        @click="$emit('ver-historico')" 
+        class="action-btn action-btn--tertiary"
+        @click="$emit('ver-historico')"
       >
-        Ver Histórico de Turnos
+        VER HISTÓRICO DE TURNOS
       </v-btn>
     </v-col>
   </v-row>
 </template>
 
 <script setup lang="ts">
-/**
- * defineEmits:
- * - Declaramos qué eventos puede emitir este componente.
- * - Esto ayuda a tener tipado en TypeScript y autocompletado en el editor.
- */
 defineEmits<{
   (e: 'crear-turno'): void
   (e: 'ver-turnos-proceso'): void
@@ -72,14 +54,62 @@ defineEmits<{
 </script>
 
 <style scoped>
-/* Estilos de los botones para darles un look más interactivo */
-.action-btn {
-  font-weight: bold;
-  letter-spacing: 0.05em;
-  transition: transform .2s ease-in-out, box-shadow .2s ease-in-out;
+.acciones-row {
+  margin-top: 8px;
 }
-.action-btn:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 8px 15px rgba(0,0,0,0.2);
+
+/* Base de todos los botones */
+.action-btn {
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  border-radius: 999px;
+  transition:
+    transform .16s ease-in-out,
+    box-shadow .16s ease-in-out,
+    background-color .16s ease-in-out,
+    color .16s ease-in-out;
+}
+
+/* Principal: azul corporativo + borde amarillo */
+.action-btn--primary {
+  background: linear-gradient(90deg, #0057b7, #2563eb);
+  color: #ffffff !important;
+  border: 1px solid #ffca28;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.25);
+}
+.action-btn--primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 22px rgba(15, 23, 42, 0.32);
+}
+
+/* Secundario: azul más claro, sólido */
+.action-btn--secondary {
+  background-color: #2563eb !important;
+  color: #ffffff !important;
+  border-radius: 999px;
+  border: 1px solid #1d4ed8;
+  box-shadow: 0 6px 14px rgba(37, 99, 235, 0.35);
+}
+.action-btn--secondary:hover {
+  background-color: #1d4ed8 !important;
+  transform: translateY(-2px);
+}
+
+/* Terciario: amarillo sólido, texto oscuro para buen contraste */
+.action-btn--tertiary {
+  background-color: #1d4ed8 !important; /* amarillo/naranja corporativo */
+  color: #ffffff !important;
+  border-radius: 999px;
+  border: 1px solid #d97706;
+  box-shadow: 0 6px 14px rgba(245, 158, 11, 0.35);
+}
+
+
+/* Ajuste en pantallas pequeñas */
+@media (max-width: 960px) {
+  .action-btn {
+    font-size: 0.76rem;
+  }
 }
 </style>

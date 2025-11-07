@@ -25,7 +25,7 @@
           </v-btn>
         </v-col>
 
-        <!-- Nuevo filtro por servicio -->
+        <!-- Filtro por servicio -->
         <v-col cols="12" sm="6" md="3">
           <v-select
             v-model="servicioFiltro"
@@ -110,9 +110,7 @@
             </v-card-title>
 
             <!-- Turno del servicio (RTM / SOAT / PREV / PERI) -->
-            <div
-              class="text-subtitle-2 mb-2 font-weight-medium text-on-primary-text"
-            >
+            <div class="text-subtitle-2 mb-2 font-weight-medium text-on-primary-text">
               {{ getServicioCodigo(turno) }}:
               <span class="font-weight-bold">
                 {{ displayTurnoServicio(turno) }}
@@ -135,6 +133,12 @@
                 🛠 Servicio:
                 <span class="font-weight-medium">
                   {{ getServicioCodigo(turno) }}
+                </span>
+              </p>
+              <p class="text-subtitle-1 text-on-primary-text">
+                🚗 Tipo Vehículo:
+                <span class="font-weight-medium">
+                  {{ turno.tipoVehiculo || 'Desconocido' }}
                 </span>
               </p>
               <p class="text-subtitle-1 text-on-primary-text">
@@ -174,10 +178,8 @@
                     </v-icon>
                   </template>
 
-                  <!-- Fila de etapa alineada: texto a la izq, hora a la der -->
                   <div class="etapa-row">
                     <div class="etapa-label">
-                      <!-- Texto / botón de etapa -->
                       <template v-if="etapa.name === 'Facturación'">
                         <v-btn
                           variant="text"
@@ -212,7 +214,6 @@
                       </span>
                     </div>
 
-                    <!-- Hora alineada a la derecha y con ancho fijo -->
                     <span
                       v-if="etapa.time"
                       class="text-on-primary-text-faded etapa-time"
@@ -289,24 +290,107 @@
     </v-dialog>
 
     <!-- Modal estadísticas -->
-    <v-dialog v-model="showStatsModal" max-width="800" content-class="elevation-24">
+    <v-dialog v-model="showStatsModal" max-width="1000" content-class="elevation-24">
       <v-card class="rounded-xl bg-white">
         <v-card-title class="text-h5 text-center text-primary font-weight-bold py-4">
           📊 Estadísticas de Turnos (Hoy)
         </v-card-title>
         <v-card-text>
-          <p class="text-h6 mb-4 text-center">
+          <p class="text-h6 mb-1 text-center">
             Total de turnos visibles hoy (excepto inactivos):
             <strong>{{ turnos.length }}</strong>
           </p>
+          <p class="text-body-2 text-center text-grey-darken-1">
+            Incluye turnos en proceso, finalizados y cancelados.
+          </p>
+
+          <v-row class="mt-4">
+            <!-- Resumen por estado -->
+            <v-col cols="12" md="4">
+              <v-card variant="outlined" class="pa-4 h-100">
+                <v-card-title class="text-h6 text-secondary">
+                  Por Estado
+                </v-card-title>
+                <v-list density="compact">
+                  <v-list-item>
+                    <v-list-item-title>En proceso</v-list-item-title>
+                    <template #append>
+                      <v-chip color="amber" label>
+                        {{ conteoPorEstado.enProceso }}
+                      </v-chip>
+                    </template>
+                  </v-list-item>
+                  <v-list-item>
+                    <v-list-item-title>Finalizados</v-list-item-title>
+                    <template #append>
+                      <v-chip color="light-green-accent-4" label>
+                        {{ conteoPorEstado.finalizados }}
+                      </v-chip>
+                    </template>
+                  </v-list-item>
+                  <v-list-item>
+                    <v-list-item-title>Cancelados</v-list-item-title>
+                    <template #append>
+                      <v-chip color="red-accent-2" label>
+                        {{ conteoPorEstado.cancelados }}
+                      </v-chip>
+                    </template>
+                  </v-list-item>
+                </v-list>
+              </v-card>
+            </v-col>
+
+            <!-- Resumen por servicio + tipo de vehículo -->
+            <v-col cols="12" md="8">
+              <v-card variant="outlined" class="pa-4">
+                <v-card-title class="text-h6 text-secondary">
+                  Por Servicio y Tipo de Vehículo
+                </v-card-title>
+
+                <v-table density="compact">
+                  <thead>
+                    <tr>
+                      <th>Servicio</th>
+                      <th class="text-center">Total</th>
+                      <th class="text-center">Liv. Particular</th>
+                      <th class="text-center">Liv. Taxi</th>
+                      <th class="text-center">Liv. Público</th>
+                      <th class="text-center">Motocicleta</th>
+                      <th class="text-center">Desconocido</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr
+                      v-for="(stats, servicioCodigo) in servicioStats"
+                      :key="servicioCodigo"
+                    >
+                      <td><strong>{{ servicioCodigo }}</strong></td>
+                      <td class="text-center">{{ stats.total }}</td>
+                      <td class="text-center">{{ stats.porTipo['Liviano Particular'] }}</td>
+                      <td class="text-center">{{ stats.porTipo['Liviano Taxi'] }}</td>
+                      <td class="text-center">{{ stats.porTipo['Liviano Público'] }}</td>
+                      <td class="text-center">{{ stats.porTipo['Motocicleta'] }}</td>
+                      <td class="text-center">{{ stats.porTipo['Desconocido'] }}</td>
+                    </tr>
+                    <tr v-if="Object.keys(servicioStats).length === 0">
+                      <td colspan="7" class="text-center text-grey-darken-1">
+                        No hay turnos para hoy.
+                      </td>
+                    </tr>
+                  </tbody>
+                </v-table>
+              </v-card>
+            </v-col>
+          </v-row>
 
           <v-divider class="my-4" />
 
           <v-row>
+            <!-- Gráfico por tipo de vehículo -->
             <v-col cols="12" md="6">
               <v-card variant="outlined" class="pa-4">
                 <v-card-title class="text-h6 text-secondary">
-                  Por Tipo de Vehículo:
+                  Por Tipo de Vehículo
                 </v-card-title>
                 <div style="height: 250px">
                   <BarChart :data="chartDataTipoVehiculo" :options="chartOptions" />
@@ -314,10 +398,11 @@
               </v-card>
             </v-col>
 
+            <!-- Conteo por canal de captación / "¿Cómo nos conoció?" -->
             <v-col cols="12" md="6">
               <v-card variant="outlined" class="pa-4">
                 <v-card-title class="text-h6 text-secondary">
-                  Por Medio de Ingreso:
+                  Canal de captación (¿Cómo nos conoció?)
                 </v-card-title>
                 <v-list density="compact">
                   <v-list-item
@@ -338,7 +423,16 @@
             </v-col>
           </v-row>
         </v-card-text>
+
         <v-card-actions class="justify-end py-4">
+          <v-btn
+            color="secondary"
+            variant="outlined"
+            prepend-icon="mdi-file-excel"
+            @click="downloadExcelDia"
+          >
+            Descargar Excel del día
+          </v-btn>
           <v-btn color="primary" variant="elevated" @click="showStatsModal = false">
             Cerrar
           </v-btn>
@@ -371,6 +465,27 @@ import { Bar as BarChart } from 'vue-chartjs'
 ChartJS.register(Title, Tooltip, Legend, BarElement, CategoryScale, LinearScale, ArcElement)
 
 /* ===== Tipos ===== */
+type TipoVehiculoFrontend =
+  | 'Liviano Particular'
+  | 'Liviano Taxi'
+  | 'Liviano Público'
+  | 'Motocicleta'
+
+type TipoVehiculoStatsKey =
+  | TipoVehiculoFrontend
+  | 'Desconocido'
+
+const TIPO_VEHICULO_KEYS: TipoVehiculoStatsKey[] = [
+  'Liviano Particular',
+  'Liviano Taxi',
+  'Liviano Público',
+  'Motocicleta',
+  'Desconocido',
+]
+
+// Etiquetas para canal de captación alineadas con "¿Cómo nos conoció?" en CrearTurno
+type MedioCaptacionLabel = 'Redes Sociales' | 'Call Center' | 'Fachada' | 'Asesor' | 'Otros'
+
 interface ServicioEnTurno {
   id: number
   codigoServicio: string
@@ -387,19 +502,13 @@ interface Turno {
   turnoNumeroServicio?: number | null
   turnoCodigo?: string
   placa: string
-  tipoVehiculo: 'carro' | 'moto' | 'taxi' | 'enseñanza' | null
+  tipoVehiculo: TipoVehiculoFrontend | null
   tieneCita: boolean
   convenio: string | null
   referidoInterno: string | null
   referidoExterno: string | null
-  medioEntero:
-    | 'Redes Sociales'
-    | 'Convenio o Referido Externo'
-    | 'Call Center'
-    | 'Fachada'
-    | 'Referido Interno'
-    | 'Asesor Comercial'
-    | null
+  // Lo que venga de BD (viejo o nuevo): lo tratamos como string
+  medioEntero: string | null
   observaciones: string | null
   funcionarioId: number
   estado: 'activo' | 'inactivo' | 'cancelado' | 'finalizado'
@@ -457,11 +566,57 @@ const servicioFiltroItems = [
 
 const turnosFiltrados = computed(() => {
   return turnos.value.filter((t) => {
-    // ya vienen filtrados por fecha y no inactivos
     if (servicioFiltro.value === 'TODOS') return true
     const codigo = getServicioCodigo(t).toUpperCase()
     return codigo === servicioFiltro.value.toUpperCase()
   })
+})
+
+/* ===== Conteo por estado ===== */
+const conteoPorEstado = computed(() => {
+  const res = {
+    enProceso: 0,
+    finalizados: 0,
+    cancelados: 0,
+  }
+
+  turnos.value.forEach((t) => {
+    if (t.estado === 'activo') res.enProceso++
+    else if (t.estado === 'finalizado') res.finalizados++
+    else if (t.estado === 'cancelado') res.cancelados++
+  })
+
+  return res
+})
+
+/* ===== Stats por servicio y tipo vehiculo (todos los visibles) ===== */
+const servicioStats = computed(() => {
+  const base: Record<
+    string,
+    { total: number; porTipo: Record<TipoVehiculoStatsKey, number> }
+  > = {}
+
+  turnos.value.forEach((t) => {
+    const servicio = getServicioCodigo(t) || 'SIN_SERVICIO'
+    if (!base[servicio]) {
+      const porTipoInit = {} as Record<TipoVehiculoStatsKey, number>
+      TIPO_VEHICULO_KEYS.forEach((k) => (porTipoInit[k] = 0))
+      base[servicio] = {
+        total: 0,
+        porTipo: porTipoInit,
+      }
+    }
+
+    const tipoKey: TipoVehiculoStatsKey =
+      t.tipoVehiculo && TIPO_VEHICULO_KEYS.includes(t.tipoVehiculo as TipoVehiculoStatsKey)
+        ? (t.tipoVehiculo as TipoVehiculoStatsKey)
+        : 'Desconocido'
+
+    base[servicio].total++
+    base[servicio].porTipo[tipoKey]++
+  })
+
+  return base
 })
 
 /* ===== Confirm dialog editar/continuar ===== */
@@ -525,7 +680,7 @@ const handleConfirmAction = () => {
   }
 }
 
-/* ===== Ir a facturación ===== */
+/* ===== Ir a facturación / certificación ===== */
 const goToFacturacion = (turno: Turno) => {
   router.push({
     path: '/facturacion/subir-ticket',
@@ -533,7 +688,6 @@ const goToFacturacion = (turno: Turno) => {
   })
 }
 
-/* ===== Ir a certificación ===== */
 const goToCertificacion = (turno: Turno) => {
   router.push({
     name: 'RtmCertificacion',
@@ -674,7 +828,6 @@ const getEtapas = (turno: Turno): Etapa[] => {
     },
   ]
 
-  // Si el turno está cancelado o inactivo, mostramos las etapas como no completadas
   if (turno.estado === 'cancelado' || turno.estado === 'inactivo') {
     etapas.forEach((etapa) => (etapa.completed = false))
   }
@@ -685,56 +838,60 @@ const getEtapas = (turno: Turno): Etapa[] => {
 /* ===== Stats ===== */
 const showStatsModal = ref(false)
 const statsData = ref({
-  tipoVehiculo: {
-    carro: 0,
-    moto: 0,
-    taxi: 0,
-    enseñanza: 0,
-    Desconocido: 0,
-  } as Record<string, number>,
+  tipoVehiculo: {} as Record<TipoVehiculoStatsKey, number>,
   medioEntero: {
     'Redes Sociales': 0,
-    'Convenio o Referido Externo': 0,
     'Call Center': 0,
     Fachada: 0,
-    'Referido Interno': 0,
-    'Asesor Comercial': 0,
-    Desconocido: 0,
-  } as Record<string, number>,
+    Asesor: 0,
+    Otros: 0,
+  } as Record<MedioCaptacionLabel, number>,
 })
 
+const initTipoVehiculoStats = () => {
+  const base: Record<TipoVehiculoStatsKey, number> = {} as any
+  TIPO_VEHICULO_KEYS.forEach((k) => (base[k] = 0))
+  statsData.value.tipoVehiculo = base
+}
+
+// Mapea lo que viene en turno.medioEntero a nuestras etiquetas de canal de captación
+const mapMedioToCanalCaptacion = (
+  medio: Turno['medioEntero']
+): MedioCaptacionLabel => {
+  if (!medio) return 'Otros'
+  const m = medio.toString().toLowerCase()
+
+  // Posibles valores: "redes_sociales", "Redes Sociales", etc.
+  if (m.includes('redes')) return 'Redes Sociales'
+  if (m.includes('call') || m.includes('tele')) return 'Call Center'
+  if (m.includes('fachada')) return 'Fachada'
+  if (m.includes('asesor')) return 'Asesor'
+
+  // Referidos / convenios los agrupamos como Asesor
+  if (m.includes('referido') || m.includes('convenio')) return 'Asesor'
+
+  return 'Otros'
+}
+
 const calculateStats = () => {
-  statsData.value.tipoVehiculo = {
-    carro: 0,
-    moto: 0,
-    taxi: 0,
-    enseñanza: 0,
-    Desconocido: 0,
-  }
+  initTipoVehiculoStats()
   statsData.value.medioEntero = {
     'Redes Sociales': 0,
-    'Convenio o Referido Externo': 0,
     'Call Center': 0,
     Fachada: 0,
-    'Referido Interno': 0,
-    'Asesor Comercial': 0,
-    Desconocido: 0,
+    Asesor: 0,
+    Otros: 0,
   }
 
   turnos.value.forEach((turno) => {
-    const tipo = turno.tipoVehiculo
-    if (tipo && tipo in statsData.value.tipoVehiculo) {
-      statsData.value.tipoVehiculo[tipo]++
-    } else {
-      statsData.value.tipoVehiculo.Desconocido++
-    }
+    const tipoKey: TipoVehiculoStatsKey =
+      turno.tipoVehiculo && TIPO_VEHICULO_KEYS.includes(turno.tipoVehiculo as TipoVehiculoStatsKey)
+        ? (turno.tipoVehiculo as TipoVehiculoStatsKey)
+        : 'Desconocido'
+    statsData.value.tipoVehiculo[tipoKey]++
 
-    const medio = turno.medioEntero
-    if (medio && medio in statsData.value.medioEntero) {
-      statsData.value.medioEntero[medio]++
-    } else {
-      statsData.value.medioEntero.Desconocido++
-    }
+    const canal = mapMedioToCanalCaptacion(turno.medioEntero)
+    statsData.value.medioEntero[canal]++
   })
 }
 
@@ -743,16 +900,42 @@ const openStatsModal = () => {
   showStatsModal.value = true
 }
 
+/* ===== Descargar Excel del día ===== */
+const downloadExcelDia = () => {
+  try {
+    const today = new Date()
+    const options: Intl.DateTimeFormatOptions = {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      timeZone: 'America/Bogota',
+    }
+    const formatter = new Intl.DateTimeFormat('es-CO', options)
+    const parts = formatter.formatToParts(today)
+    const year = parts.find((p) => p.type === 'year')?.value
+    const month = parts.find((p) => p.type === 'month')?.value
+    const day = parts.find((p) => p.type === 'day')?.value
+    const todayISO = `${year}-${month}-${day}`
+
+    // Ajusta el endpoint si en tu backend está en otra ruta
+    const url = `/api/turnos-rtm/reporte/excel?fechaInicio=${todayISO}&fechaFin=${todayISO}`
+
+
+    window.open(url, '_blank')
+  } catch (error) {
+    console.error('Error al descargar Excel del día:', error)
+    showSnackbar('No se pudo descargar el Excel del día.', 'error')
+  }
+}
+
 /* ===== Charts ===== */
 const chartDataTipoVehiculo = computed(() => {
-  const labels = Object.keys(statsData.value.tipoVehiculo)
-  const data = Object.values(statsData.value.tipoVehiculo)
+  const labels = TIPO_VEHICULO_KEYS
+  const data = labels.map((k) => statsData.value.tipoVehiculo[k])
   const backgroundColors = ['#42A5F5', '#66BB6A', '#FFA726', '#EF5350', '#9E9E9E']
 
   return {
-    labels: labels.map(
-      (label) => label.charAt(0).toUpperCase() + label.slice(1)
-    ),
+    labels,
     datasets: [
       {
         label: 'Cantidad de Turnos',
@@ -787,6 +970,7 @@ onMounted(() => {
     month: 'long',
     day: 'numeric',
   })
+  initTipoVehiculoStats()
   loadTurnosHoy()
 })
 </script>
@@ -855,7 +1039,7 @@ onMounted(() => {
   box-shadow: 0 18px 35px rgba(0, 0, 0, 0.3);
 }
 
-/* Acentos por estado (además del color del card) */
+/* Acentos por estado */
 .estado-cancelado {
   border: 2px solid #fca5a5;
 }
@@ -874,7 +1058,7 @@ onMounted(() => {
   color: rgb(var(--v-theme-on-primary-text-faded)) !important;
 }
 
-/* Fila de etapa: nombre a la izq, hora a la der */
+/* Fila de etapa */
 .etapa-row {
   display: flex;
   align-items: center;
@@ -887,7 +1071,7 @@ onMounted(() => {
   align-items: center;
 }
 
-/* Hora de cada etapa (alineada y con ancho fijo) */
+/* Hora de cada etapa */
 .etapa-time {
   text-align: right;
   font-family: monospace;
@@ -895,7 +1079,7 @@ onMounted(() => {
   min-width: 78px;
 }
 
-/* En tarjeta verde, chulos completados blancos (refuerzo visual) */
+/* En tarjeta verde, chulos completados blancos */
 .etapa-icon-completed-finalizado {
   color: #ffffff !important;
 }

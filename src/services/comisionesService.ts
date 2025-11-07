@@ -44,13 +44,15 @@ async function apiFetch<T>(
   return (await res.json()) as T
 }
 
-/* ===== Tipos (Front/UI) ===== */
+/* ============================ Tipos (Front/UI) ============================ */
+
 export type ComisionEstado = 'PENDIENTE' | 'APROBADA' | 'PAGADA' | 'ANULADA'
 
 export interface AgenteLight {
   id: number
   nombre: string
-  tipo: 'INTERNO' | 'EXTERNO' | string
+  /** Puede ser INTERNO, EXTERNO, CONVENIO, etc. */
+  tipo: 'INTERNO' | 'EXTERNO' | 'CONVENIO' | string
 }
 
 export interface ConvenioLight {
@@ -77,11 +79,18 @@ export interface TurnoLight {
 
 export interface ComisionListItem {
   id: number
+  /** id del dateo en captacion_dateos (para enganchar con la tabla de dateos) */
+  dateo_id?: number
+
   estado: ComisionEstado
   cantidad: number
-  valor_unitario: number          // asesor
-  valor_cliente?: number | null   // convenio/cliente
+  /** Comisión del ASESOR / CONVENIO */
+  valor_unitario: number
+  /** Comisión placa/cliente/convenio (16k / 20k o valor de base) */
+  valor_cliente?: number | null
+  /** Suma de asesor + placa */
   valor_total: number
+
   generado_at?: string
   asesor?: AgenteLight | null
   convenio?: ConvenioLight | null
@@ -112,7 +121,41 @@ export interface ListResponse<T> {
   perPage: number
 }
 
-/* ===== Helpers de mapeo (backend → UI) ===== */
+/* ==================== Tipos para CONFIG de comisiones ==================== */
+
+/**
+ * Tipo de vehículo para las reglas/configuración de comisión
+ */
+export type TipoVehiculoComision = 'MOTO' | 'VEHICULO'
+
+/**
+ * DTO que devuelve el backend para una fila de configuración (es_config = true)
+ * desde /api/comisiones/config
+ */
+export interface ComisionConfig {
+  id: number
+  es_config: true
+  /** asesor o convenio (ambos están en agentes_captacions) */
+  asesor_id: number | null
+  tipo_vehiculo: TipoVehiculoComision | null
+  valor_placa: number
+  valor_dateo: number
+  fecha_calculo?: string | null
+}
+
+/**
+ * Payload que se envía al backend para crear/actualizar una regla
+ * vía /api/comisiones/config
+ */
+export interface ComisionConfigPayload {
+  asesor_id?: number | null
+  tipo_vehiculo: TipoVehiculoComision
+  valor_placa: number
+  valor_dateo: number
+}
+
+/* ================= Helpers de mapeo (backend → UI) ================= */
+
 function num(v: any): number {
   const n = typeof v === 'string' ? Number(v) : v
   return Number.isFinite(n) ? Number(n) : 0
@@ -136,7 +179,11 @@ function mapTurno(api: any): TurnoLight | null {
     placa: api.placa ?? api.vehiculo?.placa ?? undefined,
     servicio: mapServicio(api.servicio),
 
-    numero_global: api.numero_global ?? api.numeroGlobal ?? api.turnoNumero ?? undefined,
+    numero_global:
+      api.numero_global ??
+      api.numeroGlobal ??
+      api.turnoNumero ??
+      undefined,
     numero_servicio:
       api.numero_servicio ??
       api.numeroServicio ??
@@ -150,8 +197,9 @@ function mapAsesor(api: any): AgenteLight | null {
   if (!api) return null
   return {
     id: api.id,
-    nombre: api.nombre,
-    tipo: api.tipo || 'INTERNO',
+    nombre: api.nombre ?? api.nombre_completo ?? '—',
+    // dejamos que el backend marque tipo = 'CONVENIO' cuando aplique
+    tipo: api.tipo ?? api.tipo_agente ?? 'INTERNO',
   }
 }
 
@@ -163,11 +211,11 @@ function mapConvenio(api: any): ConvenioLight | null {
 function mapComisionToListItem(api: any): ComisionListItem {
   // API ya trae valor_unitario (monto asesor), valor_cliente (base convenio) y valor_total
   const valor_unitario = num(api.valor_unitario ?? api.monto ?? 0)
-  const valor_cliente = num(api.valor_cliente ?? api.base ?? 0)
+  const valor_cliente = api.valor_cliente != null ? num(api.valor_cliente) : null
   const valor_total =
     api.valor_total !== undefined
       ? num(api.valor_total)
-      : valor_unitario + valor_cliente
+      : valor_unitario + (valor_cliente ?? 0)
 
   const generado = api.generado_at ?? api.fecha_calculo ?? api.created_at ?? api.createdAt
 
@@ -175,16 +223,33 @@ function mapComisionToListItem(api: any): ComisionListItem {
   const asesor = api.asesor ?? null
   const convenio = api.convenio ?? null
 
+  const dateoId =
+    api.dateo_id ??
+    api.captacion_dateo_id ??
+    api.captacionDateoId ??
+    api.dateoId ??
+    null
+
   return {
     id: api.id,
+    dateo_id: dateoId != null ? Number(dateoId) : undefined,
+
     estado: (api.estado as ComisionEstado) ?? 'PENDIENTE',
     cantidad: num(api.cantidad ?? 1),
     valor_unitario,
     valor_cliente,
     valor_total,
     generado_at: generado ? String(generado) : undefined,
-    asesor: asesor ? mapAsesor(asesor) : (api.asesor_id ? { id: api.asesor_id, nombre: '—', tipo: 'INTERNO' } : null),
-    convenio: convenio ? mapConvenio(convenio) : (api.convenio_id ? { id: api.convenio_id, nombre: '—' } : null),
+    asesor: asesor
+      ? mapAsesor(asesor)
+      : api.asesor_id
+      ? { id: api.asesor_id, nombre: '—', tipo: 'INTERNO' }
+      : null,
+    convenio: convenio
+      ? mapConvenio(convenio)
+      : api.convenio_id
+      ? { id: api.convenio_id, nombre: '—' }
+      : null,
     turno,
   }
 }
@@ -200,10 +265,35 @@ function mapComisionToDetail(api: any): ComisionDetail {
   }
 }
 
-/* ===== Funciones ===== */
+/**
+ * Mapea una fila de configuración (es_config = true) del backend
+ * al tipo ComisionConfig del front.
+ */
+function mapConfigToUi(api: any): ComisionConfig {
+  return {
+    id: api.id,
+    es_config: true,
+    asesor_id: api.asesor_id ?? api.asesorId ?? null,
+    tipo_vehiculo:
+      api.tipo_vehiculo ??
+      api.tipoVehiculo ??
+      null,
+    valor_placa: num(api.valor_placa ?? api.base),
+    valor_dateo: num(api.valor_dateo ?? api.monto),
+    fecha_calculo:
+      api.fecha_calculo ??
+      api.fechaCalculo ??
+      api.created_at ??
+      api.createdAt ??
+      null,
+  }
+}
+
+/* ============================= Funciones ============================= */
 
 export async function listComisiones(params: ListParams) {
   const raw = await apiFetch<any>('/comisiones', { query: params as any })
+
   if (Array.isArray(raw?.data)) {
     const mapped = (raw.data as any[]).map(mapComisionToListItem)
     return {
@@ -214,7 +304,12 @@ export async function listComisiones(params: ListParams) {
     } as ListResponse<ComisionListItem>
   } else if (Array.isArray(raw)) {
     const mapped = (raw as any[]).map(mapComisionToListItem)
-    return { data: mapped, total: mapped.length, page: 1, perPage: mapped.length }
+    return {
+      data: mapped,
+      total: mapped.length,
+      page: 1,
+      perPage: mapped.length,
+    }
   } else {
     const one = mapComisionToListItem(raw)
     return { data: [one], total: 1, page: 1, perPage: 10 }
@@ -226,7 +321,10 @@ export async function getComision(id: number) {
   return mapComisionToDetail(raw)
 }
 
-export async function patchValores(id: number, payload: { cantidad: number; valor_unitario: number }) {
+export async function patchValores(
+  id: number,
+  payload: { cantidad: number; valor_unitario: number }
+) {
   const raw = await apiFetch<any>(`/comisiones/${id}/valores`, {
     method: 'PATCH',
     body: payload,
@@ -235,19 +333,84 @@ export async function patchValores(id: number, payload: { cantidad: number; valo
 }
 
 export async function aprobarComision(id: number) {
-  const raw = await apiFetch<any>(`/comisiones/${id}/aprobar`, { method: 'POST' })
+  const raw = await apiFetch<any>(`/comisiones/${id}/aprobar`, {
+    method: 'POST',
+  })
   return mapComisionToDetail(raw)
 }
 
 export async function pagarComision(id: number) {
-  const raw = await apiFetch<any>(`/comisiones/${id}/pagar`, { method: 'POST' })
+  const raw = await apiFetch<any>(`/comisiones/${id}/pagar`, {
+    method: 'POST',
+  })
   return mapComisionToDetail(raw)
 }
 
 export async function anularComision(id: number) {
-  const raw = await apiFetch<any>(`/comisiones/${id}/anular`, { method: 'POST' })
+  const raw = await apiFetch<any>(`/comisiones/${id}/anular`, {
+    method: 'POST',
+  })
   return mapComisionToDetail(raw)
 }
+
+/* ===== Configuración de comisiones (es_config = true) ===== */
+
+/**
+ * Lista las reglas de configuración de comisiones
+ * GET /api/comisiones/config
+ */
+export async function listConfigsComision(params?: {
+  /** asesor / convenio */
+  asesorId?: number
+  tipoVehiculo?: TipoVehiculoComision
+}) {
+  const raw = await apiFetch<{ data: any[] }>('/comisiones/config', {
+    query: {
+      asesorId: params?.asesorId,
+      tipoVehiculo: params?.tipoVehiculo,
+    } as any,
+  })
+
+  const rows = Array.isArray(raw?.data) ? raw.data : []
+  return rows.map(mapConfigToUi)
+}
+
+/**
+ * Crea o actualiza (upsert) una regla:
+ *  - combinación (asesor_id, tipo_vehiculo)
+ * POST /api/comisiones/config
+ */
+export async function upsertConfigComision(payload: ComisionConfigPayload) {
+  const raw = await apiFetch<any>('/comisiones/config', {
+    method: 'POST',
+    body: payload,
+  })
+  return mapConfigToUi(raw)
+}
+
+/**
+ * Actualiza una regla existente por id
+ * PATCH /api/comisiones/config/:id
+ */
+export async function updateConfigComision(id: number, payload: Partial<ComisionConfigPayload>) {
+  const raw = await apiFetch<any>(`/comisiones/config/${id}`, {
+    method: 'PATCH',
+    body: payload,
+  })
+  return mapConfigToUi(raw)
+}
+
+/**
+ * Elimina una regla de configuración
+ * DELETE /api/comisiones/config/:id
+ */
+export async function deleteConfigComision(id: number) {
+  await apiFetch<any>(`/comisiones/config/${id}`, {
+    method: 'DELETE',
+  })
+}
+
+/* ===== Catálogo de agentes (asesores + convenios) ===== */
 
 export async function listAgentesCaptacion() {
   try {
