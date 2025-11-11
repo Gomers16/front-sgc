@@ -106,7 +106,7 @@
             </v-card>
           </v-col>
 
-          <!-- KPIs -->
+          <!-- KPIs + Metas -->
           <v-col cols="12" md="6" lg="7">
             <v-row>
               <v-col cols="12" sm="6" lg="3">
@@ -158,7 +158,56 @@
                   <div class="kpi-sub">comisiones - pagos</div>
                 </div>
               </v-col>
+
+              <!-- NUEVA CARD: Metas mensuales RTM -->
               <v-col cols="12" sm="12" lg="4">
+                <v-card variant="outlined" rounded="lg" class="h-100 d-flex flex-column">
+                  <v-card-title
+                    class="text-subtitle-2 font-weight-bold d-flex justify-space-between align-center"
+                  >
+                    Metas mensuales
+                    <v-btn
+                      size="x-small"
+                      variant="tonal"
+                      prepend-icon="mdi-target"
+                      @click="metasDialogVisible = true"
+                    >
+                      Ver metas
+                    </v-btn>
+                  </v-card-title>
+                  <v-card-text class="pt-1 text-body-2">
+                    <template v-if="metaResumen">
+                      <div class="mb-1">
+                        <strong>Mes:</strong>
+                        {{ metaResumen.mesLabel }}
+                      </div>
+                      <div class="mb-1">
+                        <strong>Meta RTM:</strong>
+                        {{ money(metaResumen.metaDinero) }}
+                      </div>
+                      <div class="mb-1">
+                        <strong>Avance:</strong>
+                        {{ metaResumen.avance.toFixed(1) }}%
+                      </div>
+                      <div class="mb-1">
+                        <strong>Faltante:</strong>
+                        {{ money(metaResumen.faltante) }}
+                      </div>
+                      <div class="mb-1">
+                        <strong>Comisión estimada:</strong>
+                        {{ money(metaResumen.comisionEstimada) }}
+                      </div>
+                    </template>
+                    <template v-else>
+                      <span class="text-medium-emphasis">
+                        Sin configuración de meta RTM para este asesor.
+                      </span>
+                    </template>
+                  </v-card-text>
+                </v-card>
+              </v-col>
+
+              <v-col cols="12" sm="12" lg="12" class="mt-2">
                 <v-alert type="info" variant="tonal" class="h-100 d-flex align-center">
                   Periodo: <strong class="ml-1">{{ rangoLegible }}</strong>
                 </v-alert>
@@ -175,7 +224,7 @@
         </v-tabs>
 
         <v-window v-model="tab">
-          <!-- Prospectos: mismo look que vista general -->
+          <!-- Prospectos -->
           <v-window-item value="prospectos">
             <div class="d-flex justify-space-between align-center mb-2">
               <div class="text-medium-emphasis">
@@ -462,6 +511,98 @@
         </v-card-actions>
       </v-card>
     </v-dialog>
+
+    <!-- DIALOG NUEVO: metas mensuales RTM del asesor -->
+    <v-dialog v-model="metasDialogVisible" max-width="820">
+      <v-card>
+        <v-card-title class="d-flex justify-space-between align-center">
+          <div>
+            Metas mensuales RTM
+            <div class="text-caption text-medium-emphasis">
+              {{ asesor?.nombre || 'Asesor' }}
+            </div>
+          </div>
+          <div class="d-flex align-center" style="gap:8px">
+            <v-text-field
+              v-model="metaMes"
+              type="month"
+              label="Mes"
+              density="comfortable"
+              variant="outlined"
+              hide-details
+              style="max-width: 160px"
+            />
+            <v-btn
+              color="primary"
+              size="small"
+              :loading="metasLoading"
+              @click="loadMetasAsesor"
+            >
+              Actualizar
+            </v-btn>
+          </div>
+        </v-card-title>
+        <v-card-text>
+          <v-data-table
+            :headers="headersMetas"
+            :items="metasRows"
+            :loading="metasLoading"
+            density="comfortable"
+            item-key="asesor_id"
+            :no-data-text="'Sin metas configuradas para este mes'"
+          >
+            <template #item.asesor="{ item }">
+              {{ item.asesor_nombre || asesor?.nombre || '—' }}
+            </template>
+
+            <template #item.rtm_motos="{ item }">
+              {{ item.rtm_motos || 0 }}
+            </template>
+
+            <template #item.rtm_vehiculos="{ item }">
+              {{ item.rtm_vehiculos || 0 }}
+            </template>
+
+            <template #item.total_rtm="{ item }">
+              {{ calcTotalRtm(item) }}
+            </template>
+
+            <template #item.meta_rtm="{ item }">
+              <span v-if="getMetaDinero(item) > 0">
+                {{ money(getMetaDinero(item)) }}
+              </span>
+              <span v-else>—</span>
+            </template>
+
+            <template #item.avance="{ item }">
+              <span v-if="getMetaDinero(item) > 0">
+                {{ calcAvance(item).toFixed(1) }}%
+              </span>
+              <span v-else>—</span>
+            </template>
+
+            <template #item.faltante="{ item }">
+              <span v-if="getMetaDinero(item) > 0">
+                {{ money(calcFaltante(item)) }}
+              </span>
+              <span v-else>—</span>
+            </template>
+
+            <template #item.porcentaje_comision_meta="{ item }">
+              {{ (item.porcentaje_comision_meta ?? item.porcentaje_comision ?? 0) }}%
+            </template>
+
+            <template #item.comision_estimada="{ item }">
+              {{ money(calcComisionMeta(item)) }}
+            </template>
+          </v-data-table>
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn variant="text" @click="metasDialogVisible = false">Cerrar</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
   </v-container>
 </template>
 
@@ -470,7 +611,12 @@ import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { get } from '@/services/http'
 import { listDateos, type Dateo, formatDateTime } from '@/services/dateosService'
-import { listComisiones, type ComisionListItem } from '@/services/comisionesService'
+import {
+  listComisiones,
+  type ComisionListItem,
+  listMetasMensuales,
+  type MetaMensualRow,
+} from '@/services/comisionesService'
 import {
   listProspectos,
   type ProspectoDetail,
@@ -506,9 +652,9 @@ const route = useRoute()
 const asesorId = Number(route.params.id)
 
 const asesor = ref<Asesor | null>(null)
-const prospectos = ref<ProspectoDetail[]>([]) // todos los prospectos del asesor
+const prospectos = ref<ProspectoDetail[]>([])
 const convenios = ref<Convenio[]>([])
-const dateos = ref<Dateo[]>([]) // todos los dateos del asesor
+const dateos = ref<Dateo[]>([])
 const comisiones = ref<ComisionListItem[]>([])
 const pagos = ref<{ id: number; valor: number; fecha?: string }[]>([])
 
@@ -583,6 +729,19 @@ const headersDateos = [
   { title: 'Creado', key: 'created_at' },
 ] as const
 
+/* ===== Headers metas (dialogo) ===== */
+const headersMetas = [
+  { title: 'Asesor', key: 'asesor' },
+  { title: 'RTM Motos', key: 'rtm_motos' },
+  { title: 'RTM Vehículos', key: 'rtm_vehiculos' },
+  { title: 'Total RTM', key: 'total_rtm' },
+  { title: 'Meta facturación RTM', key: 'meta_rtm' },
+  { title: '% Avance', key: 'avance' },
+  { title: 'Faltante ($)', key: 'faltante' },
+  { title: '% Comisión Meta', key: 'porcentaje_comision_meta' },
+  { title: 'Comisión estimada', key: 'comision_estimada' },
+]
+
 /* ===== Helpers UI/negocio ===== */
 function humanTipo(t?: string | null) {
   const v = String(t || '').toUpperCase()
@@ -640,7 +799,7 @@ function isExitoso(d: any) {
   )
 }
 
-/* Prospectos: helpers de vigencias como en vista de prospectos */
+/* Prospectos: helpers de vigencias */
 function docColor(v?: boolean | null) {
   if (v === true) return 'success'
   if (v === false) return 'error'
@@ -687,7 +846,6 @@ function formatDateOnly(iso: string) {
   const p = iso.split('T')[0] || iso
   const [y, m, d] = p.split('-')
   return `${d}/${m}/${y}`
-
 }
 
 /* ===== Visor de imagen ===== */
@@ -706,7 +864,7 @@ const comisionesPorDateo = computed(() => {
     const dateoId = (c as any).captacionDateoId ?? (c as any).dateo_id ?? null
     if (!dateoId) continue
     const key = Number(dateoId)
-    if (!map.has(key)) map.set(key, [])
+    if (!map.has(key)) map.set(key, [] as ComisionListItem[])
     map.get(key)!.push(c)
   }
   return map
@@ -775,12 +933,132 @@ const kpi = ref({
   prospectos: 0,
   convenios: 0,
   dateosExitosos: 0,
-  montoGenerado: 0, // SOLO comisión del asesor
+  montoGenerado: 0,
   pagosRegistrados: 0,
 })
 const saldoEstimado = computed(
   () => kpi.value.montoGenerado - kpi.value.pagosRegistrados,
 )
+
+/* ===== METAS mensuales RTM (por asesor) ===== */
+
+function getCurrentMes() {
+  const now = new Date()
+  const y = now.getFullYear()
+  const m = String(now.getMonth() + 1).padStart(2, '0')
+  return `${y}-${m}`
+}
+
+const metasRows = ref<MetaMensualRow[]>([])
+const metasLoading = ref(false)
+const metasDialogVisible = ref(false)
+const metaMes = ref(getCurrentMes())
+
+const valorRtmMoto = ref(126100)
+const valorRtmVehiculo = ref(208738)
+
+/* helpers metas: mismos que en Comisiones.vue */
+function calcTotalRtm(item: MetaMensualRow) {
+  return (item.rtm_motos || 0) + (item.rtm_vehiculos || 0)
+}
+
+function getMetaDinero(item: MetaMensualRow): number {
+  const raw =
+    item.meta_global_rtm ??
+    item.meta_rtm ??
+    (item as any).meta_mensual ??
+    item.meta_mensual ??
+    0
+  return Number(raw) || 0
+}
+
+function getTotalFacturacion(item: MetaMensualRow) {
+  const backend: any =
+    (item as any).total_facturacion_global ??
+    (item as any).totalFacturacionGlobal ??
+    null
+
+  if (backend != null && !Number.isNaN(Number(backend))) {
+    return Number(backend)
+  }
+
+  const totalRtmMotos =
+    item.rtm_motos ?? item.total_rtm_motos ?? 0
+  const totalRtmVehiculos =
+    item.rtm_vehiculos ?? item.total_rtm_vehiculos ?? 0
+
+  return totalRtmMotos * valorRtmMoto.value +
+    totalRtmVehiculos * valorRtmVehiculo.value
+}
+
+function calcAvance(item: MetaMensualRow) {
+  const metaDinero = getMetaDinero(item)
+  if (!metaDinero || metaDinero <= 0) return 0
+  const totalFacturacion = getTotalFacturacion(item)
+  return (totalFacturacion / metaDinero) * 100
+}
+
+function calcFaltante(item: MetaMensualRow) {
+  const metaDinero = getMetaDinero(item)
+  if (!metaDinero || metaDinero <= 0) return 0
+  const totalFacturacion = getTotalFacturacion(item)
+  const diff = metaDinero - totalFacturacion
+  return diff > 0 ? diff : 0
+}
+
+function calcComisionMeta(item: MetaMensualRow) {
+  const metaDinero = getMetaDinero(item)
+  const porcentaje =
+    item.porcentaje_comision_meta ?? (item as any).porcentaje_comision ?? 0
+
+  if (!metaDinero || metaDinero <= 0) return 0
+  if (!porcentaje) return 0
+
+  const totalFacturacion = getTotalFacturacion(item)
+  if (totalFacturacion < metaDinero) return 0
+
+  return (totalFacturacion * porcentaje) / 100
+}
+
+/* resumen para card pequeña */
+const metaResumen = computed(() => {
+  const row = metasRows.value[0]
+  if (!row) return null
+
+  const metaDinero = getMetaDinero(row)
+  if (!metaDinero || metaDinero <= 0) return null
+
+  return {
+    mesLabel: metaMes.value,
+    metaDinero,
+    avance: calcAvance(row),
+    faltante: calcFaltante(row),
+    comisionEstimada: calcComisionMeta(row),
+  }
+})
+
+async function loadMetasAsesor() {
+  metasLoading.value = true
+  try {
+    const res = await listMetasMensuales({
+      mes: metaMes.value,
+      asesorId,
+    })
+    metasRows.value = res.data
+
+    const row = metasRows.value[0]
+    if (row) {
+      if (typeof row.valor_rtm_moto === 'number' && row.valor_rtm_moto > 0) {
+        valorRtmMoto.value = row.valor_rtm_moto
+      }
+      if (typeof row.valor_rtm_vehiculo === 'number' && row.valor_rtm_vehiculo > 0) {
+        valorRtmVehiculo.value = row.valor_rtm_vehiculo
+      }
+    }
+  } finally {
+    metasLoading.value = false
+  }
+}
 
 /* ===== API helpers ===== */
 function rangoParams() {
@@ -890,7 +1168,7 @@ async function fetchComisiones(id: number) {
 }
 
 async function fetchPagos(_id: number) {
-  // TODO: cuando tengas backend de pagos por asesor
+  // TODO: backend de pagos por asesor
   return []
 }
 
@@ -915,7 +1193,6 @@ async function loadAll() {
     pagos.value = Array.isArray(pg) ? pg : []
     comisiones.value = Array.isArray(cm) ? cm : []
 
-    // KPIs: siempre con datos EN RANGO, no con "ver todos"
     const desde = new Date(filtros.value.desde + 'T00:00:00')
     const hasta = new Date(filtros.value.hasta + 'T23:59:59')
 
@@ -938,7 +1215,7 @@ async function loadAll() {
       prospectos: prospectosEnRango.value.length,
       convenios: convenios.value.length,
       dateosExitosos: exitosos.length,
-      montoGenerado: monto, // SOLO comisión del asesor
+      montoGenerado: monto,
       pagosRegistrados: pagosTotal,
     }
   } catch (e: any) {
@@ -951,7 +1228,11 @@ async function loadAll() {
 function reload() {
   loadAll()
 }
-onMounted(loadAll)
+
+onMounted(async () => {
+  await loadAll()
+  await loadMetasAsesor()
+})
 
 /* ===== Navegación extra ===== */
 function verProspecto(id: number) {
@@ -1005,8 +1286,7 @@ function exportCsv(soloExitosos: boolean) {
 function csvEscape(val: unknown) {
   const s = String(val ?? '')
   if (/[",\n]/.test(s)) {
-    return `"${s.replace(/"/g, '""')}"`
-  }
+    return `"${s.replace(/"/g, '""')}"`}
   return s
 }
 </script>
@@ -1040,8 +1320,6 @@ function csvEscape(val: unknown) {
 .evidence-thumb {
   cursor: zoom-in;
 }
-
-/* Prospectos: misma estructura de docs que en vista general */
 .doc-cell {
   display: flex;
   flex-direction: column;

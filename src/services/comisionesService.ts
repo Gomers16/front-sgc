@@ -154,6 +154,45 @@ export interface ComisionConfigPayload {
   valor_dateo: number
 }
 
+/* =========== Tipos para Metas mensuales (resumen + config) =========== */
+
+/**
+ * Fila de metas mensuales devuelta por el backend.
+ * Incluye tanto campos de CONFIG (meta_mensual, porcentaje_extra, valores RTM)
+ * como posibles campos de RESUMEN (rtm_motos, rtm_vehiculos, meta_global_rtm, etc.)
+ */
+export interface MetaMensualRow {
+  id?: number
+  asesor_id?: number | null
+  asesor_nombre?: string | null
+  asesor_tipo?: string | null   // 👈 tipo del agente (COMERCIAL / CONVENIO / etc.)
+  mes?: string | null
+
+  // Config meta
+  tipo_vehiculo?: TipoVehiculoComision | null
+  meta_mensual?: number
+  porcentaje_extra?: number
+  valor_rtm_moto?: number | null
+  valor_rtm_vehiculo?: number | null
+  fecha_actualizacion?: string | null
+
+  // Campos de resumen (para la pestaña de metas en Comisiones.vue)
+  rtm_motos?: number
+  rtm_vehiculos?: number
+  meta_rtm?: number | null
+  meta_global_rtm?: number | null
+  porcentaje_comision_meta?: number | null
+
+  // Totales calculados por el backend (nueva lógica)
+  total_rtm_motos?: number
+  total_rtm_vehiculos?: number
+  total_facturacion_motos?: number
+  total_facturacion_vehiculos?: number
+  total_facturacion_global?: number
+
+  [key: string]: any
+}
+
 /* ================= Helpers de mapeo (backend → UI) ================= */
 
 function num(v: any): number {
@@ -289,7 +328,94 @@ function mapConfigToUi(api: any): ComisionConfig {
   }
 }
 
+/** Mapea una fila de meta mensual (config + posible resumen) */
+function mapMetaMensual(api: any): MetaMensualRow {
+  const rtmMotos =
+    api.rtm_motos != null
+      ? num(api.rtm_motos)
+      : api.rtmMotos != null
+      ? num(api.rtmMotos)
+      : undefined
+
+  const rtmVehiculos =
+    api.rtm_vehiculos != null
+      ? num(api.rtm_vehiculos)
+      : api.rtmVehiculos != null
+      ? num(api.rtmVehiculos)
+      : undefined
+
+  return {
+    id: api.id,
+    asesor_id: api.asesor_id ?? api.asesorId ?? null,
+    asesor_nombre: api.asesor_nombre ?? api.asesorNombre ?? null,
+    asesor_tipo: api.asesor_tipo ?? api.asesorTipo ?? null, // 👈 importante para filtrar convenios en el front
+    mes: api.mes ?? null,
+
+    // Config de meta
+    tipo_vehiculo: api.tipo_vehiculo ?? api.tipoVehiculo ?? null,
+    meta_mensual: num(api.meta_mensual ?? api.metaMensual ?? api.meta_rtm ?? 0),
+    porcentaje_extra: num(
+      api.porcentaje_extra ??
+        api.porcentajeExtra ??
+        api.porcentaje_comision_meta ??
+        0,
+    ),
+    valor_rtm_moto:
+      api.valor_rtm_moto != null
+        ? num(api.valor_rtm_moto)
+        : api.valorRtmMoto != null
+        ? num(api.valorRtmMoto)
+        : null,
+    valor_rtm_vehiculo:
+      api.valor_rtm_vehiculo != null
+        ? num(api.valor_rtm_vehiculo)
+        : api.valorRtmVehiculo != null
+        ? num(api.valorRtmVehiculo)
+        : null,
+    fecha_actualizacion:
+      api.fecha_actualizacion ??
+      api.fechaActualizacion ??
+      api.updated_at ??
+      api.updatedAt ??
+      api.created_at ??
+      api.createdAt ??
+      null,
+
+    // Campos de resumen (cantidades)
+    rtm_motos: rtmMotos,
+    rtm_vehiculos: rtmVehiculos,
+    meta_rtm: api.meta_rtm ?? null,
+    meta_global_rtm: api.meta_global_rtm ?? null,
+    porcentaje_comision_meta:
+      api.porcentaje_comision_meta ?? api.porcentaje_extra ?? null,
+
+    // Totales (cantidad y dinero) calculados por el backend
+    total_rtm_motos:
+      api.total_rtm_motos != null
+        ? num(api.total_rtm_motos)
+        : rtmMotos,
+    total_rtm_vehiculos:
+      api.total_rtm_vehiculos != null
+        ? num(api.total_rtm_vehiculos)
+        : rtmVehiculos,
+    total_facturacion_motos:
+      api.total_facturacion_motos != null
+        ? num(api.total_facturacion_motos)
+        : undefined,
+    total_facturacion_vehiculos:
+      api.total_facturacion_vehiculos != null
+        ? num(api.total_facturacion_vehiculos)
+        : undefined,
+    total_facturacion_global:
+      api.total_facturacion_global != null
+        ? num(api.total_facturacion_global)
+        : undefined,
+  }
+}
+
 /* ============================= Funciones ============================= */
+
+/* ===== Comisiones reales ===== */
 
 export async function listComisiones(params: ListParams) {
   const raw = await apiFetch<any>('/comisiones', { query: params as any })
@@ -323,7 +449,7 @@ export async function getComision(id: number) {
 
 export async function patchValores(
   id: number,
-  payload: { cantidad: number; valor_unitario: number }
+  payload: { cantidad: number; valor_unitario: number },
 ) {
   const raw = await apiFetch<any>(`/comisiones/${id}/valores`, {
     method: 'PATCH',
@@ -392,7 +518,10 @@ export async function upsertConfigComision(payload: ComisionConfigPayload) {
  * Actualiza una regla existente por id
  * PATCH /api/comisiones/config/:id
  */
-export async function updateConfigComision(id: number, payload: Partial<ComisionConfigPayload>) {
+export async function updateConfigComision(
+  id: number,
+  payload: Partial<ComisionConfigPayload>,
+) {
   const raw = await apiFetch<any>(`/comisiones/config/${id}`, {
     method: 'PATCH',
     body: payload,
@@ -422,6 +551,109 @@ export async function listAgentesCaptacion() {
     return []
   }
 }
+
+/* ===== Metas mensuales de asesores ===== */
+
+/**
+ * LISTADO:
+ *
+ * - Si envías `mes`: usa GET /api/comisiones/metas-mensuales (RESUMEN por mes).
+ * - Si NO envías `mes`: usa GET /api/comisiones/metas (CONFIG de metas).
+ *
+ * En ambos casos devuelve un array de MetaMensualRow y también cuelga `.data`
+ * para compatibilidad con las dos vistas:
+ *  - Comisiones.vue        → usa `res.data`
+ *  - ComisionesConfig.vue  → usa el array directamente
+ */
+export async function listMetasMensuales(params?: {
+  asesorId?: number
+  mes?: string
+}) {
+  const hasMes = !!params?.mes
+
+  const endpoint = hasMes
+    ? '/comisiones/metas-mensuales'
+    : '/comisiones/metas'
+
+  const raw = await apiFetch<{ data?: any[] } | any[]>(
+    endpoint,
+    {
+      query: hasMes
+        ? {
+            asesorId: params?.asesorId,
+            mes: params?.mes,
+          }
+        : {
+            asesorId: params?.asesorId,
+          },
+    },
+  )
+
+  const rowsRaw = Array.isArray((raw as any)?.data)
+    ? (raw as any).data
+    : Array.isArray(raw)
+    ? raw
+    : []
+
+  const mapped = rowsRaw.map(mapMetaMensual)
+
+  const arr: any = mapped
+  ;(arr as any).data = mapped // compatibilidad para la otra vista
+  return arr as MetaMensualRow[] & { data: MetaMensualRow[] }
+}
+
+/**
+ * Crea o actualiza (upsert) una meta mensual para un asesor.
+ * POST /api/comisiones/metas
+ */
+export async function upsertMetaMensual(payload: {
+  asesor_id: number
+  tipo_vehiculo: TipoVehiculoComision | null
+  meta_mensual: number
+  porcentaje_extra: number
+  valor_rtm_moto?: number
+  valor_rtm_vehiculo?: number
+}) {
+  const raw = await apiFetch<any>('/comisiones/metas', {
+    method: 'POST',
+    body: payload,
+  })
+  return mapMetaMensual(raw)
+}
+
+/**
+ * Actualiza una meta mensual existente por id.
+ * PATCH /api/comisiones/metas/:id
+ */
+export async function updateMetaMensual(
+  id: number,
+  payload: Partial<{
+    asesor_id: number
+    tipo_vehiculo: TipoVehiculoComision | null
+    meta_mensual: number
+    porcentaje_extra: number
+    valor_rtm_moto?: number
+    valor_rtm_vehiculo?: number
+  }>,
+) {
+  const raw = await apiFetch<any>(`/comisiones/metas/${id}`, {
+    method: 'PATCH',
+    body: payload,
+  })
+  return mapMetaMensual(raw)
+}
+
+/**
+ * Elimina una meta mensual.
+ * DELETE /api/comisiones/metas/:id
+ */
+export async function deleteMetaMensual(id: number) {
+  await apiFetch<any>(`/comisiones/metas/${id}`, {
+    method: 'DELETE',
+  })
+}
+
+/* ========================= Helpers generales ========================= */
 
 export function formatCOP(value: number | string) {
   const n = typeof value === 'string' ? Number(value) : value

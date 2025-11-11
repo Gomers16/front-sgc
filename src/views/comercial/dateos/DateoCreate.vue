@@ -33,7 +33,7 @@
             <v-col cols="12" sm="4">
               <v-autocomplete
                 v-model="form.agente_id"
-                :items="asesoresItems"
+                :items="asesoresComerciales"
                 item-title="nombre"
                 item-value="id"
                 label="Asesor (requerido si canal es ASESOR o TELE)"
@@ -86,7 +86,7 @@
                 label="Placa"
                 variant="outlined"
                 density="comfortable"
-                :rules="[v => !!v || 'La placa es obligatoria']"
+                :rules="placaRules"
                 @blur="normalizePlacaInput"
               />
             </v-col>
@@ -217,6 +217,14 @@ async function loadAsesores() {
   finally { asesoresLoading.value = false }
 }
 
+/* 🔥 Solo asesores comerciales/tele en el select, sin tipo CONVENIO */
+const asesoresComerciales = computed(() => {
+  return asesoresItems.value.filter((a) => {
+    const t = String(a.tipo || '').toUpperCase()
+    return !t.includes('CONVENIO')
+  })
+})
+
 /* convenios */
 const conveniosItems = ref<{ id: number; nombre: string }[]>([])
 const conveniosLoading = ref(false)
@@ -229,6 +237,25 @@ async function loadConvenios() {
 /* reglas */
 const requiereAsesor = computed(() => form.value.canal === 'ASESOR' || form.value.canal === 'TELE')
 const requiereConvenio = computed(() => form.value.canal === 'ASESOR')
+
+/* ✔ Reglas de validación de placa: obligatoria y 6 caracteres */
+const placaRules = [
+  (v: string | null | undefined) => !!v || 'La placa es obligatoria',
+  (v: string | null | undefined) =>
+    (!!v && v.replace(/[\s-]/g, '').length === 6) || 'La placa debe tener 6 caracteres',
+]
+
+/* Placa SIEMPRE en mayúscula mientras se escribe */
+watch(
+  () => form.value.placa,
+  (val) => {
+    if (val == null) return
+    const upper = val.toUpperCase()
+    if (val !== upper) {
+      form.value.placa = upper
+    }
+  }
+)
 
 function normalizePlacaInput() {
   form.value.placa = (form.value.placa || '').replace(/[\s-]/g, '').toUpperCase()
@@ -316,10 +343,17 @@ async function submit() {
     errorMsg.value = 'Debes seleccionar un asesor para el canal elegido.'; return
   }
   if (requiereConvenio.value && !form.value.convenio_id) {
-    errorMsg.value = 'Debes seleccionar un convenio para el canal ASESOR.'; return
+    errorMsg.value = 'Debes seleccionar un convenio para el ASESOR.'; return
   }
 
+  // Normalizamos antes de validar longitud definitiva
   normalizePlacaInput()
+  const placaNormalizada = (form.value.placa || '').replace(/[\s-]/g, '')
+  if (placaNormalizada.length !== 6) {
+    errorMsg.value = 'La placa debe tener exactamente 6 caracteres.'
+    return
+  }
+
   digitsOnly()
 
   try {
