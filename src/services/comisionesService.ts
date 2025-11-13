@@ -109,6 +109,7 @@ export interface ListParams {
   perPage?: number
   mes?: string // 'YYYY-MM'
   asesorId?: number
+  convenioId?: number   // 👈 NUEVO: para filtrar por convenio_id (asesor convenio)
   estado?: ComisionEstado | ''
   sortBy?: string
   order?: 'asc' | 'desc'

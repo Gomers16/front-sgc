@@ -108,6 +108,7 @@
 
           <!-- KPIs + Metas -->
           <v-col cols="12" md="6" lg="7">
+            <!-- KPIs fila 1 -->
             <v-row>
               <v-col cols="12" sm="6" lg="3">
                 <div class="kpi-card">
@@ -116,13 +117,16 @@
                   <div class="kpi-sub">en el rango</div>
                 </div>
               </v-col>
-              <v-col cols="12" sm="6" lg="3">
+
+              <!-- KPI Convenios: oculto para asesores convenio -->
+              <v-col cols="12" sm="6" lg="3" v-if="!esAsesorConvenio">
                 <div class="kpi-card">
                   <div class="kpi-title">Convenios</div>
                   <div class="kpi-value">{{ kpi.convenios }}</div>
                   <div class="kpi-sub">asignados</div>
                 </div>
               </v-col>
+
               <v-col cols="12" sm="6" lg="3">
                 <div class="kpi-card">
                   <div class="kpi-title">Dateos exitosos</div>
@@ -130,26 +134,31 @@
                   <div class="kpi-sub">en el rango</div>
                 </div>
               </v-col>
+
               <v-col cols="12" sm="6" lg="3">
                 <div class="kpi-card">
                   <div class="kpi-title">Generado por dateos</div>
                   <div class="kpi-value">
                     {{ money(kpi.montoGenerado) }}
                   </div>
-                  <div class="kpi-sub">solo comisión del asesor</div>
+                  <div class="kpi-sub">
+                    {{ esAsesorConvenio ? 'comisión total (dateo + placa)' : 'comisión del asesor' }}
+                  </div>
                 </div>
               </v-col>
             </v-row>
 
+            <!-- KPIs fila 2 + Metas -->
             <v-row class="mt-1">
-              <v-col cols="12" sm="6" lg="4">
+              <v-col cols="12" sm="6" :lg="esAsesorComercial ? 4 : 6">
                 <div class="kpi-card">
                   <div class="kpi-title">Pagos registrados</div>
                   <div class="kpi-value">{{ money(kpi.pagosRegistrados) }}</div>
                   <div class="kpi-sub">COP</div>
                 </div>
               </v-col>
-              <v-col cols="12" sm="6" lg="4">
+
+              <v-col cols="12" sm="6" :lg="esAsesorComercial ? 4 : 6">
                 <div class="kpi-card">
                   <div class="kpi-title">Saldo estimado</div>
                   <div class="kpi-value" :class="saldoEstimado < 0 ? 'text-error' : ''">
@@ -159,8 +168,8 @@
                 </div>
               </v-col>
 
-              <!-- NUEVA CARD: Metas mensuales RTM -->
-              <v-col cols="12" sm="12" lg="4">
+              <!-- Metas mensuales: SOLO si es asesor comercial -->
+              <v-col cols="12" sm="12" lg="4" v-if="esAsesorComercial">
                 <v-card variant="outlined" rounded="lg" class="h-100 d-flex flex-column">
                   <v-card-title
                     class="text-subtitle-2 font-weight-bold d-flex justify-space-between align-center"
@@ -219,7 +228,12 @@
         <!-- Tabs -->
         <v-tabs v-model="tab" align-tabs="start" class="mb-2">
           <v-tab value="prospectos" prepend-icon="mdi-account-search">Prospectos</v-tab>
-          <v-tab value="convenios" prepend-icon="mdi-handshake">Convenios</v-tab>
+
+          <!-- Ocultar pestaña Convenios si es asesor convenio -->
+          <v-tab v-if="!esAsesorConvenio" value="convenios" prepend-icon="mdi-handshake">
+            Convenios
+          </v-tab>
+
           <v-tab value="dateos" prepend-icon="mdi-clipboard-check-multiple">Dateos</v-tab>
         </v-tabs>
 
@@ -315,8 +329,8 @@
             </v-data-table>
           </v-window-item>
 
-          <!-- Convenios -->
-          <v-window-item value="convenios">
+          <!-- Convenios: oculto si es asesor convenio -->
+          <v-window-item value="convenios" v-if="!esAsesorConvenio">
             <v-data-table
               :items="convenios"
               :headers="headersConvenios"
@@ -340,7 +354,7 @@
               <div class="text-medium-emphasis">
                 <strong>{{ totalDateosFiltrados }}</strong> dateo(s) ·
                 Exitosos: <strong>{{ totalExitosos }}</strong> ·
-                Monto total (comisiones asesor):
+                {{ esAsesorConvenio ? 'Monto total (comisión convenio):' : 'Monto total (comisión asesor):' }}
                 <strong>{{ money(totalComisionAsesor) }}</strong>
               </div>
               <div class="d-flex align-center" style="gap:8px">
@@ -437,20 +451,12 @@
                   style="gap:6px"
                 >
                   <v-chip size="x-small" color="primary" variant="tonal" class="font-weight-600">
-                    {{
-                      (item.turnoInfo.fecha && formatDateOnly(item.turnoInfo.fecha)) ||
-                      '—'
-                    }}
+                    {{ (item.turnoInfo.fecha && formatDateOnly(item.turnoInfo.fecha)) || '—' }}
                   </v-chip>
                   <v-chip size="x-small" color="indigo" variant="tonal" class="font-weight-600">
                     G: {{ item.turnoInfo.numeroGlobal ?? '—' }}
                   </v-chip>
-                  <v-chip
-                    size="x-small"
-                    color="deep-purple"
-                    variant="tonal"
-                    class="font-weight-600"
-                  >
+                  <v-chip size="x-small" color="deep-purple" variant="tonal" class="font-weight-600">
                     S: {{ item.turnoInfo.numeroServicio ?? '—' }}
                   </v-chip>
                   <v-chip
@@ -474,9 +480,9 @@
                 <span v-else class="text-medium-emphasis d-flex justify-center">—</span>
               </template>
 
-              <!-- Comisión SOLO del asesor -->
+              <!-- Comisión (dinámica según rol) -->
               <template #item.comisionAsesor="{ item }">
-                {{ money(getComisionAsesorForDateo(item.id)) }}
+                {{ money(getComisionPorRolParaDateo(item.id)) }}
               </template>
 
               <!-- Fecha creado -->
@@ -512,8 +518,8 @@
       </v-card>
     </v-dialog>
 
-    <!-- DIALOG NUEVO: metas mensuales RTM del asesor -->
-    <v-dialog v-model="metasDialogVisible" max-width="820">
+    <!-- Diálogo de metas: SOLO si es asesor comercial -->
+    <v-dialog v-if="esAsesorComercial" v-model="metasDialogVisible" max-width="820">
       <v-card>
         <v-card-title class="d-flex justify-space-between align-center">
           <div>
@@ -532,12 +538,7 @@
               hide-details
               style="max-width: 160px"
             />
-            <v-btn
-              color="primary"
-              size="small"
-              :loading="metasLoading"
-              @click="loadMetasAsesor"
-            >
+            <v-btn color="primary" size="small" :loading="metasLoading" @click="loadMetasAsesor">
               Actualizar
             </v-btn>
           </div>
@@ -606,8 +607,9 @@
   </v-container>
 </template>
 
+
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { get } from '@/services/http'
 import { listDateos, type Dateo, formatDateTime } from '@/services/dateosService'
@@ -620,10 +622,10 @@ import {
 import {
   listProspectos,
   type ProspectoDetail,
-  formatDate as formatDateDocBase,
+  formatDate as formatFechaDocBase,
 } from '@/services/prospectosService'
 
-/* ===== Tipos ===== */
+/* ===== Tipos locales ===== */
 type Asesor = {
   id: number
   nombre: string
@@ -644,13 +646,13 @@ type Convenio = {
   vigencia_hasta?: string | null
 }
 
+/* ===== Router / Route ===== */
 const router = useRouter()
-
-/* ===== Constantes y estado base ===== */
-const API = '/api'
 const route = useRoute()
 const asesorId = Number(route.params.id)
+const API = '/api'
 
+/* ===== Estado principal ===== */
 const asesor = ref<Asesor | null>(null)
 const prospectos = ref<ProspectoDetail[]>([])
 const convenios = ref<Convenio[]>([])
@@ -662,13 +664,11 @@ const loading = ref(false)
 const globalError = ref<string | null>(null)
 const tab = ref<'prospectos' | 'convenios' | 'dateos'>('prospectos')
 
-/* ===== Rango de fechas ===== */
+/* ===== Filtros de fecha ===== */
 const filtros = ref<{ desde: string; hasta: string }>({ desde: '', hasta: '' })
 
 function toInputDate(d: Date) {
-  return new Date(d.getTime() - d.getTimezoneOffset() * 60000)
-    .toISOString()
-    .slice(0, 10)
+  return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10)
 }
 function setUltimosNDias(n: number) {
   const hoy = new Date()
@@ -717,17 +717,21 @@ const headersConvenios = [
   { title: 'Vigencia', key: 'vigencia' },
 ] as const
 
-const headersDateos = [
-  { title: 'ID', key: 'id' },
-  { title: 'Foto', key: 'imagen_url' },
-  { title: 'Placa', key: 'placa' },
-  { title: 'Teléfono', key: 'telefono' },
-  { title: 'Convenio', key: 'convenio' },
-  { title: 'Estado', key: 'resultado' },
-  { title: 'Turno', key: 'turnoInfo', align: 'center' as const },
-  { title: 'Comisión asesor', key: 'comisionAsesor', align: 'end' as const },
-  { title: 'Creado', key: 'created_at' },
-] as const
+/* ✨ Encabezados de dateos: el título de la columna de comisión cambia según rol */
+const headersDateos = computed(() => {
+  const tituloComision = esAsesorConvenio.value ? 'Comisión convenio' : 'Comisión asesor'
+  return [
+    { title: 'ID', key: 'id' },
+    { title: 'Foto', key: 'imagen_url' },
+    { title: 'Placa', key: 'placa' },
+    { title: 'Teléfono', key: 'telefono' },
+    { title: 'Convenio', key: 'convenio' },
+    { title: 'Estado', key: 'resultado' },
+    { title: 'Turno', key: 'turnoInfo', align: 'center' as const },
+    { title: tituloComision, key: 'comisionAsesor', align: 'end' as const },
+    { title: 'Creado', key: 'created_at' },
+  ] as const
+})
 
 /* ===== Headers metas (dialogo) ===== */
 const headersMetas = [
@@ -764,8 +768,7 @@ function docFull(a?: Asesor | null) {
   return '—'
 }
 function vigenciaText(c: Convenio) {
-  const f = (s?: string | null) =>
-    !s ? '—' : new Date(s as string).toLocaleDateString()
+  const f = (s?: string | null) => (!s ? '—' : new Date(s as string).toLocaleDateString())
   return `${f(c.vigencia_desde)} – ${f(c.vigencia_hasta)}`
 }
 function normalizeCreatedAt(obj: any) {
@@ -811,7 +814,7 @@ function docText(v?: boolean | null) {
   return 'Sin datos'
 }
 function formatFechaDoc(d?: string | null) {
-  return formatDateDocBase(d || undefined)
+  return formatFechaDocBase(d || undefined)
 }
 
 /* Texto/Color chips dateos */
@@ -849,19 +852,17 @@ function formatDateOnly(iso: string) {
 }
 
 /* ===== Visor de imagen ===== */
-const viewer = ref<{ visible: boolean; url: string | null }>({
-  visible: false,
-  url: null,
-})
+const viewer = ref<{ visible: boolean; url: string | null }>({ visible: false, url: null })
 function openViewer(url: string) {
   viewer.value = { visible: true, url }
 }
 
-/* ===== Comisiones por dateo (solo comisión del asesor) ===== */
+/* ===== Mapear comisiones a dateo ===== */
 const comisionesPorDateo = computed(() => {
   const map = new Map<number, ComisionListItem[]>()
   for (const c of comisiones.value) {
-    const dateoId = (c as any).captacionDateoId ?? (c as any).dateo_id ?? null
+    const dateoId =
+      (c as any).dateo_id ?? (c as any).captacionDateoId ?? (c as any).captacion_dateo_id ?? null
     if (!dateoId) continue
     const key = Number(dateoId)
     if (!map.has(key)) map.set(key, [] as ComisionListItem[])
@@ -870,8 +871,30 @@ const comisionesPorDateo = computed(() => {
   return map
 })
 
+/* Comisión solo del ASESOR (usado para KPIs de comerciales) */
 function getComisionAsesorForDateo(dateoId: number): number {
   const arr = comisionesPorDateo.value.get(Number(dateoId)) || []
+  return arr.reduce((sum, c) => sum + (c.valor_unitario || 0), 0)
+}
+
+/**
+ * 🎯 Comisión dinámica según rol del asesor:
+ *  - Asesor comercial → suma valor_unitario (comisión del asesor)
+ *  - Asesor convenio  → suma AMBAS (valor_unitario + valor_cliente)
+ *                       porque cuando el convenio datea, gana dateo + placa
+ */
+function getComisionPorRolParaDateo(dateoId: number): number {
+  const arr = comisionesPorDateo.value.get(Number(dateoId)) || []
+
+  if (esAsesorConvenio.value) {
+    return arr.reduce((sum, c) => {
+      const vu = c.valor_unitario || 0
+      const vc = c.valor_cliente || 0
+      return sum + vu + vc
+    }, 0)
+  }
+
+  // Comercial: solo valor_unitario
   return arr.reduce((sum, c) => sum + (c.valor_unitario || 0), 0)
 }
 
@@ -882,11 +905,7 @@ const prospectosEnRango = computed(() => {
   const desde = new Date(filtros.value.desde + 'T00:00:00')
   const hasta = new Date(filtros.value.hasta + 'T23:59:59')
   return prospectos.value.filter((p: any) => {
-    const created =
-      p.created_at ||
-      p.createdAt ||
-      p.asignacion_activa?.fecha_asignacion ||
-      null
+    const created = p.created_at || p.createdAt || p.asignacion_activa?.fecha_asignacion || null
     if (!created) return true
     const t = new Date(created)
     return t >= desde && t <= hasta
@@ -919,13 +938,12 @@ const dateosFiltrados = computed(() => {
 })
 
 const totalDateosFiltrados = computed(() => dateosFiltrados.value.length)
-const totalExitosos = computed(() =>
-  dateosFiltrados.value.filter((d) => isExitoso(d)).length,
-)
+const totalExitosos = computed(() => dateosFiltrados.value.filter((d) => isExitoso(d)).length)
+/* Para KPIs: también mostramos el monto dinámico según rol */
 const totalComisionAsesor = computed(() =>
   dateosFiltrados.value
     .filter((d) => isExitoso(d))
-    .reduce((acc, d: any) => acc + getComisionAsesorForDateo(d.id), 0),
+    .reduce((acc: number, d: any) => acc + getComisionPorRolParaDateo(d.id), 0),
 )
 
 /* ===== KPIs ===== */
@@ -933,15 +951,25 @@ const kpi = ref({
   prospectos: 0,
   convenios: 0,
   dateosExitosos: 0,
-  montoGenerado: 0,
+  montoGenerado: 0, // dinámico por rol
   pagosRegistrados: 0,
 })
-const saldoEstimado = computed(
-  () => kpi.value.montoGenerado - kpi.value.pagosRegistrados,
-)
+const saldoEstimado = computed(() => kpi.value.montoGenerado - kpi.value.pagosRegistrados)
 
-/* ===== METAS mensuales RTM (por asesor) ===== */
+/* ===== Detectar tipo de asesor ===== */
+function normalizeTipoAgente(t?: string | null) {
+  return (t ?? '').toString().toUpperCase().trim()
+}
+const esAsesorComercial = computed(() => {
+  const t = normalizeTipoAgente(asesor.value?.tipo)
+  return t.includes('COMERCIAL')
+})
+const esAsesorConvenio = computed(() => {
+  const t = normalizeTipoAgente(asesor.value?.tipo)
+  return t.includes('CONVENIO')
+})
 
+/* ===== METAS mensuales RTM (solo comerciales) ===== */
 function getCurrentMes() {
   const now = new Date()
   const y = now.getFullYear()
@@ -954,80 +982,55 @@ const metasLoading = ref(false)
 const metasDialogVisible = ref(false)
 const metaMes = ref(getCurrentMes())
 
+/* Valores referencias RTM (editables si backend retorna otros) */
 const valorRtmMoto = ref(126100)
 const valorRtmVehiculo = ref(208738)
 
-/* helpers metas: mismos que en Comisiones.vue */
 function calcTotalRtm(item: MetaMensualRow) {
   return (item.rtm_motos || 0) + (item.rtm_vehiculos || 0)
 }
-
 function getMetaDinero(item: MetaMensualRow): number {
   const raw =
-    item.meta_global_rtm ??
-    item.meta_rtm ??
-    (item as any).meta_mensual ??
-    item.meta_mensual ??
-    0
+    item.meta_global_rtm ?? item.meta_rtm ?? (item as any).meta_mensual ?? item.meta_mensual ?? 0
   return Number(raw) || 0
 }
-
 function getTotalFacturacion(item: MetaMensualRow) {
   const backend: any =
-    (item as any).total_facturacion_global ??
-    (item as any).totalFacturacionGlobal ??
-    null
+    (item as any).total_facturacion_global ?? (item as any).totalFacturacionGlobal ?? null
+  if (backend != null && !Number.isNaN(Number(backend))) return Number(backend)
 
-  if (backend != null && !Number.isNaN(Number(backend))) {
-    return Number(backend)
-  }
-
-  const totalRtmMotos =
-    item.rtm_motos ?? item.total_rtm_motos ?? 0
-  const totalRtmVehiculos =
-    item.rtm_vehiculos ?? item.total_rtm_vehiculos ?? 0
-
-  return totalRtmMotos * valorRtmMoto.value +
-    totalRtmVehiculos * valorRtmVehiculo.value
+  const totalRtmMotos = item.rtm_motos ?? item.total_rtm_motos ?? 0
+  const totalRtmVehiculos = item.rtm_vehiculos ?? item.total_rtm_vehiculos ?? 0
+  return totalRtmMotos * valorRtmMoto.value + totalRtmVehiculos * valorRtmVehiculo.value
 }
-
 function calcAvance(item: MetaMensualRow) {
-  const metaDinero = getMetaDinero(item)
-  if (!metaDinero || metaDinero <= 0) return 0
-  const totalFacturacion = getTotalFacturacion(item)
-  return (totalFacturacion / metaDinero) * 100
+  const meta = getMetaDinero(item)
+  if (!meta || meta <= 0) return 0
+  const total = getTotalFacturacion(item)
+  return (total / meta) * 100
 }
-
 function calcFaltante(item: MetaMensualRow) {
-  const metaDinero = getMetaDinero(item)
-  if (!metaDinero || metaDinero <= 0) return 0
-  const totalFacturacion = getTotalFacturacion(item)
-  const diff = metaDinero - totalFacturacion
+  const meta = getMetaDinero(item)
+  if (!meta || meta <= 0) return 0
+  const total = getTotalFacturacion(item)
+  const diff = meta - total
   return diff > 0 ? diff : 0
 }
-
 function calcComisionMeta(item: MetaMensualRow) {
-  const metaDinero = getMetaDinero(item)
-  const porcentaje =
-    item.porcentaje_comision_meta ?? (item as any).porcentaje_comision ?? 0
-
-  if (!metaDinero || metaDinero <= 0) return 0
-  if (!porcentaje) return 0
-
-  const totalFacturacion = getTotalFacturacion(item)
-  if (totalFacturacion < metaDinero) return 0
-
-  return (totalFacturacion * porcentaje) / 100
+  const meta = getMetaDinero(item)
+  const pct = item.porcentaje_comision_meta ?? (item as any).porcentaje_comision ?? 0
+  if (!meta || meta <= 0 || !pct) return 0
+  const total = getTotalFacturacion(item)
+  if (total < meta) return 0
+  return (total * pct) / 100
 }
 
-/* resumen para card pequeña */
+/* resumen card */
 const metaResumen = computed(() => {
   const row = metasRows.value[0]
   if (!row) return null
-
   const metaDinero = getMetaDinero(row)
   if (!metaDinero || metaDinero <= 0) return null
-
   return {
     mesLabel: metaMes.value,
     metaDinero,
@@ -1040,10 +1043,7 @@ const metaResumen = computed(() => {
 async function loadMetasAsesor() {
   metasLoading.value = true
   try {
-    const res = await listMetasMensuales({
-      mes: metaMes.value,
-      asesorId,
-    })
+    const res = await listMetasMensuales({ mes: metaMes.value, asesorId })
     metasRows.value = res.data
 
     const row = metasRows.value[0]
@@ -1061,10 +1061,6 @@ async function loadMetasAsesor() {
 }
 
 /* ===== API helpers ===== */
-function rangoParams() {
-  return { desde: filtros.value.desde, hasta: filtros.value.hasta, perPage: 500 }
-}
-
 function normalizeAsesor(raw: any): Asesor | null {
   if (!raw) return null
   const nombre =
@@ -1112,7 +1108,6 @@ async function fetchAsesor(id: number) {
     const a = r?.data ?? r
     if (a) return normalizeAsesor(a)
   } catch {}
-
   try {
     const r2 = await get<any>(`${API}/usuarios/${id}`)
     const a2 = r2?.data ?? r2
@@ -1130,41 +1125,153 @@ async function fetchProspectos(id: number) {
     order: 'desc',
   })
   return res.data.map((p) => {
-    const created =
-      p.created_at ||
-      p.createdAt ||
-      p.asignacion_activa?.fecha_asignacion ||
-      null
+    const created = p.created_at || p.createdAt || p.asignacion_activa?.fecha_asignacion || null
     return { ...p, created_at: created } as ProspectoDetail
   })
 }
 
 async function fetchConvenios(id: number) {
   try {
-    const r = await get<any>(`${API}/agentes-captacion/${id}/convenios`, {
-      params: { perPage: 500 },
-    })
+    const r = await get<any>(`${API}/agentes-captacion/${id}/convenios`)
     const arr = r?.data ?? r
     if (Array.isArray(arr)) return arr
-  } catch {}
+  } catch (e) {
+    console.error('Error al cargar convenios del asesor', e)
+  }
   return []
 }
 
-async function fetchDateos(id: number) {
-  const res = await listDateos({
-    page: 1,
-    perPage: 500,
-    canal: 'ASESOR',
-    agenteId: id,
-    sortBy: 'id',
-    order: 'desc',
-  })
-  return res.data as Dateo[]
-}
+/* ==== CORREGIDO: unir dateos del asesor-convenio (agente + convenios) ==== */
 
+async function fetchDateosUnionAsesorYConvenio(opts: { asesor: Asesor | null; convenios: Convenio[] }) {
+  const a = opts.asesor
+  if (!a) return [] as Dateo[]
+
+  const fetchByAgente = () =>
+    listDateos({
+      page: 1,
+      perPage: 500,
+      canal: 'ASESOR',
+      agenteId: a.id,
+      sortBy: 'id',
+      order: 'desc',
+    }).then((r) => (r.data as Dateo[]) || [])
+
+  const fetchByConvenio = (convenioId: number) =>
+    listDateos({
+      page: 1,
+      perPage: 500,
+      canal: 'ASESOR',
+      convenioId,
+      sortBy: 'id',
+      order: 'desc',
+    }).then((r) => (r.data as Dateo[]) || [])
+
+  const esConvenioLocal = normalizeTipoAgente(a.tipo).includes('CONVENIO')
+
+  if (!esConvenioLocal) {
+    return await fetchByAgente()
+  }
+
+  // 🚀 Asesor convenio: buscar en AMBOS roles
+  const calls: Promise<Dateo[]>[] = []
+
+  // 1️⃣ Como AGENTE (usando asesor_convenio_id)
+  calls.push(fetchByAgente())
+
+  // 2️⃣ Como CONVENIO - buscar el convenio directamente por nombre
+  try {
+    // Buscar en la tabla convenios por nombre del asesor
+    const resConvenio = await get<any>(`${API}/convenios?nombre=${encodeURIComponent(a.nombre)}`)
+    const convenioData = resConvenio?.data ?? resConvenio
+    const convenioMatch = Array.isArray(convenioData)
+      ? convenioData.find((c: any) => c.nombre?.toLowerCase().trim() === a.nombre.toLowerCase().trim())
+      : (convenioData?.nombre?.toLowerCase().trim() === a.nombre.toLowerCase().trim() ? convenioData : null)
+
+    if (convenioMatch) {
+      console.log('🎯 Convenio encontrado por nombre:', convenioMatch)
+      calls.push(fetchByConvenio(Number(convenioMatch.id)))
+    } else {
+      console.warn('⚠️ No se encontró convenio con el nombre:', a.nombre)
+    }
+  } catch (e) {
+    console.error('❌ Error buscando convenio por nombre:', e)
+  }
+
+  const results = await Promise.all(calls)
+
+  // 🧪 DEBUG: Ver qué trae cada llamada
+  console.log('🔍 Dateos como AGENTE:', results[0])
+  console.log('🔍 Dateos como CONVENIO:', results[1] || [])
+  console.log('🔍 ID del asesor convenio:', a.id)
+
+  // Unir sin duplicados por id
+  const map = new Map<number, Dateo>()
+  for (const arr of results) {
+    if (!Array.isArray(arr)) continue
+    for (const it of arr) {
+      map.set((it as any).id, it)
+    }
+  }
+
+  const final = Array.from(map.values()).sort((a: any, b: any) => Number(b.id) - Number(a.id))
+  console.log('🔍 Dateos UNIDOS (final):', final)
+
+  return final
+}
+/* ===== Comisiones (comercial vs convenio) ===== */
+/* ===== Comisiones (comercial vs convenio) - CORREGIDO ===== */
 async function fetchComisiones(id: number) {
-  const res = await listComisiones({ asesorId: id, perPage: 500 })
-  return res.data as ComisionListItem[]
+  const esConvenioLocal =
+    asesor.value && normalizeTipoAgente(asesor.value.tipo).includes('CONVENIO')
+
+  if (!esConvenioLocal) {
+    // Asesor comercial / telemercadeo: solo traer por asesorId
+    const res = await listComisiones({ asesorId: id, perPage: 500 })
+    return res.data as ComisionListItem[]
+  }
+
+  // 🚀 Asesor convenio: traer comisiones por AMBOS roles
+
+  // 1️⃣ Por asesorId (cuando datea directamente)
+  const porAsesor = await listComisiones({ asesorId: id, perPage: 500 })
+    .then((r) => r.data as ComisionListItem[])
+
+  // 2️⃣ Por convenioId (cuando otros lo usan como convenio)
+  // 🔥 BUSCAR el ID real del convenio por nombre
+  let porConvenio: ComisionListItem[] = []
+
+  try {
+    // Buscar el convenio que tenga el mismo nombre que el asesor
+    const resConvenio = await get<any>(`${API}/convenios?nombre=${encodeURIComponent(asesor.value!.nombre)}`)
+    const convenioData = resConvenio?.data ?? resConvenio
+    const convenioMatch = Array.isArray(convenioData)
+      ? convenioData.find((c: any) => c.nombre?.toLowerCase().trim() === asesor.value!.nombre.toLowerCase().trim())
+      : (convenioData?.nombre?.toLowerCase().trim() === asesor.value!.nombre.toLowerCase().trim() ? convenioData : null)
+
+    if (convenioMatch) {
+      console.log('🎯 Convenio encontrado para comisiones:', convenioMatch)
+      const resComisiones = await listComisiones({ convenioId: Number(convenioMatch.id), perPage: 500 })
+      porConvenio = resComisiones.data as ComisionListItem[]
+      console.log('💰 Comisiones como convenio:', porConvenio)
+    } else {
+      console.warn('⚠️ No se encontró convenio para buscar comisiones')
+    }
+  } catch (e) {
+    console.error('❌ Error buscando comisiones por convenio:', e)
+  }
+
+  // Unir sin duplicados por id
+  const map = new Map<number, ComisionListItem>()
+  for (const c of [...porAsesor, ...porConvenio]) {
+    if (!c || c.id == null) continue
+    map.set(Number(c.id), c)
+  }
+
+  const final = Array.from(map.values())
+  console.log('💰 Total comisiones unidas:', final.length)
+
+  return final
 }
 
 async function fetchPagos(_id: number) {
@@ -1177,22 +1284,44 @@ async function loadAll() {
   loading.value = true
   globalError.value = null
   try {
-    const [a, p, c, d, pg, cm] = await Promise.all([
-      fetchAsesor(asesorId),
+    // 1) Traer asesor primero (necesitamos su tipo)
+    const a = await fetchAsesor(asesorId)
+    asesor.value = a
+
+    // 2) Cargar convenios tanto para COMERCIAL como para CONVENIO
+    //    (aunque a los convenios no se les muestre la pestaña, sí se usan
+    //     para unir los dateos donde aparecen como convenio)
+    let c: Convenio[] = []
+    if (asesor.value && (esAsesorComercial.value || esAsesorConvenio.value)) {
+      c = await fetchConvenios(asesorId)
+    }
+    convenios.value = Array.isArray(c) ? c : []
+
+    // 3) Dateos: comercial → por agente; convenio → unión (agente + convenios)
+    const d = await fetchDateosUnionAsesorYConvenio({
+      asesor: asesor.value,
+      convenios: convenios.value,
+    })
+    dateos.value = Array.isArray(d) ? d : []
+
+    // 4) Prospectos, Pagos, Comisiones
+    const [p, pg, cm] = await Promise.all([
       fetchProspectos(asesorId),
-      fetchConvenios(asesorId),
-      fetchDateos(asesorId),
       fetchPagos(asesorId),
       fetchComisiones(asesorId),
     ])
-
-    asesor.value = a || null
     prospectos.value = Array.isArray(p) ? p : []
-    convenios.value = Array.isArray(c) ? c : []
-    dateos.value = Array.isArray(d) ? d : []
     pagos.value = Array.isArray(pg) ? pg : []
     comisiones.value = Array.isArray(cm) ? cm : []
 
+    // 5) Metas solo si es comercial
+    if (asesor.value && esAsesorComercial.value) {
+      await loadMetasAsesor()
+    } else {
+      metasRows.value = []
+    }
+
+    // 6) KPIs base (con dateos ya unificados)
     const desde = new Date(filtros.value.desde + 'T00:00:00')
     const hasta = new Date(filtros.value.hasta + 'T23:59:59')
 
@@ -1202,20 +1331,38 @@ async function loadAll() {
       return t ? t >= desde && t <= hasta : true
     })
     const exitosos = dateosEnRango.filter((x) => isExitoso(x))
-    const monto = exitosos.reduce(
-      (acc: number, it: any) => acc + getComisionAsesorForDateo(it.id),
-      0,
-    )
-    const pagosTotal = pagos.value.reduce(
-      (acc, it) => acc + (Number(it.valor) || 0),
-      0,
-    )
+
+    let montoGenerado = 0
+
+    if (esAsesorConvenio.value) {
+      // 💰 Convenios: sumar TODAS sus comisiones (como agente + como convenio)
+      montoGenerado = comisiones.value
+        .filter((c) => {
+          const dateoId = (c as any).dateo_id ?? (c as any).captacion_dateo_id ?? null
+          if (!dateoId) return false
+          const dateo = exitosos.find((d: any) => d.id === Number(dateoId))
+          return !!dateo
+        })
+        .reduce((acc, c) => {
+          const vu = c.valor_unitario || 0
+          const vc = c.valor_cliente || 0
+          return acc + vu + vc
+        }, 0)
+    } else {
+      // 💸 Comerciales: solo la comisión del asesor (valor_unitario)
+      montoGenerado = exitosos.reduce(
+        (acc: number, it: any) => acc + getComisionAsesorForDateo(it.id),
+        0,
+      )
+    }
+
+    const pagosTotal = pagos.value.reduce((acc, it) => acc + (Number(it.valor) || 0), 0)
 
     kpi.value = {
       prospectos: prospectosEnRango.value.length,
       convenios: convenios.value.length,
       dateosExitosos: exitosos.length,
-      montoGenerado: monto,
+      montoGenerado,
       pagosRegistrados: pagosTotal,
     }
   } catch (e: any) {
@@ -1229,9 +1376,55 @@ function reload() {
   loadAll()
 }
 
-onMounted(async () => {
-  await loadAll()
-  await loadMetasAsesor()
+/* Recalcular cuando se carguen/varíen convenios en asesores de tipo convenio */
+watch(
+  () => convenios.value.map((c) => c.id).join(','), // dependemos de ids de convenios asignados
+  async () => {
+    if (asesor.value && esAsesorConvenio.value) {
+      const d = await fetchDateosUnionAsesorYConvenio({
+        asesor: asesor.value,
+        convenios: convenios.value,
+      })
+      dateos.value = d
+
+      const desde = filtros.value.desde
+      const hasta = filtros.value.hasta
+
+      const desdeD = new Date(desde + 'T00:00:00')
+      const hastaD = new Date(hasta + 'T23:59:59')
+      const dEnRango = dateos.value.filter((x: any) => {
+        const tRaw = normalizeCreatedAt(x)
+        const t = tRaw ? new Date(tRaw) : null
+        return t ? t >= desdeD && t <= hastaD : true
+      })
+      const exitosos = dEnRango.filter((x) => isExitoso(x))
+
+      if (esAsesorConvenio.value) {
+        kpi.value.montoGenerado = comisiones.value
+          .filter((c) => {
+            const dateoId = (c as any).dateo_id ?? (c as any).captacion_dateo_id ?? null
+            if (!dateoId) return false
+            const dateo = exitosos.find((d: any) => d.id === Number(dateoId))
+            return !!dateo
+          })
+          .reduce((acc, c) => {
+            const vu = c.valor_unitario || 0
+            const vc = c.valor_cliente || 0
+            return acc + vu + vc
+          }, 0)
+      } else {
+        kpi.value.montoGenerado = exitosos.reduce(
+          (acc: number, it: any) => acc + getComisionAsesorForDateo(it.id),
+          0,
+        )
+      }
+      // El resto (prospectos/pagos) ya está cargado
+    }
+  },
+)
+
+onMounted(() => {
+  loadAll()
 })
 
 /* ===== Navegación extra ===== */
@@ -1241,7 +1434,7 @@ function verProspecto(id: number) {
 
 /* ===== Exportar CSV (dateos) ===== */
 function getMontoDateo(d: Dateo) {
-  return getComisionAsesorForDateo((d as any).id)
+  return getComisionPorRolParaDateo((d as any).id)
 }
 
 function exportCsv(soloExitosos: boolean) {
@@ -1255,19 +1448,11 @@ function exportCsv(soloExitosos: boolean) {
     telefono: d.telefono ?? '',
     convenio: d.convenio?.nombre ?? '',
     exitoso: isExitoso(d) ? 'SI' : 'NO',
-    monto_comision_asesor: getMontoDateo(d),
+    monto_comision: getMontoDateo(d),
     fecha: fmtDate(d.created_at),
   }))
 
-  const headers = [
-    'id',
-    'placa',
-    'telefono',
-    'convenio',
-    'exitoso',
-    'monto_comision_asesor',
-    'fecha',
-  ]
+  const headers = ['id', 'placa', 'telefono', 'convenio', 'exitoso', 'monto_comision', 'fecha']
   const csv = [
     headers.join(','),
     ...rows.map((r) => headers.map((h) => csvEscape((r as any)[h])).join(',')),
@@ -1285,11 +1470,12 @@ function exportCsv(soloExitosos: boolean) {
 
 function csvEscape(val: unknown) {
   const s = String(val ?? '')
-  if (/[",\n]/.test(s)) {
-    return `"${s.replace(/"/g, '""')}"`}
+  if (/[",\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`
   return s
 }
 </script>
+
+
 
 <style scoped>
 .kpi-card {
@@ -1299,38 +1485,47 @@ function csvEscape(val: unknown) {
   height: 100%;
   background: rgb(var(--v-theme-surface));
 }
+
 .kpi-title {
   font-weight: 600;
   font-size: 0.9rem;
   color: rgba(0, 0, 0, 0.6);
 }
+
 .kpi-value {
   font-weight: 800;
   font-size: 1.4rem;
   line-height: 1.2;
   margin: 6px 0;
 }
+
 .kpi-sub {
   font-size: 0.8rem;
   color: rgba(0, 0, 0, 0.45);
 }
+
 .gap-2 {
   gap: 8px;
 }
+
 .evidence-thumb {
   cursor: zoom-in;
 }
+
 .doc-cell {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   line-height: 1.1;
 }
+
 .doc-date {
   font-size: 12px;
   opacity: 0.7;
   margin-top: 2px;
 }
+
+/* Ensancha columnas de documentos en la tabla de prospectos */
 :deep(th[data-key='soat']),
 :deep(td[data-key='soat']),
 :deep(th[data-key='tecno']),
@@ -1340,5 +1535,29 @@ function csvEscape(val: unknown) {
 :deep(th[data-key='peritaje']),
 :deep(td[data-key='peritaje']) {
   min-width: 132px;
+}
+
+/* Ajustes de densidad en tablas */
+:deep(table.v-table) {
+  font-size: 0.92rem;
+}
+
+:deep(.v-data-table-footer) {
+  padding-inline: 8px !important;
+}
+
+/* Botones pequeños dentro de tarjetas/dialogs */
+:deep(.v-card .v-btn.v-btn--size-small) {
+  letter-spacing: 0.2px;
+}
+
+/* Soporte para cards de KPIs en pantallas muy pequeñas */
+@media (max-width: 360px) {
+  .kpi-value {
+    font-size: 1.2rem;
+  }
+  .kpi-title {
+    font-size: 0.85rem;
+  }
 }
 </style>
