@@ -64,13 +64,7 @@
           <v-list-item v-bind="props" title="Comercial" />
         </template>
 
-        <v-list-item
-          title="Buscar"
-          prepend-icon="mdi-magnify"
-          :to="{ path: '/comercial/buscar' }"
-          link
-        />
-
+      
         <!-- Asesores -->
         <v-list-group
           value="comercial-asesores"

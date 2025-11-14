@@ -19,6 +19,7 @@
 
         <v-form @submit.prevent="submit">
           <v-row class="g-3">
+            <!-- CANAL -->
             <v-col cols="12" sm="4">
               <v-select
                 v-model="form.canal"
@@ -30,10 +31,23 @@
               />
             </v-col>
 
+            <!-- TIPO (solo cuando canal = ASESOR) -->
+            <v-col cols="12" sm="4" v-if="form.canal === 'ASESOR'">
+              <v-select
+                v-model="tipoAsesor"
+                :items="tipoAsesorItems"
+                label="Tipo de asesor"
+                variant="outlined"
+                density="comfortable"
+                :rules="[v => (form.canal !== 'ASESOR' || !!v) || 'Selecciona Comercial o Convenio']"
+              />
+            </v-col>
+
+            <!-- ASESOR -->
             <v-col cols="12" sm="4">
               <v-autocomplete
                 v-model="form.agente_id"
-                :items="asesoresComerciales"
+                :items="asesoresFiltrados"
                 item-title="nombre"
                 item-value="id"
                 label="Asesor (requerido si canal es ASESOR o TELE)"
@@ -63,23 +77,23 @@
               </v-autocomplete>
             </v-col>
 
-            <!-- ✅ Convenio (requerido si canal = ASESOR) -->
+            <!-- CONVENIO -->
             <v-col cols="12" sm="4">
               <v-autocomplete
                 v-model="form.convenio_id"
-                :items="conveniosItems"
+                :items="conveniosFiltrados"
                 item-title="nombre"
                 item-value="id"
-                label="Convenio (requerido si canal es ASESOR)"
+                :label="labelConvenio"
                 variant="outlined"
                 density="comfortable"
                 :loading="conveniosLoading"
-                :disabled="!requiereConvenio"
+                :disabled="!habilitaConvenio"
                 clearable
-                :rules="[v => (!requiereConvenio || !!v) || 'Selecciona un convenio']"
               />
             </v-col>
 
+            <!-- PLACA -->
             <v-col cols="12" sm="4">
               <v-text-field
                 v-model="form.placa"
@@ -91,6 +105,7 @@
               />
             </v-col>
 
+            <!-- TELÉFONO -->
             <v-col cols="12" sm="4">
               <v-text-field
                 v-model="form.telefono"
@@ -103,6 +118,7 @@
               />
             </v-col>
 
+            <!-- OBSERVACIÓN -->
             <v-col cols="12">
               <v-textarea
                 v-model="form.observacion"
@@ -113,7 +129,7 @@
               />
             </v-col>
 
-            <!-- Evidencia -->
+            <!-- EVIDENCIA -->
             <v-col cols="12" sm="8">
               <v-file-input
                 v-model="evidenciaModel"
@@ -175,16 +191,25 @@ import {
   type Dateo,
   type DateoImagenMeta,
 } from '@/services/dateosService'
+import { listConveniosAsignados } from '@/services/conveniosService'
 import { uploadImage, type UploadImageResponse } from '@/services/uploadsService'
 
 const router = useRouter()
 const route = useRoute()
 
+/* ================== CANAL / TIPO ================== */
 const canalItems: { title: string; value: CanalCaptacion }[] = [
   { title: 'Fachada', value: 'FACHADA' },
   { title: 'Asesor', value: 'ASESOR' },
   { title: 'Telemercadeo', value: 'TELE' },
   { title: 'Redes/Ads', value: 'REDES' },
+]
+
+type TipoAsesor = 'COMERCIAL' | 'CONVENIO' | null
+const tipoAsesor = ref<TipoAsesor>(null)
+const tipoAsesorItems = [
+  { title: 'Comercial', value: 'COMERCIAL' },
+  { title: 'Convenio', value: 'CONVENIO' },
 ]
 
 type FormShape = {
@@ -208,35 +233,114 @@ const form = ref<FormShape>({
 const loading = ref(false)
 const errorMsg = ref<string | null>(null)
 
-/* asesores */
+/* ================== ASESOR ================== */
 const asesoresItems = ref<{ id: number; nombre: string; tipo: string }[]>([])
 const asesoresLoading = ref(false)
+
 async function loadAsesores() {
   asesoresLoading.value = true
-  try { asesoresItems.value = await listAgentesCaptacion() }
-  finally { asesoresLoading.value = false }
+  try {
+    asesoresItems.value = await listAgentesCaptacion()
+  } finally {
+    asesoresLoading.value = false
+  }
 }
 
-/* 🔥 Solo asesores comerciales/tele en el select, sin tipo CONVENIO */
-const asesoresComerciales = computed(() => {
-  return asesoresItems.value.filter((a) => {
-    const t = String(a.tipo || '').toUpperCase()
-    return !t.includes('CONVENIO')
-  })
+const asesoresComercialesUI = computed(() =>
+  asesoresItems.value.filter((a) => String(a.tipo || '').toUpperCase().includes('COMERCIAL'))
+)
+
+const asesoresConvenioUI = computed(() =>
+  asesoresItems.value.filter((a) => String(a.tipo || '').toUpperCase().includes('CONVENIO'))
+)
+
+const asesoresTeleUI = computed(() =>
+  asesoresItems.value.filter((a) => String(a.tipo || '').toUpperCase().includes('TELE'))
+)
+
+/** Lista que realmente ve el usuario según canal/tipo */
+const asesoresFiltrados = computed(() => {
+  if (form.value.canal === 'TELE') {
+    return asesoresTeleUI.value
+  }
+  if (form.value.canal === 'ASESOR') {
+    if (tipoAsesor.value === 'COMERCIAL') return asesoresComercialesUI.value
+    if (tipoAsesor.value === 'CONVENIO') return asesoresConvenioUI.value
+    return []
+  }
+  return []
 })
 
-/* convenios */
+/* ================== CONVENIOS ================== */
+/** conveniosAll = catálogo general (para auto-match de asesores convenio)
+ *  conveniosAsignados = sólo los asignados a un comercial
+ */
 const conveniosItems = ref<{ id: number; nombre: string }[]>([])
+const conveniosAsignados = ref<{ id: number; nombre: string }[]>([])
 const conveniosLoading = ref(false)
-async function loadConvenios() {
+
+async function loadConveniosAll() {
   conveniosLoading.value = true
-  try { conveniosItems.value = await listConveniosLight() }
-  finally { conveniosLoading.value = false }
+  try {
+    conveniosItems.value = await listConveniosLight()
+  } finally {
+    conveniosLoading.value = false
+  }
 }
 
-/* reglas */
-const requiereAsesor = computed(() => form.value.canal === 'ASESOR' || form.value.canal === 'TELE')
-const requiereConvenio = computed(() => form.value.canal === 'ASESOR')
+async function loadConveniosAsignadosByAsesor(asesorId: number) {
+  if (!asesorId) {
+    conveniosAsignados.value = []
+    return
+  }
+  conveniosLoading.value = true
+  try {
+    conveniosAsignados.value = await listConveniosAsignados(asesorId)
+  } catch {
+    conveniosAsignados.value = []
+  } finally {
+    conveniosLoading.value = false
+  }
+}
+
+/** Convenios que ve el usuario:
+ *  - canal ≠ ASESOR → ninguno
+ *  - tipoAsesor = CONVENIO → solo el convenio auto-asignado
+ *  - tipoAsesor = COMERCIAL → sólo los asignados a ese comercial
+ */
+const conveniosFiltrados = computed(() => {
+  if (form.value.canal !== 'ASESOR' || !form.value.agente_id) return []
+
+  if (tipoAsesor.value === 'CONVENIO') {
+    const seleccionado = conveniosItems.value.find((c) => c.id === form.value.convenio_id)
+    return seleccionado ? [seleccionado] : []
+  }
+
+  // COMERCIAL → sólo convenios asignados a ese asesor
+  return conveniosAsignados.value
+})
+
+const labelConvenio = computed(() => {
+  if (form.value.canal !== 'ASESOR') return 'Convenio'
+  if (tipoAsesor.value === 'CONVENIO') return 'Convenio (ligado al asesor, no editable)'
+  if (tipoAsesor.value === 'COMERCIAL') return 'Convenio (opcional, sólo asignados al asesor)'
+  return 'Convenio'
+})
+
+/** Habilitar o no el campo convenio */
+const habilitaConvenio = computed(() => {
+  if (form.value.canal !== 'ASESOR') return false
+  if (!form.value.agente_id) return false
+  // Si el tipo es CONVENIO, el convenio se fija solo y se bloquea
+  if (tipoAsesor.value === 'CONVENIO') return false
+  // Tipo COMERCIAL → usuario puede escoger (o ninguno)
+  return true
+})
+
+/* ================== REGLAS UI ================== */
+const requiereAsesor = computed(
+  () => form.value.canal === 'ASESOR' || form.value.canal === 'TELE'
+)
 
 /* ✔ Reglas de validación de placa: obligatoria y 6 caracteres */
 const placaRules = [
@@ -264,7 +368,85 @@ function digitsOnly() {
   form.value.telefono = (form.value.telefono || '').replace(/\D/g, '')
 }
 
-/* Evidencia */
+/* Cuando cambia el CANAL:
+ *  - si deja de ser ASESOR/TELE → limpiamos tipo, asesor y convenio
+ *  - si es TELE → tipoAsesor no aplica
+ */
+watch(
+  () => form.value.canal,
+  (nuevo) => {
+    if (nuevo !== 'ASESOR' && nuevo !== 'TELE') {
+      tipoAsesor.value = null
+      form.value.agente_id = null
+      form.value.convenio_id = null
+      conveniosAsignados.value = []
+    }
+    if (nuevo === 'TELE') {
+      tipoAsesor.value = null
+      form.value.convenio_id = null
+      conveniosAsignados.value = []
+    }
+  }
+)
+
+/* Cuando cambia el TIPO de asesor: limpiamos asesor y convenio */
+watch(
+  () => tipoAsesor.value,
+  () => {
+    form.value.agente_id = null
+    form.value.convenio_id = null
+    conveniosAsignados.value = []
+  }
+)
+
+/* Helper: auto-vincular convenio para asesores CONVENIO */
+function autoVincularConvenioDeAsesorConvenio() {
+  if (!form.value.agente_id) return
+  const asesor = asesoresConvenioUI.value.find((a) => a.id === form.value.agente_id)
+  if (!asesor) return
+  const conv = conveniosItems.value.find((c) => c.nombre === asesor.nombre)
+  if (conv) {
+    form.value.convenio_id = conv.id
+  }
+}
+
+/* Cuando cambia el ASESOR:
+ *  - siempre limpiamos convenio
+ *  - si tipo = CONVENIO → buscamos su convenio 1:1 por nombre y lo fijamos
+ *  - si tipo = COMERCIAL → cargamos sólo convenios asignados
+ */
+watch(
+  () => form.value.agente_id,
+  async (nuevo) => {
+    form.value.convenio_id = null
+    conveniosAsignados.value = []
+
+    if (!nuevo || form.value.canal !== 'ASESOR') return
+
+    if (tipoAsesor.value === 'CONVENIO') {
+      autoVincularConvenioDeAsesorConvenio()
+      return
+    }
+
+    if (tipoAsesor.value === 'COMERCIAL') {
+      await loadConveniosAsignadosByAsesor(nuevo)
+    }
+  }
+)
+
+/* Si los convenios generales cargan después y ya hay un asesor CONVENIO seleccionado,
+ * volvemos a intentar auto-vincular (por si antes no existía en lista).
+ */
+watch(
+  () => conveniosItems.value,
+  () => {
+    if (form.value.canal === 'ASESOR' && tipoAsesor.value === 'CONVENIO' && form.value.agente_id) {
+      autoVincularConvenioDeAsesorConvenio()
+    }
+  }
+)
+
+/* ================== EVIDENCIA ================== */
 const evidenciaModel = ref<File | File[] | null>(null)
 const evidenciaFile = ref<File | null>(null)
 const previewUrl = ref<string | null>(null)
@@ -322,7 +504,8 @@ async function uploadImagenSiHaceFaltaStrict() {
 
     form.value.imagen_url = data.url
     form.value.imagen_mime = data.mime ?? evidenciaFile.value.type ?? null
-    form.value.imagen_tamano_bytes = typeof data.size === 'number' ? data.size : evidenciaFile.value.size
+    form.value.imagen_tamano_bytes =
+      typeof data.size === 'number' ? data.size : evidenciaFile.value.size
     form.value.imagen_hash = data.hash ?? null
     form.value.imagen_origen_id = data.id ?? null
     return true
@@ -331,22 +514,37 @@ async function uploadImagenSiHaceFaltaStrict() {
   }
 }
 
+/* ================== SUBMIT ================== */
 const dlgBloqueo = ref<{ visible: boolean; hasta: string | null; por: string | null }>({
-  visible: false, hasta: null, por: null,
+  visible: false,
+  hasta: null,
+  por: null,
 })
 
 async function submit() {
   errorMsg.value = null
-  if (!form.value.canal) { errorMsg.value = 'Selecciona un canal.'; return }
-  if (!form.value.placa) { errorMsg.value = 'La placa es obligatoria.'; return }
-  if (requiereAsesor.value && !form.value.agente_id) {
-    errorMsg.value = 'Debes seleccionar un asesor para el canal elegido.'; return
-  }
-  if (requiereConvenio.value && !form.value.convenio_id) {
-    errorMsg.value = 'Debes seleccionar un convenio para el ASESOR.'; return
-  }
 
-  // Normalizamos antes de validar longitud definitiva
+  if (!form.value.canal) {
+    errorMsg.value = 'Selecciona un canal.'
+    return
+  }
+  if (form.value.canal === 'ASESOR' && !tipoAsesor.value) {
+    errorMsg.value = 'Selecciona si el asesor es Comercial o Convenio.'
+    return
+  }
+  if (!form.value.placa) {
+    errorMsg.value = 'La placa es obligatoria.'
+    return
+  }
+  if (requiereAsesor.value && !form.value.agente_id) {
+    errorMsg.value = 'Debes seleccionar un asesor para el canal elegido.'
+    return
+  }
+  // Convenio:
+  //  - tipo COMERCIAL → opcional (puede ser ninguno → convenio_id null)
+  //  - tipo CONVENIO → viene autoasignado y bloqueado
+  //  - backend valida que no se rompan las reglas de negocio
+
   normalizePlacaInput()
   const placaNormalizada = (form.value.placa || '').replace(/[\s-]/g, '')
   if (placaNormalizada.length !== 6) {
@@ -371,8 +569,8 @@ async function submit() {
   try {
     const payload: Partial<Dateo> = {
       canal: form.value.canal!,
-      agente_id: form.value.agente_id,
-      convenio_id: form.value.convenio_id,
+      agente_id: form.value.agente_id ?? undefined,
+      convenio_id: form.value.convenio_id ?? undefined,
       placa: form.value.placa,
       telefono: form.value.telefono || undefined,
       observacion: form.value.observacion || undefined,
@@ -402,12 +600,17 @@ async function submit() {
   }
 }
 
-function volver() { router.push({ name: 'ComercialDateos' }) }
+function volver() {
+  router.push({ name: 'ComercialDateos' })
+}
 
+/* Carga inicial */
 loadAsesores()
-loadConvenios()
+loadConveniosAll()
 </script>
 
 <style scoped>
-.g-3 { gap: 12px; }
+.g-3 {
+  gap: 12px;
+}
 </style>

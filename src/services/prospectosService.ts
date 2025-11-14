@@ -1,5 +1,3 @@
-// src/services/prospectosService.ts
-
 const RAW_BASE = (import.meta.env.VITE_API_BASE_URL || '/api').replace(/\/$/, '')
 
 type HttpMethod = 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE'
@@ -107,6 +105,7 @@ export interface Prospecto {
   origen?: 'IMPORT' | 'CAMPO' | 'EVENTO' | 'OTRO'
   created_at?: string | null
   updated_at?: string | null
+  archivado?: boolean | null
 
   // camelCase (por serialize de Adonis)
   convenioId?: number | null
@@ -221,6 +220,13 @@ function unifyProspecto<T extends Record<string, any>>(p: T): ProspectoDetail {
   out.created_at  = out.created_at  ?? out.createdAt  ?? null
   out.updated_at  = out.updated_at  ?? out.updatedAt  ?? null
 
+  // archivado: forzamos boolean
+  if (out.archivado === undefined || out.archivado === null) {
+    out.archivado = false
+  } else {
+    out.archivado = !!out.archivado
+  }
+
   // asignaciones → activa + historial
   if (!out.asignacion_activa && Array.isArray(out.asignaciones)) {
     const hist = out.asignaciones.map(mapAsignacion)
@@ -260,6 +266,7 @@ export async function listProspectos(params: ListParams) {
     convenio_id: params.convenioId || undefined,
     asesorId: params.asesorId || undefined,
     asesor_id: params.asesorId || undefined,
+    // en backend ya puedes ignorar 'vigente' si quieres
     vigente: vigenteBool === undefined ? undefined : String(vigenteBool),
     vigente_num: vigenteBool === undefined ? undefined : (vigenteBool ? 1 : 0),
     desde: params.desde || undefined,
@@ -305,6 +312,14 @@ export async function retirarAsesor(prospectoId: number, payload: { motivo?: str
     method: 'POST',
     body: { motivo: payload?.motivo },
   })
+}
+
+/* 👇 NUEVO: datear prospecto (lo que dispara crear el Dateo y archivar) */
+export async function datearProspecto(prospectoId: number) {
+  return apiFetch<{ message?: string; dateo_id?: number }>(
+    `/prospectos/${prospectoId}/datear`,
+    { method: 'POST' },
+  )
 }
 
 /* Catálogos */

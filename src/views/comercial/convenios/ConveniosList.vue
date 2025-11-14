@@ -52,8 +52,14 @@
           </v-chip>
         </template>
 
-        <template #item.vigencia="{ item }">
-          {{ fmtDate(item.vigencia_desde) }} – {{ fmtDate(item.vigencia_hasta) }}
+        <!-- 👇 Antes: vigencia. Ahora: info de contacto (teléfono / whatsapp / email) -->
+        <template #item.contacto="{ item }">
+          <div class="d-flex flex-column">
+            <span v-if="item.telefono"><strong>Tel:</strong> {{ item.telefono }}</span>
+            <span v-else-if="item.whatsapp"><strong>WhatsApp:</strong> {{ item.whatsapp }}</span>
+            <span v-else-if="item.email"><strong>Email:</strong> {{ item.email }}</span>
+            <span v-else class="text-medium-emphasis">—</span>
+          </div>
         </template>
 
         <template #item.asesor="{ item }">
@@ -63,13 +69,85 @@
 
         <template #item.acciones="{ item }">
           <div class="d-flex gap-1">
-            <v-btn size="small" variant="text" icon="mdi-eye" @click="verDetalle(item.id)" />
-            <v-btn size="small" variant="text" icon="mdi-account-plus" @click="openAsignar(item.id)" />
-            <v-btn size="small" variant="text" icon="mdi-account-remove" color="error" @click="openRetirar(item.id)" />
+            <v-btn
+              size="small"
+              variant="text"
+              icon="mdi-eye"
+              @click="verDetalle(item.id)"
+            />
+            <v-btn
+              size="small"
+              variant="text"
+              icon="mdi-account-plus"
+              @click="openAsignar(item.id)"
+            />
+            <v-btn
+              size="small"
+              variant="text"
+              icon="mdi-account-remove"
+              color="error"
+              @click="openRetirar(item.id)"
+            />
           </div>
         </template>
       </v-data-table-server>
     </v-card>
+
+    <!-- 👇 Modal: ficha completa del convenio -->
+    <v-dialog v-model="dlgDetalle.visible" max-width="640">
+      <v-card>
+        <v-card-title class="text-h6">
+          Detalle del convenio
+        </v-card-title>
+        <v-card-text>
+          <v-skeleton-loader
+            v-if="dlgDetalle.loading"
+            type="article"
+          />
+          <div v-else-if="dlgDetalle.item">
+            <div class="mb-2">
+              <strong>Nombre:</strong> {{ dlgDetalle.item.nombre || '—' }}
+            </div>
+            <div class="mb-2">
+              <strong>Tipo:</strong> {{ dlgDetalle.item.tipo || '—' }}
+            </div>
+            <div class="mb-2">
+              <strong>Documento:</strong>
+              <span v-if="dlgDetalle.item.doc_tipo || dlgDetalle.item.doc_numero">
+                {{ dlgDetalle.item.doc_tipo || '' }} {{ dlgDetalle.item.doc_numero || '' }}
+              </span>
+              <span v-else>—</span>
+            </div>
+            <div class="mb-2">
+              <strong>Teléfono:</strong> {{ dlgDetalle.item.telefono || '—' }}
+            </div>
+            <div class="mb-2">
+              <strong>WhatsApp:</strong> {{ dlgDetalle.item.whatsapp || '—' }}
+            </div>
+            <div class="mb-2">
+              <strong>Email:</strong> {{ dlgDetalle.item.email || '—' }}
+            </div>
+            <div class="mb-2">
+              <strong>Dirección:</strong> {{ dlgDetalle.item.direccion || '—' }}
+            </div>
+            <div class="mb-2">
+              <strong>Vigencia:</strong>
+              {{ fmtDate(dlgDetalle.item.vigencia_desde) }} – {{ fmtDate(dlgDetalle.item.vigencia_hasta) }}
+            </div>
+            <div class="mb-2">
+              <strong>Notas:</strong> {{ dlgDetalle.item.notas || '—' }}
+            </div>
+          </div>
+          <div v-else class="text-medium-emphasis">
+            No se pudo cargar la información del convenio.
+          </div>
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn color="primary" @click="dlgDetalle.visible = false">Cerrar</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
 
     <!-- Asignar asesor -->
     <v-dialog v-model="dlgAsignar.visible" max-width="520">
@@ -100,7 +178,12 @@
       <v-card>
         <v-card-title class="text-h6">Retirar asesor</v-card-title>
         <v-card-text>
-          <v-text-field v-model="dlgRetirar.motivo" label="Motivo (opcional)" variant="outlined" hide-details />
+          <v-text-field
+            v-model="dlgRetirar.motivo"
+            label="Motivo (opcional)"
+            variant="outlined"
+            hide-details
+          />
         </v-card-text>
         <v-card-actions>
           <v-spacer />
@@ -117,6 +200,7 @@ import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import {
   listConvenios,
+  getConvenio,
   getAsesorActivo,
   asignarAsesorConvenio,
   retirarAsesorConvenio,
@@ -130,6 +214,14 @@ type ConvenioLite = {
   activo: boolean | 0 | 1
   vigencia_desde?: string | null
   vigencia_hasta?: string | null
+  telefono?: string | null
+  whatsapp?: string | null
+  email?: string | null
+  tipo?: string | null
+  doc_tipo?: string | null
+  doc_numero?: string | null
+  direccion?: string | null
+  notas?: string | null
 }
 type AsesorActivoLite = {
   asesor?: { id: number; nombre: string; tipo?: string } | null
@@ -154,7 +246,7 @@ const headers = [
   { title: 'ID', key: 'id', sortable: true },
   { title: 'Nombre', key: 'nombre', sortable: true },
   { title: 'Estado', key: 'activo', sortable: true },
-  { title: 'Vigencia', key: 'vigencia', sortable: false },
+  { title: 'Contacto', key: 'contacto', sortable: false }, // 👈 antes 'Vigencia'
   { title: 'Asesor activo', key: 'asesor', sortable: false },
   { title: 'Acciones', key: 'acciones', sortable: false, align: 'end' },
 ]
@@ -197,7 +289,10 @@ function fmtDate(s?: string | null) {
 async function loadItems() {
   loading.value = true
   try {
-    const sort = Array.isArray(sortBy.value) && sortBy.value[0] ? sortBy.value[0] : { key: 'id', order: 'desc' }
+    const sort =
+      Array.isArray(sortBy.value) && sortBy.value[0]
+        ? sortBy.value[0]
+        : { key: 'id', order: 'desc' }
     const res = await listConvenios({
       page: page.value,
       perPage: itemsPerPage.value,
@@ -225,13 +320,49 @@ async function loadItems() {
   }
 }
 
-function reload() { page.value = 1; loadItems() }
-function resetFilters() { filters.value = { texto: '', activo: '' }; reload() }
-function verDetalle(id: number) { router.push({ name: 'comercial.convenios.detail', params: { id } }) }
+function reload() {
+  page.value = 1
+  loadItems()
+}
+function resetFilters() {
+  filters.value = { texto: '', activo: '' }
+  reload()
+}
+
+/* Dialog detalle convenio */
+const dlgDetalle = ref<{
+  visible: boolean
+  loading: boolean
+  item: ConvenioLite | null
+}>({
+  visible: false,
+  loading: false,
+  item: null,
+})
+
+async function verDetalle(id: number) {
+  dlgDetalle.value.visible = true
+  dlgDetalle.value.loading = true
+  dlgDetalle.value.item = null
+  try {
+    const conv = await getConvenio(id)
+    dlgDetalle.value.item = conv as ConvenioLite
+  } finally {
+    dlgDetalle.value.loading = false
+  }
+}
 
 /* Dialog Asignar */
-const dlgAsignar = ref<{ visible: boolean; convenioId: number | null; asesorId: number | null; loading: boolean }>({
-  visible: false, convenioId: null, asesorId: null, loading: false,
+const dlgAsignar = ref<{
+  visible: boolean
+  convenioId: number | null
+  asesorId: number | null
+  loading: boolean
+}>({
+  visible: false,
+  convenioId: null,
+  asesorId: null,
+  loading: false,
 })
 function openAsignar(convenioId: number) {
   dlgAsignar.value = { visible: true, convenioId, asesorId: null, loading: false }
@@ -241,7 +372,9 @@ async function confirmAsignar() {
   if (!dlgAsignar.value.convenioId || !dlgAsignar.value.asesorId) return
   dlgAsignar.value.loading = true
   try {
-    await asignarAsesorConvenio(dlgAsignar.value.convenioId, { asesor_id: dlgAsignar.value.asesorId })
+    await asignarAsesorConvenio(dlgAsignar.value.convenioId, {
+      asesor_id: dlgAsignar.value.asesorId,
+    })
     const info = await getAsesorActivo(dlgAsignar.value.convenioId)
     asesorActivoMap.value[dlgAsignar.value.convenioId] = info as AsesorActivoLite
     dlgAsignar.value.visible = false
@@ -251,8 +384,16 @@ async function confirmAsignar() {
 }
 
 /* Dialog Retirar */
-const dlgRetirar = ref<{ visible: boolean; convenioId: number | null; motivo: string; loading: boolean }>({
-  visible: false, convenioId: null, motivo: '', loading: false,
+const dlgRetirar = ref<{
+  visible: boolean
+  convenioId: number | null
+  motivo: string
+  loading: boolean
+}>({
+  visible: false,
+  convenioId: null,
+  motivo: '',
+  loading: false,
 })
 function openRetirar(convenioId: number) {
   dlgRetirar.value = { visible: true, convenioId, motivo: '', loading: false }
@@ -261,7 +402,9 @@ async function confirmRetirar() {
   if (!dlgRetirar.value.convenioId) return
   dlgRetirar.value.loading = true
   try {
-    await retirarAsesorConvenio(dlgRetirar.value.convenioId, { motivo: dlgRetirar.value.motivo || undefined })
+    await retirarAsesorConvenio(dlgRetirar.value.convenioId, {
+      motivo: dlgRetirar.value.motivo || undefined,
+    })
     const info = await getAsesorActivo(dlgRetirar.value.convenioId)
     asesorActivoMap.value[dlgRetirar.value.convenioId] = info as AsesorActivoLite
     dlgRetirar.value.visible = false

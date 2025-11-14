@@ -35,7 +35,7 @@
             style="min-width: 160px"
           />
 
-          <!-- 🔹 Nuevo: filtro de tipo de asesor -->
+          <!-- 🔹 Filtro de tipo de asesor -->
           <v-select
             v-model="filters.tipoAgente"
             :items="tipoAgenteItems"
@@ -101,7 +101,7 @@
           <!-- Convenio -->
           <v-autocomplete
             v-model="filters.convenioId"
-            :items="conveniosItems"
+            :items="conveniosVisibles"
             item-title="nombre"
             item-value="id"
             label="Convenio"
@@ -173,7 +173,7 @@
         @update:options="loadItems"
         item-value="id"
       >
-        <!-- Foto (simple, sin tooltips) -->
+        <!-- Foto -->
         <template #item.imagen_url="{ item }">
           <div class="d-flex items-center">
             <v-avatar
@@ -203,7 +203,7 @@
           <v-chip size="small" variant="flat">ASESOR</v-chip>
         </template>
 
-        <!-- Agente con chip ancho/legible -->
+        <!-- Agente -->
         <template #item.agente="{ item }">
           <div class="d-flex align-center gap-1">
             <span>{{ safe(item.agente?.nombre) }}</span>
@@ -242,7 +242,7 @@
           </v-chip>
         </template>
 
-        <!-- Turno: centrado + chips -->
+        <!-- Turno -->
         <template #item.turnoInfo="{ item }">
           <div v-if="item.turnoInfo" class="d-flex align-center justify-center" style="gap:6px">
             <v-chip size="x-small" color="primary" variant="tonal" class="font-weight-600">
@@ -275,7 +275,7 @@
           <span v-else class="text-medium-emphasis d-flex justify-center">—</span>
         </template>
 
-        <!-- Acciones (con tooltips) -->
+        <!-- Acciones -->
         <template #item.acciones="{ item }">
           <div class="d-flex gap-1">
             <v-tooltip text="Ver detalle del dateo">
@@ -409,6 +409,7 @@ import {
   type Dateo,
   type ResultadoDateo,
 } from '@/services/dateosService'
+import { listConveniosAsignados } from '@/services/conveniosService'
 
 const router = useRouter()
 
@@ -437,7 +438,7 @@ const filters = ref<{
 
 const canalItems = [{ title: 'Asesor', value: 'ASESOR' as const }]
 
-/* 🔹 Items para el filtro de tipo de asesor */
+/* Tipo de asesor */
 const tipoAgenteItems = [
   { title: 'Todos', value: '' },
   { title: 'Comercial', value: 'COMERCIAL' },
@@ -492,13 +493,33 @@ async function loadAsesores() {
   }
 }
 
-/* Catálogo convenios */
-const conveniosItems = ref<{ id: number; nombre: string }[]>([])
+/* Catálogo convenios:
+ * conveniosAll = todos
+ * conveniosAsignados = sólo del asesor comercial seleccionado
+ */
+const conveniosAll = ref<{ id: number; nombre: string }[]>([])
+const conveniosAsignados = ref<{ id: number; nombre: string }[]>([])
 const conveniosLoading = ref(false)
-async function loadConvenios() {
+
+async function loadConveniosAll() {
   conveniosLoading.value = true
   try {
-    conveniosItems.value = await listConveniosLight()
+    conveniosAll.value = await listConveniosLight()
+  } finally {
+    conveniosLoading.value = false
+  }
+}
+
+async function loadConveniosAsignadosByAsesor(asesorId: number) {
+  if (!asesorId) {
+    conveniosAsignados.value = []
+    return
+  }
+  conveniosLoading.value = true
+  try {
+    conveniosAsignados.value = await listConveniosAsignados(asesorId)
+  } catch {
+    conveniosAsignados.value = []
   } finally {
     conveniosLoading.value = false
   }
@@ -516,7 +537,7 @@ function safe(val?: string | number | null) {
   return val === null || val === undefined || val === '' ? '' : String(val)
 }
 
-/* 🔹 Agentes visibles según el tipo seleccionado (comercial / convenio) */
+/* Agentes visibles según tipo */
 const agentesVisibles = computed(() => {
   const tipo = filters.value.tipoAgente
   if (!tipo) return asesoresItems.value
@@ -529,11 +550,85 @@ const agentesVisibles = computed(() => {
   })
 })
 
-/* Cuando cambias el tipo de asesor, limpio el agente seleccionado */
+/* Convenios visibles según tipo + agente:
+ * - sin tipo/agente → todos
+ * - tipo = CONVENIO + agente → sólo su convenio 1:1
+ * - tipo = COMERCIAL + agente → sólo conveniosAsignados (si hay) o todos
+ */
+const conveniosVisibles = computed(() => {
+  const tipo = filters.value.tipoAgente
+  const agenteId = filters.value.agenteId
+
+  if (!tipo || !agenteId) {
+    return conveniosAll.value
+  }
+
+  if (tipo === 'CONVENIO') {
+    const conv = conveniosAll.value.find((c) => c.id === filters.value.convenioId)
+    return conv ? [conv] : []
+  }
+
+  if (tipo === 'COMERCIAL') {
+    return conveniosAsignados.value.length ? conveniosAsignados.value : conveniosAll.value
+  }
+
+  return conveniosAll.value
+})
+
+/* Cuando cambias el tipo de asesor, limpio agente y convenio */
 watch(
   () => filters.value.tipoAgente,
   () => {
     filters.value.agenteId = null
+    filters.value.convenioId = null
+    conveniosAsignados.value = []
+  }
+)
+
+/* Helper: auto-vincular convenio del asesor CONVENIO (mismo nombre) */
+function autoVincularConvenioDeAsesorConvenio() {
+  if (!filters.value.agenteId) return
+  const asesor = asesoresItems.value.find((a) => a.id === filters.value.agenteId)
+  if (!asesor) return
+  const conv = conveniosAll.value.find((c) => c.nombre === asesor.nombre)
+  if (conv) {
+    filters.value.convenioId = conv.id
+  }
+}
+
+/* Cuando cambia el agente:
+ * - limpio convenio
+ * - si tipo = CONVENIO → auto-match por nombre
+ * - si tipo = COMERCIAL → cargo convenios asignados
+ */
+watch(
+  () => filters.value.agenteId,
+  async (nuevo) => {
+    filters.value.convenioId = null
+    conveniosAsignados.value = []
+
+    if (!nuevo) return
+
+    if (filters.value.tipoAgente === 'CONVENIO') {
+      autoVincularConvenioDeAsesorConvenio()
+      return
+    }
+
+    if (filters.value.tipoAgente === 'COMERCIAL') {
+      await loadConveniosAsignadosByAsesor(nuevo)
+    }
+  }
+)
+
+/* Si luego de cargar conveniosAll ya había un asesor CONVENIO seleccionado,
+ * volvemos a intentar auto-vincular su convenio.
+ */
+watch(
+  () => conveniosAll.value,
+  () => {
+    if (filters.value.tipoAgente === 'CONVENIO' && filters.value.agenteId) {
+      autoVincularConvenioDeAsesorConvenio()
+    }
   }
 )
 
@@ -621,6 +716,7 @@ function resetFilters() {
     desde: '',
     hasta: '',
   }
+  conveniosAsignados.value = []
   reload()
 }
 
@@ -666,7 +762,7 @@ async function doEliminar() {
 
 /* Init */
 loadAsesores()
-loadConvenios()
+loadConveniosAll()
 loadItems()
 </script>
 
@@ -676,14 +772,13 @@ loadItems()
 .text-h5 { font-weight: bold; }
 .evidence-thumb { cursor: zoom-in; }
 
-/* Chip del tipo de agente: más alto, ancho mínimo y sin recortar texto */
 .agent-type-chip {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   height: 26px;
   padding: 0 12px;
-  min-width: 92px;       /* asegura que 'Comercial' entre completo */
+  min-width: 92px;
   font-size: 12.6px;
   font-weight: 700;
   line-height: 1;
@@ -692,7 +787,6 @@ loadItems()
   border-radius: 9999px;
 }
 
-/* Colores por tipo (opcional) */
 .agent-type--comercial { background: #E3F2FD; color: #0D47A1; }
 .agent-type--convenio  { background: #E8F5E9; color: #1B5E20; }
 .agent-type--tele      { background: #FFF3E0; color: #E65100; }

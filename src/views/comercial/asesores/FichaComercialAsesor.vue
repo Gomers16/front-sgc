@@ -887,15 +887,25 @@ function getComisionPorRolParaDateo(dateoId: number): number {
   const arr = comisionesPorDateo.value.get(Number(dateoId)) || []
 
   if (esAsesorConvenio.value) {
+    // 💰 Convenio: solo valor_cliente (comisión placa)
+    return arr.reduce((sum, c) => sum + (c.valor_cliente || 0), 0)
+  }
+
+  // 💼 Asesor comercial: depende si usó convenio o no
+  const dateo = dateos.value.find((d: any) => d.id === dateoId)
+  const tieneConvenio = dateo?.convenio_id != null
+
+  if (!tieneConvenio) {
+    // SIN convenio: se lleva TODO (dateo + placa)
     return arr.reduce((sum, c) => {
       const vu = c.valor_unitario || 0
       const vc = c.valor_cliente || 0
       return sum + vu + vc
     }, 0)
+  } else {
+    // CON convenio: solo dateo
+    return arr.reduce((sum, c) => sum + (c.valor_unitario || 0), 0)
   }
-
-  // Comercial: solo valor_unitario
-  return arr.reduce((sum, c) => sum + (c.valor_unitario || 0), 0)
 }
 
 /* ===== Prospectos: ver todos / solo en rango ===== */
@@ -1334,21 +1344,20 @@ async function loadAll() {
 
     let montoGenerado = 0
 
-    if (esAsesorConvenio.value) {
-      // 💰 Convenios: sumar TODAS sus comisiones (como agente + como convenio)
-      montoGenerado = comisiones.value
-        .filter((c) => {
-          const dateoId = (c as any).dateo_id ?? (c as any).captacion_dateo_id ?? null
-          if (!dateoId) return false
-          const dateo = exitosos.find((d: any) => d.id === Number(dateoId))
-          return !!dateo
-        })
-        .reduce((acc, c) => {
-          const vu = c.valor_unitario || 0
-          const vc = c.valor_cliente || 0
-          return acc + vu + vc
-        }, 0)
-    } else {
+  if (esAsesorConvenio.value) {
+  // 💰 Convenios: sumar SOLO valor_cliente (comisión del convenio)
+  montoGenerado = comisiones.value
+    .filter((c) => {
+      const dateoId = (c as any).dateo_id ?? (c as any).captacion_dateo_id ?? null
+      if (!dateoId) return false
+      const dateo = exitosos.find((d: any) => d.id === Number(dateoId))
+      return !!dateo
+    })
+    .reduce((acc, c) => {
+      const vc = c.valor_cliente || 0
+      return acc + vc  // ✅ SOLO valor_cliente
+    }, 0)
+}else {
       // 💸 Comerciales: solo la comisión del asesor (valor_unitario)
       montoGenerado = exitosos.reduce(
         (acc: number, it: any) => acc + getComisionAsesorForDateo(it.id),
@@ -1399,20 +1408,19 @@ watch(
       })
       const exitosos = dEnRango.filter((x) => isExitoso(x))
 
-      if (esAsesorConvenio.value) {
-        kpi.value.montoGenerado = comisiones.value
-          .filter((c) => {
-            const dateoId = (c as any).dateo_id ?? (c as any).captacion_dateo_id ?? null
-            if (!dateoId) return false
-            const dateo = exitosos.find((d: any) => d.id === Number(dateoId))
-            return !!dateo
-          })
-          .reduce((acc, c) => {
-            const vu = c.valor_unitario || 0
-            const vc = c.valor_cliente || 0
-            return acc + vu + vc
-          }, 0)
-      } else {
+    if (esAsesorConvenio.value) {
+  kpi.value.montoGenerado = comisiones.value
+    .filter((c) => {
+      const dateoId = (c as any).dateo_id ?? (c as any).captacion_dateo_id ?? null
+      if (!dateoId) return false
+      const dateo = exitosos.find((d: any) => d.id === Number(dateoId))
+      return !!dateo
+    })
+    .reduce((acc, c) => {
+      const vc = c.valor_cliente || 0
+      return acc + vc  // ✅ SOLO valor_cliente
+    }, 0)
+} else {
         kpi.value.montoGenerado = exitosos.reduce(
           (acc: number, it: any) => acc + getComisionAsesorForDateo(it.id),
           0,

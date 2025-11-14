@@ -48,6 +48,12 @@ export interface AsesorActivoResp {
   asignacion_id?: number | null
 }
 
+/* Convenio simple (id, nombre) */
+export interface ConvenioSimple {
+  id: number
+  nombre: string
+}
+
 /* ===== Helpers ===== */
 function normalizeListShape<T = any>(r: any, fallback: ListParams): ListResponse<T> {
   const data: T[] = Array.isArray(r) ? r : (r?.data ?? r?.items ?? r?.rows ?? [])
@@ -121,12 +127,12 @@ export async function getAsesorActivo(convenioId: number): Promise<AsesorActivoR
 }
 
 /* ===== Vincular / desvincular asesor activo =====
-   -> Coinciden con tu controller:
-      POST /api/convenios/:id/asignar-asesor
-      POST /api/convenios/:id/retirar-asesor
+   -> Coinciden con tus rutas:
+      POST /api/convenios/:id/asignar
+      POST /api/convenios/:id/retirar
 */
 export async function asignarAsesorConvenio(convenioId: number, payload: { asesor_id: number }) {
-  return post<any, any>(`${API}/convenios/${convenioId}/asignar-asesor`, {
+  return post<any, any>(`${API}/convenios/${convenioId}/asignar`, {
     asesor_id: payload.asesor_id,
     // alias por compatibilidad; tu controller acepta 'asesor_id'
     asesorId: payload.asesor_id,
@@ -136,7 +142,7 @@ export async function asignarAsesorConvenio(convenioId: number, payload: { aseso
 }
 
 export async function retirarAsesorConvenio(convenioId: number, payload?: { motivo?: string }) {
-  return post<any, any>(`${API}/convenios/${convenioId}/retirar-asesor`, {
+  return post<any, any>(`${API}/convenios/${convenioId}/retirar`, {
     motivo: payload?.motivo,
   })
 }
@@ -166,4 +172,19 @@ export async function crearDateoAutoPorConvenio(body: CrearDateoAutoInput) {
     detectado_por_convenio: body.convenio_id, // 👈 clave que tu backend debe leer
   }
   return post(`${API}/captacion-dateos`, payload)
+}
+
+/* ===== Convenios asignados a un asesor comercial =====
+   GET /api/convenios/asignados?asesor_id=:id
+*/
+export async function listConveniosAsignados(asesorId: number): Promise<ConvenioSimple[]> {
+  if (!asesorId) return []
+
+  const r = await get<any>(`${API}/convenios/asignados`, {
+    params: { asesor_id: asesorId },
+  })
+
+  if (Array.isArray(r)) return r as ConvenioSimple[]
+  if (Array.isArray(r?.data)) return r.data as ConvenioSimple[]
+  return []
 }

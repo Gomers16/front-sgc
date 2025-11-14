@@ -39,7 +39,7 @@
             :items="conveniosItems"
             item-title="nombre"
             item-value="id"
-            label="Convenio"
+            label="Convenio (asesor convenio)"
             variant="outlined"
             density="comfortable"
             hide-details
@@ -53,24 +53,13 @@
             :items="asesoresItems"
             item-title="nombre"
             item-value="id"
-            label="Asesor (asignado)"
+            label="Asesor comercial"
             variant="outlined"
             density="comfortable"
             hide-details
             clearable
             :loading="asesoresLoading"
             style="min-width: 220px"
-          />
-
-          <v-select
-            v-model="filters.vigente"
-            :items="vigenteItems"
-            label="Asignación activa"
-            variant="outlined"
-            density="comfortable"
-            hide-details
-            clearable
-            style="min-width: 180px"
           />
 
           <v-text-field
@@ -111,6 +100,26 @@
         @update:options="onUpdateOptions"
         item-value="id"
       >
+        <!-- Asesor -->
+        <template #item.asesor="{ item }">
+          <div v-if="item.asignacion_activa" class="asesor-cell">
+            <span class="asesor-nombre">
+              {{ item.asignacion_activa.asesor?.nombre }}
+            </span>
+            <v-chip
+              v-if="item.asignacion_activa.asesor?.tipo"
+              size="x-small"
+              label
+              :color="asesorTipoColor(item.asignacion_activa.asesor?.tipo)"
+              variant="outlined"
+              class="px-2 text-caption"
+            >
+              {{ humanTipoAsesor(item.asignacion_activa.asesor?.tipo) }}
+            </v-chip>
+          </div>
+          <span v-else>Sin asignar</span>
+        </template>
+
         <!-- SOAT -->
         <template #item.soat="{ item }">
           <div class="doc-cell">
@@ -144,7 +153,12 @@
         <!-- Peritaje -->
         <template #item.peritaje="{ item }">
           <div class="doc-cell">
-            <v-chip :color="item.peritaje_ultima_fecha ? 'success' : 'grey-darken-1'" size="small" variant="flat" label>
+            <v-chip
+              :color="item.peritaje_ultima_fecha ? 'success' : 'grey-darken-1'"
+              size="small"
+              variant="flat"
+              label
+            >
               {{ item.peritaje_ultima_fecha ? 'Registrado' : 'Sin datos' }}
             </v-chip>
             <span class="doc-date">{{ formatDate(item.peritaje_ultima_fecha) }}</span>
@@ -156,7 +170,15 @@
           <div class="d-flex gap-1">
             <v-btn size="small" variant="text" icon="mdi-eye" @click="verDetalle(item.id)" />
             <v-btn size="small" variant="text" icon="mdi-account-plus" @click="openAsignar(item.id)" />
-            <v-btn size="small" variant="text" icon="mdi-account-remove" color="error" @click="openRetirar(item.id)" />
+            <v-btn
+              size="small"
+              variant="text"
+              icon="mdi-account-remove"
+              color="error"
+              @click="openRetirar(item.id)"
+            />
+            <!-- 🔁 Datear: solo cuando la RTM está vencida -->
+           
           </div>
         </template>
       </v-data-table-server>
@@ -172,7 +194,7 @@
             :items="asesoresItems"
             item-title="nombre"
             item-value="id"
-            label="Asesor"
+            label="Asesor comercial"
             variant="outlined"
             :loading="asesoresLoading"
             hide-details
@@ -181,7 +203,9 @@
         <v-card-actions>
           <v-spacer />
           <v-btn variant="text" @click="dlgAsignar.visible = false">Cancelar</v-btn>
-          <v-btn color="primary" :loading="dlgAsignar.loading" @click="confirmAsignar">Asignar</v-btn>
+          <v-btn color="primary" :loading="dlgAsignar.loading" @click="confirmAsignar">
+            Asignar
+          </v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
@@ -191,12 +215,41 @@
       <v-card>
         <v-card-title class="text-h6">Retirar asesor</v-card-title>
         <v-card-text>
-          <v-text-field v-model="dlgRetirar.motivo" label="Motivo (opcional)" variant="outlined" hide-details />
+          <v-text-field
+            v-model="dlgRetirar.motivo"
+            label="Motivo (opcional)"
+            variant="outlined"
+            hide-details
+          />
         </v-card-text>
         <v-card-actions>
           <v-spacer />
           <v-btn variant="text" @click="dlgRetirar.visible = false">Cancelar</v-btn>
-          <v-btn color="error" :loading="dlgRetirar.loading" @click="confirmRetirar">Retirar</v-btn>
+          <v-btn color="error" :loading="dlgRetirar.loading" @click="confirmRetirar">
+            Retirar
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <!-- 📌 Confirmar DATEAR prospecto -->
+    <v-dialog v-model="dlgDatear.visible" max-width="520">
+      <v-card>
+        <v-card-title class="text-h6">Datear prospecto</v-card-title>
+        <v-card-text>
+          ¿Seguro que quieres datear el prospecto
+          <strong>{{ dlgDatear.nombre || 'seleccionado' }}</strong>?
+          <br />
+          Dejará de aparecer en esta lista y pasará a <strong>Dateos</strong>.
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn variant="text" :disabled="dlgDatear.loading" @click="dlgDatear.visible = false">
+            Cancelar
+          </v-btn>
+          <v-btn color="primary" :loading="dlgDatear.loading" @click="confirmDatear">
+            Datear
+          </v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
@@ -212,6 +265,7 @@ import {
   retirarAsesor,
   listAgentesCaptacion,
   listConveniosLight,
+  datearProspecto,
   formatDate,
   type ProspectoDetail as Prospecto,
 } from '@/services/prospectosService'
@@ -227,15 +281,10 @@ const filters = ref({
   nombre: '',
   convenioId: null as number | null,
   asesorId: null as number | null,
-  vigente: '' as '' | 0 | 1 | boolean,
+  vigente: '' as '' | 0 | 1 | boolean, // compat
   desde: '',
   hasta: '',
 })
-
-const vigenteItems = [
-  { title: 'Con asignación activa', value: 1 },
-  { title: 'Sin asignación activa', value: 0 },
-]
 
 /* ============================
    TABLA
@@ -245,6 +294,7 @@ const headers = [
   { title: 'Nombre', key: 'nombre', sortable: true },
   { title: 'Teléfono', key: 'telefono', sortable: true },
   { title: 'Placa', key: 'placa', sortable: true },
+  { title: 'Asesor', key: 'asesor', sortable: false },
   { title: 'SOAT', key: 'soat', sortable: false },
   { title: 'RTM', key: 'tecno', sortable: false },
   { title: 'Preventiva', key: 'preventiva', sortable: false },
@@ -258,6 +308,7 @@ const page = ref(1)
 const itemsPerPage = ref(10)
 const sortBy = ref<any>([{ key: 'id', order: 'desc' }])
 const loading = ref(false)
+const dateandoId = ref<number | null>(null)
 
 /* ============================
    CATÁLOGOS
@@ -270,7 +321,8 @@ const conveniosLoading = ref(false)
 async function loadAsesores() {
   asesoresLoading.value = true
   try {
-    asesoresItems.value = await listAgentesCaptacion()
+    const all = await listAgentesCaptacion()
+    asesoresItems.value = all.filter((a) => a.tipo === 'ASESOR_COMERCIAL')
   } finally {
     asesoresLoading.value = false
   }
@@ -298,44 +350,59 @@ function docText(v?: boolean | null) {
   return 'Sin datos'
 }
 
+function humanTipoAsesor(tipo?: string | null) {
+  if (!tipo) return '—'
+  if (tipo === 'ASESOR_COMERCIAL') return 'Comercial'
+  if (tipo === 'ASESOR_CONVENIO') return 'Convenio'
+  if (tipo === 'TELEMERCADEO') return 'Telemercadeo'
+  return tipo
+}
+
+function asesorTipoColor(tipo?: string | null) {
+  if (tipo === 'ASESOR_COMERCIAL') return 'indigo'
+  if (tipo === 'ASESOR_CONVENIO') return 'purple'
+  if (tipo === 'TELEMERCADEO') return 'deep-orange'
+  return 'grey'
+}
+
 /** Calcula vigente desde una fecha si falta el flag */
 function computeVigenteFromDate(flag: unknown, venc: unknown): boolean | null {
   if (flag === true || flag === false) return flag as boolean
   if (!venc) return null
   const d = new Date(typeof venc === 'string' ? venc : String(venc))
   if (isNaN(d.getTime())) return null
-  const today = new Date(); today.setHours(0,0,0,0)
-  d.setHours(0,0,0,0)
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  d.setHours(0, 0, 0, 0)
   return d.getTime() >= today.getTime()
 }
 
 /** Normaliza claves y completa flags desde vencimientos */
 function normalizeRow(p: Record<string, unknown>) {
-  // SOAT / RTM
-  const soat_venc  = (p.soat_vencimiento ?? p.soatVencimiento ?? null) as string | null
+  const soat_venc = (p.soat_vencimiento ?? p.soatVencimiento ?? null) as string | null
   const tecno_venc = (p.tecno_vencimiento ?? p.tecnoVencimiento ?? null) as string | null
-  const soat_flag  = computeVigenteFromDate(p.soat_vigente ?? p.soatVigente, soat_venc)
+  const soat_flag = computeVigenteFromDate(p.soat_vigente ?? p.soatVigente, soat_venc)
   const tecno_flag = computeVigenteFromDate(p.tecno_vigente ?? p.tecnoVigente, tecno_venc)
 
-  // Preventiva
-  const prev_venc  = (p.preventiva_vencimiento ?? p.preventivaVencimiento ?? null) as string | null
-  const prev_flag  = computeVigenteFromDate(p.preventiva_vigente ?? p.preventivaVigente, prev_venc)
+  const prev_venc =
+    (p.preventiva_vencimiento ?? p.preventivaVencimiento ?? null) as string | null
+  const prev_flag = computeVigenteFromDate(
+    p.preventiva_vigente ?? p.preventivaVigente,
+    prev_venc,
+  )
 
-  // Peritaje
-  const peri_fecha = (p.peritaje_ultima_fecha ?? p.peritajeUltimaFecha ?? null) as string | null
+  const peri_fecha =
+    (p.peritaje_ultima_fecha ?? p.peritajeUltimaFecha ?? null) as string | null
 
   return {
     ...p,
-    // soat / rtm
     soat_vigente: soat_flag,
     tecno_vigente: tecno_flag,
     soat_vencimiento: soat_venc,
     tecno_vencimiento: tecno_venc,
-    // preventiva / peritaje
     preventiva_vigente: prev_flag,
     preventiva_vencimiento: prev_venc,
     peritaje_ultima_fecha: peri_fecha,
-    // timestamps normales en snake
     created_at: (p.created_at ?? p.createdAt ?? null) as string | null,
     updated_at: (p.updated_at ?? p.updatedAt ?? null) as string | null,
   }
@@ -354,9 +421,10 @@ function onUpdateOptions(opts: { page?: number; itemsPerPage?: number; sortBy?: 
 async function loadItems() {
   loading.value = true
   try {
-    const sort = Array.isArray(sortBy.value) && sortBy.value[0]
-      ? sortBy.value[0]
-      : { key: 'id', order: 'desc' }
+    const sort =
+      Array.isArray(sortBy.value) && sortBy.value[0]
+        ? sortBy.value[0]
+        : { key: 'id', order: 'desc' }
 
     const res = await listProspectos({
       page: page.value,
@@ -366,23 +434,37 @@ async function loadItems() {
       nombre: filters.value.nombre || undefined,
       convenioId: filters.value.convenioId || undefined,
       asesorId: filters.value.asesorId || undefined,
-      vigente: filters.value.vigente === '' ? undefined : filters.value.vigente,
+      vigente: '',
       desde: filters.value.desde || undefined,
       hasta: filters.value.hasta || undefined,
       sortBy: sort.key,
       order: sort.order,
     })
 
-    rows.value = (res.data as unknown as Record<string, unknown>[]).map(normalizeRow) as unknown as Prospecto[]
+    rows.value = (res.data as unknown as Record<string, unknown>[]).map(
+      normalizeRow,
+    ) as unknown as Prospecto[]
     totalItems.value = res.total
   } finally {
     loading.value = false
   }
 }
 
-function reload() { page.value = 1; loadItems() }
+function reload() {
+  page.value = 1
+  loadItems()
+}
 function resetFilters() {
-  filters.value = { placa: '', telefono: '', nombre: '', convenioId: null, asesorId: null, vigente: '', desde: '', hasta: '' }
+  filters.value = {
+    placa: '',
+    telefono: '',
+    nombre: '',
+    convenioId: null,
+    asesorId: null,
+    vigente: '',
+    desde: '',
+    hasta: '',
+  }
   reload()
 }
 
@@ -397,9 +479,57 @@ function verDetalle(id: number) {
 }
 
 /* ============================
-   DIÁLOGOS
+   DATEAR PROSPECTO
 ============================ */
-const dlgAsignar = ref({ visible: false, id: null as number | null, asesorId: null as number | null, loading: false })
+const dlgDatear = ref({
+  visible: false,
+  id: null as number | null,
+  nombre: '' as string,
+  loading: false,
+})
+
+function puedeDatear(item: Prospecto) {
+  // RTM vencida → tecno_vigente === false
+  return item.tecno_vigente === false
+}
+
+function onDatear(item: Prospecto) {
+  if (!item.id) return
+  dlgDatear.value = {
+    visible: true,
+    id: item.id,
+    nombre: item.nombre || '',
+    loading: false,
+  }
+}
+
+async function confirmDatear() {
+  const id = dlgDatear.value.id
+  if (!id) return
+  dlgDatear.value.loading = true
+  dateandoId.value = id
+  try {
+    await datearProspecto(id)
+    dlgDatear.value.visible = false
+    await loadItems()
+  } catch (e) {
+    console.error(e)
+    alert('No se pudo datear el prospecto.')
+  } finally {
+    dlgDatear.value.loading = false
+    dateandoId.value = null
+  }
+}
+
+/* ============================
+   DIÁLOGOS ASIGNAR / RETIRAR
+============================ */
+const dlgAsignar = ref({
+  visible: false,
+  id: null as number | null,
+  asesorId: null as number | null,
+  loading: false,
+})
 function openAsignar(id: number) {
   dlgAsignar.value = { visible: true, id, asesorId: null, loading: false }
   if (!asesoresItems.value.length) loadAsesores()
@@ -416,7 +546,12 @@ async function confirmAsignar() {
   }
 }
 
-const dlgRetirar = ref({ visible: false, id: null as number | null, motivo: '', loading: false })
+const dlgRetirar = ref({
+  visible: false,
+  id: null as number | null,
+  motivo: '',
+  loading: false,
+})
 function openRetirar(id: number) {
   dlgRetirar.value = { visible: true, id, motivo: '', loading: false }
 }
@@ -424,7 +559,9 @@ async function confirmRetirar() {
   if (!dlgRetirar.value.id) return
   dlgRetirar.value.loading = true
   try {
-    await retirarAsesor(dlgRetirar.value.id, { motivo: dlgRetirar.value.motivo || undefined })
+    await retirarAsesor(dlgRetirar.value.id, {
+      motivo: dlgRetirar.value.motivo || undefined,
+    })
     dlgRetirar.value.visible = false
     loadItems()
   } finally {
@@ -441,28 +578,52 @@ loadItems()
 </script>
 
 <style scoped>
-.gap-1 { gap: 4px; }
-.gap-2 { gap: 8px; }
-.text-h5 { font-weight: bold; }
+.gap-1 {
+  gap: 4px;
+}
+.gap-2 {
+  gap: 8px;
+}
+.text-h5 {
+  font-weight: bold;
+}
+
+/* Celda de asesor: nombre + chip en la misma fila */
+.asesor-cell {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+.asesor-nombre {
+  font-size: 0.875rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 
 /* Layout consistente: chip arriba, fecha abajo */
-.doc-cell{
-  display:flex;
-  flex-direction:column;
-  align-items:flex-start;
-  line-height:1.1;
+.doc-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  line-height: 1.1;
 }
-.doc-date{
-  font-size:12px;
-  opacity:.7;
-  margin-top:2px;
+.doc-date {
+  font-size: 12px;
+  opacity: 0.7;
+  margin-top: 2px;
 }
 
 /* Evitar columnas demasiado estrechas */
-:deep(th[data-key="soat"]), :deep(td[data-key="soat"]),
-:deep(th[data-key="tecno"]), :deep(td[data-key="tecno"]),
-:deep(th[data-key="preventiva"]), :deep(td[data-key="preventiva"]),
-:deep(th[data-key="peritaje"]), :deep(td[data-key="peritaje"]) {
+:deep(th[data-key='soat']),
+:deep(td[data-key='soat']),
+:deep(th[data-key='tecno']),
+:deep(td[data-key='tecno']),
+:deep(th[data-key='preventiva']),
+:deep(td[data-key='preventiva']),
+:deep(th[data-key='peritaje']),
+:deep(td[data-key='peritaje']) {
   min-width: 132px;
 }
 </style>

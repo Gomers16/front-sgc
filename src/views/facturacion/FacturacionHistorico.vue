@@ -116,15 +116,7 @@
             >
               {{ dialog.item.estado }}
             </v-chip>
-            <v-btn
-              icon
-              :href="fileHref(dialog.item)"
-              target="_blank"
-              :disabled="!fileHref(dialog.item)"
-              :title="fileHref(dialog.item) ? 'Abrir imagen' : 'Sin archivo'"
-            >
-              <v-icon>mdi-open-in-new</v-icon>
-            </v-btn>
+
           </div>
         </v-card-title>
 
