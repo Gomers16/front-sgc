@@ -113,8 +113,8 @@
             </div>
             <div class="mb-2">
               <strong>Documento:</strong>
-              <span v-if="dlgDetalle.item.doc_tipo || dlgDetalle.item.doc_numero">
-                {{ dlgDetalle.item.doc_tipo || '' }} {{ dlgDetalle.item.doc_numero || '' }}
+              <span v-if="dlgDetalle.item.docTipo || dlgDetalle.item.docNumero">
+                {{ dlgDetalle.item.docTipo || '' }} {{ dlgDetalle.item.docNumero || '' }}
               </span>
               <span v-else>—</span>
             </div>
@@ -129,13 +129,6 @@
             </div>
             <div class="mb-2">
               <strong>Dirección:</strong> {{ dlgDetalle.item.direccion || '—' }}
-            </div>
-            <div class="mb-2">
-              <strong>Vigencia:</strong>
-              {{ fmtDate(dlgDetalle.item.vigencia_desde) }} – {{ fmtDate(dlgDetalle.item.vigencia_hasta) }}
-            </div>
-            <div class="mb-2">
-              <strong>Notas:</strong> {{ dlgDetalle.item.notas || '—' }}
             </div>
           </div>
           <div v-else class="text-medium-emphasis">
@@ -218,8 +211,11 @@ type ConvenioLite = {
   whatsapp?: string | null
   email?: string | null
   tipo?: string | null
-  doc_tipo?: string | null
-  doc_numero?: string | null
+
+  // 👇 nombres en camelCase como los envía Adonis
+  docTipo?: string | null
+  docNumero?: string | null
+
   direccion?: string | null
   notas?: string | null
 }
