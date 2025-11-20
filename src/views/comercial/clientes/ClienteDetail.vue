@@ -61,7 +61,7 @@
 
                   <v-divider class="my-3" />
 
-                  <!-- NUEVO: última por vehículo -->
+                  <!-- Última visita por vehículo -->
                   <div v-if="detalle.ultimas_por_vehiculo?.length">
                     <div class="text-subtitle-2 font-weight-bold mb-2">Última visita por vehículo</div>
                     <v-table density="compact">
@@ -134,6 +134,8 @@
                         <th class="text-left">Marca</th>
                         <th class="text-left">Línea</th>
                         <th class="text-left">Modelo</th>
+                        <th class="text-left">Color</th>        <!-- 🟢 nuevo -->
+                        <th class="text-left">Matrícula</th>    <!-- 🟢 nuevo -->
                         <th class="text-left">Clase</th>
                       </tr>
                     </thead>
@@ -144,10 +146,12 @@
                         <td>{{ v.marca ?? '—' }}</td>
                         <td>{{ v.linea ?? '—' }}</td>
                         <td>{{ v.modelo ?? '—' }}</td>
+                        <td>{{ v.color ?? '—' }}</td>          <!-- 🟢 nuevo -->
+                        <td>{{ v.matricula ?? '—' }}</td>      <!-- 🟢 nuevo -->
                         <td>{{ v.clase?.nombre ?? '—' }}</td>
                       </tr>
                       <tr v-if="!detalle.vehiculos?.length">
-                        <td colspan="6" class="text-medium-emphasis">Sin vehículos</td>
+                        <td colspan="8" class="text-medium-emphasis">Sin vehículos</td>
                       </tr>
                     </tbody>
                   </v-table>

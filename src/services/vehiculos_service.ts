@@ -6,8 +6,18 @@ import { get, post, put, del } from './http'
  * Endpoints:
  *  - GET    /api/vehiculos?page=&perPage=&q=&clase_codigo=&cliente_telefono=
  *  - GET    /api/vehiculos/:id
- *  - POST   /api/vehiculos   { placa, clase_codigo|clase_vehiculo_id, marca?, linea?, modelo?, cliente_telefono? }
- *  - PUT    /api/vehiculos/:id { placa?, clase_codigo?|clase_vehiculo_id?, marca?, linea?, modelo?, cliente_telefono?|cliente_id? }
+ *  - POST   /api/vehiculos   {
+ *        placa,
+ *        clase_codigo|clase_vehiculo_id,
+ *        marca?, linea?, modelo?, color?, matricula?,
+ *        cliente_telefono?
+ *    }
+ *  - PUT    /api/vehiculos/:id {
+ *        placa?,
+ *        clase_codigo?|clase_vehiculo_id?,
+ *        marca?, linea?, modelo?, color?, matricula?,
+ *        cliente_telefono?|cliente_id?
+ *    }
  *  - DELETE /api/vehiculos/:id
  */
 const base = 'api/vehiculos'
@@ -40,7 +50,7 @@ export const VehiculosService = {
    *   - placa (UPPER; se normaliza en backend)
    *   - clase_codigo  (ej: 'LIV_PART')  **o**  clase_vehiculo_id
    * opcionales:
-   *   - marca, linea, modelo
+   *   - marca, linea, modelo, color, matricula
    *   - cliente_telefono (si existe, lo enlaza como dueño actual)
    */
   create(body: {
@@ -50,6 +60,8 @@ export const VehiculosService = {
     marca?: string | null
     linea?: string | null
     modelo?: number | null
+    color?: string | null
+    matricula?: string | null
     cliente_telefono?: string | null
   }) {
     return post(`${base}`, body)
@@ -60,7 +72,7 @@ export const VehiculosService = {
    * Puedes cambiar:
    *  - placa
    *  - clase_codigo o clase_vehiculo_id
-   *  - marca / linea / modelo
+   *  - marca / linea / modelo / color / matricula
    *  - cliente_id o cliente_telefono
    */
   update(
@@ -72,6 +84,8 @@ export const VehiculosService = {
       marca?: string | null
       linea?: string | null
       modelo?: number | null
+      color?: string | null
+      matricula?: string | null
       cliente_id?: number | null
       cliente_telefono?: string | null
     }

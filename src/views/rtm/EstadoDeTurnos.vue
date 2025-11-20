@@ -114,11 +114,23 @@
             color="secondary"
             variant="elevated"
             prepend-icon="mdi-chart-bar"
-            class="mb-2 bordered-button-secondary"
+            class="mb-2 mr-4 bordered-button-secondary"
             size="default"
             @click="goToReporteCaptacion"
           >
             Reporte por Captación
+          </v-btn>
+
+          <!-- NUEVO: Botón Importar RepGeneral -->
+          <v-btn
+            color="deep-purple"
+            variant="elevated"
+            prepend-icon="mdi-file-import"
+            class="mb-2 bordered-button-secondary"
+            size="default"
+            @click="openImportDialog"
+          >
+            Importar RepGeneral
           </v-btn>
         </v-col>
       </v-row>
@@ -256,6 +268,11 @@
             <v-col cols="12" md="6">
               <h4 class="text-subtitle-1 font-weight-bold mb-2">Vehículo y servicio</h4>
               <p><strong>Placa:</strong> {{ selectedTurno.placa }}</p>
+              <p><strong>Color:</strong> {{ getVehiculoColor(selectedTurno) }}</p>
+              <p>
+                <strong>Tarjeta de propiedad:</strong>
+                {{ getVehiculoMatricula(selectedTurno) }}
+              </p>
               <p><strong>Tipo vehículo:</strong> {{ selectedTurno.tipoVehiculo || '—' }}</p>
               <p>
                 <strong>Servicio:</strong>
@@ -268,9 +285,13 @@
 
           <v-row>
             <v-col cols="12" md="6">
-              <h4 class="text-subtitle-1 font-weight-bold mb-2">Cliente</h4>
+              <h4 class="text-subtitle-1 font-weight-bold mb-2">Cliente (propietario)</h4>
               <p><strong>Nombre:</strong> {{ getClienteNombre(selectedTurno) }}</p>
               <p><strong>Teléfono:</strong> {{ getClienteTelefono(selectedTurno) }}</p>
+
+              <h4 class="text-subtitle-1 font-weight-bold mb-2 mt-4">Conductor</h4>
+              <p><strong>Nombre:</strong> {{ getConductorNombre(selectedTurno) }}</p>
+              <p><strong>Teléfono:</strong> {{ getConductorTelefono(selectedTurno) }}</p>
             </v-col>
 
             <v-col cols="12" md="6">
@@ -299,11 +320,7 @@
                 <strong>Visita:</strong>
                 {{ selectedTurno.visitaVehiculoTexto || '—' }}
               </p>
-              <p>
-
-
-
-              </p>
+              <p></p>
             </v-col>
 
             <v-col cols="12" md="6">
@@ -384,6 +401,70 @@
       </v-card>
     </v-dialog>
 
+    <!-- MODAL IMPORTAR REPGENERAL -->
+    <v-dialog v-model="importDialog" max-width="650">
+      <v-card>
+        <v-card-title class="text-h6 font-weight-bold">
+          Importar RepGeneral (CSV)
+        </v-card-title>
+
+        <v-card-text>
+          <p class="mb-4">
+            Selecciona el archivo <strong>.csv</strong> generado por el CDA (RepGeneral)
+            para actualizar clientes, vehículos y conductores en el sistema.
+          </p>
+
+          <v-file-input
+            v-model="importFile"
+            label="Archivo RepGeneral (.csv)"
+            accept=".csv"
+            prepend-icon="mdi-file-delimited"
+            show-size
+            clearable
+            :disabled="importLoading"
+          />
+
+          <v-btn
+            color="primary"
+            class="mt-4"
+            prepend-icon="mdi-upload"
+            :loading="importLoading"
+            :disabled="importLoading"
+            @click="handleImportRepGeneral"
+          >
+            Importar
+          </v-btn>
+
+          <div v-if="importResult" class="mt-6">
+            <v-alert
+              :type="importResult.ok ? 'success' : 'warning'"
+              border="start"
+              variant="tonal"
+            >
+              <div class="mb-2">
+                <strong>{{ importResult.message }}</strong>
+              </div>
+              <div class="text-body-2">
+                <p>Clientes creados: {{ importResult.resumen.clientesCreados }}</p>
+                <p>Clientes actualizados: {{ importResult.resumen.clientesActualizados }}</p>
+                <p>Vehículos creados: {{ importResult.resumen.vehiculosCreados }}</p>
+                <p>Vehículos actualizados: {{ importResult.resumen.vehiculosActualizados }}</p>
+                <p>Conductores creados: {{ importResult.resumen.conductoresCreados }}</p>
+                <p>Filas con errores: {{ importResult.resumen.errores }}</p>
+              </div>
+            </v-alert>
+          </div>
+        </v-card-text>
+
+        <v-card-actions>
+          <v-spacer />
+          <v-btn variant="text" :disabled="importLoading" @click="importDialog = false">
+            Cerrar
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
     <!-- Snackbar -->
     <v-snackbar
       v-model="snackbar.show"
@@ -406,6 +487,7 @@ import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { DateTime } from 'luxon'
 import TurnosDelDiaService from '@/services/turnosdeldiaService'
+import repGeneralService, { RepGeneralImportResponse } from '@/services/repGeneralService'
 
 interface ServicioEnTurno {
   id: number
@@ -424,6 +506,8 @@ interface SedeMin {
 interface VehiculoMin {
   id: number
   placa?: string
+  color?: string | null
+  matricula?: string | null
 }
 interface ClienteMin {
   id: number
@@ -434,6 +518,11 @@ interface ClienteMin {
   razonSocial?: string
   telefono?: string
   celular?: string
+}
+interface ConductorMin {
+  id: number
+  nombre: string
+  telefono?: string | null
 }
 interface AgenteCaptacionMin {
   id: number
@@ -479,6 +568,9 @@ interface Turno {
   cliente?: ClienteMin | null
   usuario?: UsuarioMin | null
   sede?: SedeMin | null
+
+  conductorId?: number | null
+  conductor?: ConductorMin | null
 
   canalAtribucion?: CanalAtrib
   agenteCaptacionId?: number | null
@@ -531,6 +623,12 @@ const visitasDialog = ref(false)
 const visitasTurnoActualId = ref<number | null>(null)
 const visitasHistorial = ref<Array<HistVisit & { orden: number }>>([])
 const visitasPlacaActual = ref<string>('')
+
+/* NUEVO: estado para import RepGeneral */
+const importDialog = ref(false)
+const importFile = ref<File | File[] | null>(null)
+const importLoading = ref(false)
+const importResult = ref<RepGeneralImportResponse | null>(null)
 
 const headers = [
   { title: 'Turno #', key: 'turnoNumero', align: 'center' },
@@ -623,6 +721,21 @@ const getClienteNombre = (t: Turno): string => {
 const getClienteTelefono = (t: Turno): string =>
   t.cliente?.telefono || t.cliente?.celular || '—'
 
+const getVehiculoColor = (t: Turno): string =>
+  t.vehiculo?.color || '—'
+
+const getVehiculoMatricula = (t: Turno): string =>
+  t.vehiculo?.matricula || '—'
+
+const getConductorNombre = (t: Turno): string => {
+  const c = t.conductor
+  if (!c) return '—'
+  return c.nombre || '—'
+}
+
+const getConductorTelefono = (t: Turno): string =>
+  t.conductor?.telefono || '—'
+
 const getUsuarioNombre = (t: Turno): string => {
   const u = t.usuario
   if (!u) return '—'
@@ -648,7 +761,6 @@ const getCaptacionLabel = (t: Turno): string => {
 
   return prettifyCanal(canal)
 }
-
 
 const formatDate = (dateString: string): string => {
   if (!dateString) return ''
@@ -793,6 +905,55 @@ const setMonthAndFilter = () => {
   fetchTurnosFromApi(firstDayOfMonth, lastDayOfMonth)
 }
 
+/* NUEVO: abrir/cerrar modal import */
+const openImportDialog = () => {
+  importDialog.value = true
+  importFile.value = null
+  importResult.value = null
+}
+
+/* NUEVO: handler para importar RepGeneral */
+const handleImportRepGeneral = async () => {
+  // Manejar File o File[]
+  const value = importFile.value
+  let file: File | null = null
+  if (value instanceof File) {
+    file = value
+  } else if (Array.isArray(value) && value.length > 0 && value[0] instanceof File) {
+    file = value[0]
+  }
+
+  if (!file) {
+    showSnackbar('Por favor selecciona un archivo CSV antes de importar.', 'warning')
+    return
+  }
+
+  importLoading.value = true
+  importResult.value = null
+
+  try {
+    const resp = await repGeneralService.importarRepGeneral(file)
+    importResult.value = resp
+
+    if (resp.ok) {
+      showSnackbar(resp.message || 'Importación realizada correctamente.', 'success')
+      // Opcional: recargar turnos para ver impacto (sobre todo si más adelante usamos RepGeneral para turnos)
+      await fetchTurnosFromApi()
+    } else {
+      showSnackbar(resp.message || 'La importación terminó con advertencias.', 'warning')
+    }
+  } catch (error: unknown) {
+    console.error('Error al importar RepGeneral:', error)
+    let msg = 'Error al importar RepGeneral. Revisa el archivo e intenta nuevamente.'
+    if (error instanceof Error && error.message) {
+      msg = error.message
+    }
+    showSnackbar(msg, 'error')
+  } finally {
+    importLoading.value = false
+  }
+}
+
 onMounted(async () => {
   await loadServicios()
   fetchTurnosFromApi()
@@ -834,7 +995,7 @@ onMounted(async () => {
 
 .bordered-button:hover,
 .bordered-button-info:hover,
-.bordered-button-cyan:hover,
+.bordered-button-cyan,
 .bordered-button-grey:hover,
 .bordered-button-secondary:hover {
   transform: translateY(-2px);

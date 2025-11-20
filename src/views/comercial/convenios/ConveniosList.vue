@@ -52,11 +52,11 @@
           </v-chip>
         </template>
 
-        <!-- 👇 Antes: vigencia. Ahora: info de contacto (teléfono / whatsapp / email) -->
+        <!-- 👇 Antes: vigencia. Ahora: info de contacto (teléfono / corporativo / email) -->
         <template #item.contacto="{ item }">
           <div class="d-flex flex-column">
             <span v-if="item.telefono"><strong>Tel:</strong> {{ item.telefono }}</span>
-            <span v-else-if="item.whatsapp"><strong>WhatsApp:</strong> {{ item.whatsapp }}</span>
+            <span v-else-if="item.whatsapp"><strong>Corporativo:</strong> {{ item.whatsapp }}</span>
             <span v-else-if="item.email"><strong>Email:</strong> {{ item.email }}</span>
             <span v-else class="text-medium-emphasis">—</span>
           </div>
@@ -122,7 +122,7 @@
               <strong>Teléfono:</strong> {{ dlgDetalle.item.telefono || '—' }}
             </div>
             <div class="mb-2">
-              <strong>WhatsApp:</strong> {{ dlgDetalle.item.whatsapp || '—' }}
+              <strong>Corporativo:</strong> {{ dlgDetalle.item.whatsapp || '—' }}
             </div>
             <div class="mb-2">
               <strong>Email:</strong> {{ dlgDetalle.item.email || '—' }}

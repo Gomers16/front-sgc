@@ -118,6 +118,12 @@ export interface AgenteCaptacionLite {
   tipo: 'ASESOR_COMERCIAL' | 'ASESOR_CONVENIO' | 'ASESOR_TELEMERCADEO' | string
 }
 
+export interface ConductorLite {
+  id: number
+  nombre: string
+  telefono?: string | null
+}
+
 export interface Turno {
   id: number
   turnoNumero: number
@@ -152,6 +158,9 @@ export interface Turno {
 
   // 👇 NUEVO: al menos una certificación asociada
   tieneCertificacion?: boolean | null
+
+  // 👇 NUEVO: conductor asociado al turno
+  conductor?: ConductorLite | null
 }
 
 /* ========== Filtros exportación ========== */
@@ -183,6 +192,11 @@ export interface CreateTurnoPayload {
   clienteEmail?: string
   /** 👇 Para vincular/consumir un dateo existente */
   dateoId?: number | null
+
+  /** 👇 NUEVO: datos de conductor */
+  conductorId?: number | null
+  conductorTelefono?: string
+  conductorNombre?: string
 }
 
 export interface UpdateTurnoPayload {
@@ -197,6 +211,11 @@ export interface UpdateTurnoPayload {
   servicioCodigo?: ServicioCodigo
   canal?: CanalAtrib
   agenteCaptacionId?: number | null
+
+  /** 👇 NUEVO: datos de conductor */
+  conductorId?: number | null
+  conductorTelefono?: string
+  conductorNombre?: string
 }
 
 /* ================= SERVICE ================= */
@@ -276,6 +295,11 @@ class TurnosDelDiaService {
       ...(payload.clienteTelefono ? { clienteTelefono: payload.clienteTelefono } : {}),
       ...(payload.clienteEmail ? { clienteEmail: payload.clienteEmail } : {}),
       ...(payload.dateoId ? { dateoId: payload.dateoId } : {}),
+
+      // 👇 NUEVO: datos de conductor hacia el backend
+      ...(payload.conductorId !== undefined ? { conductorId: payload.conductorId } : {}),
+      ...(payload.conductorTelefono ? { conductorTelefono: payload.conductorTelefono } : {}),
+      ...(payload.conductorNombre ? { conductorNombre: payload.conductorNombre } : {}),
     }
 
     try {
