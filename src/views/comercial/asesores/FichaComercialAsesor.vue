@@ -879,34 +879,21 @@ function getComisionAsesorForDateo(dateoId: number): number {
 
 /**
  * 🎯 Comisión dinámica según rol del asesor:
- *  - Asesor comercial → suma valor_unitario (comisión del asesor)
- *  - Asesor convenio  → suma AMBAS (valor_unitario + valor_cliente)
- *                       porque cuando el convenio datea, gana dateo + placa
+ *  - Asesor comercial → muestra valor_unitario (ya calculado en BD)
+ *  - Asesor convenio → muestra valor_cliente (comisión placa/convenio)
  */
 function getComisionPorRolParaDateo(dateoId: number): number {
   const arr = comisionesPorDateo.value.get(Number(dateoId)) || []
 
   if (esAsesorConvenio.value) {
-    // 💰 Convenio: solo valor_cliente (comisión placa)
+    // 💰 Convenio: muestra valor_cliente (comisión placa)
     return arr.reduce((sum, c) => sum + (c.valor_cliente || 0), 0)
   }
 
-  // 💼 Asesor comercial: depende si usó convenio o no
-  const dateo = dateos.value.find((d: any) => d.id === dateoId)
-  const tieneConvenio = dateo?.convenio_id != null
-
-  if (!tieneConvenio) {
-    // SIN convenio: se lleva TODO (dateo + placa)
-    return arr.reduce((sum, c) => {
-      const vu = c.valor_unitario || 0
-      const vc = c.valor_cliente || 0
-      return sum + vu + vc
-    }, 0)
-  } else {
-    // CON convenio: solo dateo
-    return arr.reduce((sum, c) => sum + (c.valor_unitario || 0), 0)
-  }
+  // 💼 Asesor comercial: muestra valor_unitario (comisión asesor, ya calculada)
+  return arr.reduce((sum, c) => sum + (c.valor_unitario || 0), 0)
 }
+
 
 /* ===== Prospectos: ver todos / solo en rango ===== */
 const verTodosProspectos = ref(false)

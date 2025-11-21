@@ -174,6 +174,13 @@ export interface ExportFilters {
   agenteTipo?: 'ASESOR_COMERCIAL' | 'ASESOR_CONVENIO' | 'ASESOR_TELEMERCADEO'
 }
 
+export interface ExportFiltersMultiple {
+  fechaInicio: string
+  fechaFin: string
+  serviciosSeleccionados?: ServicioCodigo[]
+  mediosSeleccionados?: MedioEnteroFinalDB[]
+}
+
 /* ========== Payloads ========== */
 export interface CreateTurnoPayload {
   placa: string
@@ -372,6 +379,95 @@ class TurnosDelDiaService {
       return { data: blob, filename }
     } catch (error) {
       console.error('Error en exportTurnosExcel:', error)
+      throw error
+    }
+  }
+
+  /* ===== Exportar Excel Múltiple (Personalizado) ===== */
+  public static async exportTurnosExcelMultiple(filters: ExportFiltersMultiple) {
+    const params: Record<string, string> = {
+      fechaInicio: filters.fechaInicio,
+      fechaFin: filters.fechaFin,
+    }
+
+    // Si hay servicios seleccionados, los enviamos como parámetro
+    if (filters.serviciosSeleccionados && filters.serviciosSeleccionados.length > 0) {
+      params.servicios = filters.serviciosSeleccionados.join(',')
+    }
+
+    // Si hay medios seleccionados, los enviamos como parámetro
+    if (filters.mediosSeleccionados && filters.mediosSeleccionados.length > 0) {
+      params.medios = filters.mediosSeleccionados.join(',')
+    }
+
+    try {
+      const blob = await download(this.EXPORT_PATH, params)
+      let filename = `reporte_turnos_${DateTime.local().toISODate()}`
+
+      if (filters.serviciosSeleccionados && filters.serviciosSeleccionados.length > 0) {
+        filename += `_${filters.serviciosSeleccionados.join('-')}`
+      }
+      if (filters.mediosSeleccionados && filters.mediosSeleccionados.length > 0) {
+        filename += `_medios`
+      }
+
+      filename += '.xlsx'
+      return { data: blob, filename }
+    } catch (error) {
+      console.error('Error en exportTurnosExcelMultiple:', error)
+      throw error
+    }
+  }
+
+  /* ===== Exportar por Servicio específico ===== */
+  public static async exportTurnosByServicio(
+    fechaInicio: string,
+    fechaFin: string,
+    servicioCodigo: ServicioCodigo
+  ) {
+    const params: Record<string, string> = {
+      fechaInicio,
+      fechaFin,
+      servicioCodigo,
+    }
+
+    try {
+      const blob = await download(this.EXPORT_PATH, params)
+      const filename = `reporte_${servicioCodigo}_${DateTime.local().toISODate()}.xlsx`
+      return { data: blob, filename }
+    } catch (error) {
+      console.error('Error en exportTurnosByServicio:', error)
+      throw error
+    }
+  }
+
+  /* ===== Exportar por Medio específico ===== */
+  public static async exportTurnosByMedio(
+    fechaInicio: string,
+    fechaFin: string,
+    medio: MedioEnteroFinalDB
+  ) {
+    // Convertir el medio a canal de atribución para el filtro
+    const canalMap: Record<MedioEnteroFinalDB, CanalAtrib> = {
+      'Fachada': 'FACHADA',
+      'Redes Sociales': 'REDES',
+      'Call Center': 'TELE',
+      'Asesor Comercial': 'ASESOR',
+    }
+
+    const params: Record<string, string> = {
+      fechaInicio,
+      fechaFin,
+      canalAtribucion: canalMap[medio],
+    }
+
+    try {
+      const blob = await download(this.EXPORT_PATH, params)
+      const medioSlug = medio.toLowerCase().replace(/\s+/g, '_')
+      const filename = `reporte_${medioSlug}_${DateTime.local().toISODate()}.xlsx`
+      return { data: blob, filename }
+    } catch (error) {
+      console.error('Error en exportTurnosByMedio:', error)
       throw error
     }
   }
