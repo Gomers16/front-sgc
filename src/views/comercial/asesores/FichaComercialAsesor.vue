@@ -855,6 +855,9 @@ function openViewer(url: string) {
   viewer.value = { visible: true, url }
 }
 
+/* ===== 🆕 Guardar el convenio del asesor (para asesores convenio) ===== */
+const convenioDelAsesor = ref<{ id: number; nombre: string } | null>(null)
+
 /* ===== Mapear comisiones a dateo ===== */
 const comisionesPorDateo = computed(() => {
   const map = new Map<number, ComisionListItem[]>()
@@ -870,13 +873,13 @@ const comisionesPorDateo = computed(() => {
 })
 
 /**
- * 🎯 Comisión dinámica según rol del asesor CON DESGLOSE:
+ * 🎯 Comisión dinámica según rol del asesor - VERSIÓN FINAL CORREGIDA
  *  - Asesor comercial:
- *      • CON convenio → solo monto_asesor_comercial (dateo)
- *      • SIN convenio → monto_asesor_comercial + monto_convenio_placa
+ *      • CON convenio → solo valor_unitario (comisión dateo)
+ *      • SIN convenio → valor_unitario + valor_cliente (dateo + placa)
  *  - Asesor convenio:
- *      • Cuando otros usan su convenio → solo monto_convenio_placa
- *      • Cuando él mismo datea su convenio → monto_asesor_comercial + monto_convenio_placa
+ *      • Cuando otros usan su convenio → solo valor_cliente (comisión placa)
+ *      • Cuando él mismo datea → valor_unitario + valor_cliente (ambas)
  */
 function getComisionPorRolParaDateo(dateoId: number): number {
   const arr = comisionesPorDateo.value.get(Number(dateoId)) || []
@@ -884,40 +887,30 @@ function getComisionPorRolParaDateo(dateoId: number): number {
   // 🟢 ASESOR CONVENIO
   if (esAsesorConvenio.value) {
     return arr.reduce((sum, c: any) => {
-      const desg = c.desglose || {}
-      const tieneDesg =
-        desg && (desg.monto_asesor_comercial != null || desg.monto_convenio_placa != null)
+      const montoAsesor = Number(c.valor_unitario || 0)    // Comisión por dateo
+      const montoConvenio = Number(c.valor_cliente || 0)   // Comisión por placa/convenio
 
-      if (tieneDesg) {
-        const montoAsesor = Number(desg.monto_asesor_comercial || 0)
-        const montoConvenio = Number(desg.monto_convenio_placa || 0)
+      // 🔥 CLAVE: El convenio de la comisión coincide con el convenio del asesor
+      const esConvenioDelAsesor =
+        c.convenio &&
+        convenioDelAsesor.value &&
+        c.convenio.id === convenioDelAsesor.value.id
 
-        const esConvenioDelAsesor =
-          desg.asesor_secundario?.id === asesorId || c.convenio?.id === asesorId
-
-        const esAsesorQueDateo = c.asesor?.id === asesorId
-
-        let total = 0
-
-        // Cuando otros usan su convenio → solo la parte de convenio
-        if (esConvenioDelAsesor) total += montoConvenio
-
-        // Cuando él mismo datea → además se suma la parte de asesor
-        if (esAsesorQueDateo) total += montoAsesor
-
-        return sum + total
-      }
-
-      // 🧩 Fallback para comisiones antiguas sin desglose
-      const baseDateo = Number(c.valor_unitario || 0)
-      const basePlaca = Number(c.valor_cliente || 0)
-
-      const esConvenioDelAsesorAntiguo = c.convenio?.id === asesorId
-      const esAsesorQueDateoAntiguo = c.asesor?.id === asesorId
+      const esAsesorQueDateo = c.asesor?.id === asesorId
 
       let total = 0
-      if (esConvenioDelAsesorAntiguo) total += basePlaca
-      if (esAsesorQueDateoAntiguo) total += baseDateo
+
+      // Cuando otros usan su convenio → solo la parte de convenio
+      if (esConvenioDelAsesor) {
+        total += montoConvenio
+        console.log(`💰 Convenio del asesor ${asesorId}: +${montoConvenio}`)
+      }
+
+      // Cuando él mismo datea → además se suma la parte de asesor
+      if (esAsesorQueDateo) {
+        total += montoAsesor
+        console.log(`💰 Asesor que datea ${asesorId}: +${montoAsesor}`)
+      }
 
       return sum + total
     }, 0)
@@ -925,38 +918,19 @@ function getComisionPorRolParaDateo(dateoId: number): number {
 
   // 🟠 ASESOR COMERCIAL / TELEMERCADEO
   return arr.reduce((sum, c: any) => {
-    const desg = c.desglose || {}
-    const tieneDesg =
-      desg && (desg.monto_asesor_comercial != null || desg.monto_convenio_placa != null)
+    const montoAsesor = Number(c.valor_unitario || 0)
+    const montoConvenio = Number(c.valor_cliente || 0)
 
-    if (tieneDesg) {
-      const montoAsesor = Number(desg.monto_asesor_comercial || 0)
-      const montoConvenio = Number(desg.monto_convenio_placa || 0)
+    // Detectar si hay convenio asociado
+    const hayConvenio = !!c.convenio
 
-      // Detectar si hay convenio asociado (por desglose o por relación convenio)
-      const hayConvenio = !!desg.asesor_secundario || !!desg.convenio || !!c.convenio
-
-      if (hayConvenio) {
-        // 💼 Comercial usando convenio → SOLO dateo
-        return sum + montoAsesor
-      }
-
-      // 💼 Comercial SIN convenio → se lleva dateo + placa
-      return sum + montoAsesor + montoConvenio
+    if (hayConvenio) {
+      // 💼 Comercial usando convenio → SOLO dateo
+      return sum + montoAsesor
     }
 
-    // 🧩 Fallback para comisiones antiguas sin desglose
-    const baseDateo = Number(c.valor_unitario || 0)
-    const basePlaca = Number(c.valor_cliente || 0)
-    const hayConvenioAntiguo = !!c.convenio
-
-    if (hayConvenioAntiguo) {
-      // Comercial usando convenio → solo la parte de asesor
-      return sum + baseDateo
-    }
-
-    // Comercial sin convenio → todo para él
-    return sum + baseDateo + basePlaca
+    // 💼 Comercial SIN convenio → se lleva dateo + placa
+    return sum + montoAsesor + montoConvenio
   }, 0)
 }
 
@@ -965,10 +939,7 @@ function getComisionPorRolParaDateo(dateoId: number): number {
  * Usamos SIEMPRE la misma lógica de getComisionPorRolParaDateo
  */
 async function calcularMontoGenerado(exitosos: any[]) {
-  return exitosos.reduce(
-    (acc: number, d: any) => acc + getComisionPorRolParaDateo(d.id),
-    0,
-  )
+  return exitosos.reduce((acc: number, d: any) => acc + getComisionPorRolParaDateo(d.id), 0)
 }
 
 /* ===== Prospectos: ver todos / solo en rango ===== */
@@ -1216,6 +1187,8 @@ async function fetchConvenios(id: number) {
 
 /* ==== CORREGIDO: unir dateos del asesor-convenio (agente + convenios) ==== */
 
+/* ==== CORREGIDO: unir dateos del asesor-convenio (agente + convenios) ==== */
+
 async function fetchDateosUnionAsesorYConvenio(opts: {
   asesor: Asesor | null
   convenios: Convenio[]
@@ -1255,27 +1228,24 @@ async function fetchDateosUnionAsesorYConvenio(opts: {
   // 1️⃣ Como AGENTE (usando asesor_convenio_id)
   calls.push(fetchByAgente())
 
-  // 2️⃣ Como CONVENIO - buscar el convenio directamente por nombre
+  // 2️⃣ Como CONVENIO - buscar el convenio directamente por nombre EXACTO
   try {
-    // Buscar en la tabla convenios por nombre del asesor
-    const resConvenio = await get<any>(`${API}/convenios?nombre=${encodeURIComponent(a.nombre)}`)
-    const convenioData = resConvenio?.data ?? resConvenio
-    const convenioMatch = Array.isArray(convenioData)
-      ? convenioData.find(
-          (c: any) => c.nombre?.toLowerCase().trim() === a.nombre.toLowerCase().trim(),
-        )
-      : convenioData?.nombre?.toLowerCase().trim() === a.nombre.toLowerCase().trim()
-      ? convenioData
-      : null
+    // ✅ USAR ENDPOINT DE BÚSQUEDA EXACTA (igual que en fetchComisiones)
+    const resConvenio = await get<any>(
+      `${API}/convenios/buscar-por-nombre?nombre=${encodeURIComponent(a.nombre)}`
+    )
 
-    if (convenioMatch) {
-      console.log('🎯 Convenio encontrado por nombre:', convenioMatch)
-      calls.push(fetchByConvenio(Number(convenioMatch.id)))
+    if (resConvenio && resConvenio.id) {
+      console.log('🎯 Convenio encontrado por nombre para dateos:', resConvenio)
+      calls.push(fetchByConvenio(Number(resConvenio.id)))
     } else {
       console.warn('⚠️ No se encontró convenio con el nombre:', a.nombre)
     }
-  } catch (e) {
-    console.error('❌ Error buscando convenio por nombre:', e)
+  } catch (e: any) {
+    // Si es 404, es normal (no todos los asesores convenio tienen convenio)
+    if (e?.response?.status !== 404) {
+      console.error('❌ Error buscando convenio por nombre:', e)
+    }
   }
 
   const results = await Promise.all(calls)
@@ -1305,53 +1275,47 @@ async function fetchComisiones(id: number) {
     asesor.value && normalizeTipoAgente(asesor.value.tipo).includes('CONVENIO')
 
   if (!esConvenioLocal) {
-    // Asesor comercial / telemercadeo: solo traer por asesorId
+    // Comercial: solo por asesorId
     const res = await listComisiones({ asesorId: id, perPage: 500 })
     return res.data as ComisionListItem[]
   }
 
-  // 🚀 Asesor convenio: traer comisiones por AMBOS roles
+  // ✅ ASESOR CONVENIO: buscar en AMBOS roles
 
-  // 1️⃣ Por asesorId (cuando datea directamente)
+  // 1️⃣ Por asesorId (cuando él datea)
   const porAsesor = await listComisiones({ asesorId: id, perPage: 500 }).then(
     (r) => r.data as ComisionListItem[],
   )
 
   // 2️⃣ Por convenioId (cuando otros lo usan como convenio)
-  // 🔥 BUSCAR el ID real del convenio por nombre
   let porConvenio: ComisionListItem[] = []
 
   try {
-    // Buscar el convenio que tenga el mismo nombre que el asesor
+    // ✅ USAR ENDPOINT DE BÚSQUEDA EXACTA
     const resConvenio = await get<any>(
-      `${API}/convenios?nombre=${encodeURIComponent(asesor.value!.nombre)}`,
+      `${API}/convenios/buscar-por-nombre?nombre=${encodeURIComponent(asesor.value!.nombre)}`,
     )
-    const convenioData = resConvenio?.data ?? resConvenio
-    const convenioMatch = Array.isArray(convenioData)
-      ? convenioData.find(
-          (c: any) =>
-            c.nombre?.toLowerCase().trim() === asesor.value!.nombre.toLowerCase().trim(),
-        )
-      : convenioData?.nombre?.toLowerCase().trim() === asesor.value!.nombre.toLowerCase().trim()
-      ? convenioData
-      : null
 
-    if (convenioMatch) {
-      console.log('🎯 Convenio encontrado para comisiones:', convenioMatch)
-      const resComisiones = await listComisiones({
-        convenioId: Number(convenioMatch.id),
+    if (resConvenio && resConvenio.id) {
+  console.log('🎯 Convenio encontrado para comisiones:', resConvenio)
+
+  // 🆕 GUARDAR el convenio para usarlo en getComisionPorRolParaDateo()
+  convenioDelAsesor.value = { id: resConvenio.id, nombre: resConvenio.nombre }
+
+  const resComisiones = await listComisiones({
+        convenioId: Number(resConvenio.id),
         perPage: 500,
       })
       porConvenio = resComisiones.data as ComisionListItem[]
       console.log('💰 Comisiones como convenio:', porConvenio)
-    } else {
-      console.warn('⚠️ No se encontró convenio para buscar comisiones')
     }
-  } catch (e) {
-    console.error('❌ Error buscando comisiones por convenio:', e)
+  } catch (e: any) {
+    if (e?.response?.status !== 404) {
+      console.error('❌ Error buscando comisiones por convenio:', e)
+    }
   }
 
-  // Unir sin duplicados por id
+  // 3️⃣ Unir sin duplicados
   const map = new Map<number, ComisionListItem>()
   for (const c of [...porAsesor, ...porConvenio]) {
     if (!c || c.id == null) continue
