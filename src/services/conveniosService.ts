@@ -1,4 +1,3 @@
-// src/services/conveniosService.ts
 import { get, post } from '@/services/http'
 
 const API = '/api'
@@ -85,6 +84,8 @@ export async function listConvenios(params: ListParams = {}) {
         ? 'true'
         : 'false'
 
+  const vigenteParam = params.activo === undefined ? undefined : params.activo ? 'true' : 'false';
+
   const r = await get<any>(`${API}/convenios`, {
     params: {
       q: params.texto || undefined, // tu controlador usa 'q'
@@ -93,6 +94,7 @@ export async function listConvenios(params: ListParams = {}) {
       perPage: params.perPage,
       sortBy: params.sortBy,
       order: params.order,
+      vigente: vigenteParam  // Pasamos el parámetro vigente correctamente
     },
   })
   return normalizeListShape<Convenio>(r, params)

@@ -78,6 +78,8 @@ export interface TurnoLight {
 }
 
 export interface ComisionListItem {
+  tiene_desglose: any
+  desglose: any
   id: number
   /** id del dateo en captacion_dateos (para enganchar con la tabla de dateos) */
   dateo_id?: number

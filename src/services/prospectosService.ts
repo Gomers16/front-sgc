@@ -251,7 +251,27 @@ function normalizeListShape<T = any>(r: any, fallback: ListParams): ListResponse
 /* ============================
    API
 ============================ */
+
+/**
+ * Lista prospectos con verificación automática de dateos vencidos
+ *
+ * 🔄 NUEVO: Antes de cargar la lista, verifica si hay dateos vencidos (>72h PENDIENTE)
+ * y los revierte automáticamente a prospectos. Esto asegura que siempre veas
+ * los prospectos más actualizados.
+ *
+ * @param params Filtros de búsqueda y paginación
+ * @returns Lista paginada de prospectos
+ */
 export async function listProspectos(params: ListParams) {
+  // 🔄 NUEVO: Verificar dateos vencidos ANTES de cargar lista
+  try {
+    await apiFetch<any>('/captacion-dateos/verificar-vencidos', { method: 'POST' })
+  } catch (e) {
+    console.warn('⚠️ No se pudo verificar dateos vencidos:', e)
+    // No bloqueamos la carga de prospectos si falla la verificación
+  }
+
+  // Continúa con la carga normal (sin cambios)
   const vigenteBool =
     params.vigente === '' || params.vigente === undefined
       ? undefined
@@ -261,12 +281,11 @@ export async function listProspectos(params: ListParams) {
     placa: params.placa || undefined,
     telefono: params.telefono || undefined,
     nombre: params.nombre || undefined,
-    q: params.nombre || undefined, // compat
+    q: params.nombre || undefined,
     convenioId: params.convenioId || undefined,
     convenio_id: params.convenioId || undefined,
     asesorId: params.asesorId || undefined,
     asesor_id: params.asesorId || undefined,
-    // en backend ya puedes ignorar 'vigente' si quieres
     vigente: vigenteBool === undefined ? undefined : String(vigenteBool),
     vigente_num: vigenteBool === undefined ? undefined : (vigenteBool ? 1 : 0),
     desde: params.desde || undefined,
@@ -300,7 +319,6 @@ export async function patchProspecto(id: number, payload: Partial<Prospecto>) {
 }
 
 export async function asignarAsesor(prospectoId: number, payload: { asesor_id: number }) {
-  // backend acepta { asesor_id }; dejamos alias asesorId para compat
   return apiFetch<{ ok?: boolean; message?: string; id?: number; asignacionId?: number }>(
     `/prospectos/${prospectoId}/asignar`,
     { method: 'POST', body: { asesor_id: payload.asesor_id, asesorId: payload.asesor_id } },
@@ -314,7 +332,41 @@ export async function retirarAsesor(prospectoId: number, payload: { motivo?: str
   })
 }
 
-/* 👇 NUEVO: datear prospecto (lo que dispara crear el Dateo y archivar) */
+/**
+ * ⭐ NUEVO: Convierte un prospecto en un dateo
+ *
+ * 🎯 COMPORTAMIENTO:
+ * 1. Valida que el prospecto exista y no esté archivado
+ * 2. Valida que tenga RTM vencida (regla de negocio opcional)
+ * 3. Crea un dateo en estado PENDIENTE
+ * 4. Archiva TODOS los prospectos con la misma placa (incluyendo duplicados)
+ * 5. Los prospectos desaparecen de la lista de TODOS los asesores
+ *
+ * ⏰ VENCIMIENTO AUTOMÁTICO:
+ * - Si el dateo no cambia de estado en 72 horas, se revierte automáticamente
+ * - Los prospectos vuelven a estar disponibles para todos los asesores
+ * - La reversión ocurre cuando alguien carga la lista de prospectos (listProspectos)
+ *
+ * @param prospectoId ID del prospecto a datear
+ * @returns { message: string, dateo_id: number }
+ *
+ * @throws 404 - Prospecto no encontrado o ya archivado
+ * @throws 400 - RTM no vencida / sin asesor asignado / agente no encontrado
+ * @throws 500 - Error al crear dateo o archivar prospectos
+ *
+ * @example
+ * // Uso en componente Vue
+ * async function handleDatear(prospectoId: number) {
+ *   try {
+ *     const resultado = await datearProspecto(prospectoId)
+ *     console.log(`✅ Dateo creado: ${resultado.dateo_id}`)
+ *     // Recargar lista (el prospecto ya no aparecerá)
+ *     await cargarProspectos()
+ *   } catch (error) {
+ *     alert(`❌ Error: ${error.message}`)
+ *   }
+ * }
+ */
 export async function datearProspecto(prospectoId: number) {
   return apiFetch<{ message?: string; dateo_id?: number }>(
     `/prospectos/${prospectoId}/datear`,
@@ -325,7 +377,6 @@ export async function datearProspecto(prospectoId: number) {
 /* Catálogos */
 export async function listAgentesCaptacion() {
   try {
-    // ⚠️ tu backend usa 'activo' (no 'activos')
     const res = await apiFetch<{ data: AgenteLight[] } | AgenteLight[]>('/agentes-captacion', {
       query: { activo: 1, perPage: 200, select: 'id,nombre,tipo' },
     })

@@ -606,8 +606,6 @@
     </v-dialog>
   </v-container>
 </template>
-
-
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
@@ -871,29 +869,107 @@ const comisionesPorDateo = computed(() => {
   return map
 })
 
-/* Comisión solo del ASESOR (usado para KPIs de comerciales) */
-function getComisionAsesorForDateo(dateoId: number): number {
-  const arr = comisionesPorDateo.value.get(Number(dateoId)) || []
-  return arr.reduce((sum, c) => sum + (c.valor_unitario || 0), 0)
-}
-
 /**
- * 🎯 Comisión dinámica según rol del asesor:
- *  - Asesor comercial → muestra valor_unitario (ya calculado en BD)
- *  - Asesor convenio → muestra valor_cliente (comisión placa/convenio)
+ * 🎯 Comisión dinámica según rol del asesor CON DESGLOSE:
+ *  - Asesor comercial:
+ *      • CON convenio → solo monto_asesor_comercial (dateo)
+ *      • SIN convenio → monto_asesor_comercial + monto_convenio_placa
+ *  - Asesor convenio:
+ *      • Cuando otros usan su convenio → solo monto_convenio_placa
+ *      • Cuando él mismo datea su convenio → monto_asesor_comercial + monto_convenio_placa
  */
 function getComisionPorRolParaDateo(dateoId: number): number {
   const arr = comisionesPorDateo.value.get(Number(dateoId)) || []
 
+  // 🟢 ASESOR CONVENIO
   if (esAsesorConvenio.value) {
-    // 💰 Convenio: muestra valor_cliente (comisión placa)
-    return arr.reduce((sum, c) => sum + (c.valor_cliente || 0), 0)
+    return arr.reduce((sum, c: any) => {
+      const desg = c.desglose || {}
+      const tieneDesg =
+        desg && (desg.monto_asesor_comercial != null || desg.monto_convenio_placa != null)
+
+      if (tieneDesg) {
+        const montoAsesor = Number(desg.monto_asesor_comercial || 0)
+        const montoConvenio = Number(desg.monto_convenio_placa || 0)
+
+        const esConvenioDelAsesor =
+          desg.asesor_secundario?.id === asesorId || c.convenio?.id === asesorId
+
+        const esAsesorQueDateo = c.asesor?.id === asesorId
+
+        let total = 0
+
+        // Cuando otros usan su convenio → solo la parte de convenio
+        if (esConvenioDelAsesor) total += montoConvenio
+
+        // Cuando él mismo datea → además se suma la parte de asesor
+        if (esAsesorQueDateo) total += montoAsesor
+
+        return sum + total
+      }
+
+      // 🧩 Fallback para comisiones antiguas sin desglose
+      const baseDateo = Number(c.valor_unitario || 0)
+      const basePlaca = Number(c.valor_cliente || 0)
+
+      const esConvenioDelAsesorAntiguo = c.convenio?.id === asesorId
+      const esAsesorQueDateoAntiguo = c.asesor?.id === asesorId
+
+      let total = 0
+      if (esConvenioDelAsesorAntiguo) total += basePlaca
+      if (esAsesorQueDateoAntiguo) total += baseDateo
+
+      return sum + total
+    }, 0)
   }
 
-  // 💼 Asesor comercial: muestra valor_unitario (comisión asesor, ya calculada)
-  return arr.reduce((sum, c) => sum + (c.valor_unitario || 0), 0)
+  // 🟠 ASESOR COMERCIAL / TELEMERCADEO
+  return arr.reduce((sum, c: any) => {
+    const desg = c.desglose || {}
+    const tieneDesg =
+      desg && (desg.monto_asesor_comercial != null || desg.monto_convenio_placa != null)
+
+    if (tieneDesg) {
+      const montoAsesor = Number(desg.monto_asesor_comercial || 0)
+      const montoConvenio = Number(desg.monto_convenio_placa || 0)
+
+      // Detectar si hay convenio asociado (por desglose o por relación convenio)
+      const hayConvenio = !!desg.asesor_secundario || !!desg.convenio || !!c.convenio
+
+      if (hayConvenio) {
+        // 💼 Comercial usando convenio → SOLO dateo
+        return sum + montoAsesor
+      }
+
+      // 💼 Comercial SIN convenio → se lleva dateo + placa
+      return sum + montoAsesor + montoConvenio
+    }
+
+    // 🧩 Fallback para comisiones antiguas sin desglose
+    const baseDateo = Number(c.valor_unitario || 0)
+    const basePlaca = Number(c.valor_cliente || 0)
+    const hayConvenioAntiguo = !!c.convenio
+
+    if (hayConvenioAntiguo) {
+      // Comercial usando convenio → solo la parte de asesor
+      return sum + baseDateo
+    }
+
+    // Comercial sin convenio → todo para él
+    return sum + baseDateo + basePlaca
+  }, 0)
 }
 
+/**
+ * Cálculo del KPI "Generado por dateos"
+ * Usamos SIEMPRE la misma lógica de getComisionPorRolParaDateo
+ */
+async function calcularMontoGenerado(exitosos: any[]) {
+  return exitosos.reduce(
+    (acc: number, d: any) => acc + getComisionPorRolParaDateo(d.id),
+    0,
+  )
+}
 
 /* ===== Prospectos: ver todos / solo en rango ===== */
 const verTodosProspectos = ref(false)
@@ -1140,7 +1216,10 @@ async function fetchConvenios(id: number) {
 
 /* ==== CORREGIDO: unir dateos del asesor-convenio (agente + convenios) ==== */
 
-async function fetchDateosUnionAsesorYConvenio(opts: { asesor: Asesor | null; convenios: Convenio[] }) {
+async function fetchDateosUnionAsesorYConvenio(opts: {
+  asesor: Asesor | null
+  convenios: Convenio[]
+}) {
   const a = opts.asesor
   if (!a) return [] as Dateo[]
 
@@ -1182,8 +1261,12 @@ async function fetchDateosUnionAsesorYConvenio(opts: { asesor: Asesor | null; co
     const resConvenio = await get<any>(`${API}/convenios?nombre=${encodeURIComponent(a.nombre)}`)
     const convenioData = resConvenio?.data ?? resConvenio
     const convenioMatch = Array.isArray(convenioData)
-      ? convenioData.find((c: any) => c.nombre?.toLowerCase().trim() === a.nombre.toLowerCase().trim())
-      : (convenioData?.nombre?.toLowerCase().trim() === a.nombre.toLowerCase().trim() ? convenioData : null)
+      ? convenioData.find(
+          (c: any) => c.nombre?.toLowerCase().trim() === a.nombre.toLowerCase().trim(),
+        )
+      : convenioData?.nombre?.toLowerCase().trim() === a.nombre.toLowerCase().trim()
+      ? convenioData
+      : null
 
     if (convenioMatch) {
       console.log('🎯 Convenio encontrado por nombre:', convenioMatch)
@@ -1216,7 +1299,6 @@ async function fetchDateosUnionAsesorYConvenio(opts: { asesor: Asesor | null; co
 
   return final
 }
-/* ===== Comisiones (comercial vs convenio) ===== */
 /* ===== Comisiones (comercial vs convenio) - CORREGIDO ===== */
 async function fetchComisiones(id: number) {
   const esConvenioLocal =
@@ -1231,8 +1313,9 @@ async function fetchComisiones(id: number) {
   // 🚀 Asesor convenio: traer comisiones por AMBOS roles
 
   // 1️⃣ Por asesorId (cuando datea directamente)
-  const porAsesor = await listComisiones({ asesorId: id, perPage: 500 })
-    .then((r) => r.data as ComisionListItem[])
+  const porAsesor = await listComisiones({ asesorId: id, perPage: 500 }).then(
+    (r) => r.data as ComisionListItem[],
+  )
 
   // 2️⃣ Por convenioId (cuando otros lo usan como convenio)
   // 🔥 BUSCAR el ID real del convenio por nombre
@@ -1240,15 +1323,25 @@ async function fetchComisiones(id: number) {
 
   try {
     // Buscar el convenio que tenga el mismo nombre que el asesor
-    const resConvenio = await get<any>(`${API}/convenios?nombre=${encodeURIComponent(asesor.value!.nombre)}`)
+    const resConvenio = await get<any>(
+      `${API}/convenios?nombre=${encodeURIComponent(asesor.value!.nombre)}`,
+    )
     const convenioData = resConvenio?.data ?? resConvenio
     const convenioMatch = Array.isArray(convenioData)
-      ? convenioData.find((c: any) => c.nombre?.toLowerCase().trim() === asesor.value!.nombre.toLowerCase().trim())
-      : (convenioData?.nombre?.toLowerCase().trim() === asesor.value!.nombre.toLowerCase().trim() ? convenioData : null)
+      ? convenioData.find(
+          (c: any) =>
+            c.nombre?.toLowerCase().trim() === asesor.value!.nombre.toLowerCase().trim(),
+        )
+      : convenioData?.nombre?.toLowerCase().trim() === asesor.value!.nombre.toLowerCase().trim()
+      ? convenioData
+      : null
 
     if (convenioMatch) {
       console.log('🎯 Convenio encontrado para comisiones:', convenioMatch)
-      const resComisiones = await listComisiones({ convenioId: Number(convenioMatch.id), perPage: 500 })
+      const resComisiones = await listComisiones({
+        convenioId: Number(convenioMatch.id),
+        perPage: 500,
+      })
       porConvenio = resComisiones.data as ComisionListItem[]
       console.log('💰 Comisiones como convenio:', porConvenio)
     } else {
@@ -1329,29 +1422,8 @@ async function loadAll() {
     })
     const exitosos = dateosEnRango.filter((x) => isExitoso(x))
 
-    let montoGenerado = 0
-
-  if (esAsesorConvenio.value) {
-  // 💰 Convenios: sumar SOLO valor_cliente (comisión del convenio)
-  montoGenerado = comisiones.value
-    .filter((c) => {
-      const dateoId = (c as any).dateo_id ?? (c as any).captacion_dateo_id ?? null
-      if (!dateoId) return false
-      const dateo = exitosos.find((d: any) => d.id === Number(dateoId))
-      return !!dateo
-    })
-    .reduce((acc, c) => {
-      const vc = c.valor_cliente || 0
-      return acc + vc  // ✅ SOLO valor_cliente
-    }, 0)
-}else {
-      // 💸 Comerciales: solo la comisión del asesor (valor_unitario)
-      montoGenerado = exitosos.reduce(
-        (acc: number, it: any) => acc + getComisionAsesorForDateo(it.id),
-        0,
-      )
-    }
-
+    // 🆕 Usar la lógica centralizada
+    const montoGenerado = await calcularMontoGenerado(exitosos)
     const pagosTotal = pagos.value.reduce((acc, it) => acc + (Number(it.valor) || 0), 0)
 
     kpi.value = {
@@ -1381,7 +1453,7 @@ watch(
         asesor: asesor.value,
         convenios: convenios.value,
       })
-      dateos.value = d
+      dateos.value = Array.isArray(d) ? d : []
 
       const desde = filtros.value.desde
       const hasta = filtros.value.hasta
@@ -1395,24 +1467,11 @@ watch(
       })
       const exitosos = dEnRango.filter((x) => isExitoso(x))
 
-    if (esAsesorConvenio.value) {
-  kpi.value.montoGenerado = comisiones.value
-    .filter((c) => {
-      const dateoId = (c as any).dateo_id ?? (c as any).captacion_dateo_id ?? null
-      if (!dateoId) return false
-      const dateo = exitosos.find((d: any) => d.id === Number(dateoId))
-      return !!dateo
-    })
-    .reduce((acc, c) => {
-      const vc = c.valor_cliente || 0
-      return acc + vc  // ✅ SOLO valor_cliente
-    }, 0)
-} else {
-        kpi.value.montoGenerado = exitosos.reduce(
-          (acc: number, it: any) => acc + getComisionAsesorForDateo(it.id),
-          0,
-        )
-      }
+      // 🔁 Igual que en loadAll: usar la lógica centralizada
+      kpi.value.montoGenerado = exitosos.reduce(
+        (acc: number, it: any) => acc + getComisionPorRolParaDateo(it.id),
+        0,
+      )
       // El resto (prospectos/pagos) ya está cargado
     }
   },
@@ -1469,9 +1528,6 @@ function csvEscape(val: unknown) {
   return s
 }
 </script>
-
-
-
 <style scoped>
 .kpi-card {
   border: 1px solid rgba(0, 0, 0, 0.06);
@@ -1556,3 +1612,4 @@ function csvEscape(val: unknown) {
   }
 }
 </style>
+
