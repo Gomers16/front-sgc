@@ -1,9 +1,12 @@
 <template>
   <v-container class="py-6">
     <v-card elevation="8" class="rounded-xl">
-      <v-card-title class="py-5 d-flex align-center justify-space-between flex-wrap">
+     <v-card-title class="py-5 d-flex align-center justify-space-between flex-wrap">
         <div class="text-h5 font-weight-bold">👤 Detalle del Prospecto</div>
-        <v-btn color="primary" prepend-icon="mdi-arrow-left" @click="goBack">Volver</v-btn>
+        <div class="d-flex gap-2">
+          <v-btn color="success" prepend-icon="mdi-pencil" @click="irEditar">Editar</v-btn>
+          <v-btn color="primary" prepend-icon="mdi-arrow-left" @click="goBack">Volver</v-btn>
+        </div>
       </v-card-title>
 
       <v-divider />
@@ -284,12 +287,19 @@ async function fetchProspecto() {
 
 function goBack() {
   router.push({ name: 'ComercialProspectos' }).catch(() => {})
+
+}
+function irEditar() {
+  const id = Number(route.params.id)
+  router.push({ name: 'ComercialProspectoEditar', params: { id } }).catch(() => {})
 }
 
 onMounted(fetchProspecto)
+
 </script>
 
 <style scoped>
 .text-h5 { font-weight: bold; }
 .rounded-lg { border-radius: 12px; }
+.gap-2 { gap: 8px; }
 </style>

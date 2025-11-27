@@ -200,12 +200,19 @@ const routes = [
     meta: { layout: 'MainLayout' },
   },
   {
+  path: '/comercial/prospectos/:id/editar',
+  name: 'ComercialProspectoEditar',
+  component: () => import('@/views/comercial/prospectos/ProspectoEdit.vue'),
+  meta: { requiresAuth: true }
+},
+  {
     path: '/comercial/prospectos/:id(\\d+)',
     name: 'ComercialProspectoDetalle',
     component: () => import('@/views/comercial/prospectos/ProspectoDetail.vue'),
     props: true,
     meta: { layout: 'MainLayout' },
   },
+
   {
     path: '/comercial/prospectos/:id(\\d+)',
     name: 'comercial.prospectos.detail',
@@ -250,6 +257,13 @@ const routes = [
     component: () => import('@/views/comercial/clientes/ClienteDetail.vue'),
     props: true,
     meta: { layout: 'MainLayout' },
+  },
+  {
+    path: '/clientes/:id(\\d+)/editar',
+    name: 'ClienteEditar',
+    component: () => import('@/views/comercial/clientes/ClienteEdit.vue'),
+    props: true,
+    meta: { layout: 'MainLayout', title: 'Editar cliente' },
   },
 ]
 

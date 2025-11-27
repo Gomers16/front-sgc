@@ -1,9 +1,14 @@
 <template>
   <v-container class="py-6">
-    <v-sheet class="sticky-header d-flex align-center gap-2 px-2 py-2">
+    <<v-sheet class="sticky-header d-flex align-center gap-2 px-2 py-2">
       <v-btn color="primary" variant="flat" size="large" prepend-icon="mdi-arrow-left"
              class="rounded-lg font-weight-bold" @click="goBack">
         Volver al listado
+      </v-btn>
+      <v-spacer />
+      <v-btn color="success" variant="flat" size="large" prepend-icon="mdi-pencil"
+             class="rounded-lg font-weight-bold" @click="irEditar">
+        Editar
       </v-btn>
       <span class="text-medium-emphasis text-subtitle-2">Cliente #{{ id }}</span>
     </v-sheet>
@@ -192,6 +197,9 @@ const visitas = ref<ClienteHistorialItem[]>([])
 function goBack() {
   if (window.history.length > 1) router.back()
   else router.push({ name: 'ClientesList' })
+}
+function irEditar() {
+  router.push({ name: 'ClienteEditar', params: { id } }).catch(() => {})
 }
 
 /** dd/MM/yyyy zona Bogotá (string 'YYYY-MM-DD' o ISO) */

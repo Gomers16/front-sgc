@@ -82,23 +82,25 @@
           :cert-status-key="certStatusKey"
 
           :errors="{
-            identificacion: identificacionError,
-            terminoContrato: terminoContratoError,
-            sedeId: sedeIdError,
-            cargoId: cargoIdError,
-            fechaInicio: fechaInicioError,
-            fechaTerminacion: fechaTerminacionError,
-            funcionesCargo: funcionesCargoError,
-            epsId: epsIdError,
-            arlId: arlIdError,
-            afpId: afpIdError,
-            ccfId: ccfIdError,
-            salarioBasico: salarioBasicoError
-          }"
+    identificacion: identificacionError,
+    terminoContrato: terminoContratoError,
+    sedeId: sedeIdError,
+    cargoId: cargoIdError,
+    fechaInicio: fechaInicioError,
+    fechaTerminacion: fechaTerminacionError,
+    funcionesCargo: funcionesCargoError,
+    epsId: epsIdError,
+    arlId: arlIdError,
+    afpId: afpIdError,
+    ccfId: ccfIdError,
+    salarioBasico: salarioBasicoError
+  }"
 
-          @openCert="openCert"
-          @openRec="openRecDialog"
-        />
+  :es-asesor-convenio="esAsesorConvenio"
+
+  @openCert="openCert"
+  @openRec="openRecDialog"
+/>
       </v-card-text>
     </v-card>
 
@@ -106,21 +108,22 @@
     <v-card elevation="2" v-if="usuarioSeleccionado" class="mt-6">
       <v-card-text>
         <v-row>
-          <PasosContrato
-            :key="`${isEditing ? 'edit' : 'new'}-${contratoEditId || '0'}-${pasosVersion}`"
-            :pasos="pasosContrato"
-            :loading="loadingPasos"
-            :is-editing="isEditing"
-            :modal-paso="modalPaso"
-            :max-upload-mb="MAX_UPLOAD_MB"
-            @abrirModalPaso="(p)=> abrirModalPaso(p)"
-            @cerrarModalPaso="cerrarModalPaso"
-            @completarPasoConfirmado="completarPasoConfirmado"
-            @onFilePasoChange="onFilePasoChange"
-            @verArchivoPaso="verArchivoPaso"
-            @descargarArchivoPaso="descargarArchivoPaso"
-            @eliminarArchivoPaso="eliminarArchivoPaso"
-          />
+         <PasosContrato
+  v-if="!esAsesorConvenio"
+  :key="`${isEditing ? 'edit' : 'new'}-${contratoEditId || '0'}-${pasosVersion}`"
+  :pasos="pasosContrato"
+  :loading="loadingPasos"
+  :is-editing="isEditing"
+  :modal-paso="modalPaso"
+  :max-upload-mb="MAX_UPLOAD_MB"
+  @abrirModalPaso="(p)=> abrirModalPaso(p)"
+  @cerrarModalPaso="cerrarModalPaso"
+  @completarPasoConfirmado="completarPasoConfirmado"
+  @onFilePasoChange="onFilePasoChange"
+  @verArchivoPaso="verArchivoPaso"
+  @descargarArchivoPaso="descargarArchivoPaso"
+  @eliminarArchivoPaso="eliminarArchivoPaso"
+/>
 
           <!-- Anexar/Reemplazar contrato -->
           <AnexoContrato
@@ -133,13 +136,14 @@
             :contrato-edit-tiene-archivo="contratoEditTieneArchivo"
             :contrato-edit-archivo-url="contratoEditArchivoUrl"
             :contrato-edit-nombre-archivo="contratoEditNombreArchivo"
-            :contrato-pendiente-anexo-id="contratoPendienteAnexoId"
-            :max-upload-mb="MAX_UPLOAD_MB"
-            :to-absolute-api-url="toAbsoluteApiUrl"
-            @update:archivoContrato="onFileChange"
-            @crearYAnexar="handleConfirmacion"
-            @reanexar="reanexarArchivoContrato"
-          />
+           :contrato-pendiente-anexo-id="contratoPendienteAnexoId"
+  :max-upload-mb="MAX_UPLOAD_MB"
+  :to-absolute-api-url="toAbsoluteApiUrl"
+  :es-asesor-convenio="esAsesorConvenio"
+  @update:archivoContrato="onFileChange"
+  @crearYAnexar="handleConfirmacion"
+  @reanexar="reanexarArchivoContrato"
+/>
         </v-row>
 
         <!-- 🔘 Acciones (corregido: flujo creación vs edición) -->
@@ -534,7 +538,7 @@ const isFechaTerminacionRequired = computed(() => {
 const isFechaTerminacionVisible = isFechaTerminacionRequired
 const fechaTerminacionRules = computed(() => isFechaTerminacionRequired.value ? [required] : [])
 
-/* Campos */
+/* Campos básicos */
 const { value: identificacion, errorMessage: identificacionError } =
   useField<string>('identificacion', [required, onlyDigits, (val: string) =>
     (val?.trim()?.length ?? 0) >= 5 || 'Debe tener al menos 5 caracteres.'], { initialValue: '' })
@@ -549,12 +553,23 @@ const { value: fechaTerminacion, errorMessage: fechaTerminacionError } = useFiel
 const { value: terminoContrato, errorMessage: terminoContratoError } =
   useField<'fijo' | 'obra_o_labor_determinada' | 'indefinido' | null>('terminoContrato', terminoContratoRules, { initialValue: null })
 
-/* Afiliaciones obligatorias (AFC opcional) */
-const { value: epsId, errorMessage: epsIdError } = useField<number | null>('epsId', [required], { initialValue: null })
-const { value: arlId, errorMessage: arlIdError } = useField<number | null>('arlId', [required], { initialValue: null })
-const { value: afpId, errorMessage: afpIdError } = useField<number | null>('afpId', [required], { initialValue: null })
+/* ======= ✨ NUEVO: Detección de ASESOR CONVENIO (debe ir ANTES de afiliacionRules) ======= */
+const esAsesorConvenio = computed(() => {
+  if (!cargoId.value) return false
+  const cargo = cargos.value.find(c => c.id === cargoId.value)
+  if (!cargo) return false
+  const nombreCargo = (cargo.nombre || '').toUpperCase().trim()
+  return nombreCargo.includes('ASESOR CONVENIO')
+})
+
+/* Afiliaciones: obligatorias SOLO si NO es asesor convenio */
+const afiliacionRules = computed(() => esAsesorConvenio.value ? [] : [required])
+
+const { value: epsId, errorMessage: epsIdError } = useField<number | null>('epsId', afiliacionRules, { initialValue: null })
+const { value: arlId, errorMessage: arlIdError } = useField<number | null>('arlId', afiliacionRules, { initialValue: null })
+const { value: afpId, errorMessage: afpIdError } = useField<number | null>('afpId', afiliacionRules, { initialValue: null })
 const { value: afcId } = useField<number | null>('afcId', [], { initialValue: null })
-const { value: ccfId, errorMessage: ccfIdError } = useField<number | null>('ccfId', [required], { initialValue: null })
+const { value: ccfId, errorMessage: ccfIdError } = useField<number | null>('ccfId', afiliacionRules, { initialValue: null })
 
 /* Dinero */
 const moneyRules = [
@@ -946,8 +961,15 @@ async function handleConfirmacion() {
     return showAlert('Advertencia', 'La fecha de terminación es obligatoria para este tipo de contrato.')
   }
 
-  const contratoMsg = validateFileOrMsg(archivoContrato.value, { allowedMime: ALLOWED_CONTRATO_MIME, maxMB: MAX_UPLOAD_MB })
-  if (contratoMsg) return showAlert('Archivo de contrato inválido', contratoMsg)
+ // ✅ SOLO validar archivo si NO es asesor convenio O si hay archivo adjunto
+  if (!esAsesorConvenio.value) {
+    const contratoMsg = validateFileOrMsg(archivoContrato.value, { allowedMime: ALLOWED_CONTRATO_MIME, maxMB: MAX_UPLOAD_MB })
+    if (contratoMsg) return showAlert('Archivo de contrato inválido', contratoMsg)
+  } else if (archivoContrato.value) {
+    // Si es asesor convenio pero adjuntó archivo, validar formato
+    const contratoMsg = validateFileOrMsg(archivoContrato.value, { allowedMime: ALLOWED_CONTRATO_MIME, maxMB: MAX_UPLOAD_MB })
+    if (contratoMsg) return showAlert('Archivo de contrato inválido', contratoMsg)
+  }
 
   if (tieneRecomendacionesMedicas.value && archivoRecomendacionMedica.value) {
     const recMsg = validateFileOrMsg(archivoRecomendacionMedica.value, { allowedExt: ALLOWED_REC_EXT, maxMB: MAX_UPLOAD_MB })
@@ -961,8 +983,12 @@ async function crearYAnexarContrato(formData: Record<string, unknown>) {
   if (isSaving.value) return
   isSaving.value = true
   try {
-    if (!usuarioSeleccionado.value || !archivoContrato.value || !razonSocialSeleccionada.value) {
+    // ✅ Para asesor convenio, el archivo es opcional
+    if (!usuarioSeleccionado.value || !razonSocialSeleccionada.value) {
       showAlert('Error', 'Falta información clave.'); return
+    }
+    if (!esAsesorConvenio.value && !archivoContrato.value) {
+      showAlert('Error', 'Falta el archivo del contrato físico.'); return
     }
 
     const terminoNormalizado = (() => {
@@ -1017,21 +1043,24 @@ async function crearYAnexarContrato(formData: Record<string, unknown>) {
       })
     }
 
-    // Anexar PDF principal (y recomendación si aplica)
-    try {
-      const anexarPayload: AnexarContratoPayload = {
-        contratoId: Number(nc.id),
-        archivo: archivoContrato.value!,
-        razonSocialId: Number(razonSocialSeleccionada.value),
-        tieneRecomendacionesMedicas: !!tieneRecomendacionesMedicas.value && !!archivoRecomendacionMedica.value,
-        archivoRecomendacionMedica: archivoRecomendacionMedica.value || undefined,
+    // ✅ Solo anexar si hay archivo (para asesor convenio es opcional)
+    if (archivoContrato.value) {
+      try {
+        const anexarPayload: AnexarContratoPayload = {
+          contratoId: Number(nc.id),
+          archivo: archivoContrato.value,
+          razonSocialId: Number(razonSocialSeleccionada.value),
+          tieneRecomendacionesMedicas: !!tieneRecomendacionesMedicas.value && !!archivoRecomendacionMedica.value,
+          archivoRecomendacionMedica: archivoRecomendacionMedica.value || undefined,
+        }
+        await anexarContrato(anexarPayload)
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      } catch (e) {
+        contratoPendienteAnexoId.value = Number(nc.id)
+        notify('El contrato se creó, pero falló el anexado del PDF. Puedes reintentar.', 'warning')
+        await cargarHistorialContratos()
+        return
       }
-      await anexarContrato(anexarPayload)
-    } catch (e) {
-      contratoPendienteAnexoId.value = Number(nc.id)
-      notify('El contrato se creó, pero falló el anexado del PDF. Puedes reintentar.', 'warning')
-      await cargarHistorialContratos()
-      return
     }
 
     // Subir afiliaciones pendientes (solo si hay)
@@ -1055,23 +1084,24 @@ async function crearYAnexarContrato(formData: Record<string, unknown>) {
       notify((e as Error)?.message || 'Algunas afiliaciones no pudieron subirse.', 'error')
     }
 
-    // Crear pasos base
-    try {
-      const { crearPasoContrato } = await import('@/services/contratosPasosService')
-      const creates = pasosContrato.value.map(p => {
-        const fd = new FormData()
-        fd.append('fase', p.fase)
-        fd.append('nombrePaso', p.nombre)
-        if (p.orden != null) fd.append('orden', String(p.orden))
-        fd.append('completado', p.completado ? 'true' : 'false')
-        if (p.observacion) fd.append('observacion', p.observacion)
-        if (p.fechaCompletado) fd.append('fecha', p.fechaCompletado)
-        if (p.archivoFile) fd.append('archivo', p.archivoFile, p.archivoFile.name)
-        return crearPasoContrato(Number(nc.id), fd)
-      })
-      await Promise.all(creates)
-    } catch {}
-
+  // ✅ Crear pasos base SOLO si NO es asesor convenio
+    if (!esAsesorConvenio.value) {
+      try {
+        const { crearPasoContrato } = await import('@/services/contratosPasosService')
+        const creates = pasosContrato.value.map(p => {
+          const fd = new FormData()
+          fd.append('fase', p.fase)
+          fd.append('nombrePaso', p.nombre)
+          if (p.orden != null) fd.append('orden', String(p.orden))
+          fd.append('completado', p.completado ? 'true' : 'false')
+          if (p.observacion) fd.append('observacion', p.observacion)
+          if (p.fechaCompletado) fd.append('fecha', p.fechaCompletado)
+          if (p.archivoFile) fd.append('archivo', p.archivoFile, p.archivoFile.name)
+          return crearPasoContrato(Number(nc.id), fd)
+        })
+        await Promise.all(creates)
+      } catch {}
+    }
     notify('Contrato creado y archivos anexados.', 'success')
     await resetParaSiguienteEnMismaRazon()
   } catch (e) {

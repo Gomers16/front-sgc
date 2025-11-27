@@ -235,45 +235,52 @@
           {{ item.created_at_fmt || formatDateTime(item.created_at) }}
         </template>
 
-        <!-- Estado (resultado del dateo) -->
-        <template #item.resultado="{ item }">
-          <v-chip :color="chipColorResultado(item.resultado)" size="small" variant="flat">
-            {{ textoResultado(item.resultado) }}
-          </v-chip>
-        </template>
+       <!-- Estado (resultado del dateo) -->
+<!-- Estado (resultado del dateo) -->
+<template #item.resultado="{ item }">
+  <v-chip
+    :color="chipColorResultado(item.resultado)"
+    size="small"
+    variant="flat"
+    :prepend-icon="item.resultado === 'RE_DATEAR' ? 'mdi-refresh' : undefined"
+  >
+    {{ textoResultado(item.resultado) }}
+  </v-chip>
+</template>
 
-        <!-- Turno -->
-        <template #item.turnoInfo="{ item }">
-          <div v-if="item.turnoInfo" class="d-flex align-center justify-center" style="gap:6px">
-            <v-chip size="x-small" color="primary" variant="tonal" class="font-weight-600">
-              {{ (item.turnoInfo.fecha && formatDateOnly(item.turnoInfo.fecha)) || '—' }}
-            </v-chip>
-            <v-chip size="x-small" color="indigo" variant="tonal" class="font-weight-600">
-              G: {{ item.turnoInfo.numeroGlobal ?? '—' }}
-            </v-chip>
-            <v-chip size="x-small" color="deep-purple" variant="tonal" class="font-weight-600">
-              S: {{ item.turnoInfo.numeroServicio ?? '—' }}
-            </v-chip>
-            <v-chip
-              v-if="item.turnoInfo.servicioCodigo"
-              size="x-small"
-              variant="tonal"
-              class="font-weight-600"
-            >
-              {{ item.turnoInfo.servicioCodigo }}
-            </v-chip>
-            <v-chip
-              size="x-small"
-              :color="chipColorEstadoTurno(item.turnoInfo.estado || item.resultado)"
-              variant="elevated"
-              prepend-icon="mdi-progress-clock"
-              class="font-weight-600"
-            >
-              {{ textoEstadoTurno(item.turnoInfo.estado || item.resultado) }}
-            </v-chip>
-          </div>
-          <span v-else class="text-medium-emphasis d-flex justify-center">—</span>
-        </template>
+<!-- Turno -->
+<template #item.turnoInfo="{ item }">
+  <div v-if="item.turnoInfo" class="d-flex align-center justify-center" style="gap:6px">
+    <v-chip size="x-small" color="primary" variant="tonal" class="font-weight-600">
+      {{ (item.turnoInfo.fecha && formatDateOnly(item.turnoInfo.fecha)) || '—' }}
+    </v-chip>
+    <v-chip size="x-small" color="indigo" variant="tonal" class="font-weight-600">
+      G: {{ item.turnoInfo.numeroGlobal ?? '—' }}
+    </v-chip>
+    <v-chip size="x-small" color="deep-purple" variant="tonal" class="font-weight-600">
+      S: {{ item.turnoInfo.numeroServicio ?? '—' }}
+    </v-chip>
+    <v-chip
+      v-if="item.turnoInfo.servicioCodigo"
+      size="x-small"
+      variant="tonal"
+      class="font-weight-600"
+    >
+      {{ item.turnoInfo.servicioCodigo }}
+    </v-chip>
+    <v-chip
+      size="x-small"
+      :color="chipColorEstadoTurno(item.turnoInfo.estado || item.resultado)"
+      variant="elevated"
+      prepend-icon="mdi-progress-clock"
+      class="font-weight-600"
+    >
+      {{ textoEstadoTurno(item.turnoInfo.estado || item.resultado) }}
+    </v-chip>
+  </div>
+  <span v-else class="text-medium-emphasis d-flex justify-center">—</span>
+</template>
+
 
         <!-- Acciones -->
         <template #item.acciones="{ item }">
@@ -450,6 +457,7 @@ const resultadoItems: { title: string; value: ResultadoDateo }[] = [
   { title: 'En proceso', value: 'EN_PROCESO' },
   { title: 'Exitoso', value: 'EXITOSO' },
   { title: 'No exitoso', value: 'NO_EXITOSO' },
+  { title: 'Re-datear', value: 'RE_DATEAR' },
 ]
 
 /* Tabla */
@@ -637,12 +645,14 @@ function chipColorResultado(r?: string) {
   if (r === 'EXITOSO') return 'success'
   if (r === 'NO_EXITOSO') return 'error'
   if (r === 'EN_PROCESO') return 'info'
+  if (r === 'RE_DATEAR') return 'orange'
   return 'warning'
 }
 function textoResultado(r?: string) {
   if (r === 'EXITOSO') return 'Exitoso'
   if (r === 'NO_EXITOSO') return 'No exitoso'
   if (r === 'EN_PROCESO') return 'En proceso'
+  if (r === 'RE_DATEAR') return 'Re-datear'
   return 'Pendiente'
 }
 function chipColorEstadoTurno(e?: string) {

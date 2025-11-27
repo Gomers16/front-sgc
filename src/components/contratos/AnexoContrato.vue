@@ -66,12 +66,18 @@
       </div>
 
       <v-alert
-        v-if="!archivoContrato && !(isEditing && contratoEditTieneArchivo)"
-        type="info"
-        variant="tonal"
-      >
-        {{ isEditing ? 'Si no cargas archivo, se mantiene el actual.' : 'Adjunte el archivo del contrato para anexarlo al usuario.' }}
-      </v-alert>
+  v-if="!archivoContrato && !(isEditing && contratoEditTieneArchivo)"
+  type="info"
+  variant="tonal"
+>
+  {{
+    isEditing
+      ? 'Si no cargas archivo, se mantiene el actual.'
+      : (esAsesorConvenio
+          ? 'El archivo es opcional para ASESOR CONVENIO.'
+          : 'Adjunte el archivo del contrato para anexarlo al usuario.')
+  }}
+</v-alert>
       <v-alert v-else type="success" variant="tonal">
         <template v-if="archivoContrato">
           Archivo <strong>{{ archivoContrato.name }}</strong> listo.
@@ -91,13 +97,13 @@
 
       <!-- MODO CREACIÓN -->
       <template v-else>
-        <v-btn
-          color="success"
-          :prepend-icon="contratoPendienteAnexoId ? 'mdi-reload' : 'mdi-content-save-check'"
-          :disabled="!usuarioSeleccionado || !archivoContrato || isSaving"
-          :loading="isSaving"
-          @click="emit('crearYAnexar')"
-        >
+       <v-btn
+  color="success"
+  :prepend-icon="contratoPendienteAnexoId ? 'mdi-reload' : 'mdi-content-save-check'"
+  :disabled="!usuarioSeleccionado || (!esAsesorConvenio && !archivoContrato) || isSaving"
+  :loading="isSaving"
+  @click="emit('crearYAnexar')"
+>
           {{ contratoPendienteAnexoId ? 'Reintentar anexar' : 'Crear y Anexar Contrato' }}
         </v-btn>
 
@@ -142,13 +148,15 @@ const props = defineProps<{
   // reintentos
   contratoPendienteAnexoId: number | null
 
-  // límites
+ // límites
   maxUploadMb: number
 
   // helper url
   toAbsoluteApiUrl: (path?: string) => string
-}>()
 
+  // ✅ NUEVO
+  esAsesorConvenio?: boolean
+}>()
 const emit = defineEmits<{
   (e:'update:archivoContrato', v: File | File[] | null): void
   (e:'crearYAnexar'): void
