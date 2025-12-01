@@ -71,13 +71,70 @@
           <v-divider class="my-4" />
 
           <div class="d-flex gap-2">
-            <v-btn color="primary" :loading="loading" :disabled="!canSubmit || loading" @click="submit" prepend-icon="mdi-content-save">Guardar</v-btn>
+            <v-btn color="primary" :loading="loading" :disabled="!canSubmit || loading" @click="showConfirmDialog = true" prepend-icon="mdi-content-save">Guardar</v-btn>
             <v-btn variant="text" @click="volver">Cancelar</v-btn>
           </div>
         </v-form>
       </v-card-text>
     </v-card>
 
+    <!-- Modal de confirmación ANTES de crear -->
+    <v-dialog v-model="showConfirmDialog" max-width="500" persistent>
+      <v-card>
+        <v-card-title class="d-flex align-center justify-center py-6">
+          <v-icon color="warning" size="60">mdi-help-circle</v-icon>
+        </v-card-title>
+        <v-card-text class="text-center">
+          <div class="text-h5 font-weight-bold mb-2">¿Estás seguro?</div>
+          <div class="text-body-1 text-medium-emphasis">
+            ¿Deseas crear este prospecto con los datos ingresados?
+          </div>
+        </v-card-text>
+        <v-card-actions class="justify-center pb-6 gap-2">
+          <v-btn
+            variant="text"
+            @click="showConfirmDialog = false"
+          >
+            Cancelar
+          </v-btn>
+          <v-btn
+            color="primary"
+            variant="elevated"
+            :loading="loading"
+            @click="confirmCreate"
+          >
+            Sí, crear prospecto
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <!-- Modal de confirmación -->
+    <v-dialog v-model="showSuccessDialog" max-width="500" persistent>
+      <v-card>
+        <v-card-title class="d-flex align-center justify-center py-6">
+          <v-icon color="success" size="60">mdi-check-circle</v-icon>
+        </v-card-title>
+        <v-card-text class="text-center">
+          <div class="text-h5 font-weight-bold mb-2">¡Prospecto creado exitosamente!</div>
+          <div class="text-body-1 text-medium-emphasis">
+            El prospecto ha sido registrado correctamente en el sistema.
+          </div>
+        </v-card-text>
+        <v-card-actions class="justify-center pb-6">
+          <v-btn
+            color="primary"
+            variant="elevated"
+            size="large"
+            @click="handleConfirmSuccess"
+          >
+            Aceptar
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <!-- Snackbar para errores -->
     <v-snackbar v-model="snackbar.show" :color="snackbar.color" timeout="3500">
       {{ snackbar.text }}
     </v-snackbar>
@@ -85,11 +142,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, computed, onMounted } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { createProspecto, asignarAsesor } from '@/services/prospectosService'
 
 const router = useRouter()
+const route = useRoute()
+const fromAsesor = ref<string | null>(null)
 
 type Nullable<T> = T | null
 
@@ -149,6 +208,8 @@ const form = ref<ProspectoCreateForm>({
 })
 
 const loading = ref<boolean>(false)
+const showConfirmDialog = ref<boolean>(false)
+const showSuccessDialog = ref<boolean>(false)
 const snackbar = ref<{ show: boolean; text: string; color: 'success' | 'error' }>({ show: false, text: '', color: 'success' })
 
 type RuleFn = (v: unknown) => true | string
@@ -221,6 +282,12 @@ async function fetchMiAgenteId(): Promise<number | null> {
 
 const canSubmit = computed<boolean>(() => !!form.value.nombre?.trim() && !!form.value.telefono?.trim() && !!form.value.placa?.trim())
 
+/* ===== Confirmar creación ===== */
+async function confirmCreate(): Promise<void> {
+  showConfirmDialog.value = false
+  await submit()
+}
+
 async function submit(): Promise<void> {
   if (!canSubmit.value) {
     snackbar.value = { show: true, color: 'error', text: 'Completa los campos obligatorios.' }
@@ -229,7 +296,6 @@ async function submit(): Promise<void> {
 
   loading.value = true
   try {
-    const miAgenteId = await fetchMiAgenteId()
     const creadorId = getUserIdFromSession()
 
     const payload: CreateProspectoPayload = {
@@ -250,20 +316,14 @@ async function submit(): Promise<void> {
       peritajeUltimaFecha: form.value.peritaje_ultima_fecha || null,
 
       creado_por: creadorId,
-      asesor_agente_id: miAgenteId,
+      asesor_agente_id: null, // No asignar automáticamente
     }
 
     const createdRaw = await createProspecto(payload)
     if (!isProspectoCreadoMin(createdRaw)) throw new Error('Respuesta inesperada del servidor')
 
-    if (!createdRaw.asignacion_activa && miAgenteId) {
-      try {
-        await asignarAsesor(createdRaw.id, { asesor_id: miAgenteId })
-      } catch { /* noop */ }
-    }
-
-    snackbar.value = { show: true, color: 'success', text: 'Prospecto creado correctamente.' }
-    router.push({ name: 'ComercialProspectoDetalle', params: { id: createdRaw.id } }).catch(() => {})
+    // Mostrar modal de éxito
+    showSuccessDialog.value = true
   } catch (e) {
     const msg = e instanceof Error ? e.message : 'Error creando prospecto'
     snackbar.value = { show: true, color: 'error', text: msg }
@@ -272,9 +332,27 @@ async function submit(): Promise<void> {
   }
 }
 
+/* ===== Confirmar y redirigir ===== */
+function handleConfirmSuccess() {
+  showSuccessDialog.value = false
+
+  if (fromAsesor.value) {
+    router.push({
+      name: 'FichaComercialAsesor',
+      params: { id: fromAsesor.value }
+    })
+  } else {
+    router.push({ name: 'ComercialProspectos' })
+  }
+}
+
 function volver(): void {
   router.push({ name: 'ComercialProspectos' }).catch(() => {})
 }
+
+onMounted(() => {
+  fromAsesor.value = route.query.fromAsesor as string || null
+})
 </script>
 
 <style scoped>

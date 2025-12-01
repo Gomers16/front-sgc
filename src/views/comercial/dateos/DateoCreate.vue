@@ -19,33 +19,6 @@
       <v-divider />
 
       <v-card-text class="py-6">
-        <!-- Mensajes de error/éxito -->
-        <v-expand-transition>
-          <v-alert
-            v-if="errorMessage"
-            type="error"
-            variant="tonal"
-            class="mb-5"
-            closable
-            @click:close="errorMessage = ''"
-          >
-            {{ errorMessage }}
-          </v-alert>
-        </v-expand-transition>
-
-        <v-expand-transition>
-          <v-alert
-            v-if="successMessage"
-            type="success"
-            variant="tonal"
-            class="mb-5"
-            closable
-            @click:close="successMessage = ''"
-          >
-            {{ successMessage }}
-          </v-alert>
-        </v-expand-transition>
-
         <!-- Formulario -->
         <v-form ref="formRef" @submit.prevent="handleSubmit">
           <v-row>
@@ -100,17 +73,19 @@
               </v-autocomplete>
             </v-col>
 
-            <!-- Convenio (opcional) -->
+            <!-- Convenio (opcional para comercial, auto-seleccionado y bloqueado para convenio) -->
             <v-col cols="12" md="6">
               <v-autocomplete
                 v-model="form.convenio_id"
-                :items="convenios"
+                :items="conveniosVisibles"
                 item-title="nombre"
                 item-value="id"
                 label="Convenio (opcional)"
                 variant="outlined"
                 prepend-inner-icon="mdi-handshake"
                 clearable
+                :disabled="isConvenioDisabled"
+                :loading="conveniosLoading"
               >
                 <template #item="{ props, item }">
                   <v-list-item v-bind="props">
@@ -190,38 +165,107 @@
           <!-- Acciones -->
           <v-divider class="my-4" />
 
-          <div class="d-flex justify-end gap-2">
-            <v-btn variant="text" @click="router.back()">
-              Cancelar
-            </v-btn>
+          <div class="d-flex gap-2">
             <v-btn
-              type="submit"
               color="primary"
               :loading="loading"
+              :disabled="!canSubmit || loading"
+              @click="showConfirmDialog = true"
               prepend-icon="mdi-content-save"
             >
-              Crear dateo
+              Guardar
+            </v-btn>
+            <v-btn variant="text" @click="router.back()">
+              Cancelar
             </v-btn>
           </div>
         </v-form>
       </v-card-text>
     </v-card>
+
+    <!-- Modal de confirmación ANTES de crear -->
+    <v-dialog v-model="showConfirmDialog" max-width="500" persistent>
+      <v-card>
+        <v-card-title class="d-flex align-center justify-center py-6">
+          <v-icon color="warning" size="60">mdi-help-circle</v-icon>
+        </v-card-title>
+        <v-card-text class="text-center">
+          <div class="text-h5 font-weight-bold mb-2">¿Estás seguro?</div>
+          <div class="text-body-1 text-medium-emphasis">
+            ¿Deseas crear este dateo con los datos ingresados?
+          </div>
+        </v-card-text>
+        <v-card-actions class="justify-center pb-6 gap-2">
+          <v-btn
+            variant="text"
+            @click="showConfirmDialog = false"
+          >
+            Cancelar
+          </v-btn>
+          <v-btn
+            color="primary"
+            variant="elevated"
+            :loading="loading"
+            @click="confirmCreate"
+          >
+            Sí, crear dateo
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <!-- Modal de éxito -->
+    <v-dialog v-model="showSuccessDialog" max-width="500" persistent>
+      <v-card>
+        <v-card-title class="d-flex align-center justify-center py-6">
+          <v-icon color="success" size="60">mdi-check-circle</v-icon>
+        </v-card-title>
+        <v-card-text class="text-center">
+          <div class="text-h5 font-weight-bold mb-2">¡Dateo creado exitosamente!</div>
+          <div class="text-body-1 text-medium-emphasis">
+            El dateo ha sido registrado correctamente en el sistema.
+          </div>
+        </v-card-text>
+        <v-card-actions class="justify-center pb-6">
+          <v-btn
+            color="primary"
+            variant="elevated"
+            size="large"
+            @click="handleConfirmSuccess"
+          >
+            Aceptar
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <!-- Snackbar para errores -->
+    <v-snackbar v-model="snackbar.show" :color="snackbar.color" timeout="3500">
+      {{ snackbar.text }}
+    </v-snackbar>
   </v-container>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, computed, onMounted, watch } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { createDateo } from '@/services/dateosService'
-import { listAgentesCaptacion } from '@/services/conveniosService'
+import { listAgentesCaptacion, listConveniosAsignados } from '@/services/conveniosService'
 
 const router = useRouter()
+const route = useRoute()
+const fromAsesor = ref<string | null>(null)
 
 /* ===== Estado del formulario ===== */
 const formRef = ref<any>(null)
 const loading = ref(false)
-const errorMessage = ref('')
-const successMessage = ref('')
+const showConfirmDialog = ref(false)
+const showSuccessDialog = ref(false)
+const snackbar = ref<{ show: boolean; text: string; color: 'success' | 'error' }>({
+  show: false,
+  text: '',
+  color: 'success'
+})
 
 const form = ref({
   canal: 'ASESOR' as 'FACHADA' | 'ASESOR' | 'TELE' | 'REDES',
@@ -242,7 +286,9 @@ const canalesOptions = [
 ]
 
 const agentes = ref<{ id: number; nombre: string; tipo: string }[]>([])
-const convenios = ref<{ id: number; nombre: string }[]>([])
+const conveniosAll = ref<{ id: number; nombre: string }[]>([])
+const conveniosAsignados = ref<{ id: number; nombre: string }[]>([])
+const conveniosLoading = ref(false)
 
 const filteredAgentes = computed(() => {
   return agentes.value.filter((agente) =>
@@ -252,6 +298,32 @@ const filteredAgentes = computed(() => {
     ? agente.tipo === 'ASESOR_CONVENIO'
     : true
   )
+})
+
+/* ===== Convenios visibles según el tipo de asesor ===== */
+const conveniosVisibles = computed(() => {
+  const tipo = form.value.tipo_asesor
+  const agenteId = form.value.agente_id
+
+  if (!tipo) {
+    return conveniosAll.value
+  }
+
+  if (tipo === 'ASESOR_COMERCIAL' && agenteId) {
+    return conveniosAsignados.value.length > 0 ? conveniosAsignados.value : conveniosAll.value
+  }
+
+  if (tipo === 'ASESOR_CONVENIO' && form.value.convenio_id) {
+    const convenio = conveniosAll.value.find(c => c.id === form.value.convenio_id)
+    return convenio ? [convenio] : []
+  }
+
+  return conveniosAll.value
+})
+
+/* ===== Deshabilitar convenio para asesores convenio ===== */
+const isConvenioDisabled = computed(() => {
+  return form.value.tipo_asesor === 'ASESOR_CONVENIO' && form.value.agente_id !== null
 })
 
 /* ===== Imagen ===== */
@@ -272,10 +344,13 @@ const mostrarAgente = computed(() => {
   return form.value.canal === 'ASESOR' || form.value.canal === 'TELE'
 })
 
+const canSubmit = computed(() => {
+  return !!form.value.placa?.trim()
+})
+
 /* ===== Funciones de normalización ===== */
 function normalizePlaca() {
   if (!form.value.placa) return
-  // Convertir a mayúsculas y quitar espacios/guiones
   form.value.placa = form.value.placa
     .toUpperCase()
     .replace(/[\s-]/g, '')
@@ -283,9 +358,67 @@ function normalizePlaca() {
 
 function normalizeTelefono() {
   if (!form.value.telefono) return
-  // Quitar todo excepto números
   form.value.telefono = form.value.telefono.replace(/\D/g, '')
 }
+
+/* ===== Cargar convenios asignados por asesor ===== */
+async function loadConveniosAsignadosByAsesor(asesorId: number) {
+  if (!asesorId) {
+    conveniosAsignados.value = []
+    return
+  }
+  conveniosLoading.value = true
+  try {
+    conveniosAsignados.value = await listConveniosAsignados(asesorId)
+  } catch (error) {
+    console.error('Error cargando convenios asignados:', error)
+    conveniosAsignados.value = []
+  } finally {
+    conveniosLoading.value = false
+  }
+}
+
+/* ===== Auto-seleccionar convenio para asesor convenio ===== */
+function autoSeleccionarConvenioAsesorConvenio() {
+  if (!form.value.agente_id) return
+
+  const asesor = agentes.value.find(a => a.id === form.value.agente_id)
+  if (!asesor) return
+
+  const convenio = conveniosAll.value.find(c => c.nombre === asesor.nombre)
+  if (convenio) {
+    form.value.convenio_id = convenio.id
+  }
+}
+
+/* ===== Watchers ===== */
+watch(
+  () => form.value.tipo_asesor,
+  () => {
+    form.value.agente_id = null
+    form.value.convenio_id = null
+    conveniosAsignados.value = []
+  }
+)
+
+watch(
+  () => form.value.agente_id,
+  async (nuevoAgenteId) => {
+    form.value.convenio_id = null
+    conveniosAsignados.value = []
+
+    if (!nuevoAgenteId) return
+
+    if (form.value.tipo_asesor === 'ASESOR_COMERCIAL') {
+      await loadConveniosAsignadosByAsesor(nuevoAgenteId)
+      return
+    }
+
+    if (form.value.tipo_asesor === 'ASESOR_CONVENIO') {
+      autoSeleccionarConvenioAsesorConvenio()
+    }
+  }
+)
 
 /* ===== Subir imagen (opcional) ===== */
 async function uploadImage(file: File): Promise<string | null> {
@@ -311,14 +444,31 @@ async function uploadImage(file: File): Promise<string | null> {
   }
 }
 
+function handleImageChange(event: Event) {
+  const files = imageFile.value
+  if (files && files.length > 0) {
+    const file = files[0]
+    imagePreview.value = URL.createObjectURL(file)
+  } else {
+    imagePreview.value = ''
+  }
+}
+
+/* ===== Confirmar creación ===== */
+async function confirmCreate() {
+  showConfirmDialog.value = false
+  await handleSubmit()
+}
+
 /* ===== Submit ===== */
 async function handleSubmit() {
   const valid = await formRef.value?.validate()
-  if (!valid?.valid) return
+  if (!valid?.valid) {
+    snackbar.value = { show: true, color: 'error', text: 'Completa los campos obligatorios.' }
+    return
+  }
 
   loading.value = true
-  errorMessage.value = ''
-  successMessage.value = ''
 
   try {
     // 1. Subir imagen si existe
@@ -341,40 +491,50 @@ async function handleSubmit() {
 
     await createDateo(payload)
 
-    successMessage.value = '¡Dateo creado exitosamente!'
-
-    // Esperar 1 segundo y redirigir
-    setTimeout(() => {
-      router.push({ name: 'Dateos' })
-    }, 1000)
+    // Mostrar modal de éxito
+    showSuccessDialog.value = true
   } catch (error: any) {
-    errorMessage.value = error?.response?.data?.message || error?.message || 'Error al crear el dateo'
+    const msg = error?.response?.data?.message || error?.message || 'Error al crear el dateo'
+    snackbar.value = { show: true, color: 'error', text: msg }
   } finally {
     loading.value = false
+  }
+}
+
+/* ===== Confirmar y redirigir ===== */
+function handleConfirmSuccess() {
+  showSuccessDialog.value = false
+
+  if (fromAsesor.value) {
+    router.push({
+      name: 'FichaComercialAsesor',
+      params: { id: fromAsesor.value }
+    })
+  } else {
+    router.push({ name: 'Dateos' })
   }
 }
 
 /* ===== Cargar catálogos ===== */
 async function loadCatalogos() {
   try {
-    // Cargar agentes
     const agentesData = await listAgentesCaptacion()
     agentes.value = agentesData
 
-    // Cargar convenios
     const conveniosRes = await fetch('/api/convenios/light?activo=1', {
       headers: {
         'Authorization': `Bearer ${localStorage.getItem('token')}`,
       },
     })
     const conveniosData = await conveniosRes.json()
-    convenios.value = conveniosData.data || []
+    conveniosAll.value = conveniosData.data || []
   } catch (error) {
     console.error('Error cargando catálogos:', error)
   }
 }
 
 onMounted(() => {
+  fromAsesor.value = route.query.fromAsesor as string || null
   loadCatalogos()
 })
 </script>

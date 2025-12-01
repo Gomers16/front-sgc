@@ -240,27 +240,39 @@
         <v-window v-model="tab">
           <!-- Prospectos -->
           <v-window-item value="prospectos">
-            <div class="d-flex justify-space-between align-center mb-2">
-              <div class="text-medium-emphasis">
-                <template v-if="verTodosProspectos">
-                  <strong>{{ totalProspectosTodos }}</strong> prospecto(s) del asesor (todos).
-                </template>
-                <template v-else>
-                  <strong>{{ totalProspectosEnRango }}</strong> prospecto(s) del asesor en el rango.
-                </template>
-              </div>
-              <v-switch
-                v-model="verTodosProspectos"
-                color="primary"
-                inset
-                label="Ver todos los prospectos"
-                hide-details
-              />
-            </div>
+  <div class="d-flex justify-space-between align-center mb-3">
+    <div class="text-medium-emphasis">
+      <template v-if="verTodosProspectos">
+        <strong>{{ totalProspectosTodos }}</strong> prospecto(s) del asesor (todos).
+      </template>
+      <template v-else>
+        <strong>{{ totalProspectosEnRango }}</strong> prospecto(s) del asesor en el rango.
+      </template>
+    </div>
+  </div>
 
-            <v-data-table
-              :items="prospectosVisibles"
-              :headers="headersProspectos"
+  <!-- Nueva fila con botón crear y switch -->
+  <div class="d-flex justify-space-between align-center mb-2">
+    <v-btn
+      color="primary"
+      prepend-icon="mdi-plus-circle"
+      @click="irACrearProspecto"
+    >
+      Crear prospecto
+    </v-btn>
+
+    <v-switch
+      v-model="verTodosProspectos"
+      color="primary"
+      inset
+      label="Ver todos los prospectos"
+      hide-details
+    />
+  </div>
+
+  <v-data-table
+    :items="prospectosVisibles"
+    :headers="headersProspectos"
               :loading="loading"
               class="elevation-1"
               item-key="id"
@@ -350,50 +362,62 @@
 
           <!-- Dateos -->
           <v-window-item value="dateos">
-            <div class="d-flex justify-space-between align-center mb-2">
-              <div class="text-medium-emphasis">
-                <strong>{{ totalDateosFiltrados }}</strong> dateo(s) ·
-                Exitosos: <strong>{{ totalExitosos }}</strong> ·
-                {{ esAsesorConvenio ? 'Monto total (comisión convenio):' : 'Monto total (comisión asesor):' }}
-                <strong>{{ money(totalComisionAsesor) }}</strong>
-              </div>
-              <div class="d-flex align-center" style="gap:8px">
-                <v-switch
-                  v-model="verTodosDateos"
-                  color="primary"
-                  inset
-                  label="Ver todos los dateos"
-                  hide-details
-                />
-                <v-switch
-                  v-model="filtrosDateo.soloExitosos"
-                  color="success"
-                  inset
-                  label="Solo exitosos"
-                  hide-details
-                />
-                <v-btn
-                  size="small"
-                  variant="tonal"
-                  prepend-icon="mdi-download"
-                  @click="exportCsv(false)"
-                >
-                  Exportar CSV
-                </v-btn>
-                <v-btn
-                  size="small"
-                  color="success"
-                  prepend-icon="mdi-download"
-                  @click="exportCsv(true)"
-                >
-                  CSV (solo exitosos)
-                </v-btn>
-              </div>
-            </div>
+  <div class="d-flex justify-space-between align-center mb-3">
+    <div class="text-medium-emphasis">
+      <strong>{{ totalDateosFiltrados }}</strong> dateo(s) ·
+      Exitosos: <strong>{{ totalExitosos }}</strong> ·
+      {{ esAsesorConvenio ? 'Monto total (comisión convenio):' : 'Monto total (comisión asesor):' }}
+      <strong>{{ money(totalComisionAsesor) }}</strong>
+    </div>
+  </div>
 
-            <v-data-table
-              :items="dateosFiltrados"
-              :headers="headersDateos"
+  <!-- Nueva fila con botón crear y filtros -->
+  <div class="d-flex justify-space-between align-center mb-2">
+    <v-btn
+      color="primary"
+      prepend-icon="mdi-plus-circle"
+      @click="irACrearDateo"
+    >
+      Crear dateo
+    </v-btn>
+
+    <div class="d-flex align-center" style="gap:8px">
+      <v-switch
+        v-model="verTodosDateos"
+        color="primary"
+        inset
+        label="Ver todos los dateos"
+        hide-details
+      />
+      <v-switch
+        v-model="filtrosDateo.soloExitosos"
+        color="success"
+        inset
+        label="Solo exitosos"
+        hide-details
+      />
+      <v-btn
+        size="small"
+        variant="tonal"
+        prepend-icon="mdi-download"
+        @click="exportCsv(false)"
+      >
+        Exportar CSV
+      </v-btn>
+      <v-btn
+        size="small"
+        color="success"
+        prepend-icon="mdi-download"
+        @click="exportCsv(true)"
+      >
+        CSV (solo exitosos)
+      </v-btn>
+    </div>
+  </div>
+
+  <v-data-table
+    :items="dateosFiltrados"
+    :headers="headersDateos"
               :loading="loading"
               class="elevation-1"
               item-key="id"
@@ -1449,10 +1473,41 @@ onMounted(() => {
 function verProspecto(id: number) {
   router.push({ name: 'ComercialProspectoDetalle', params: { id } }).catch(() => {})
 }
+function irACrearDateo() {
+  router.push({
+    name: 'ComercialDateosNuevo',
+    query: { fromAsesor: String(asesorId) }
+  }).catch(() => {})
+}
 
-/* ===== Exportar CSV (dateos) ===== */
+function irACrearProspecto() {
+  router.push({
+    name: 'ComercialProspectoNuevo',
+    query: { fromAsesor: String(asesorId) }
+  }).catch(() => {})
+}
+
+
+/* ===== Exportar CSV (dateos) - MEJORADO ===== */
+/* ===== Exportar CSV (dateos) - MEJORADO con delimitador correcto ===== */
 function getMontoDateo(d: Dateo) {
   return getComisionPorRolParaDateo((d as any).id)
+}
+
+function formatFechaCSV(fechaISO?: string): string {
+  if (!fechaISO) return ''
+  try {
+    const d = new Date(fechaISO)
+    const dia = String(d.getDate()).padStart(2, '0')
+    const mes = String(d.getMonth() + 1).padStart(2, '0')
+    const año = d.getFullYear()
+    const hora = String(d.getHours()).padStart(2, '0')
+    const min = String(d.getMinutes()).padStart(2, '0')
+    const seg = String(d.getSeconds()).padStart(2, '0')
+    return `${dia}/${mes}/${año} ${hora}:${min}:${seg}`
+  } catch {
+    return String(fechaISO)
+  }
 }
 
 function exportCsv(soloExitosos: boolean) {
@@ -1460,36 +1515,73 @@ function exportCsv(soloExitosos: boolean) {
     ? dateosFiltrados.value.filter((d) => isExitoso(d))
     : dateosFiltrados.value
 
-  const rows = baseRows.map((d: any) => ({
-    id: d.id,
-    placa: d.placa ?? '',
-    telefono: d.telefono ?? '',
-    convenio: d.convenio?.nombre ?? '',
-    exitoso: isExitoso(d) ? 'SI' : 'NO',
+  // 🔄 Ordenar por ID descendente (más recientes primero)
+  const sortedRows = [...baseRows].sort((a: any, b: any) => Number(b.id) - Number(a.id))
+
+  const rows = sortedRows.map((d: any) => ({
+    id: d.id || '',
+    placa: (d.placa || '').toUpperCase(),
+    telefono: d.telefono || '',
+    convenio: d.convenio?.nombre || 'Sin convenio',
+    estado: isExitoso(d) ? 'EXITOSO' : textoResultado(d.resultado),
     monto_comision: getMontoDateo(d),
-    fecha: fmtDate(d.created_at),
+    fecha_creacion: formatFechaCSV(d.created_at),
   }))
 
-  const headers = ['id', 'placa', 'telefono', 'convenio', 'exitoso', 'monto_comision', 'fecha']
-  const csv = [
-    headers.join(','),
-    ...rows.map((r) => headers.map((h) => csvEscape((r as any)[h])).join(',')),
-  ].join('\n')
+  // 📋 Encabezados legibles en español
+  const headersDisplay = [
+    'ID',
+    'Placa',
+    'Teléfono',
+    'Convenio',
+    'Estado',
+    'Monto Comisión (COP)',
+    'Fecha de Creación'
+  ]
+
+  const headersKeys = [
+    'id',
+    'placa',
+    'telefono',
+    'convenio',
+    'estado',
+    'monto_comision',
+    'fecha_creacion'
+  ]
+
+  // ✅ Usar punto y coma (;) como delimitador para Excel en español
+  const delimiter = ';'
+
+  // ✅ Construir CSV con BOM para UTF-8 (soporte Excel)
+  const BOM = '\uFEFF'
+  const csv = BOM + [
+    headersDisplay.join(delimiter),
+    ...rows.map((r) => headersKeys.map((h) => csvEscape((r as any)[h])).join(delimiter)),
+  ].join('\r\n')
 
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
+
+  // 📅 Nombre de archivo con fecha y hora
+  const now = new Date()
+  const fechaHora = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}_${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}`
   const tag = soloExitosos ? 'exitosos' : 'todos'
-  a.download = `dateos_${asesor?.value?.id ?? 'asesor'}_${tag}.csv`
+  const asesorNombre = asesor.value?.nombre?.replace(/[^a-zA-Z0-9]/g, '_') || `asesor_${asesor.value?.id || 'desconocido'}`
+
+  a.download = `dateos_${asesorNombre}_${tag}_${fechaHora}.csv`
   a.click()
   URL.revokeObjectURL(url)
 }
 
 function csvEscape(val: unknown) {
   const s = String(val ?? '')
-  if (/[",\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`
-  return s
+  // Reemplazar punto y coma por espacio si existe en el valor
+  const cleaned = s.replace(/;/g, ' ')
+  // Si contiene comillas o saltos de línea, escapar
+  if (/["\r\n]/.test(cleaned)) return `"${cleaned.replace(/"/g, '""')}"`
+  return cleaned
 }
 </script>
 <style scoped>
