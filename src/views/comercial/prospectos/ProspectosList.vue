@@ -33,6 +33,15 @@
             clearable
             style="min-width: 200px"
           />
+          <v-text-field
+  v-model="filters.cedula"
+  label="Cédula"
+  variant="outlined"
+  density="comfortable"
+  hide-details
+  clearable
+  style="min-width: 140px"
+/>
 
           <v-autocomplete
             v-model="filters.convenioId"
@@ -178,7 +187,7 @@
               @click="openRetirar(item.id)"
             />
             <!-- 🔁 Datear: solo cuando la RTM está vencida -->
-           
+
           </div>
         </template>
       </v-data-table-server>
@@ -279,6 +288,7 @@ const filters = ref({
   placa: '',
   telefono: '',
   nombre: '',
+  cedula: '',
   convenioId: null as number | null,
   asesorId: null as number | null,
   vigente: '' as '' | 0 | 1 | boolean, // compat
@@ -432,6 +442,7 @@ async function loadItems() {
       placa: filters.value.placa || undefined,
       telefono: filters.value.telefono || undefined,
       nombre: filters.value.nombre || undefined,
+      cedula: filters.value.cedula || undefined,
       convenioId: filters.value.convenioId || undefined,
       asesorId: filters.value.asesorId || undefined,
       vigente: '',
@@ -459,6 +470,7 @@ function resetFilters() {
     placa: '',
     telefono: '',
     nombre: '',
+    cedula: '',
     convenioId: null,
     asesorId: null,
     vigente: '',

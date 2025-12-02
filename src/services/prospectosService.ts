@@ -1,3 +1,4 @@
+// src/services/prospectosService.ts
 const RAW_BASE = (import.meta.env.VITE_API_BASE_URL || '/api').replace(/\/$/, '')
 
 type HttpMethod = 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE'
@@ -93,6 +94,7 @@ export interface Prospecto {
   placa?: string | null
   telefono?: string | null
   nombre?: string | null
+  cedula?: string | null  // 👈 NUEVO
   soat_vigente?: boolean | null
   soat_vencimiento?: string | null
   tecno_vigente?: boolean | null
@@ -138,6 +140,7 @@ export interface Asignacion {
 }
 
 export interface ProspectoDetail extends Prospecto {
+  observaciones: string
   asignacion_activa?: Asignacion | null
   historial_asignaciones?: Asignacion[]
   resumenVigencias?: ProspectoResumenVigencias
@@ -156,6 +159,7 @@ export interface ListParams {
   placa?: string
   telefono?: string
   nombre?: string
+  cedula?: string  // 👈 NUEVO
   convenioId?: number
   asesorId?: number
   vigente?: '' | 0 | 1 | boolean
@@ -207,6 +211,7 @@ function unifyProspecto<T extends Record<string, any>>(p: T): ProspectoDetail {
   const out: any = { ...p }
 
   // alias básicos
+  out.cedula = out.cedula ?? null  // 👈 NUEVO
   out.soat_vigente       = out.soat_vigente       ?? out.soatVigente       ?? null
   out.soat_vencimiento   = out.soat_vencimiento   ?? out.soatVencimiento   ?? null
   out.tecno_vigente      = out.tecno_vigente      ?? out.tecnoVigente      ?? null
@@ -281,6 +286,7 @@ export async function listProspectos(params: ListParams) {
     placa: params.placa || undefined,
     telefono: params.telefono || undefined,
     nombre: params.nombre || undefined,
+    cedula: params.cedula || undefined,  // 👈 NUEVO
     q: params.nombre || undefined,
     convenioId: params.convenioId || undefined,
     convenio_id: params.convenioId || undefined,

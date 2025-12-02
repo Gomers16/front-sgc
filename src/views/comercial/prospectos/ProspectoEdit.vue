@@ -43,6 +43,18 @@
                 @update:model-value="onTelefonoInput"
               />
             </v-col>
+  <v-col cols="12" md="3">
+  <v-text-field
+    v-model="form.cedula"
+    label="Cédula *"
+    variant="outlined"
+    density="comfortable"
+    :rules="[rReq, rCedula]"
+    hide-details="auto"
+    clearable
+    @update:model-value="onCedulaInput"
+  />
+</v-col>
 
             <v-col cols="12" md="3">
               <v-text-field
@@ -178,6 +190,7 @@ const router = useRouter()
 interface ProspectoEditForm {
   nombre: string
   telefono: string
+  cedula: string
   placa: string
   observaciones: string
   soat_vigente: boolean
@@ -201,6 +214,12 @@ const snackbar = ref<{ show: boolean; text: string; color: 'success' | 'error' }
 type RuleFn = (v: unknown) => true | string
 const rReq: RuleFn = (v) => (!!v && String(v).trim().length > 0) || 'Requerido'
 const rTel: RuleFn = (v) => (!v || /^\d{7,15}$/.test(String(v))) || 'Solo dígitos (7-15)'
+const rCedula: RuleFn = (v) => {
+  if (!v || String(v).trim().length === 0) return 'Cédula es requerida'
+  const digits = String(v).replace(/\D+/g, '')
+  if (digits.length < 6 || digits.length > 10) return 'Cédula: 6-10 dígitos'
+  return true
+}
 
 function onPlacaInput(val?: string): void {
   if (form.value) {
@@ -213,10 +232,18 @@ function onTelefonoInput(val?: string): void {
     form.value.telefono = (val || '').replace(/\D+/g, '')
   }
 }
+function onCedulaInput(val?: string): void {
+  if (form.value) {
+    form.value.cedula = (val || '').replace(/\D+/g, '')
+  }
+}
 
 const canSubmit = computed<boolean>(() => {
   if (!form.value) return false
-  return !!form.value.nombre?.trim() && !!form.value.telefono?.trim() && !!form.value.placa?.trim()
+  return !!form.value.nombre?.trim() &&
+         !!form.value.telefono?.trim() &&
+         !!form.value.placa?.trim() &&
+         !!form.value.cedula?.trim()
 })
 
 async function fetchProspecto() {
@@ -229,6 +256,7 @@ async function fetchProspecto() {
     form.value = {
       nombre: prospecto.nombre || '',
       telefono: prospecto.telefono || '',
+      cedula: prospecto.cedula || '',
       placa: prospecto.placa || '',
       observaciones: prospecto.observaciones || '',
       soat_vigente: !!prospecto.soat_vigente,
@@ -261,6 +289,7 @@ async function submit() {
     await patchProspecto(id, {
       nombre: form.value.nombre.trim(),
       telefono: form.value.telefono || null,
+      cedula: form.value.cedula || null,
       placa: form.value.placa.toUpperCase().replace(/[\s-]+/g, ''),
       observaciones: form.value.observaciones || null,
       soatVigente: form.value.soat_vigente,

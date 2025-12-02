@@ -21,6 +21,19 @@
             </v-col>
 
             <v-col cols="12" md="3">
+  <v-text-field
+    v-model="form.cedula"
+    label="Cédula *"
+    variant="outlined"
+    density="comfortable"
+    :rules="[rReq, rCedula]"
+    hide-details="auto"
+    clearable
+    @update:model-value="onCedulaInput"
+  />
+</v-col>
+
+            <v-col cols="12" md="3">
               <v-text-field v-model="form.placa" label="Placa *" variant="outlined" density="comfortable" :rules="[rReq]" hide-details="auto" clearable @update:model-value="onPlacaInput" />
             </v-col>
 
@@ -155,6 +168,7 @@ type Nullable<T> = T | null
 interface ProspectoCreateForm {
   nombre: string
   telefono: string
+  cedula: string
   placa: string
   observaciones: string
   soat_vigente: boolean
@@ -169,6 +183,7 @@ interface ProspectoCreateForm {
 interface CreateProspectoPayload {
   nombre: string
   telefono: Nullable<string>
+  cedula: Nullable<string>
   placa: string
   convenioId: null
   origen: 'OTRO'
@@ -196,6 +211,7 @@ function isProspectoCreadoMin(v: unknown): v is ProspectoCreadoMin {
 const form = ref<ProspectoCreateForm>({
   nombre: '',
   telefono: '',
+  cedula: '',
   placa: '',
   observaciones: '',
   soat_vigente: false,
@@ -215,12 +231,21 @@ const snackbar = ref<{ show: boolean; text: string; color: 'success' | 'error' }
 type RuleFn = (v: unknown) => true | string
 const rReq: RuleFn = (v) => (!!v && String(v).trim().length > 0) || 'Requerido'
 const rTel: RuleFn = (v) => (!v || /^\d{7,15}$/.test(String(v))) || 'Solo dígitos (7-15)'
+const rCedula: RuleFn = (v) => {
+  if (!v || String(v).trim().length === 0) return 'Cédula es requerida'
+  const digits = String(v).replace(/\D+/g, '')
+  if (digits.length < 6 || digits.length > 10) return 'Cédula: 6-10 dígitos'
+  return true
+}
 
 function onPlacaInput(val?: string): void {
   form.value.placa = (val || '').toUpperCase().replace(/[\s-]+/g, '')
 }
 function onTelefonoInput(val?: string): void {
   form.value.telefono = (val || '').replace(/\D+/g, '')
+}
+function onCedulaInput(val?: string): void {
+  form.value.cedula = (val || '').replace(/\D+/g, '')
 }
 
 function getUserIdFromSession(): number | null {
@@ -280,7 +305,12 @@ async function fetchMiAgenteId(): Promise<number | null> {
   }
 }
 
-const canSubmit = computed<boolean>(() => !!form.value.nombre?.trim() && !!form.value.telefono?.trim() && !!form.value.placa?.trim())
+const canSubmit = computed<boolean>(() =>
+  !!form.value.nombre?.trim() &&
+  !!form.value.telefono?.trim() &&
+  !!form.value.placa?.trim() &&
+  !!form.value.cedula?.trim()
+)
 
 /* ===== Confirmar creación ===== */
 async function confirmCreate(): Promise<void> {
@@ -301,6 +331,7 @@ async function submit(): Promise<void> {
     const payload: CreateProspectoPayload = {
       nombre: form.value.nombre.trim(),
       telefono: form.value.telefono || null,
+      cedula: form.value.cedula || null,
       placa: (form.value.placa || '').toUpperCase().replace(/[\s-]+/g, ''),
       convenioId: null,
       origen: 'OTRO',

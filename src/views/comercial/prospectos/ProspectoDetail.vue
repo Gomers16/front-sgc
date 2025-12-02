@@ -32,6 +32,10 @@
                 <v-list-item-subtitle>{{ prospecto.telefono || '—' }}</v-list-item-subtitle>
               </v-list-item>
               <v-list-item>
+  <v-list-item-title class="font-weight-bold">Cédula:</v-list-item-title>
+  <v-list-item-subtitle>{{ prospecto.cedula || '—' }}</v-list-item-subtitle>
+</v-list-item>
+              <v-list-item>
                 <v-list-item-title class="font-weight-bold">Placa:</v-list-item-title>
                 <v-list-item-subtitle>{{ prospecto.placa || '—' }}</v-list-item-subtitle>
               </v-list-item>

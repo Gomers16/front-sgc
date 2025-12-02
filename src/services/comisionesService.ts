@@ -547,7 +547,7 @@ export async function deleteConfigComision(id: number) {
 export async function listAgentesCaptacion() {
   try {
     const res = await apiFetch<{ data: AgenteLight[] }>('/agentes-captacion', {
-      query: { activos: 1, select: 'id,nombre,tipo' },
+      query: { activo: 1, perPage: 200 }  // ✅ Cambiar a 'activo' y quitar 'select'
     })
     return res?.data || []
   } catch {
