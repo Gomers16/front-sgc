@@ -509,12 +509,18 @@ function handleConfirmSuccess() {
     router.push({
       name: 'FichaComercialAsesor',
       params: { id: fromAsesor.value }
+    }).catch(err => {
+      console.error('Error navegando a FichaComercialAsesor:', err)
     })
   } else {
-    router.push({ name: 'Dateos' })
+    // ✅ Usar el nombre correcto de la ruta
+    router.push({ name: 'ComercialDateos' }).catch(err => {
+      console.error('Error navegando a ComercialDateos:', err)
+      // Fallback: intentar con path directo
+      router.push('/comercial/dateos')
+    })
   }
 }
-
 /* ===== Cargar catálogos ===== */
 async function loadCatalogos() {
   try {
