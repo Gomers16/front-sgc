@@ -6,22 +6,20 @@
     app
     permanent
     color="#0B3B82"
-    style="margin-top: 64px;"
+    style="margin-top: 64px"
     :width="280"
     :rail-width="64"
   >
     <v-list>
-      <v-list-item
-        :subtitle="auth.user?.correo"
-        :title="auth.user?.nombres"
-        class="user-info"
-      />
+      <v-list-item :subtitle="auth.user?.correo" :title="auth.user?.nombres" class="user-info" />
     </v-list>
 
     <v-divider class="my-2" />
 
     <v-list density="compact" nav>
+      <!-- Dashboard - Oculto para comerciales -->
       <v-list-item
+        v-if="can.verDashboard()"
         prepend-icon="mdi-view-dashboard"
         title="Dashboard"
         :to="{ path: '/dashboard' }"
@@ -29,32 +27,51 @@
         class="nav-item"
       />
 
-      <!-- Turnos -->
+      <!-- 🆕 Mi Ficha Comercial - Solo para comerciales -->
+      <v-list-item
+        v-if="can.verMiFichaComercial() && auth.currentAgenteId"
+        prepend-icon="mdi-account-star"
+        title="Mi Ficha Comercial"
+        :to="{
+          name: 'FichaComercialAsesor',
+          params: { id: auth.currentAgenteId }
+        }"
+        link
+        class="nav-item"
+      />
+
+      <!-- Turnos - Solo operativos, gerencia y admin -->
       <v-list-group
+        v-if="can.verTurnos()"
         value="rtm"
         prepend-icon="mdi-clipboard-list-outline"
         class="nav-item"
         color="#FACC15"
       >
         <template #activator="{ props }">
-          <!-- 'RTM' → 'Turnos' -->
           <v-list-item v-bind="props" title="Turnos" />
         </template>
 
-        <v-list-item title="Crear turno" :to="{ path: '/rtm/crear-turno' }" link />
+        <v-list-item
+          v-if="can.crearTurno()"
+          title="Crear turno"
+          :to="{ path: '/rtm/crear-turno' }"
+          link
+        />
         <v-list-item title="Turnos del día" :to="{ path: '/rtm/turnos-dia' }" link />
         <v-list-item title="Estado turno" :to="{ path: '/rtm/estado-turnos' }" link />
 
-        <!-- 🧾 SOLO dejamos histórico -->
         <v-list-item
+          v-if="can.verHistoricoFacturacion()"
           title="Histórico facturación"
           :to="{ path: '/facturacion/historico' }"
           link
         />
       </v-list-group>
 
-      <!-- Comercial -->
+      <!-- Comercial - Oculto para comerciales -->
       <v-list-group
+        v-if="can.verComercial()"
         value="comercial"
         prepend-icon="mdi-briefcase-variant-outline"
         class="nav-item"
@@ -64,7 +81,6 @@
           <v-list-item v-bind="props" title="Comercial" />
         </template>
 
-      
         <!-- Asesores -->
         <v-list-group
           value="comercial-asesores"
@@ -76,11 +92,7 @@
             <v-list-item v-bind="props" title="Asesores" />
           </template>
 
-          <v-list-item
-            title="Listado / Convenios"
-            :to="{ path: '/comercial/asesores' }"
-            link
-          />
+          <v-list-item title="Listado / Convenios" :to="{ path: '/comercial/asesores' }" link />
         </v-list-group>
 
         <!-- Dateos -->
@@ -135,7 +147,7 @@
           color="#FACC15"
         >
           <template #activator="{ props }">
-          <v-list-item v-bind="props" title="Clientes" />
+            <v-list-item v-bind="props" title="Clientes" />
           </template>
 
           <v-list-item title="Listado" :to="{ path: '/clientes' }" link />
@@ -152,12 +164,7 @@
             <v-list-item v-bind="props" title="Comisiones" />
           </template>
 
-          <v-list-item
-            title="Resumen / Listado"
-            :to="{ path: '/comercial/comisiones' }"
-            link
-          />
-          <!-- 👇 Nuevo ítem: configuración de comisiones -->
+          <v-list-item title="Resumen / Listado" :to="{ path: '/comercial/comisiones' }" link />
           <v-list-item
             title="Parámetros / Configuración"
             :to="{ name: 'ComercialComisionesConfig' }"
@@ -166,8 +173,9 @@
         </v-list-group>
       </v-list-group>
 
-      <!-- Gestión Documental -->
+      <!-- Gestión Documental - Solo RRHH, Gerencia, Admin -->
       <v-list-group
+        v-if="can.verGestionDocumental()"
         value="gestion-documental"
         prepend-icon="mdi-folder-file"
         class="nav-item"
@@ -227,8 +235,11 @@
 </template>
 
 <script setup lang="ts">
-import { authSetStore } from '@/stores/AuthStore'
-const auth = authSetStore()
+import { useAuthStore } from '@/stores/AuthStore'
+import { usePermissions } from '@/composables/usePermissions'
+
+const auth = useAuthStore()
+const { can } = usePermissions()
 </script>
 
 <style scoped>

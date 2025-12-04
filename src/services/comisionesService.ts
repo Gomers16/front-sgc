@@ -24,7 +24,9 @@ async function apiFetch<T>(
 
   const headers: HeadersInit = { 'Content-Type': 'application/json', ...(opts.headers || {}) }
 
-  const token = localStorage.getItem('token')
+  // 🔐 Usar el MISMO almacenamiento que el http.ts
+  const token =
+    sessionStorage.getItem('token') || localStorage.getItem('token') // fallback por si algo aún quedó en local
   if (token) (headers as any).Authorization = `Bearer ${token}`
 
   const res = await fetch(url, {
@@ -111,7 +113,7 @@ export interface ListParams {
   perPage?: number
   mes?: string // 'YYYY-MM'
   asesorId?: number
-  convenioId?: number   // 👈 NUEVO: para filtrar por convenio_id (asesor convenio)
+  convenioId?: number // 👈 NUEVO: para filtrar por convenio_id (asesor convenio)
   estado?: ComisionEstado | ''
   sortBy?: string
   order?: 'asc' | 'desc'
@@ -168,7 +170,7 @@ export interface MetaMensualRow {
   id?: number
   asesor_id?: number | null
   asesor_nombre?: string | null
-  asesor_tipo?: string | null   // 👈 tipo del agente (COMERCIAL / CONVENIO / etc.)
+  asesor_tipo?: string | null // 👈 tipo del agente (COMERCIAL / CONVENIO / etc.)
   mes?: string | null
 
   // Config meta
@@ -222,10 +224,7 @@ function mapTurno(api: any): TurnoLight | null {
     servicio: mapServicio(api.servicio),
 
     numero_global:
-      api.numero_global ??
-      api.numeroGlobal ??
-      api.turnoNumero ??
-      undefined,
+      api.numero_global ?? api.numeroGlobal ?? api.turnoNumero ?? undefined,
     numero_servicio:
       api.numero_servicio ??
       api.numeroServicio ??
@@ -248,6 +247,16 @@ function mapAsesor(api: any): AgenteLight | null {
 function mapConvenio(api: any): ConvenioLight | null {
   if (!api) return null
   return { id: api.id, nombre: api.nombre }
+}
+
+/** 👇 Nuevo helper para agentes de captación (listados y /me) */
+function mapAgenteCaptacion(api: any): AgenteLight | null {
+  if (!api) return null
+  return {
+    id: api.id,
+    nombre: api.nombre ?? api.nombre_completo ?? api.nombreCompleto ?? '—',
+    tipo: api.tipo ?? api.tipo_agente ?? api.tipoAgente ?? 'INTERNO',
+  }
 }
 
 function mapComisionToListItem(api: any): ComisionListItem {
@@ -316,10 +325,7 @@ function mapConfigToUi(api: any): ComisionConfig {
     id: api.id,
     es_config: true,
     asesor_id: api.asesor_id ?? api.asesorId ?? null,
-    tipo_vehiculo:
-      api.tipo_vehiculo ??
-      api.tipoVehiculo ??
-      null,
+    tipo_vehiculo: api.tipo_vehiculo ?? api.tipoVehiculo ?? null,
     valor_placa: num(api.valor_placa ?? api.base),
     valor_dateo: num(api.valor_dateo ?? api.monto),
     fecha_calculo:
@@ -361,7 +367,7 @@ function mapMetaMensual(api: any): MetaMensualRow {
       api.porcentaje_extra ??
         api.porcentajeExtra ??
         api.porcentaje_comision_meta ??
-        0,
+        0
     ),
     valor_rtm_moto:
       api.valor_rtm_moto != null
@@ -394,13 +400,9 @@ function mapMetaMensual(api: any): MetaMensualRow {
 
     // Totales (cantidad y dinero) calculados por el backend
     total_rtm_motos:
-      api.total_rtm_motos != null
-        ? num(api.total_rtm_motos)
-        : rtmMotos,
+      api.total_rtm_motos != null ? num(api.total_rtm_motos) : rtmMotos,
     total_rtm_vehiculos:
-      api.total_rtm_vehiculos != null
-        ? num(api.total_rtm_vehiculos)
-        : rtmVehiculos,
+      api.total_rtm_vehiculos != null ? num(api.total_rtm_vehiculos) : rtmVehiculos,
     total_facturacion_motos:
       api.total_facturacion_motos != null
         ? num(api.total_facturacion_motos)
@@ -452,7 +454,7 @@ export async function getComision(id: number) {
 
 export async function patchValores(
   id: number,
-  payload: { cantidad: number; valor_unitario: number },
+  payload: { cantidad: number; valor_unitario: number }
 ) {
   const raw = await apiFetch<any>(`/comisiones/${id}/valores`, {
     method: 'PATCH',
@@ -523,7 +525,7 @@ export async function upsertConfigComision(payload: ComisionConfigPayload) {
  */
 export async function updateConfigComision(
   id: number,
-  payload: Partial<ComisionConfigPayload>,
+  payload: Partial<ComisionConfigPayload>
 ) {
   const raw = await apiFetch<any>(`/comisiones/config/${id}`, {
     method: 'PATCH',
@@ -546,11 +548,33 @@ export async function deleteConfigComision(id: number) {
 
 export async function listAgentesCaptacion() {
   try {
-    const res = await apiFetch<{ data: AgenteLight[] }>('/agentes-captacion', {
-      query: { activo: 1, perPage: 200 }  // ✅ Cambiar a 'activo' y quitar 'select'
+    // 1) Intentar listado general (SUPER_ADMIN / GERENCIA)
+    const res = await apiFetch<any>('/agentes-captacion', {
+      query: { perPage: 200 },
     })
-    return res?.data || []
-  } catch {
+
+    let rows: any[] = Array.isArray(res?.data)
+      ? res.data
+      : Array.isArray(res)
+      ? res
+      : []
+
+    if (rows.length > 0) {
+      return rows
+        .map(mapAgenteCaptacion)
+        .filter((a): a is AgenteLight => !!a)
+    }
+
+    // 2) Fallback: si viene vacío, probar /me (asesor comercial)
+    const me = await apiFetch<any>('/agentes-captacion/me')
+    const agente = mapAgenteCaptacion(me)
+    if (agente) {
+      return [agente]
+    }
+
+    return []
+  } catch (err) {
+    console.error('Error cargando agentes de captación:', err)
     return []
   }
 }
@@ -574,23 +598,18 @@ export async function listMetasMensuales(params?: {
 }) {
   const hasMes = !!params?.mes
 
-  const endpoint = hasMes
-    ? '/comisiones/metas-mensuales'
-    : '/comisiones/metas'
+  const endpoint = hasMes ? '/comisiones/metas-mensuales' : '/comisiones/metas'
 
-  const raw = await apiFetch<{ data?: any[] } | any[]>(
-    endpoint,
-    {
-      query: hasMes
-        ? {
-            asesorId: params?.asesorId,
-            mes: params?.mes,
-          }
-        : {
-            asesorId: params?.asesorId,
-          },
-    },
-  )
+  const raw = await apiFetch<{ data?: any[] } | any[]>(endpoint, {
+    query: hasMes
+      ? {
+          asesorId: params?.asesorId,
+          mes: params?.mes,
+        }
+      : {
+          asesorId: params?.asesorId,
+        },
+  })
 
   const rowsRaw = Array.isArray((raw as any)?.data)
     ? (raw as any).data
@@ -637,7 +656,7 @@ export async function updateMetaMensual(
     porcentaje_extra: number
     valor_rtm_moto?: number
     valor_rtm_vehiculo?: number
-  }>,
+  }>
 ) {
   const raw = await apiFetch<any>(`/comisiones/metas/${id}`, {
     method: 'PATCH',

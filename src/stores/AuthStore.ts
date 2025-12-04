@@ -1,4 +1,5 @@
-// src/stores/auth.ts
+// src/stores/AuthStore.ts
+
 import router from '@/router'
 import AuthService from '@/services/AuthService'
 import { defineStore } from 'pinia'
@@ -41,18 +42,6 @@ interface NetworkError extends Error {
   response?: { data?: { message?: string } }
 }
 
-/** URL builder para evitar /api duplicado y terminar con una sola /api */
-const RAW_BASE = (import.meta.env.VITE_API_BASE_URL || '/api').replace(/\/$/, '')
-function buildApi(path: string) {
-  const p = path.startsWith('/') ? path : `/${path}`
-  const baseHasApi = /\/api\/?$/.test(RAW_BASE)
-  const pathHasApi = /^\/api(\/|$)/.test(p)
-  let finalPath = p
-  if (baseHasApi && pathHasApi) finalPath = p.replace(/^\/api/, '')
-  if (!baseHasApi && !pathHasApi) finalPath = `/api${p}`
-  return `${RAW_BASE}${finalPath}`
-}
-
 export const useAuthStore = defineStore('auth', {
   state: () => {
     let user: User | null = null
@@ -71,12 +60,32 @@ export const useAuthStore = defineStore('auth', {
 
   getters: {
     isAuthenticated: (s) => !!s.token && !!s.user,
-    currentUserId:   (s) => s.user?.id || null,
-    currentAgenteId: (s) => s.user?.agenteId ?? null,
+    currentUserId: (s) => s.user?.id || null,
+    currentAgenteId: (s) => s.user?.agenteId ?? null, // ✅ Getter para agenteId
+
+    // 🆕 Getters de roles
+    userRole: (s) => s.user?.rol?.nombre || null,
+
+    hasRole: (s) => (role: string) => {
+      return s.user?.rol?.nombre === role
+    },
+
+    hasAnyRole: (s) => (roles: string[]) => {
+      const userRole = s.user?.rol?.nombre
+      return userRole ? roles.includes(userRole) : false
+    },
+
+    // Helpers específicos por rol
+    isSuperAdmin: (s) => s.user?.rol?.nombre === 'SUPER_ADMIN',
+    isGerencia: (s) => s.user?.rol?.nombre === 'GERENCIA',
+    isComercial: (s) => s.user?.rol?.nombre === 'COMERCIAL',
+    isContabilidad: (s) => s.user?.rol?.nombre === 'CONTABILIDAD',
+    isTalentoHumano: (s) => s.user?.rol?.nombre === 'TALENTO_HUMANO',
+    isOperativoTurnos: (s) => s.user?.rol?.nombre === 'OPERATIVO_TURNOS',
   },
 
   actions: {
-    /** Inicia sesión y guarda token + user; hidrata agenteId si hace falta */
+    /** Inicia sesión y guarda token + user; agenteId ya viene del backend */
     async login(userData: { email: string; password: string }): Promise<boolean> {
       const auth = new AuthService()
       let loginResponse: any
@@ -94,8 +103,8 @@ export const useAuthStore = defineStore('auth', {
         return false
       }
 
-      // tu backend: { token: { token: '...' }, user: {...} }
-      const tokenValue: string | undefined = loginResponse?.token?.token
+      // 🔥 FIX: El backend devuelve { type: 'bearer', token: 'oat_...', user: {...} }
+      const tokenValue: string | undefined = loginResponse?.token // ✅ Token directo
       const userFromBackend: User | undefined = loginResponse?.user
 
       if (!tokenValue || !userFromBackend) {
@@ -104,13 +113,12 @@ export const useAuthStore = defineStore('auth', {
       }
 
       this.token = tokenValue
-      this.user  = userFromBackend
+      this.user = userFromBackend
 
       sessionStorage.setItem('token', tokenValue)
       sessionStorage.setItem('user', JSON.stringify(userFromBackend))
 
-      // Intentar obtener agenteId si no vino en login/me
-      await this.hydrateAgenteIdSafe()
+      console.log('✅ Login exitoso. agenteId:', userFromBackend.agenteId)
 
       router.push('/dashboard')
       return true
@@ -126,19 +134,17 @@ export const useAuthStore = defineStore('auth', {
       router.push('/login')
     },
 
-    /** Rehidrata sesión si hay token: pide /api/me; luego hidrata agenteId */
+    /** Rehidrata sesión si hay token: pide /api/auth/me */
     async checkAuth() {
       if (this.token && !this.user) {
         try {
           const authService = new AuthService()
-          const response = await authService.me() // se espera { user: {...} }
+          const response = await authService.me() // GET /api/auth/me
 
           if (response?.user) {
             this.user = response.user as User
             sessionStorage.setItem('user', JSON.stringify(response.user))
-            console.log('checkAuth: Usuario cargado desde API:', this.user)
-
-            await this.hydrateAgenteIdSafe()
+            console.log('✅ checkAuth: Usuario cargado desde API. agenteId:', this.user.agenteId)
 
             if (
               router.currentRoute.value.path === '/login' ||
@@ -172,34 +178,6 @@ export const useAuthStore = defineStore('auth', {
         }
       } else {
         console.log('checkAuth: No hay token en sessionStorage.')
-      }
-    },
-
-    /**
-     * Intenta hidratar this.user.agenteId si no vino en /login o /me.
-     * GET /agentes-captacion/me (ver nota de ruta abajo)
-     */
-    async hydrateAgenteIdSafe() {
-      try {
-        if (!this.user) return
-        if (typeof this.user.agenteId === 'number') return // ya está
-        if (!this.token) return
-
-        const res = await fetch(buildApi('/agentes-captacion/me'), {
-          headers: {
-            Authorization: `Bearer ${this.token}`,
-            'Content-Type': 'application/json',
-          },
-        })
-
-        if (!res.ok) return
-        const data = await res.json()
-        if (data?.id) {
-          this.user = { ...(this.user as User), agenteId: Number(data.id) }
-          sessionStorage.setItem('user', JSON.stringify(this.user))
-        }
-      } catch {
-        // silencioso
       }
     },
   },

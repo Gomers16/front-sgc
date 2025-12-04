@@ -40,16 +40,34 @@ function extractMessage(data: unknown, fallback: string): string {
   return fallback
 }
 
+// src/services/http.ts
+
 function makeHeaders(userHeaders?: Record<string, string>, body?: unknown) {
   const headers: Record<string, string> = {
     Accept: 'application/json',
     ...(userHeaders || {}),
   }
+
   // Si el body no es FormData y no hay Content-Type, asumimos JSON
   if (body !== undefined && !isFormData(body) && !headers['Content-Type']) {
     headers['Content-Type'] = 'application/json'
   }
-  // ❌ SIN Authorization: Bearer
+
+  // 🔐 LEER TOKEN igual que en comisionesService
+  let token =
+    sessionStorage.getItem('token') ??
+    localStorage.getItem('token') ??
+    null
+
+  // Evitar valores basura tipo "null", "undefined", ""
+  if (token === 'null' || token === 'undefined' || token === '') {
+    token = null
+  }
+
+  if (token && !headers['Authorization']) {
+    headers['Authorization'] = `Bearer ${token}`
+  }
+
   return headers
 }
 
@@ -177,3 +195,5 @@ export function upload<T = unknown>(
 export function download(path: string, params?: Params) {
   return http<Blob>(path, { params, expectJson: false })
 }
+
+

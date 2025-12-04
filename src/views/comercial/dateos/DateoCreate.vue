@@ -31,6 +31,7 @@
                 variant="outlined"
                 :rules="[rules.required]"
                 prepend-inner-icon="mdi-source-branch"
+                :disabled="canalBloqueado"
               />
             </v-col>
 
@@ -43,6 +44,7 @@
                 variant="outlined"
                 :rules="[rules.required]"
                 prepend-inner-icon="mdi-account-settings"
+                :disabled="tipoAsesorBloqueado"
               />
             </v-col>
 
@@ -57,7 +59,8 @@
                 variant="outlined"
                 :rules="mostrarAgente ? [rules.required] : []"
                 prepend-inner-icon="mdi-account"
-                clearable
+                :disabled="agenteBloqueado"
+                :clearable="!agenteBloqueado"
               >
                 <template #item="{ props, item }">
                   <v-list-item v-bind="props">
@@ -73,7 +76,7 @@
               </v-autocomplete>
             </v-col>
 
-            <!-- Convenio (opcional para comercial, auto-seleccionado y bloqueado para convenio) -->
+            <!-- Convenio -->
             <v-col cols="12" md="6">
               <v-autocomplete
                 v-model="form.convenio_id"
@@ -84,7 +87,7 @@
                 variant="outlined"
                 prepend-inner-icon="mdi-handshake"
                 clearable
-                :disabled="isConvenioDisabled"
+                :disabled="isConvenioDisabled || convenioBloqueado"
                 :loading="conveniosLoading"
               >
                 <template #item="{ props, item }">
@@ -183,7 +186,7 @@
       </v-card-text>
     </v-card>
 
-    <!-- Modal de confirmación ANTES de crear -->
+    <!-- Modal de confirmación -->
     <v-dialog v-model="showConfirmDialog" max-width="500" persistent>
       <v-card>
         <v-card-title class="d-flex align-center justify-center py-6">
@@ -196,10 +199,7 @@
           </div>
         </v-card-text>
         <v-card-actions class="justify-center pb-6 gap-2">
-          <v-btn
-            variant="text"
-            @click="showConfirmDialog = false"
-          >
+          <v-btn variant="text" @click="showConfirmDialog = false">
             Cancelar
           </v-btn>
           <v-btn
@@ -254,7 +254,13 @@ import { listAgentesCaptacion, listConveniosAsignados } from '@/services/conveni
 
 const router = useRouter()
 const route = useRoute()
-const fromAsesor = ref<string | null>(null)
+
+/* ===== Contexto desde ficha ===== */
+const fromAsesor = ref<number | null>(null)
+const canalBloqueado = ref(false)
+const tipoAsesorBloqueado = ref(false)
+const agenteBloqueado = ref(false)
+const convenioBloqueado = ref(false)
 
 /* ===== Estado del formulario ===== */
 const formRef = ref<any>(null)
@@ -264,7 +270,7 @@ const showSuccessDialog = ref(false)
 const snackbar = ref<{ show: boolean; text: string; color: 'success' | 'error' }>({
   show: false,
   text: '',
-  color: 'success'
+  color: 'success',
 })
 
 const form = ref({
@@ -293,14 +299,14 @@ const conveniosLoading = ref(false)
 const filteredAgentes = computed(() => {
   return agentes.value.filter((agente) =>
     form.value.canal === 'ASESOR' && form.value.tipo_asesor === 'ASESOR_COMERCIAL'
-    ? agente.tipo === 'ASESOR_COMERCIAL'
-    : form.value.canal === 'ASESOR' && form.value.tipo_asesor === 'ASESOR_CONVENIO'
-    ? agente.tipo === 'ASESOR_CONVENIO'
-    : true
+      ? agente.tipo === 'ASESOR_COMERCIAL'
+      : form.value.canal === 'ASESOR' && form.value.tipo_asesor === 'ASESOR_CONVENIO'
+      ? agente.tipo === 'ASESOR_CONVENIO'
+      : true
   )
 })
 
-/* ===== Convenios visibles según el tipo de asesor ===== */
+/* ===== Convenios visibles ===== */
 const conveniosVisibles = computed(() => {
   const tipo = form.value.tipo_asesor
   const agenteId = form.value.agente_id
@@ -314,14 +320,14 @@ const conveniosVisibles = computed(() => {
   }
 
   if (tipo === 'ASESOR_CONVENIO' && form.value.convenio_id) {
-    const convenio = conveniosAll.value.find(c => c.id === form.value.convenio_id)
+    const convenio = conveniosAll.value.find((c) => c.id === form.value.convenio_id)
     return convenio ? [convenio] : []
   }
 
   return conveniosAll.value
 })
 
-/* ===== Deshabilitar convenio para asesores convenio ===== */
+/* ===== Deshabilitar convenio cuando es asesor convenio ===== */
 const isConvenioDisabled = computed(() => {
   return form.value.tipo_asesor === 'ASESOR_CONVENIO' && form.value.agente_id !== null
 })
@@ -330,7 +336,7 @@ const isConvenioDisabled = computed(() => {
 const imageFile = ref<File[]>([])
 const imagePreview = ref('')
 
-/* ===== Reglas de validación ===== */
+/* ===== Reglas ===== */
 const rules = {
   required: (v: any) => !!v || 'Este campo es requerido',
 }
@@ -348,12 +354,10 @@ const canSubmit = computed(() => {
   return !!form.value.placa?.trim()
 })
 
-/* ===== Funciones de normalización ===== */
+/* ===== Normalización ===== */
 function normalizePlaca() {
   if (!form.value.placa) return
-  form.value.placa = form.value.placa
-    .toUpperCase()
-    .replace(/[\s-]/g, '')
+  form.value.placa = form.value.placa.toUpperCase().replace(/[\s-]/g, '')
 }
 
 function normalizeTelefono() {
@@ -361,7 +365,7 @@ function normalizeTelefono() {
   form.value.telefono = form.value.telefono.replace(/\D/g, '')
 }
 
-/* ===== Cargar convenios asignados por asesor ===== */
+/* ===== Convenios por asesor ===== */
 async function loadConveniosAsignadosByAsesor(asesorId: number) {
   if (!asesorId) {
     conveniosAsignados.value = []
@@ -381,11 +385,10 @@ async function loadConveniosAsignadosByAsesor(asesorId: number) {
 /* ===== Auto-seleccionar convenio para asesor convenio ===== */
 function autoSeleccionarConvenioAsesorConvenio() {
   if (!form.value.agente_id) return
-
-  const asesor = agentes.value.find(a => a.id === form.value.agente_id)
+  const asesor = agentes.value.find((a) => a.id === form.value.agente_id)
   if (!asesor) return
 
-  const convenio = conveniosAll.value.find(c => c.nombre === asesor.nombre)
+  const convenio = conveniosAll.value.find((c) => c.nombre === asesor.nombre)
   if (convenio) {
     form.value.convenio_id = convenio.id
   }
@@ -394,7 +397,12 @@ function autoSeleccionarConvenioAsesorConvenio() {
 /* ===== Watchers ===== */
 watch(
   () => form.value.tipo_asesor,
-  () => {
+  (nuevo) => {
+    // Si viene desde ficha y los combos están bloqueados, no reseteamos nada
+    if (fromAsesor.value && tipoAsesorBloqueado.value && agenteBloqueado.value) {
+      return
+    }
+
     form.value.agente_id = null
     form.value.convenio_id = null
     conveniosAsignados.value = []
@@ -420,7 +428,7 @@ watch(
   }
 )
 
-/* ===== Subir imagen (opcional) ===== */
+/* ===== Subir imagen ===== */
 async function uploadImage(file: File): Promise<string | null> {
   try {
     const formData = new FormData()
@@ -430,7 +438,7 @@ async function uploadImage(file: File): Promise<string | null> {
       method: 'POST',
       body: formData,
       headers: {
-        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        Authorization: `Bearer ${localStorage.getItem('token')}`,
       },
     })
 
@@ -471,13 +479,11 @@ async function handleSubmit() {
   loading.value = true
 
   try {
-    // 1. Subir imagen si existe
     let imagen_url: string | null = null
     if (imageFile.value && imageFile.value.length > 0) {
       imagen_url = await uploadImage(imageFile.value[0])
     }
 
-    // 2. Crear dateo
     const payload = {
       canal: form.value.canal,
       origen: 'UI' as const,
@@ -490,8 +496,6 @@ async function handleSubmit() {
     }
 
     await createDateo(payload)
-
-    // Mostrar modal de éxito
     showSuccessDialog.value = true
   } catch (error: any) {
     const msg = error?.response?.data?.message || error?.message || 'Error al crear el dateo'
@@ -506,21 +510,57 @@ function handleConfirmSuccess() {
   showSuccessDialog.value = false
 
   if (fromAsesor.value) {
-    router.push({
-      name: 'FichaComercialAsesor',
-      params: { id: fromAsesor.value }
-    }).catch(err => {
-      console.error('Error navegando a FichaComercialAsesor:', err)
-    })
+    router
+      .push({
+        name: 'FichaComercialAsesor',
+        params: { id: String(fromAsesor.value) },
+      })
+      .catch((err) => {
+        console.error('Error navegando a FichaComercialAsesor:', err)
+      })
   } else {
-    // ✅ Usar el nombre correcto de la ruta
-    router.push({ name: 'ComercialDateos' }).catch(err => {
-      console.error('Error navegando a ComercialDateos:', err)
-      // Fallback: intentar con path directo
-      router.push('/comercial/dateos')
-    })
+    router
+      .push({ name: 'ComercialDateos' })
+      .catch((err) => {
+        console.error('Error navegando a ComercialDateos:', err)
+        router.push('/comercial/dateos')
+      })
   }
 }
+
+/* ===== Inicializar desde ficha ===== */
+function inicializarDesdeFicha() {
+  if (!fromAsesor.value) return
+
+  const asesor = agentes.value.find((a) => a.id === fromAsesor.value)
+  if (!asesor) return
+
+  // Siempre canal asesor
+  form.value.canal = 'ASESOR'
+  canalBloqueado.value = true
+
+  // Tipo asesor según agente
+  const tipo =
+    asesor.tipo === 'ASESOR_CONVENIO' ? 'ASESOR_CONVENIO' : 'ASESOR_COMERCIAL'
+  form.value.tipo_asesor = tipo
+  tipoAsesorBloqueado.value = true
+
+  // Agente fijo
+  form.value.agente_id = asesor.id
+  agenteBloqueado.value = true
+
+  // Lógica por tipo
+  if (tipo === 'ASESOR_COMERCIAL') {
+    // Puede elegir convenio, pero cargamos los suyos
+    convenioBloqueado.value = false
+    loadConveniosAsignadosByAsesor(asesor.id)
+  } else {
+    // ASESOR_CONVENIO: su convenio se auto-selecciona y se bloquea
+    convenioBloqueado.value = true
+    autoSeleccionarConvenioAsesorConvenio()
+  }
+}
+
 /* ===== Cargar catálogos ===== */
 async function loadCatalogos() {
   try {
@@ -529,18 +569,24 @@ async function loadCatalogos() {
 
     const conveniosRes = await fetch('/api/convenios/light?activo=1', {
       headers: {
-        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        Authorization: `Bearer ${localStorage.getItem('token')}`,
       },
     })
     const conveniosData = await conveniosRes.json()
     conveniosAll.value = conveniosData.data || []
+
+    // Si venimos desde ficha, configuramos y bloqueamos
+    if (fromAsesor.value) {
+      inicializarDesdeFicha()
+    }
   } catch (error) {
     console.error('Error cargando catálogos:', error)
   }
 }
 
 onMounted(() => {
-  fromAsesor.value = route.query.fromAsesor as string || null
+  const q = route.query.fromAsesor as string | undefined
+  fromAsesor.value = q ? Number(q) : null
   loadCatalogos()
 })
 </script>

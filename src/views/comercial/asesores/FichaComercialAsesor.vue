@@ -634,6 +634,9 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { get } from '@/services/http'
+// ✅ AGREGA estos dos imports NUEVOS:
+import { getMiFicha } from '@/services/asesoresService'
+import { useAuthStore } from '@/stores/AuthStore'
 import { listDateos, type Dateo, formatDateTime } from '@/services/dateosService'
 import {
   listComisiones,
@@ -668,11 +671,14 @@ type Convenio = {
   vigencia_hasta?: string | null
 }
 
-/* ===== Router / Route ===== */
+// ✅ REEMPLÁZALO por:
 const router = useRouter()
 const route = useRoute()
-const asesorId = Number(route.params.id)
+const authStore = useAuthStore()
 const API = '/api'
+
+// 🔥 Obtener el agenteId del usuario autenticado
+const asesorId = computed(() => authStore.currentAgenteId || 0)
 
 /* ===== Estado principal ===== */
 const asesor = ref<Asesor | null>(null)
@@ -920,7 +926,8 @@ function getComisionPorRolParaDateo(dateoId: number): number {
         convenioDelAsesor.value &&
         c.convenio.id === convenioDelAsesor.value.id
 
-      const esAsesorQueDateo = c.asesor?.id === asesorId
+            const esAsesorQueDateo = c.asesor?.id === asesorId.value
+
 
       let total = 0
 
@@ -1111,7 +1118,7 @@ const metaResumen = computed(() => {
 async function loadMetasAsesor() {
   metasLoading.value = true
   try {
-    const res = await listMetasMensuales({ mes: metaMes.value, asesorId })
+     const res = await listMetasMensuales({ mes: metaMes.value, asesorId: asesorId.value })
     metasRows.value = res.data
 
     const row = metasRows.value[0]
@@ -1170,17 +1177,16 @@ function normalizeAsesor(raw: any): Asesor | null {
   }
 }
 
-async function fetchAsesor(id: number) {
+// ✅ REEMPLÁZALA completamente por:
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+async function fetchAsesor(_id: number) {
   try {
-    const r = await get<any>(`${API}/agentes-captacion/${id}`)
-    const a = r?.data ?? r
-    if (a) return normalizeAsesor(a)
-  } catch {}
-  try {
-    const r2 = await get<any>(`${API}/usuarios/${id}`)
-    const a2 = r2?.data ?? r2
-    if (a2) return normalizeAsesor(a2)
-  } catch {}
+    // 🔥 Usar el endpoint /me en lugar de /agentes-captacion/:id
+    const r = await getMiFicha()
+    if (r) return normalizeAsesor(r)
+  } catch (e) {
+    console.error('Error al cargar asesor autenticado:', e)
+  }
   return null
 }
 
@@ -1188,7 +1194,7 @@ async function fetchProspectos(id: number) {
   const res = await listProspectos({
     page: 1,
     perPage: 500,
-    asesorId: id,
+    asesorId: asesorId.value,
     sortBy: 'updated_at',
     order: 'desc',
   })
@@ -1363,7 +1369,8 @@ async function loadAll() {
   globalError.value = null
   try {
     // 1) Traer asesor primero (necesitamos su tipo)
-    const a = await fetchAsesor(asesorId)
+       const a = await fetchAsesor(asesorId.value)
+
     asesor.value = a
 
     // 2) Cargar convenios tanto para COMERCIAL como para CONVENIO
@@ -1371,7 +1378,7 @@ async function loadAll() {
     //     para unir los dateos donde aparecen como convenio)
     let c: Convenio[] = []
     if (asesor.value && (esAsesorComercial.value || esAsesorConvenio.value)) {
-      c = await fetchConvenios(asesorId)
+      c = await fetchConvenios(asesorId.value)
     }
     convenios.value = Array.isArray(c) ? c : []
 
@@ -1384,10 +1391,10 @@ async function loadAll() {
 
     // 4) Prospectos, Pagos, Comisiones
     const [p, pg, cm] = await Promise.all([
-      fetchProspectos(asesorId),
-      fetchPagos(asesorId),
-      fetchComisiones(asesorId),
-    ])
+  fetchProspectos(asesorId.value),
+  fetchPagos(asesorId.value),
+  fetchComisiones(asesorId.value)
+])
     prospectos.value = Array.isArray(p) ? p : []
     pagos.value = Array.isArray(pg) ? pg : []
     comisiones.value = Array.isArray(cm) ? cm : []
@@ -1476,17 +1483,16 @@ function verProspecto(id: number) {
 function irACrearDateo() {
   router.push({
     name: 'ComercialDateosNuevo',
-    query: { fromAsesor: String(asesorId) }
+    query: { fromAsesor: String(asesorId.value) }  // ✅ Agregar .value
   }).catch(() => {})
 }
 
 function irACrearProspecto() {
   router.push({
     name: 'ComercialProspectoNuevo',
-    query: { fromAsesor: String(asesorId) }
+    query: { fromAsesor: String(asesorId.value) }  // ✅ Agregar .value
   }).catch(() => {})
 }
-
 
 /* ===== Exportar CSV (dateos) - MEJORADO ===== */
 /* ===== Exportar CSV (dateos) - MEJORADO con delimitador correcto ===== */

@@ -1,22 +1,36 @@
 // src/services/AuthService.ts
-import { get, post } from './http'
-import { authSetStore } from '@/stores/AuthStore'
 
-// Tipos de respuesta (ajústalos según tu backend AdonisJS)
+import { get, post } from './http'
+
 export interface LoginResponse {
-  token: string
+  type: string           // ✅ 'bearer'
+  token: string          // ✅ Token directo, no anidado
   user: {
     id: number
-    nombre: string
+    agenteId?: number | null
+    nombres: string
+    apellidos: string
     correo: string
+    rol: {
+      id: number
+      nombre: string
+    }
+    profilePictureUrl?: string
   }
 }
 
-export interface UserResponse {
-  id: number
-  nombre: string
-  correo: string
-  // agrega los campos reales de tu modelo Usuario
+export interface MeResponse {
+  user: {
+    id: number
+    agenteId?: number | null
+    nombres: string
+    apellidos: string
+    correo: string
+    rol: {
+      id: number
+      nombre: string
+    }
+  }
 }
 
 export default class AuthService {
@@ -29,12 +43,11 @@ export default class AuthService {
       return await post<LoginResponse, { correo: string; password: string }>(
         '/api/login',
         { correo, password },
-        { credentials: 'omit' } // el login no necesita enviar cookies
+        { credentials: 'omit' }
       )
     } catch (error) {
       if (error instanceof Error) {
         console.error('Error en AuthService.login:', error.message)
-        return { token: '', user: { id: 0, nombre: '', correo: '' } } as LoginResponse
       }
       throw error
     }
@@ -42,23 +55,19 @@ export default class AuthService {
 
   /**
    * Obtener la sesión del usuario autenticado.
-   * GET /api/me
+   * GET /api/auth/me
    */
-  async me(): Promise<UserResponse> {
-    const authStore = authSetStore()
-    const token = authStore.token
+  async me(): Promise<MeResponse> {
+    const token = sessionStorage.getItem('token')
 
     if (!token) {
-      console.warn(
-        'AuthService.me(): No hay token de autenticación disponible. No se puede verificar la sesión.'
-      )
-      throw new Error('No hay token de autenticación disponible para verificar la sesión.')
+      throw new Error('No hay token de autenticación disponible')
     }
 
     try {
-      return await get<UserResponse>('/api/me', {
+      return await get<MeResponse>('/api/auth/me', {
         headers: {
-          Authorization: `Bearer ${token}`, // 🔑 enviamos el token
+          Authorization: `Bearer ${token}`,
         },
       })
     } catch (error) {

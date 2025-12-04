@@ -120,7 +120,7 @@ function mapAgente(raw: any): Agente {
     telefono: raw?.telefono ?? null,
     docTipo: raw?.docTipo ?? raw?.doc_tipo ?? null,
     docNumero: raw?.docNumero ?? raw?.doc_numero ?? null,
-    activo: activoFinal, // <- no forzamos !! para no convertir undefined a false
+    activo: activoFinal,
     created_at: typeof created === 'string' ? created : (created?.toString?.() ?? null),
     updated_at: typeof updated === 'string' ? updated : (updated?.toString?.() ?? null),
   }
@@ -170,13 +170,11 @@ export async function listAsesores(
     order?: 'asc' | 'desc'
   } = {}
 ): Promise<ListResponse<Agente>> {
-  // Normaliza 'tipo' a lo que espera el backend
   let tipoParam = params.tipo ? String(params.tipo).toUpperCase() : undefined
   if (tipoParam === 'INTERNO') tipoParam = 'ASESOR_COMERCIAL'
   if (tipoParam === 'EXTERNO') tipoParam = 'ASESOR_CONVENIO'
   if (tipoParam === 'TELEMERCADEO') tipoParam = 'ASESOR_TELEMERCADEO'
 
-  // Backend espera activo como 'true'/'false'
   const activoParam =
     params.activo === '' || params.activo === undefined
       ? undefined
@@ -202,6 +200,12 @@ export async function listAsesores(
 /** Detalle de asesor */
 export async function getAsesorById(id: number): Promise<Agente> {
   const r = await get<any>(`${API}/agentes-captacion/${id}`)
+  return mapAgente(r)
+}
+
+/** 🆕 Obtener MI ficha (del usuario autenticado) */
+export async function getMiFicha(): Promise<Agente> {
+  const r = await get<any>(`${API}/agentes-captacion/me`)
   return mapAgente(r)
 }
 
@@ -256,6 +260,7 @@ export async function listConveniosDelAsesor(
 const api = {
   listAsesores,
   getAsesorById,
+  getMiFicha, // ✅ AGREGADO
   getResumenAsesor,
   listProspectosDelAsesor,
   listConveniosDelAsesor,
