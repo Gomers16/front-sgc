@@ -7,7 +7,7 @@ import { defineStore } from 'pinia'
 /** Usuario según tu backend (+ agenteId opcional) */
 export interface User {
   id: number
-  agenteId?: number | null // ← AgenteCaptacion.id (opcional, para asignar prospectos)
+  agenteId?: number | null
   razonSocialId: number
   rolId: number
   epsId: number
@@ -61,9 +61,9 @@ export const useAuthStore = defineStore('auth', {
   getters: {
     isAuthenticated: (s) => !!s.token && !!s.user,
     currentUserId: (s) => s.user?.id || null,
-    currentAgenteId: (s) => s.user?.agenteId ?? null, // ✅ Getter para agenteId
+    currentAgenteId: (s) => s.user?.agenteId ?? null,
 
-    // 🆕 Getters de roles
+    // Getters de roles
     userRole: (s) => s.user?.rol?.nombre || null,
 
     hasRole: (s) => (role: string) => {
@@ -85,7 +85,7 @@ export const useAuthStore = defineStore('auth', {
   },
 
   actions: {
-    /** Inicia sesión y guarda token + user; agenteId ya viene del backend */
+    /** Inicia sesión y guarda token + user */
     async login(userData: { email: string; password: string }): Promise<boolean> {
       const auth = new AuthService()
       let loginResponse: any
@@ -103,8 +103,7 @@ export const useAuthStore = defineStore('auth', {
         return false
       }
 
-      // 🔥 FIX: El backend devuelve { type: 'bearer', token: 'oat_...', user: {...} }
-      const tokenValue: string | undefined = loginResponse?.token // ✅ Token directo
+      const tokenValue: string | undefined = loginResponse?.token
       const userFromBackend: User | undefined = loginResponse?.user
 
       if (!tokenValue || !userFromBackend) {
@@ -118,19 +117,33 @@ export const useAuthStore = defineStore('auth', {
       sessionStorage.setItem('token', tokenValue)
       sessionStorage.setItem('user', JSON.stringify(userFromBackend))
 
-      console.log('✅ Login exitoso. agenteId:', userFromBackend.agenteId)
+      console.log('✅ Login exitoso. Rol:', userFromBackend.rol.nombre)
 
-     if (userFromBackend.rol.nombre === 'COMERCIAL') {
-  router.push({
-    name: 'FichaComercialAsesor',
-    params: { id: userFromBackend.id }
-  })
-} else {
-  router.push('/dashboard')
-}
+      // 🔥 REDIRECCIÓN POR ROL
+      const rol = userFromBackend.rol.nombre
 
-console.log('✅ Login exitoso. agenteId:', userFromBackend.agenteId)
-return true
+      switch (rol) {
+        case 'COMERCIAL':
+          router.push({
+            name: 'FichaComercialAsesor',
+            params: { id: userFromBackend.id }
+          })
+          break
+
+        case 'TALENTO_HUMANO':
+          router.push({ name: 'Contratos' })
+          break
+
+        case 'CONTABILIDAD':
+          router.push({ name: 'FacturacionHistorico' })
+          break
+
+        default:
+          // SUPER_ADMIN, GERENCIA, OPERATIVO_TURNOS van al dashboard
+          router.push('/dashboard')
+      }
+
+      return true
     },
 
     /** Cierra sesión limpiando estado y sessionStorage */
@@ -148,18 +161,33 @@ return true
       if (this.token && !this.user) {
         try {
           const authService = new AuthService()
-          const response = await authService.me() // GET /api/auth/me
+          const response = await authService.me()
 
           if (response?.user) {
             this.user = response.user as User
             sessionStorage.setItem('user', JSON.stringify(response.user))
-            console.log('✅ checkAuth: Usuario cargado desde API. agenteId:', this.user.agenteId)
+            console.log('✅ checkAuth: Usuario cargado desde API.')
 
-            if (
-              router.currentRoute.value.path === '/login' ||
-              router.currentRoute.value.path === '/register'
-            ) {
-              router.push('/dashboard')
+            const currentPath = router.currentRoute.value.path
+            const rol = this.user.rol.nombre
+
+            if (currentPath === '/login' || currentPath === '/register') {
+              switch (rol) {
+                case 'COMERCIAL':
+                  router.push({
+                    name: 'FichaComercialAsesor',
+                    params: { id: this.user.id }
+                  })
+                  break
+                case 'TALENTO_HUMANO':
+                  router.push({ name: 'Contratos' })
+                  break
+                case 'CONTABILIDAD':
+                  router.push({ name: 'FacturacionHistorico' })
+                  break
+                default:
+                  router.push('/dashboard')
+              }
             }
           } else {
             console.error('checkAuth: /me sin usuario o token inválido.')
@@ -179,11 +207,27 @@ return true
         }
       } else if (this.token && this.user) {
         console.log('checkAuth: Usuario ya cargado y token presente.')
-        if (
-          router.currentRoute.value.path === '/login' ||
-          router.currentRoute.value.path === '/register'
-        ) {
-          router.push('/dashboard')
+
+        const currentPath = router.currentRoute.value.path
+        const rol = this.user.rol.nombre
+
+        if (currentPath === '/login' || currentPath === '/register') {
+          switch (rol) {
+            case 'COMERCIAL':
+              router.push({
+                name: 'FichaComercialAsesor',
+                params: { id: this.user.id }
+              })
+              break
+            case 'TALENTO_HUMANO':
+              router.push({ name: 'Contratos' })
+              break
+            case 'CONTABILIDAD':
+              router.push({ name: 'FacturacionHistorico' })
+              break
+            default:
+              router.push('/dashboard')
+          }
         }
       } else {
         console.log('checkAuth: No hay token en sessionStorage.')
@@ -193,8 +237,6 @@ return true
 })
 
 /**
- * ⚠️ Compatibilidad hacia atrás:
- * Muchos archivos pueden seguir importando { authSetStore }.
- * Este alias evita romperlos mientras migras gradualmente a useAuthStore.
+ * Compatibilidad hacia atrás
  */
 export { useAuthStore as authSetStore }
