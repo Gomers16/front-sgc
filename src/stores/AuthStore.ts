@@ -120,8 +120,17 @@ export const useAuthStore = defineStore('auth', {
 
       console.log('✅ Login exitoso. agenteId:', userFromBackend.agenteId)
 
-      router.push('/dashboard')
-      return true
+     if (userFromBackend.rol.nombre === 'COMERCIAL') {
+  router.push({
+    name: 'FichaComercialAsesor',
+    params: { id: userFromBackend.id }
+  })
+} else {
+  router.push('/dashboard')
+}
+
+console.log('✅ Login exitoso. agenteId:', userFromBackend.agenteId)
+return true
     },
 
     /** Cierra sesión limpiando estado y sessionStorage */
