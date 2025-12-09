@@ -1179,13 +1179,13 @@ function normalizeAsesor(raw: any): Asesor | null {
 
 // ✅ REEMPLÁZALA completamente por:
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-async function fetchAsesor(_id: number) {
+async function fetchAsesor(id: number) {
   try {
-    // 🔥 Usar el endpoint /me en lugar de /agentes-captacion/:id
-    const r = await getMiFicha()
+    // ✅ Usar siempre el ID de la ruta (funciona para todos los roles)
+    const r = await get<any>(`${API}/agentes-captacion/${id}`)
     if (r) return normalizeAsesor(r)
   } catch (e) {
-    console.error('Error al cargar asesor autenticado:', e)
+    console.error('Error al cargar asesor:', e)
   }
   return null
 }

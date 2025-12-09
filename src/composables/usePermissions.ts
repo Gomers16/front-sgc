@@ -10,7 +10,6 @@ export function usePermissions() {
   return {
     can: {
       // ==================== DASHBOARD ====================
-      // Solo 3 roles: SUPER_ADMIN, GERENCIA, OPERATIVO_TURNOS
       verDashboard: () => auth.hasAnyRole([
         'SUPER_ADMIN',
         'GERENCIA',
@@ -83,26 +82,77 @@ export function usePermissions() {
       ]),
 
       // ==================== COMERCIAL ====================
-      // Solo gerencia, admin y contabilidad ven TODO el módulo comercial
       verComercial: () => auth.hasAnyRole([
         'SUPER_ADMIN',
         'GERENCIA',
         'CONTABILIDAD'
       ]),
 
-      // Mi Ficha Comercial - Solo comerciales ven SU propia ficha
+      // Mi Ficha Comercial - Solo comerciales ven SU propia ficha (/me)
       verMiFichaComercial: () => auth.hasRole('COMERCIAL'),
 
-      gestionarProspectos: () => auth.hasAnyRole([
+      // Ver listado de agentes (tabla general)
+      verListadoAgentes: () => auth.hasAnyRole([
+        'SUPER_ADMIN',
+        'GERENCIA',
+        'CONTABILIDAD'
+      ]),
+
+      // Ver ficha individual de agente (detalle) - ✅ CONTABILIDAD SÍ PUEDE
+      verFichaAsesor: () => auth.hasAnyRole([
+        'SUPER_ADMIN',
+        'GERENCIA',
+        'CONTABILIDAD',
+        'COMERCIAL'
+      ]),
+
+      // Gestionar agentes (crear/editar/eliminar)
+      gestionarAgentes: () => auth.hasAnyRole([
+        'SUPER_ADMIN',
+        'GERENCIA'
+      ]),
+
+      // ==================== PROSPECTOS ====================
+      verProspectos: () => auth.hasAnyRole([
+        'SUPER_ADMIN',
+        'GERENCIA',
+        'CONTABILIDAD',
+        'COMERCIAL'
+      ]),
+
+      // ❌ CONTABILIDAD NO puede crear prospectos
+      crearProspecto: () => auth.hasAnyRole([
         'SUPER_ADMIN',
         'GERENCIA',
         'COMERCIAL'
       ]),
 
-      gestionarDateos: () => auth.hasAnyRole([
+      gestionarProspectos: () => auth.hasAnyRole([
+        'SUPER_ADMIN',
+        'GERENCIA',
+        'CONTABILIDAD',
+        'COMERCIAL'
+      ]),
+
+      // ==================== DATEOS ====================
+      verDateos: () => auth.hasAnyRole([
+        'SUPER_ADMIN',
+        'GERENCIA',
+        'CONTABILIDAD',
+        'COMERCIAL'
+      ]),
+
+      // ❌ CONTABILIDAD NO puede crear dateos
+      crearDateo: () => auth.hasAnyRole([
         'SUPER_ADMIN',
         'GERENCIA',
         'COMERCIAL'
+      ]),
+
+      // ❌ CONTABILIDAD NO puede editar/eliminar dateos
+      gestionarDateos: () => auth.hasAnyRole([
+        'SUPER_ADMIN',
+        'GERENCIA'
       ]),
 
       // ==================== COMISIONES ====================
@@ -131,6 +181,12 @@ export function usePermissions() {
         'CONTABILIDAD'
       ]),
 
+      // ❌ Config de comisiones - CONTABILIDAD NO puede
+      configurarComisiones: () => auth.hasAnyRole([
+        'SUPER_ADMIN',
+        'GERENCIA'
+      ]),
+
       // ==================== CONVENIOS ====================
       verConvenios: () => auth.hasAnyRole([
         'SUPER_ADMIN',
@@ -140,12 +196,14 @@ export function usePermissions() {
 
       crearConvenio: () => auth.hasAnyRole([
         'SUPER_ADMIN',
-        'GERENCIA'
+        'GERENCIA',
+        'CONTABILIDAD'
       ]),
 
       editarConvenio: () => auth.hasAnyRole([
         'SUPER_ADMIN',
-        'GERENCIA'
+        'GERENCIA',
+        'CONTABILIDAD'
       ]),
 
       // ==================== GESTIÓN DOCUMENTAL ====================

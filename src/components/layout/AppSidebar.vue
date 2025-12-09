@@ -17,7 +17,7 @@
     <v-divider class="my-2" />
 
     <v-list density="compact" nav>
-      <!-- Dashboard - Oculto para comerciales -->
+      <!-- Dashboard - Oculto para comerciales y contabilidad -->
       <v-list-item
         v-if="can.verDashboard()"
         prepend-icon="mdi-view-dashboard"
@@ -69,7 +69,7 @@
         />
       </v-list-group>
 
-      <!-- Comercial - Oculto para comerciales -->
+      <!-- Comercial - Gerencia, Admin y Contabilidad -->
       <v-list-group
         v-if="can.verComercial()"
         value="comercial"
@@ -81,8 +81,9 @@
           <v-list-item v-bind="props" title="Comercial" />
         </template>
 
-        <!-- Asesores -->
+        <!-- Asesores - Solo listado para CONTABILIDAD -->
         <v-list-group
+          v-if="can.verListadoAgentes()"
           value="comercial-asesores"
           prepend-icon="mdi-account-tie"
           class="nav-item"
@@ -97,6 +98,7 @@
 
         <!-- Dateos -->
         <v-list-group
+          v-if="can.verDateos()"
           value="comercial-dateos"
           prepend-icon="mdi-note-text-outline"
           class="nav-item"
@@ -107,11 +109,18 @@
           </template>
 
           <v-list-item title="Listado" :to="{ path: '/comercial/dateos' }" link />
-          <v-list-item title="Nuevo dateo" :to="{ path: '/comercial/dateos/nuevo' }" link />
+          <!-- ❌ Nuevo dateo - Solo SUPER_ADMIN, GERENCIA y COMERCIAL -->
+          <v-list-item
+            v-if="can.crearDateo()"
+            title="Nuevo dateo"
+            :to="{ path: '/comercial/dateos/nuevo' }"
+            link
+          />
         </v-list-group>
 
         <!-- Convenios -->
         <v-list-group
+          v-if="can.verConvenios()"
           value="comercial-convenios"
           prepend-icon="mdi-handshake-outline"
           class="nav-item"
@@ -125,19 +134,27 @@
         </v-list-group>
 
         <!-- Prospectos -->
-        <v-list-group
-          value="comercial-prospectos"
-          prepend-icon="mdi-account-search-outline"
-          class="nav-item"
-          color="#FACC15"
-        >
-          <template #activator="{ props }">
-            <v-list-item v-bind="props" title="Prospectos" />
-          </template>
+<v-list-group
+  v-if="can.verProspectos()"
+  value="comercial-prospectos"
+  prepend-icon="mdi-account-search-outline"
+  class="nav-item"
+  color="#FACC15"
+>
+  <template #activator="{ props }">
+    <v-list-item v-bind="props" title="Prospectos" />
+  </template>
 
-          <v-list-item title="Listado" :to="{ path: '/comercial/prospectos' }" link />
-          <v-list-item title="Nuevo prospecto" :to="{ path: '/comercial/prospectos/nuevo' }" link />
-        </v-list-group>
+  <v-list-item title="Listado" :to="{ path: '/comercial/prospectos' }" link />
+
+  <!-- ❌ Nuevo prospecto - Solo SUPER_ADMIN, GERENCIA y COMERCIAL -->
+  <v-list-item
+    v-if="can.crearProspecto()"
+    title="Nuevo prospecto"
+    :to="{ path: '/comercial/prospectos/nuevo' }"
+    link
+  />
+</v-list-group>
 
         <!-- Clientes -->
         <v-list-group
@@ -155,6 +172,7 @@
 
         <!-- Comisiones -->
         <v-list-group
+          v-if="can.verComisiones()"
           value="comercial-comisiones"
           prepend-icon="mdi-cash-multiple"
           class="nav-item"
@@ -165,7 +183,10 @@
           </template>
 
           <v-list-item title="Resumen / Listado" :to="{ path: '/comercial/comisiones' }" link />
+
+          <!-- ❌ Config de comisiones - Solo SUPER_ADMIN y GERENCIA -->
           <v-list-item
+            v-if="can.configurarComisiones()"
             title="Parámetros / Configuración"
             :to="{ name: 'ComercialComisionesConfig' }"
             link
@@ -298,7 +319,7 @@ const { can } = usePermissions()
 
 /* Estado activo con acento amarillo de marca */
 :deep(.v-list-item--active) {
-  background-color: rgba(250, 204, 21, 0.18) !important; /* amarillo suave */
+  background-color: rgba(250, 204, 21, 0.18) !important;
   color: #facc15 !important;
 }
 
