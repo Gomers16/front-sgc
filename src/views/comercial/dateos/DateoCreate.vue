@@ -107,11 +107,15 @@
             <v-col cols="12" md="6">
               <v-text-field
                 v-model="form.placa"
-                label="Placa del vehículo"
+                label="Placa del vehículo *"
                 variant="outlined"
-                :rules="[rules.required]"
+                :rules="[rules.required, rules.placaLength]"
                 prepend-inner-icon="mdi-car"
                 @input="normalizePlaca"
+                :counter="6"
+                :maxlength="6"
+                hint="Exactamente 6 caracteres en mayúsculas"
+                persistent-hint
               />
             </v-col>
 
@@ -339,6 +343,11 @@ const imagePreview = ref('')
 /* ===== Reglas ===== */
 const rules = {
   required: (v: any) => !!v || 'Este campo es requerido',
+  placaLength: (v: any) => {
+    if (!v) return 'La placa es requerida'
+    const trimmed = v.toString().trim()
+    return trimmed.length === 6 || 'La placa debe tener exactamente 6 caracteres'
+  },
 }
 
 /* ===== Computed ===== */
@@ -351,13 +360,14 @@ const mostrarAgente = computed(() => {
 })
 
 const canSubmit = computed(() => {
-  return !!form.value.placa?.trim()
+  return !!form.value.placa?.trim() && form.value.placa.trim().length === 6
 })
 
 /* ===== Normalización ===== */
 function normalizePlaca() {
   if (!form.value.placa) return
-  form.value.placa = form.value.placa.toUpperCase().replace(/[\s-]/g, '')
+  // 🔥 Forzar mayúsculas y eliminar espacios/guiones
+  form.value.placa = form.value.placa.toUpperCase().replace(/[\s-]/g, '').slice(0, 6)
 }
 
 function normalizeTelefono() {
@@ -489,7 +499,7 @@ async function handleSubmit() {
       origen: 'UI' as const,
       agente_id: form.value.agente_id,
       convenio_id: form.value.convenio_id,
-      placa: form.value.placa || null,
+      placa: form.value.placa ? form.value.placa.toUpperCase().trim() : null,
       telefono: form.value.telefono || null,
       observacion: form.value.observacion || null,
       imagen_url,

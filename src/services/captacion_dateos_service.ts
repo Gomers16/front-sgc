@@ -95,7 +95,7 @@ export const CaptacionDateosService = {
     origen: 'UI' | 'WHATSAPP' | 'IMPORT'
     agente_id?: number | null
     convenio_id?: number | null
-    prospecto_id?: number | null // 👈 NUEVO: Si viene desde prospecto
+    prospecto_id?: number | null
     placa?: string | null
     telefono?: string | null
     observacion?: string | null
@@ -113,6 +113,9 @@ export const CaptacionDateosService = {
    * Actualiza un dateo existente
    *
    * Campos actualizables:
+   * - placa: Placa del vehículo (se normaliza automáticamente)
+   * - telefono: Teléfono del cliente (se normaliza automáticamente)
+   * - canal: Canal de captación
    * - observacion: Texto libre
    * - resultado: PENDIENTE | EN_PROCESO | EXITOSO | NO_EXITOSO
    * - consumido_turno_id: ID del turno consumido (null para revertir)
@@ -125,6 +128,9 @@ export const CaptacionDateosService = {
   update(
     id: number | string,
     body: {
+      placa?: string | null
+      telefono?: string | null
+      canal?: 'FACHADA' | 'ASESOR' | 'TELE' | 'REDES'
       observacion?: string | null
       resultado?: 'PENDIENTE' | 'EN_PROCESO' | 'EXITOSO' | 'NO_EXITOSO'
       imagen_url?: string | null
@@ -193,24 +199,12 @@ export const CaptacionDateosService = {
    * - Cron job: Cada 1 hora (recomendado)
    *
    * @returns {
-   *   message: string,           // Mensaje de resultado
-   *   procesados: number,        // Total de dateos evaluados
-   *   exitosos: number,          // Dateos revertidos exitosamente
-   *   fallidos: number,          // Dateos que fallaron al revertir
-   *   total: number              // Alias de procesados (compatibilidad)
+   *   message: string,
+   *   procesados: number,
+   *   exitosos: number,
+   *   fallidos: number,
+   *   total: number
    * }
-   *
-   * @example
-   * // Uso en componente Vue/React:
-   * const resultado = await CaptacionDateosService.verificarVencidos()
-   * console.log(`Se revirtieron ${resultado.exitosos} dateos`)
-   *
-   * @example
-   * // Uso en cron job:
-   * setInterval(async () => {
-   *   const r = await CaptacionDateosService.verificarVencidos()
-   *   console.log(`[CRON] ${r.message}`)
-   * }, 3600000) // cada 1 hora
    */
   verificarVencidos() {
     return post<{

@@ -43,18 +43,18 @@
                 @update:model-value="onTelefonoInput"
               />
             </v-col>
-  <v-col cols="12" md="3">
-  <v-text-field
-    v-model="form.cedula"
-    label="Cédula *"
-    variant="outlined"
-    density="comfortable"
-    :rules="[rReq, rCedula]"
-    hide-details="auto"
-    clearable
-    @update:model-value="onCedulaInput"
-  />
-</v-col>
+            <v-col cols="12" md="3">
+              <v-text-field
+                v-model="form.cedula"
+                label="Cédula *"
+                variant="outlined"
+                density="comfortable"
+                :rules="[rReq, rCedula]"
+                hide-details="auto"
+                clearable
+                @update:model-value="onCedulaInput"
+              />
+            </v-col>
 
             <v-col cols="12" md="3">
               <v-text-field
@@ -62,9 +62,11 @@
                 label="Placa *"
                 variant="outlined"
                 density="comfortable"
-                :rules="[rReq]"
+                :rules="[rReq, rPlaca]"
                 hide-details="auto"
                 clearable
+                maxlength="6"
+                counter
                 @update:model-value="onPlacaInput"
               />
             </v-col>
@@ -220,10 +222,21 @@ const rCedula: RuleFn = (v) => {
   if (digits.length < 6 || digits.length > 10) return 'Cédula: 6-10 dígitos'
   return true
 }
+// 🔥 NUEVA: Validación de placa de 6 caracteres
+const rPlaca: RuleFn = (v) => {
+  if (!v || String(v).trim().length === 0) return 'Placa es requerida'
+  const cleaned = String(v).toUpperCase().replace(/[\s-]+/g, '')
+  if (cleaned.length !== 6) return 'La placa debe tener exactamente 6 caracteres'
+  if (!/^[A-Z0-9]{6}$/.test(cleaned)) return 'La placa solo puede contener letras y números'
+  return true
+}
 
 function onPlacaInput(val?: string): void {
   if (form.value) {
-    form.value.placa = (val || '').toUpperCase().replace(/[\s-]+/g, '')
+    // Convertir a mayúsculas y remover espacios/guiones
+    const cleaned = (val || '').toUpperCase().replace(/[\s-]+/g, '')
+    // Limitar a 6 caracteres
+    form.value.placa = cleaned.slice(0, 6)
   }
 }
 
@@ -243,6 +256,7 @@ const canSubmit = computed<boolean>(() => {
   return !!form.value.nombre?.trim() &&
          !!form.value.telefono?.trim() &&
          !!form.value.placa?.trim() &&
+         form.value.placa.length === 6 &&  // 🔥 Validar longitud exacta
          !!form.value.cedula?.trim()
 })
 
@@ -307,12 +321,9 @@ async function submit() {
       text: '✅ Prospecto actualizado correctamente',
     }
 
-    // Volver al detalle después de 1 segundo
+    // Volver al detalle después de 1 segundo, preservando fromFicha
     setTimeout(() => {
-      router.push({
-        name: 'ComercialProspectoDetalle',
-        params: { id },
-      }).catch(() => {})
+      volver()
     }, 1000)
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Error actualizando prospecto'
@@ -326,12 +337,28 @@ async function submit() {
   }
 }
 
+// 🔥 SOLUCIÓN: Función volver corregida
 function volver() {
   const id = Number(route.params.id)
-  router.push({
-    name: 'ComercialProspectoDetalle',
-    params: { id },
-  }).catch(() => {})
+
+  // Preservar el query parameter fromFicha
+  const q = route.query.fromFicha ?? route.query.fromAsesor
+  const fromFicha = q ? String(q) : null
+
+  if (fromFicha) {
+    // Regresar al detalle con el query parameter
+    router.push({
+      name: 'ComercialProspectoDetalle',
+      params: { id },
+      query: { fromFicha: String(fromFicha) }
+    }).catch(() => {})
+  } else {
+    // Navegación normal al detalle
+    router.push({
+      name: 'ComercialProspectoDetalle',
+      params: { id },
+    }).catch(() => {})
+  }
 }
 
 onMounted(fetchProspecto)

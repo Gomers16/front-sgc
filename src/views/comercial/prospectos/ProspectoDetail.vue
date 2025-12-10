@@ -289,28 +289,30 @@ async function fetchProspecto() {
   }
 }
 
+// 🔥 SOLUCIÓN: Función goBack corregida
 function goBack() {
-  // 🔥 Si viene de la ficha comercial, regresar allí
+  // Detectar si venimos de la ficha comercial
   const q = route.query.fromFicha ?? route.query.fromAsesor
   const fromFicha = q ? String(q) : null
+
   if (fromFicha) {
-    const resolved = router.resolve({ name: 'FichaComercialAsesor', params: { id: String(fromFicha) } })
-    if (resolved && resolved.matched && resolved.matched.length > 0) {
-      router.push({
-        name: 'FichaComercialAsesor',
-        params: { id: String(fromFicha) }
-      }).catch(() => {})
-      return
-    }
+    // Regresar a la ficha comercial del asesor
+    router.push({
+      name: 'FichaComercialAsesor',  // 👈 Nombre correcto de la ruta
+      params: { id: String(fromFicha) }
+    }).catch(() => {})
+    return
   }
 
-  // Si no, ir a la lista general
+  // Si no viene de ficha, ir a la lista general
   router.push({ name: 'ComercialProspectos' }).catch(() => {})
 }
 
+// 🔥 SOLUCIÓN: Función irEditar corregida
 function irEditar() {
   const id = Number(route.params.id)
-  // 🆕 También pasar el origen al editar
+
+  // Preservar el query parameter fromFicha
   const q = route.query.fromFicha ?? route.query.fromAsesor
   const fromFicha = q ? String(q) : null
 

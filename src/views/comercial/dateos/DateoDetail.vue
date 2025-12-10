@@ -10,25 +10,80 @@
         <v-card elevation="4" class="rounded-lg">
           <v-card-title class="d-flex align-center justify-space-between">
             <span class="text-subtitle-1 font-weight-bold">Dateo #{{ dateo?.id }}</span>
-            <v-chip size="small" variant="flat">{{ dateo?.canal }}</v-chip>
+            <v-chip size="small" variant="flat">{{ getCanalLabel(form.canal) }}</v-chip>
           </v-card-title>
           <v-divider />
           <v-card-text>
-            <div class="text-body-2">
-              <strong>Creado:</strong>
-              {{ dateo?.created_at_fmt || fmt(dateo?.created_at) }}
-            </div>
-            <div class="text-body-2">
-              <strong>Agente:</strong> {{ dateo?.agente?.nombre || '—' }}
-              <span v-if="dateo?.agente" class="text-medium-emphasis">
-                ({{ mapTipoCorto(dateo?.agente?.tipo) }})
-              </span>
-            </div>
-            <div class="text-body-2"><strong>Placa:</strong> {{ dateo?.placa || '—' }}</div>
-            <div class="text-body-2"><strong>Teléfono:</strong> {{ dateo?.telefono || '—' }}</div>
-            <div class="text-body-2">
-              <strong>Convenio:</strong> {{ dateo?.convenio?.nombre || '—' }}
-            </div>
+            <v-row class="g-2">
+              <v-col cols="12">
+                <div class="text-body-2 mb-2">
+                  <strong>Creado:</strong>
+                  {{ dateo?.created_at_fmt || fmt(dateo?.created_at) }}
+                </div>
+              </v-col>
+
+              <!-- Canal -->
+              <v-col cols="12">
+                <v-select
+                  v-model="form.canal"
+                  :items="canalItems"
+                  label="Canal"
+                  variant="outlined"
+                  density="comfortable"
+                  prepend-inner-icon="mdi-source-branch"
+                  :disabled="!editando"
+                  :readonly="!editando"
+                />
+              </v-col>
+
+              <!-- Placa -->
+              <v-col cols="12">
+                <v-text-field
+                  v-model="form.placa"
+                  label="Placa *"
+                  variant="outlined"
+                  density="comfortable"
+                  prepend-inner-icon="mdi-card-text"
+                  :rules="editando ? [rules.required, rules.placaLength] : []"
+                  :counter="editando ? 6 : false"
+                  :maxlength="editando ? 6 : undefined"
+                  :disabled="!editando"
+                  :readonly="!editando"
+                  @input="editando ? normalizePlaca($event) : null"
+                  :hint="editando ? 'Exactamente 6 caracteres en mayúsculas' : ''"
+                  :persistent-hint="editando"
+                />
+              </v-col>
+
+              <!-- Teléfono -->
+              <v-col cols="12">
+                <v-text-field
+                  v-model="form.telefono"
+                  label="Teléfono"
+                  variant="outlined"
+                  density="comfortable"
+                  prepend-inner-icon="mdi-phone"
+                  type="tel"
+                  :disabled="!editando"
+                  :readonly="!editando"
+                />
+              </v-col>
+
+              <v-col cols="12">
+                <div class="text-body-2">
+                  <strong>Agente:</strong> {{ dateo?.agente?.nombre || '—' }}
+                  <span v-if="dateo?.agente" class="text-medium-emphasis">
+                    ({{ mapTipoCorto(dateo?.agente?.tipo) }})
+                  </span>
+                </div>
+              </v-col>
+
+              <v-col cols="12">
+                <div class="text-body-2">
+                  <strong>Convenio:</strong> {{ dateo?.convenio?.nombre || '—' }}
+                </div>
+              </v-col>
+            </v-row>
 
             <!-- Turno (solo visual) -->
             <v-divider class="my-3" />
@@ -45,7 +100,6 @@
                 S: {{ dateo?.turnoInfo?.numeroServicio ?? '—' }}
               </v-chip>
 
-              <!-- ✅ Nuevo: Servicio al ladito, igual que en la lista -->
               <v-chip
                 v-if="dateo?.turnoInfo?.servicioCodigo"
                 size="x-small"
@@ -67,6 +121,42 @@
             </div>
             <div v-else class="text-medium-emphasis">— Sin turno vinculado —</div>
           </v-card-text>
+
+          <!-- Acciones de la ficha -->
+          <v-card-actions class="px-4 pb-4 pt-0">
+            <v-spacer />
+
+            <!-- Modo lectura: botón Editar -->
+            <v-btn
+              v-if="!editando"
+              color="primary"
+              variant="tonal"
+              @click="activarEdicion"
+              prepend-icon="mdi-pencil"
+            >
+              Editar
+            </v-btn>
+
+            <!-- Modo edición: botones Guardar y Cancelar -->
+            <template v-else>
+              <v-btn
+                color="primary"
+                @click="guardar"
+                :loading="saving"
+                :disabled="!isFormValid"
+                prepend-icon="mdi-content-save"
+              >
+                Guardar
+              </v-btn>
+              <v-btn
+                variant="text"
+                @click="cancelarEdicion"
+                :disabled="saving"
+              >
+                Cancelar
+              </v-btn>
+            </template>
+          </v-card-actions>
         </v-card>
       </v-col>
 
@@ -84,16 +174,34 @@
                   label="Resultado"
                   variant="outlined"
                   density="comfortable"
+                  :disabled="!editando"
+                  :readonly="!editando"
                 />
               </v-col>
             </v-row>
           </v-card-text>
           <v-card-actions class="px-4 pb-4 pt-0">
             <v-spacer />
-            <v-btn color="primary" @click="guardar" :loading="saving" prepend-icon="mdi-content-save">
-              Guardar
-            </v-btn>
-            <v-btn color="error" variant="tonal" @click="openEliminar" prepend-icon="mdi-delete">
+
+            <template v-if="editando">
+              <v-btn
+                color="primary"
+                @click="guardar"
+                :loading="saving"
+                :disabled="!isFormValid"
+                prepend-icon="mdi-content-save"
+              >
+                Guardar
+              </v-btn>
+            </template>
+
+            <v-btn
+              color="error"
+              variant="tonal"
+              @click="openEliminar"
+              prepend-icon="mdi-delete"
+              :disabled="editando"
+            >
               Eliminar
             </v-btn>
           </v-card-actions>
@@ -108,7 +216,14 @@
           <v-card-text>
             <v-row class="g-2">
               <v-col cols="12" sm="8">
-                <v-textarea v-model="form.observacion" label="Observación" variant="outlined" rows="3" />
+                <v-textarea
+                  v-model="form.observacion"
+                  label="Observación"
+                  variant="outlined"
+                  rows="3"
+                  :disabled="!editando"
+                  :readonly="!editando"
+                />
               </v-col>
 
               <v-col cols="12" sm="4">
@@ -123,7 +238,7 @@
                   :multiple="false"
                   show-size
                   :rules="[maxSizeRule]"
-                  :disabled="uploading"
+                  :disabled="uploading || !editando"
                 />
                 <small class="text-medium-emphasis">
                   Tamaño máx. {{ MAX_IMAGE_MB }}MB. Formatos: JPG/PNG/WEBP/HEIC…
@@ -141,7 +256,7 @@
                   No hay evidencia asociada.
                 </div>
 
-                <div class="d-flex gap-1 mt-2">
+                <div v-if="editando" class="d-flex gap-1 mt-2">
                   <v-btn
                     color="primary"
                     variant="tonal"
@@ -168,9 +283,15 @@
               </v-col>
             </v-row>
           </v-card-text>
-          <v-card-actions class="px-4 pb-4 pt-0">
+          <v-card-actions v-if="editando" class="px-4 pb-4 pt-0">
             <v-spacer />
-            <v-btn color="primary" @click="guardar" :loading="saving" prepend-icon="mdi-content-save">
+            <v-btn
+              color="primary"
+              @click="guardar"
+              :loading="saving"
+              :disabled="!isFormValid"
+              prepend-icon="mdi-content-save"
+            >
               Guardar
             </v-btn>
           </v-card-actions>
@@ -199,7 +320,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount, watch } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
   getDateo,
@@ -217,7 +338,11 @@ const id = Number(route.params.id)
 
 const loading = ref<boolean>(true)
 const saving = ref<boolean>(false)
+const editando = ref<boolean>(false) // 🔥 Nuevo estado para controlar edición
 const dateo = ref<Dateo | null>(null)
+
+// Backup para cancelar edición
+const backupForm = ref<FormShape | null>(null)
 
 const resultadoItems: { title: string; value: ResultadoDateo }[] = [
   { title: 'Pendiente', value: 'PENDIENTE' },
@@ -226,9 +351,19 @@ const resultadoItems: { title: string; value: ResultadoDateo }[] = [
   { title: 'No exitoso', value: 'NO_EXITOSO' },
 ]
 
+const canalItems = [
+  { title: 'Asesor', value: 'ASESOR' },
+  { title: 'Telemercadeo', value: 'TELE' },
+  { title: 'Fachada', value: 'FACHADA' },
+  { title: 'Redes sociales', value: 'REDES' },
+]
+
 type FormShape = {
   resultado: ResultadoDateo
   observacion: string
+  placa: string
+  telefono: string
+  canal: 'ASESOR' | 'TELE' | 'FACHADA' | 'REDES'
   imagen_url: string | null
   imagen_mime?: string | null
   imagen_tamano_bytes?: number | null
@@ -239,12 +374,63 @@ type FormShape = {
 const form = ref<FormShape>({
   resultado: 'PENDIENTE',
   observacion: '',
+  placa: '',
+  telefono: '',
+  canal: 'ASESOR',
   imagen_url: null,
 })
 
 const snackbar = ref<{ visible: boolean; msg: string; color: 'error' | 'success' | 'info' }>(
   { visible: false, msg: '', color: 'error' }
 )
+
+/* ===== Validaciones ===== */
+const rules = {
+  required: (v: any) => !!v || 'Este campo es requerido',
+  placaLength: (v: any) => {
+    if (!v) return 'La placa es requerida'
+    const trimmed = v.toString().trim()
+    return trimmed.length === 6 || 'La placa debe tener exactamente 6 caracteres'
+  },
+}
+
+const isFormValid = computed(() => {
+  return form.value.placa && form.value.placa.trim().length === 6
+})
+
+/* ===== Modo Edición ===== */
+function activarEdicion() {
+  // Guardar backup
+  backupForm.value = JSON.parse(JSON.stringify(form.value))
+  editando.value = true
+}
+
+function cancelarEdicion() {
+  // Restaurar backup
+  if (backupForm.value) {
+    form.value = JSON.parse(JSON.stringify(backupForm.value))
+  }
+  editando.value = false
+
+  // Limpiar preview de imagen
+  if (previewUrl.value) {
+    URL.revokeObjectURL(previewUrl.value)
+    previewUrl.value = null
+  }
+  evidenciaModel.value = null
+  evidenciaFile.value = null
+}
+
+/* ===== Normalización de placa ===== */
+function normalizePlaca(event: Event) {
+  const input = event.target as HTMLInputElement
+  if (input && input.value) {
+    // 🔥 Forzar mayúsculas, eliminar espacios/guiones, limitar a 6 caracteres
+    const normalized = input.value.toUpperCase().replace(/[\s-]/g, '').slice(0, 6)
+    form.value.placa = normalized
+    input.value = normalized
+  }
+}
 
 /* ===== Evidencia ===== */
 const evidenciaModel = ref<File | File[] | null>(null)
@@ -284,7 +470,12 @@ function mapTipoCorto(t?: string) {
   return ''
 }
 
-/* ===== Turno helpers (visual) ===== */
+function getCanalLabel(canal: string): string {
+  const item = canalItems.find(c => c.value === canal)
+  return item ? item.title : canal
+}
+
+/* ===== Turno helpers ===== */
 function chipColorEstadoTurno(e?: string) {
   const v = String(e || '').toLowerCase()
   if (v.includes('proceso')) return 'info'
@@ -292,6 +483,7 @@ function chipColorEstadoTurno(e?: string) {
   if (v.includes('cancel')) return 'error'
   return 'warning'
 }
+
 function textoEstadoTurno(e?: string) {
   const v = String(e || '').toUpperCase()
   if (v === 'EN_PROCESO') return 'En proceso'
@@ -300,6 +492,7 @@ function textoEstadoTurno(e?: string) {
   if (v === 'ACTIVO') return 'Activo'
   return 'Pendiente'
 }
+
 function formatDateOnly(iso?: string) {
   if (!iso) return ''
   const p = iso.split('T')[0] || iso
@@ -315,19 +508,24 @@ async function load() {
     dateo.value = d
     form.value.resultado = d.resultado ?? 'PENDIENTE'
     form.value.observacion = d.observacion ?? ''
+    form.value.placa = (d.placa ?? '').toUpperCase()
+    form.value.telefono = d.telefono ?? ''
+    form.value.canal = (d.canal ?? 'ASESOR') as 'ASESOR' | 'TELE' | 'FACHADA' | 'REDES'
     form.value.imagen_url = d.imagen_url ?? null
     form.value.imagen_mime = d.imagen_mime ?? null
     form.value.imagen_tamano_bytes = d.imagen_tamano_bytes ?? null
     form.value.imagen_hash = d.imagen_hash ?? null
     form.value.imagen_origen_id = d.imagen_origen_id ?? null
 
-    // siempre que recargo desde BD, elimino cualquier preview local
     if (previewUrl.value) {
       URL.revokeObjectURL(previewUrl.value)
       previewUrl.value = null
     }
     evidenciaModel.value = null
     evidenciaFile.value = null
+
+    // Salir del modo edición después de cargar
+    editando.value = false
   } catch (e) {
     const message =
       (e as { response?: { data?: { message?: string } } }).response?.data?.message ||
@@ -339,15 +537,38 @@ async function load() {
 }
 
 async function guardar() {
+  if (!isFormValid.value) {
+    snackbar.value = {
+      visible: true,
+      msg: 'La placa debe tener exactamente 6 caracteres',
+      color: 'error'
+    }
+    return
+  }
+
   saving.value = true
   try {
-    await updateDateo(id, {
+    const payload = {
       resultado: form.value.resultado,
-      observacion: form.value.observacion,
-    })
+      observacion: form.value.observacion || null,
+      placa: form.value.placa.trim().toUpperCase(),
+      telefono: form.value.telefono || null,
+      canal: form.value.canal,
+    }
+
+    console.log('🔥 Guardando dateo con payload:', payload)
+
+    const response = await updateDateo(id, payload)
+
+    console.log('✅ Respuesta del servidor:', response)
+
+    snackbar.value = { visible: true, msg: 'Cambios guardados correctamente ✅', color: 'success' }
+
+    // Recargar datos
     await load()
-    snackbar.value = { visible: true, msg: 'Cambios guardados', color: 'success' }
+
   } catch (e) {
+    console.error('❌ Error guardando:', e)
     const message =
       (e as { response?: { data?: { message?: string } } }).response?.data?.message ||
       'No se pudo guardar'
@@ -357,7 +578,7 @@ async function guardar() {
   }
 }
 
-/* Subida + persistencia de imagen */
+/* ===== Subida de imagen ===== */
 async function uploadImagen() {
   if (!evidenciaFile.value) return
   uploading.value = true
@@ -401,8 +622,13 @@ async function subirYAplicar() {
   }
 }
 
+/* ===== Eliminar ===== */
 const dlgEliminar = ref<{ visible: boolean; loading: boolean }>({ visible: false, loading: false })
-function openEliminar() { dlgEliminar.value.visible = true }
+
+function openEliminar() {
+  dlgEliminar.value.visible = true
+}
+
 async function doEliminar() {
   dlgEliminar.value.loading = true
   try {
@@ -418,7 +644,9 @@ async function doEliminar() {
   }
 }
 
-function volver() { router.push({ name: 'ComercialDateos' }) }
+function volver() {
+  router.push({ name: 'ComercialDateos' })
+}
 
 onMounted(load)
 </script>

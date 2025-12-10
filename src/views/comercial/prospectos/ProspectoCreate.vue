@@ -33,7 +33,20 @@
             </v-col>
 
             <v-col cols="12" md="3">
-              <v-text-field v-model="form.placa" label="Placa *" variant="outlined" density="comfortable" :rules="[rReq]" hide-details="auto" clearable @update:model-value="onPlacaInput" />
+              <v-text-field
+                v-model="form.placa"
+                label="Placa *"
+                variant="outlined"
+                density="comfortable"
+                :rules="[rReq, rPlaca]"
+                hide-details="auto"
+                clearable
+                @update:model-value="onPlacaInput"
+                :counter="6"
+                :maxlength="6"
+                hint="Exactamente 6 caracteres en mayúsculas"
+                persistent-hint
+              />
             </v-col>
 
             <v-col cols="12" md="12">
@@ -236,9 +249,17 @@ const rCedula: RuleFn = (v) => {
   if (digits.length < 6 || digits.length > 10) return 'Cédula: 6-10 dígitos'
   return true
 }
+// 🔥 Nueva regla de validación para placa
+const rPlaca: RuleFn = (v) => {
+  if (!v || String(v).trim().length === 0) return 'Placa es requerida'
+  const cleaned = String(v).trim()
+  if (cleaned.length !== 6) return 'La placa debe tener exactamente 6 caracteres'
+  return true
+}
 
 function onPlacaInput(val?: string): void {
-  form.value.placa = (val || '').toUpperCase().replace(/[\s-]+/g, '')
+  // 🔥 Forzar mayúsculas, eliminar espacios/guiones, limitar a 6 caracteres
+  form.value.placa = (val || '').toUpperCase().replace(/[\s-]+/g, '').slice(0, 6)
 }
 function onTelefonoInput(val?: string): void {
   form.value.telefono = (val || '').replace(/\D+/g, '')
@@ -262,6 +283,7 @@ const canSubmit = computed<boolean>(() =>
   !!form.value.nombre?.trim() &&
   !!form.value.telefono?.trim() &&
   !!form.value.placa?.trim() &&
+  form.value.placa.trim().length === 6 &&
   !!form.value.cedula?.trim()
 )
 
@@ -273,7 +295,7 @@ async function confirmCreate(): Promise<void> {
 
 async function submit(): Promise<void> {
   if (!canSubmit.value) {
-    snackbar.value = { show: true, color: 'error', text: 'Completa los campos obligatorios.' }
+    snackbar.value = { show: true, color: 'error', text: 'Completa los campos obligatorios correctamente.' }
     return
   }
 
