@@ -1,4 +1,3 @@
-<!-- src/views/comercial/prospectos/ProspectoCreate.vue -->
 <template>
   <v-container class="py-6">
     <v-card elevation="8" class="rounded-xl">
@@ -21,17 +20,17 @@
             </v-col>
 
             <v-col cols="12" md="3">
-  <v-text-field
-    v-model="form.cedula"
-    label="Cédula *"
-    variant="outlined"
-    density="comfortable"
-    :rules="[rReq, rCedula]"
-    hide-details="auto"
-    clearable
-    @update:model-value="onCedulaInput"
-  />
-</v-col>
+              <v-text-field
+                v-model="form.cedula"
+                label="Cédula *"
+                variant="outlined"
+                density="comfortable"
+                :rules="[rReq, rCedula]"
+                hide-details="auto"
+                clearable
+                @update:model-value="onCedulaInput"
+              />
+            </v-col>
 
             <v-col cols="12" md="3">
               <v-text-field v-model="form.placa" label="Placa *" variant="outlined" density="comfortable" :rules="[rReq]" hide-details="auto" clearable @update:model-value="onPlacaInput" />
@@ -122,7 +121,7 @@
       </v-card>
     </v-dialog>
 
-    <!-- Modal de confirmación -->
+    <!-- Modal de éxito -->
     <v-dialog v-model="showSuccessDialog" max-width="500" persistent>
       <v-card>
         <v-card-title class="d-flex align-center justify-center py-6">
@@ -157,11 +156,11 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { createProspecto, asignarAsesor } from '@/services/prospectosService'
+import { createProspecto } from '@/services/prospectosService'
 
 const router = useRouter()
 const route = useRoute()
-const fromAsesor = ref<string | null>(null)
+const fromFicha = ref<string | null>(null)
 
 type Nullable<T> = T | null
 
@@ -258,52 +257,6 @@ function getUserIdFromSession(): number | null {
     return null
   }
 }
-function getAgenteIdFromSession(): number | null {
-  try {
-    const raw = sessionStorage.getItem('user')
-    if (!raw) return null
-    const u = JSON.parse(raw) as { agenteId?: unknown }
-    return typeof u?.agenteId === 'number' ? u.agenteId : null
-  } catch {
-    return null
-  }
-}
-function getToken(): string | null {
-  try {
-    return sessionStorage.getItem('token') || localStorage.getItem('token')
-  } catch {
-    return null
-  }
-}
-
-/** Builder robusto para evitar 404 por doble /api */
-function apiUrl(path: string): string | null {
-  const base = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '')
-  if (!base) return null
-  const p = path.startsWith('/') ? path : `/${path}`
-  const baseHasApi = /\/api\/?$/.test(base)
-  const pathHasApi = /^\/api(\/|$)/.test(p)
-  let finalPath = p
-  if (baseHasApi && pathHasApi) finalPath = p.replace(/^\/api/, '')
-  if (!baseHasApi && !pathHasApi) finalPath = `/api${p}`
-  return `${base}${finalPath}`
-}
-
-/** Intenta leer el agente del usuario desde la API (si existe el endpoint); si no, sesión */
-async function fetchMiAgenteId(): Promise<number | null> {
-  const url = apiUrl('/agentes-captacion/me')
-  const token = getToken()
-  if (!url || !token) return getAgenteIdFromSession()
-
-  try {
-    const r = await fetch(url, { headers: { Authorization: `Bearer ${token}` } })
-    if (!r.ok) return getAgenteIdFromSession()
-    const data = (await r.json()) as { id?: unknown }
-    return typeof data?.id === 'number' ? data.id : getAgenteIdFromSession()
-  } catch {
-    return getAgenteIdFromSession()
-  }
-}
 
 const canSubmit = computed<boolean>(() =>
   !!form.value.nombre?.trim() &&
@@ -367,22 +320,41 @@ async function submit(): Promise<void> {
 function handleConfirmSuccess() {
   showSuccessDialog.value = false
 
-  if (fromAsesor.value) {
-    router.push({
-      name: 'FichaComercialAsesor',
-      params: { id: fromAsesor.value }
-    })
-  } else {
-    router.push({ name: 'ComercialProspectos' })
+  // 🔥 Si viene de la ficha comercial, regresar allí
+  if (fromFicha.value) {
+    const resolved = router.resolve({ name: 'FichaComercialAsesor', params: { id: String(fromFicha.value) } })
+    if (resolved && resolved.matched && resolved.matched.length > 0) {
+      router.push({ name: 'FichaComercialAsesor', params: { id: String(fromFicha.value) } }).catch(() => {})
+      return
+    }
   }
-}
 
-function volver(): void {
+  // Si no, ir a la lista general
   router.push({ name: 'ComercialProspectos' }).catch(() => {})
 }
 
+function volver(): void {
+  // 🔥 Mismo comportamiento que handleConfirmSuccess pero sin dialog
+  try {
+    if (fromFicha.value) {
+      const resolved = router.resolve({ name: 'FichaComercialAsesor', params: { id: String(fromFicha.value) } })
+      if (resolved && resolved.matched && resolved.matched.length > 0) {
+        router.push({ name: 'FichaComercialAsesor', params: { id: String(fromFicha.value) } }).catch(() => {})
+        return
+      }
+    }
+  } catch (e) {
+    // silent
+  }
+
+  // fallback: historial o lista
+  router.back()
+}
+
 onMounted(() => {
-  fromAsesor.value = route.query.fromAsesor as string || null
+  // 🆕 Lectura robusta de query (puede venir string o array)
+  const q = route.query.fromFicha ?? route.query.fromAsesor
+  fromFicha.value = q ? String(q) : null
 })
 </script>
 

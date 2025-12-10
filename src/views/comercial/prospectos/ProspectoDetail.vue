@@ -32,9 +32,9 @@
                 <v-list-item-subtitle>{{ prospecto.telefono || '—' }}</v-list-item-subtitle>
               </v-list-item>
               <v-list-item>
-  <v-list-item-title class="font-weight-bold">Cédula:</v-list-item-title>
-  <v-list-item-subtitle>{{ prospecto.cedula || '—' }}</v-list-item-subtitle>
-</v-list-item>
+                <v-list-item-title class="font-weight-bold">Cédula:</v-list-item-title>
+                <v-list-item-subtitle>{{ prospecto.cedula || '—' }}</v-list-item-subtitle>
+              </v-list-item>
               <v-list-item>
                 <v-list-item-title class="font-weight-bold">Placa:</v-list-item-title>
                 <v-list-item-subtitle>{{ prospecto.placa || '—' }}</v-list-item-subtitle>
@@ -82,7 +82,7 @@
               <div class="text-h6 mb-2">👥 Propietario del prospecto</div>
               <div>
                 <strong>{{ prospecto.creador?.nombre || '—' }}</strong>
-                <span class="text-caption text-medium-emphasis" v-if="prospecto.asignacion_activa?.fecha_asignacion">
+                <span v-if="prospecto.asignacion_activa?.fecha_asignacion" class="text-caption text-medium-emphasis">
                   · asignado el {{ formatDate(prospecto.asignacion_activa?.fecha_asignacion) }}
                 </span>
               </div>
@@ -290,16 +290,38 @@ async function fetchProspecto() {
 }
 
 function goBack() {
-  router.push({ name: 'ComercialProspectos' }).catch(() => {})
+  // 🔥 Si viene de la ficha comercial, regresar allí
+  const q = route.query.fromFicha ?? route.query.fromAsesor
+  const fromFicha = q ? String(q) : null
+  if (fromFicha) {
+    const resolved = router.resolve({ name: 'FichaComercialAsesor', params: { id: String(fromFicha) } })
+    if (resolved && resolved.matched && resolved.matched.length > 0) {
+      router.push({
+        name: 'FichaComercialAsesor',
+        params: { id: String(fromFicha) }
+      }).catch(() => {})
+      return
+    }
+  }
 
+  // Si no, ir a la lista general
+  router.push({ name: 'ComercialProspectos' }).catch(() => {})
 }
+
 function irEditar() {
   const id = Number(route.params.id)
-  router.push({ name: 'ComercialProspectoEditar', params: { id } }).catch(() => {})
+  // 🆕 También pasar el origen al editar
+  const q = route.query.fromFicha ?? route.query.fromAsesor
+  const fromFicha = q ? String(q) : null
+
+  router.push({
+    name: 'ComercialProspectoEditar',
+    params: { id },
+    query: fromFicha ? { fromFicha: String(fromFicha) } : {}
+  }).catch(() => {})
 }
 
 onMounted(fetchProspecto)
-
 </script>
 
 <style scoped>

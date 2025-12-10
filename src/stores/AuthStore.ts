@@ -124,9 +124,11 @@ export const useAuthStore = defineStore('auth', {
 
       switch (rol) {
         case 'COMERCIAL':
+          // ✅ CORREGIDO: Usar agenteId en lugar de userId
+          const asesorId = userFromBackend.agenteId || userFromBackend.id
           router.push({
             name: 'FichaComercialAsesor',
-            params: { id: userFromBackend.id }
+            params: { id: asesorId }
           })
           break
 
@@ -174,9 +176,11 @@ export const useAuthStore = defineStore('auth', {
             if (currentPath === '/login' || currentPath === '/register') {
               switch (rol) {
                 case 'COMERCIAL':
+                  // ✅ CORREGIDO: Usar agenteId en lugar de userId
+                  const asesorId = this.user.agenteId || this.user.id
                   router.push({
                     name: 'FichaComercialAsesor',
-                    params: { id: this.user.id }
+                    params: { id: asesorId }
                   })
                   break
                 case 'TALENTO_HUMANO':
@@ -214,9 +218,11 @@ export const useAuthStore = defineStore('auth', {
         if (currentPath === '/login' || currentPath === '/register') {
           switch (rol) {
             case 'COMERCIAL':
+              // ✅ CORREGIDO: Usar agenteId en lugar de userId
+              const asesorId = this.user.agenteId || this.user.id
               router.push({
                 name: 'FichaComercialAsesor',
-                params: { id: this.user.id }
+                params: { id: asesorId }
               })
               break
             case 'TALENTO_HUMANO':

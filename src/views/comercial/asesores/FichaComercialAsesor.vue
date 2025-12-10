@@ -257,6 +257,7 @@
       color="primary"
       prepend-icon="mdi-plus-circle"
       @click="irACrearProspecto"
+      v-if="puedeCrearProspecto"
     >
       Crear prospecto
     </v-btn>
@@ -377,6 +378,7 @@
       color="primary"
       prepend-icon="mdi-plus-circle"
       @click="irACrearDateo"
+      v-if="puedeCrearDateo"
     >
       Crear dateo
     </v-btn>
@@ -634,8 +636,8 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { get } from '@/services/http'
-// ✅ AGREGA estos dos imports NUEVOS:
-import { getMiFicha } from '@/services/asesoresService'
+// ✅ Imports necesarios
+import { getMiFicha, getAsesorById } from '@/services/asesoresService'
 import { useAuthStore } from '@/stores/AuthStore'
 import { listDateos, type Dateo, formatDateTime } from '@/services/dateosService'
 import {
@@ -671,14 +673,36 @@ type Convenio = {
   vigencia_hasta?: string | null
 }
 
-// ✅ REEMPLÁZALO por:
+// 🔥 CORRECCIÓN 1: Obtener asesorId dinámicamente según contexto
 const router = useRouter()
 const route = useRoute()
 const authStore = useAuthStore()
 const API = '/api'
 
-// 🔥 Obtener el agenteId del usuario autenticado
-const asesorId = computed(() => authStore.currentAgenteId || 0)
+const asesorId = computed(() => {
+  // 1️⃣ Si hay ID en la ruta → usarlo (gerencia/admin viendo ficha de otro)
+  if (route.params.id) return Number(route.params.id)
+
+  // 2️⃣ Si no, usar el del usuario autenticado (comercial viendo su propia ficha)
+  return authStore.currentAgenteId || 0
+})
+
+// 🔥 CORRECCIÓN 2: Permisos para crear dateos/prospectos
+const puedeCrearDateo = computed(() => {
+  // SUPER_ADMIN puede crear en cualquier ficha
+  if (authStore.isSuperAdmin) return true
+
+  // COMERCIAL solo puede crear en su propia ficha
+  return authStore.isComercial && asesorId.value === authStore.currentAgenteId
+})
+
+const puedeCrearProspecto = computed(() => {
+  // SUPER_ADMIN puede crear en cualquier ficha
+  if (authStore.isSuperAdmin) return true
+
+  // COMERCIAL solo puede crear en su propia ficha
+  return authStore.isComercial && asesorId.value === authStore.currentAgenteId
+})
 
 /* ===== Estado principal ===== */
 const asesor = ref<Asesor | null>(null)
@@ -926,21 +950,18 @@ function getComisionPorRolParaDateo(dateoId: number): number {
         convenioDelAsesor.value &&
         c.convenio.id === convenioDelAsesor.value.id
 
-            const esAsesorQueDateo = c.asesor?.id === asesorId.value
-
+      const esAsesorQueDateo = c.asesor?.id === asesorId.value
 
       let total = 0
 
       // Cuando otros usan su convenio → solo la parte de convenio
       if (esConvenioDelAsesor) {
         total += montoConvenio
-        console.log(`💰 Convenio del asesor ${asesorId}: +${montoConvenio}`)
       }
 
       // Cuando él mismo datea → además se suma la parte de asesor
       if (esAsesorQueDateo) {
         total += montoAsesor
-        console.log(`💰 Asesor que datea ${asesorId}: +${montoAsesor}`)
       }
 
       return sum + total
@@ -1177,31 +1198,78 @@ function normalizeAsesor(raw: any): Asesor | null {
   }
 }
 
-// ✅ REEMPLÁZALA completamente por:
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
+// 🔥 CORRECCIÓN 3: Usar endpoint correcto según rol
 async function fetchAsesor(id: number) {
   try {
-    // ✅ Usar siempre el ID de la ruta (funciona para todos los roles)
-    const r = await get<any>(`${API}/agentes-captacion/${id}`)
-    if (r) return normalizeAsesor(r)
+    // Si soy COMERCIAL y estoy viendo MI propia ficha → usar /me
+    if (authStore.isComercial && id === authStore.currentAgenteId) {
+      const r = await getMiFicha()
+      if (r) return normalizeAsesor(r)
+    } else {
+      // Si soy GERENCIA/ADMIN viendo ficha de otro → usar /agentes-captacion/:id
+      const r = await getAsesorById(id)
+      if (r) return normalizeAsesor(r)
+    }
   } catch (e) {
     console.error('Error al cargar asesor:', e)
   }
   return null
 }
 
+/** Calcula vigente desde una fecha si falta el flag */
+function computeVigenteFromDate(flag: unknown, venc: unknown): boolean | null {
+  if (flag === true || flag === false) return flag as boolean
+  if (!venc) return null
+  const d = new Date(typeof venc === 'string' ? venc : String(venc))
+  if (isNaN(d.getTime())) return null
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  d.setHours(0, 0, 0, 0)
+  return d.getTime() >= today.getTime()
+}
+
+/** Normaliza claves y completa flags desde vencimientos */
+function normalizeProspecto(p: Record<string, unknown>) {
+  const soat_venc = (p.soat_vencimiento ?? p.soatVencimiento ?? null) as string | null
+  const tecno_venc = (p.tecno_vencimiento ?? p.tecnoVencimiento ?? null) as string | null
+  const soat_flag = computeVigenteFromDate(p.soat_vigente ?? p.soatVigente, soat_venc)
+  const tecno_flag = computeVigenteFromDate(p.tecno_vigente ?? p.tecnoVigente, tecno_venc)
+
+  const prev_venc =
+    (p.preventiva_vencimiento ?? p.preventivaVencimiento ?? null) as string | null
+  const prev_flag = computeVigenteFromDate(
+    p.preventiva_vigente ?? p.preventivaVigente,
+    prev_venc,
+  )
+
+  const peri_fecha =
+    (p.peritaje_ultima_fecha ?? p.peritajeUltimaFecha ?? null) as string | null
+
+  const created = (p.created_at ?? p.createdAt ?? (p as any).asignacion_activa?.fecha_asignacion ?? null) as string | null
+
+  return {
+    ...p,
+    soat_vigente: soat_flag,
+    tecno_vigente: tecno_flag,
+    soat_vencimiento: soat_venc,
+    tecno_vencimiento: tecno_venc,
+    preventiva_vigente: prev_flag,
+    preventiva_vencimiento: prev_venc,
+    peritaje_ultima_fecha: peri_fecha,
+    created_at: created,
+    updated_at: (p.updated_at ?? p.updatedAt ?? null) as string | null,
+  }
+}
+
 async function fetchProspectos(id: number) {
   const res = await listProspectos({
     page: 1,
     perPage: 500,
-    asesorId: asesorId.value,
+    asesorId: id,
     sortBy: 'updated_at',
     order: 'desc',
   })
-  return res.data.map((p) => {
-    const created = p.created_at || p.createdAt || p.asignacion_activa?.fecha_asignacion || null
-    return { ...p, created_at: created } as ProspectoDetail
-  })
+  return res.data.map((p) => normalizeProspecto(p as unknown as Record<string, unknown>)) as ProspectoDetail[]
 }
 
 async function fetchConvenios(id: number) {
@@ -1214,10 +1282,6 @@ async function fetchConvenios(id: number) {
   }
   return []
 }
-
-/* ==== CORREGIDO: unir dateos del asesor-convenio (agente + convenios) ==== */
-
-/* ==== CORREGIDO: unir dateos del asesor-convenio (agente + convenios) ==== */
 
 async function fetchDateosUnionAsesorYConvenio(opts: {
   asesor: Asesor | null
@@ -1260,30 +1324,20 @@ async function fetchDateosUnionAsesorYConvenio(opts: {
 
   // 2️⃣ Como CONVENIO - buscar el convenio directamente por nombre EXACTO
   try {
-    // ✅ USAR ENDPOINT DE BÚSQUEDA EXACTA (igual que en fetchComisiones)
     const resConvenio = await get<any>(
       `${API}/convenios/buscar-por-nombre?nombre=${encodeURIComponent(a.nombre)}`
     )
 
     if (resConvenio && resConvenio.id) {
-      console.log('🎯 Convenio encontrado por nombre para dateos:', resConvenio)
       calls.push(fetchByConvenio(Number(resConvenio.id)))
-    } else {
-      console.warn('⚠️ No se encontró convenio con el nombre:', a.nombre)
     }
   } catch (e: any) {
-    // Si es 404, es normal (no todos los asesores convenio tienen convenio)
     if (e?.response?.status !== 404) {
       console.error('❌ Error buscando convenio por nombre:', e)
     }
   }
 
   const results = await Promise.all(calls)
-
-  // 🧪 DEBUG: Ver qué trae cada llamada
-  console.log('🔍 Dateos como AGENTE:', results[0])
-  console.log('🔍 Dateos como CONVENIO:', results[1] || [])
-  console.log('🔍 ID del asesor convenio:', a.id)
 
   // Unir sin duplicados por id
   const map = new Map<number, Dateo>()
@@ -1294,50 +1348,37 @@ async function fetchDateosUnionAsesorYConvenio(opts: {
     }
   }
 
-  const final = Array.from(map.values()).sort((a: any, b: any) => Number(b.id) - Number(a.id))
-  console.log('🔍 Dateos UNIDOS (final):', final)
-
-  return final
+  return Array.from(map.values()).sort((a: any, b: any) => Number(b.id) - Number(a.id))
 }
-/* ===== Comisiones (comercial vs convenio) - CORREGIDO ===== */
+
 async function fetchComisiones(id: number) {
   const esConvenioLocal =
     asesor.value && normalizeTipoAgente(asesor.value.tipo).includes('CONVENIO')
 
   if (!esConvenioLocal) {
-    // Comercial: solo por asesorId
     const res = await listComisiones({ asesorId: id, perPage: 500 })
     return res.data as ComisionListItem[]
   }
 
-  // ✅ ASESOR CONVENIO: buscar en AMBOS roles
-
-  // 1️⃣ Por asesorId (cuando él datea)
   const porAsesor = await listComisiones({ asesorId: id, perPage: 500 }).then(
     (r) => r.data as ComisionListItem[],
   )
 
-  // 2️⃣ Por convenioId (cuando otros lo usan como convenio)
   let porConvenio: ComisionListItem[] = []
 
   try {
-    // ✅ USAR ENDPOINT DE BÚSQUEDA EXACTA
     const resConvenio = await get<any>(
       `${API}/convenios/buscar-por-nombre?nombre=${encodeURIComponent(asesor.value!.nombre)}`,
     )
 
     if (resConvenio && resConvenio.id) {
-  console.log('🎯 Convenio encontrado para comisiones:', resConvenio)
+      convenioDelAsesor.value = { id: resConvenio.id, nombre: resConvenio.nombre }
 
-  // 🆕 GUARDAR el convenio para usarlo en getComisionPorRolParaDateo()
-  convenioDelAsesor.value = { id: resConvenio.id, nombre: resConvenio.nombre }
-
-  const resComisiones = await listComisiones({
+      const resComisiones = await listComisiones({
         convenioId: Number(resConvenio.id),
         perPage: 500,
       })
       porConvenio = resComisiones.data as ComisionListItem[]
-      console.log('💰 Comisiones como convenio:', porConvenio)
     }
   } catch (e: any) {
     if (e?.response?.status !== 404) {
@@ -1345,21 +1386,16 @@ async function fetchComisiones(id: number) {
     }
   }
 
-  // 3️⃣ Unir sin duplicados
   const map = new Map<number, ComisionListItem>()
   for (const c of [...porAsesor, ...porConvenio]) {
     if (!c || c.id == null) continue
     map.set(Number(c.id), c)
   }
 
-  const final = Array.from(map.values())
-  console.log('💰 Total comisiones unidas:', final.length)
-
-  return final
+  return Array.from(map.values())
 }
 
 async function fetchPagos(_id: number) {
-  // TODO: backend de pagos por asesor
   return []
 }
 
@@ -1368,45 +1404,36 @@ async function loadAll() {
   loading.value = true
   globalError.value = null
   try {
-    // 1) Traer asesor primero (necesitamos su tipo)
-       const a = await fetchAsesor(asesorId.value)
-
+    const a = await fetchAsesor(asesorId.value)
     asesor.value = a
 
-    // 2) Cargar convenios tanto para COMERCIAL como para CONVENIO
-    //    (aunque a los convenios no se les muestre la pestaña, sí se usan
-    //     para unir los dateos donde aparecen como convenio)
     let c: Convenio[] = []
     if (asesor.value && (esAsesorComercial.value || esAsesorConvenio.value)) {
       c = await fetchConvenios(asesorId.value)
     }
     convenios.value = Array.isArray(c) ? c : []
 
-    // 3) Dateos: comercial → por agente; convenio → unión (agente + convenios)
     const d = await fetchDateosUnionAsesorYConvenio({
       asesor: asesor.value,
       convenios: convenios.value,
     })
     dateos.value = Array.isArray(d) ? d : []
 
-    // 4) Prospectos, Pagos, Comisiones
     const [p, pg, cm] = await Promise.all([
-  fetchProspectos(asesorId.value),
-  fetchPagos(asesorId.value),
-  fetchComisiones(asesorId.value)
-])
+      fetchProspectos(asesorId.value),
+      fetchPagos(asesorId.value),
+      fetchComisiones(asesorId.value)
+    ])
     prospectos.value = Array.isArray(p) ? p : []
     pagos.value = Array.isArray(pg) ? pg : []
     comisiones.value = Array.isArray(cm) ? cm : []
 
-    // 5) Metas solo si es comercial
     if (asesor.value && esAsesorComercial.value) {
       await loadMetasAsesor()
     } else {
       metasRows.value = []
     }
 
-    // 6) KPIs base (con dateos ya unificados)
     const desde = new Date(filtros.value.desde + 'T00:00:00')
     const hasta = new Date(filtros.value.hasta + 'T23:59:59')
 
@@ -1417,7 +1444,6 @@ async function loadAll() {
     })
     const exitosos = dateosEnRango.filter((x) => isExitoso(x))
 
-    // 🆕 Usar la lógica centralizada
     const montoGenerado = await calcularMontoGenerado(exitosos)
     const pagosTotal = pagos.value.reduce((acc, it) => acc + (Number(it.valor) || 0), 0)
 
@@ -1439,9 +1465,8 @@ function reload() {
   loadAll()
 }
 
-/* Recalcular cuando se carguen/varíen convenios en asesores de tipo convenio */
 watch(
-  () => convenios.value.map((c) => c.id).join(','), // dependemos de ids de convenios asignados
+  () => convenios.value.map((c) => c.id).join(','),
   async () => {
     if (asesor.value && esAsesorConvenio.value) {
       const d = await fetchDateosUnionAsesorYConvenio({
@@ -1462,40 +1487,63 @@ watch(
       })
       const exitosos = dEnRango.filter((x) => isExitoso(x))
 
-      // 🔁 Igual que en loadAll: usar la lógica centralizada
       kpi.value.montoGenerado = exitosos.reduce(
         (acc: number, it: any) => acc + getComisionPorRolParaDateo(it.id),
         0,
       )
-      // El resto (prospectos/pagos) ya está cargado
     }
   },
 )
 
-onMounted(() => {
-  loadAll()
+onMounted(async () => {
+  // ✅ Solo esperar si es COMERCIAL SIN route.params.id
+  if (authStore.isComercial && !route.params.id) {
+    let intentos = 0
+    const maxIntentos = 10
+
+    while (!authStore.currentAgenteId && intentos < maxIntentos) {
+      console.log(`⏳ Esperando currentAgenteId... intento ${intentos + 1}/${maxIntentos}`)
+      await new Promise(resolve => setTimeout(resolve, 100))
+      intentos++
+    }
+
+    if (!authStore.currentAgenteId) {
+      console.error('❌ No se pudo obtener currentAgenteId')
+      globalError.value = 'No se pudo cargar tu información de asesor. Por favor, refresca la página.'
+      loading.value = false
+      return
+    }
+
+    console.log(`✅ currentAgenteId disponible: ${authStore.currentAgenteId}`)
+  }
+
+  await loadAll()
 })
 
 /* ===== Navegación extra ===== */
 function verProspecto(id: number) {
-  router.push({ name: 'ComercialProspectoDetalle', params: { id } }).catch(() => {})
+  router.push({
+    name: 'ComercialProspectoDetalle',
+    params: { id },
+    query: { fromFicha: String(asesorId.value) }
+  }).catch(() => {})
 }
+
 function irACrearDateo() {
   router.push({
     name: 'ComercialDateosNuevo',
-    query: { fromAsesor: String(asesorId.value) }  // ✅ Agregar .value
+    query: { fromFicha: String(asesorId.value) }
   }).catch(() => {})
 }
 
 function irACrearProspecto() {
   router.push({
     name: 'ComercialProspectoNuevo',
-    query: { fromAsesor: String(asesorId.value) }  // ✅ Agregar .value
+    query: { fromFicha: String(asesorId.value) }
   }).catch(() => {})
 }
 
-/* ===== Exportar CSV (dateos) - MEJORADO ===== */
-/* ===== Exportar CSV (dateos) - MEJORADO con delimitador correcto ===== */
+/* ===== Exportar CSV (dateos) ===== */
 function getMontoDateo(d: Dateo) {
   return getComisionPorRolParaDateo((d as any).id)
 }
@@ -1521,7 +1569,6 @@ function exportCsv(soloExitosos: boolean) {
     ? dateosFiltrados.value.filter((d) => isExitoso(d))
     : dateosFiltrados.value
 
-  // 🔄 Ordenar por ID descendente (más recientes primero)
   const sortedRows = [...baseRows].sort((a: any, b: any) => Number(b.id) - Number(a.id))
 
   const rows = sortedRows.map((d: any) => ({
@@ -1534,7 +1581,6 @@ function exportCsv(soloExitosos: boolean) {
     fecha_creacion: formatFechaCSV(d.created_at),
   }))
 
-  // 📋 Encabezados legibles en español
   const headersDisplay = [
     'ID',
     'Placa',
@@ -1555,10 +1601,8 @@ function exportCsv(soloExitosos: boolean) {
     'fecha_creacion'
   ]
 
-  // ✅ Usar punto y coma (;) como delimitador para Excel en español
   const delimiter = ';'
 
-  // ✅ Construir CSV con BOM para UTF-8 (soporte Excel)
   const BOM = '\uFEFF'
   const csv = BOM + [
     headersDisplay.join(delimiter),
@@ -1570,7 +1614,6 @@ function exportCsv(soloExitosos: boolean) {
   const a = document.createElement('a')
   a.href = url
 
-  // 📅 Nombre de archivo con fecha y hora
   const now = new Date()
   const fechaHora = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}_${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}`
   const tag = soloExitosos ? 'exitosos' : 'todos'
@@ -1583,9 +1626,7 @@ function exportCsv(soloExitosos: boolean) {
 
 function csvEscape(val: unknown) {
   const s = String(val ?? '')
-  // Reemplazar punto y coma por espacio si existe en el valor
   const cleaned = s.replace(/;/g, ' ')
-  // Si contiene comillas o saltos de línea, escapar
   if (/["\r\n]/.test(cleaned)) return `"${cleaned.replace(/"/g, '""')}"`
   return cleaned
 }
@@ -1638,7 +1679,6 @@ function csvEscape(val: unknown) {
   margin-top: 2px;
 }
 
-/* Ensancha columnas de documentos en la tabla de prospectos */
 :deep(th[data-key='soat']),
 :deep(td[data-key='soat']),
 :deep(th[data-key='tecno']),
@@ -1650,7 +1690,6 @@ function csvEscape(val: unknown) {
   min-width: 132px;
 }
 
-/* Ajustes de densidad en tablas */
 :deep(table.v-table) {
   font-size: 0.92rem;
 }
@@ -1659,12 +1698,10 @@ function csvEscape(val: unknown) {
   padding-inline: 8px !important;
 }
 
-/* Botones pequeños dentro de tarjetas/dialogs */
 :deep(.v-card .v-btn.v-btn--size-small) {
   letter-spacing: 0.2px;
 }
 
-/* Soporte para cards de KPIs en pantallas muy pequeñas */
 @media (max-width: 360px) {
   .kpi-value {
     font-size: 1.2rem;
@@ -1674,4 +1711,3 @@ function csvEscape(val: unknown) {
   }
 }
 </style>
-
