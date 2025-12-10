@@ -585,10 +585,11 @@ async function loadCatalogos() {
 }
 
 onMounted(() => {
-  const q = route.query.fromAsesor as string | undefined
+  const q = route.query.fromFicha as string | undefined
   fromAsesor.value = q ? Number(q) : null
   loadCatalogos()
 })
+
 </script>
 
 <style scoped>
