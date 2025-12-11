@@ -3,11 +3,15 @@
 import { ref, onMounted } from 'vue'
 import { authSetStore } from '@/stores/AuthStore'
 import { useRouter } from 'vue-router'
+import { useDrawer } from '@/composables/useDrawer'
+import { useDisplay } from 'vuetify'
 import ActivautosLogo from '@/assets/activautos-logo.png'
 import CdaLogo from '@/assets/cda-centro-logo-amarillo.png'
 
 const authStore = authSetStore()
 const router = useRouter()
+const { toggleDrawer } = useDrawer()
+const { smAndDown, xs } = useDisplay()
 
 const showLogoutConfirm = ref(false)
 const logoutLoading = ref(false)
@@ -36,13 +40,23 @@ const confirmLogout = async () => {
 
 <template>
   <v-toolbar class="app-navbar" flat>
-    <!-- Logos izquierda (grandes, como antes) -->
-    <div class="logo-contenedor">
+    <!-- Botón hamburguesa solo en móvil -->
+    <v-btn
+      v-if="smAndDown"
+      icon="mdi-menu"
+      class="menu-btn"
+      variant="text"
+      size="small"
+      @click="toggleDrawer"
+    />
+
+    <!-- Logos izquierda (ocultos en móvil) -->
+    <div v-if="!smAndDown" class="logo-contenedor">
       <v-img
         :src="CdaLogo"
         alt="Logo CDA"
         width="140"
-        max-height="160"
+        max-height="60"
         contain
         class="logo-img mr-2"
       />
@@ -50,19 +64,19 @@ const confirmLogout = async () => {
         :src="ActivautosLogo"
         alt="Logo Activautos"
         width="160"
-        max-height="150"
+        max-height="50"
         contain
         class="logo-img"
       />
     </div>
 
-    <!-- Título centrado -->
-    <v-toolbar-title class="titulo-centrado">
+    <!-- Título - Ajustado para móvil -->
+    <div class="titulo-contenedor" :class="{ 'titulo-movil': xs }">
       <span class="titulo-saludo">PANEL DE OPERACIÓN DIARIA</span>
       <span class="titulo-usuario">
         Bienvenido, <strong>{{ authStore.user?.nombres || 'Usuario' }}</strong>
       </span>
-    </v-toolbar-title>
+    </div>
 
     <v-spacer />
 
@@ -71,6 +85,7 @@ const confirmLogout = async () => {
       icon="mdi-export"
       class="logout-btn"
       variant="text"
+      :size="xs ? 'small' : 'default'"
       @click="handleLogout"
     />
 
@@ -112,81 +127,106 @@ const confirmLogout = async () => {
   left: 0;
   right: 0;
 
-  /* Azul corporativo */
   background-color: #0052cc;
   color: #ffffff;
 
-  /* Altura similar a la que tenías antes */
-  min-height: 65px;
-  height: 65px;
+  min-height: 56px;
+  height: 56px;
 
-  /* Detalle amarillo inferior */
   border-bottom: 4px solid #ffca28;
 
-  padding-inline: 20px;
-  z-index: 1000;
+  padding-inline: 8px;
+  z-index: 1001;
 }
 
-/* Logos alineados a la izquierda */
+@media (min-width: 600px) {
+  .app-navbar {
+    min-height: 64px;
+    height: 64px;
+    padding-inline: 20px;
+  }
+}
+
+/* Botón menú hamburguesa */
+.menu-btn {
+  color: #ffffff !important;
+  margin-right: 8px;
+}
+.menu-btn:hover {
+  background-color: rgba(255, 255, 255, 0.16);
+}
+
+/* Logos */
 .logo-contenedor {
   display: flex;
   align-items: center;
-  gap: 1 px;
+  gap: 12px;
 }
 
 .logo-img {
   filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.2));
 }
 
-/* Título centrado */
-.titulo-centrado {
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
+/* Título - Versión móvil y desktop */
+.titulo-contenedor {
   display: flex;
   flex-direction: column;
   align-items: center;
   text-align: center;
   gap: 2px;
-  pointer-events: none;
+  flex: 1;
+  min-width: 0; /* Importante para evitar overflow */
+}
+
+/* Móvil: título a la izquierda después del botón hamburguesa */
+.titulo-movil {
+  align-items: flex-start;
+  text-align: left;
+  margin-left: 8px;
 }
 
 .titulo-saludo {
-  font-size: 0.8rem;
-  letter-spacing: 0.16em;
+  font-size: 0.55rem;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   opacity: 0.9;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
 }
 
 .titulo-usuario {
-  font-size: 0.9rem;
+  font-size: 0.7rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+@media (min-width: 600px) {
+  .titulo-contenedor {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+  }
+
+  .titulo-saludo {
+    font-size: 0.8rem;
+    letter-spacing: 0.16em;
+  }
+
+  .titulo-usuario {
+    font-size: 0.9rem;
+  }
 }
 
 /* Botón de logout */
 .logout-btn {
   color: #ffffff !important;
+  flex-shrink: 0;
 }
 .logout-btn:hover {
   background-color: rgba(255, 255, 255, 0.16);
-}
-
-/* Ajustes en pantallas pequeñas */
-@media (max-width: 960px) {
-  .app-navbar {
-    height: 60px;
-    min-height: 60px;
-  }
-
-  .logo-contenedor {
-    gap: 8px;
-  }
-
-  .titulo-saludo {
-    font-size: 0.7rem;
-  }
-
-  .titulo-usuario {
-    font-size: 0.8rem;
-  }
 }
 </style>

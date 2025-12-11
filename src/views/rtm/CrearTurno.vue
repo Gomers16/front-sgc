@@ -1,40 +1,49 @@
-<!-- src/views/CrearTurno.vue -->
 <template>
-  <v-container class="mt-6">
-    <v-card elevation="8" class="pa-0 rounded-2xl card-surface">
+  <v-container class="mt-4 mt-sm-6">
+    <v-card elevation="8" class="pa-0 rounded-xl rounded-sm-2xl card-surface">
       <!-- Header corporativo -->
-      <div class="card-header px-6 py-5">
+      <div class="card-header px-4 px-sm-6 py-3 py-sm-5">
         <div class="header-left">
-          <div class="icon-pill">
+          <div class="icon-pill d-none d-sm-inline-flex">
             <v-icon size="22">mdi-clipboard-text-outline</v-icon>
           </div>
           <div class="title-group">
-            <h2 class="title">Crear Turno</h2>
-            <p class="subtitle">Registra un nuevo turno con los datos mínimos requeridos</p>
+            <h2 class="title text-h6 text-sm-h5">Crear Turno</h2>
+            <p class="subtitle d-none d-sm-block">Registra un nuevo turno con los datos mínimos requeridos</p>
           </div>
         </div>
 
-        <div class="d-flex align-center" style="gap:10px">
-          <v-chip class="turno-chip" size="large" variant="elevated" prepend-icon="mdi-counter">
-            Global: {{ turnoNumeroGlobalNext ?? '...' }}
+        <div class="d-flex align-center flex-wrap" style="gap:6px">
+          <v-chip
+            class="turno-chip"
+            :size="$vuetify.display.xs ? 'small' : 'default'"
+            variant="elevated"
+            prepend-icon="mdi-counter"
+          >
+            <span class="d-none d-sm-inline">Global: </span>{{ turnoNumeroGlobalNext ?? '...' }}
           </v-chip>
-          <v-chip class="turno-chip" size="large" variant="elevated" prepend-icon="mdi-counter">
+          <v-chip
+            class="turno-chip"
+            :size="$vuetify.display.xs ? 'small' : 'default'"
+            variant="elevated"
+            prepend-icon="mdi-counter"
+          >
             {{ servicioCodigoActual || 'SERV' }}: {{ turnoNumeroServicioNext ?? '...' }}
           </v-chip>
         </div>
       </div>
 
-      <v-divider class="mx-6 divider-muted" />
+      <v-divider class="mx-4 mx-sm-6 divider-muted" />
 
-      <div class="pa-8">
+      <div class="pa-4 pa-sm-6 pa-md-8">
         <!-- 🔎 BARRA DE BÚSQUEDA -->
-        <v-row class="mb-4" align="end" dense>
+        <v-row class="mb-3 mb-sm-4" align="end" dense>
           <v-col cols="12" sm="4">
             <v-text-field
               v-model="form.placa"
               label="Buscar por Placa"
               variant="outlined"
-              density="comfortable"
+              :density="$vuetify.display.xs ? 'compact' : 'comfortable'"
               prepend-inner-icon="mdi-car-search"
               @input="(e) => { onPlacaInput(e); }"
               @keydown.enter="doSearch(true)"
@@ -48,7 +57,7 @@
               v-model="telefonoBusqueda"
               label="Buscar por Teléfono"
               variant="outlined"
-              density="comfortable"
+              :density="$vuetify.display.xs ? 'compact' : 'comfortable'"
               prepend-inner-icon="mdi-phone-search"
               @keydown.enter="doSearch(true)"
               :disabled="buscando"
@@ -60,6 +69,8 @@
             <v-btn
               color="primary"
               class="font-weight-bold"
+              :block="$vuetify.display.xs"
+              :size="$vuetify.display.xs ? 'small' : 'default'"
               :loading="buscando"
               @click="doSearch(true)"
             >
@@ -69,11 +80,13 @@
             <v-btn
               color="grey-darken-1"
               variant="outlined"
+              :block="$vuetify.display.xs"
+              :size="$vuetify.display.xs ? 'small' : 'default'"
               @click="resetBusqueda"
               :disabled="buscando"
             >
               <v-icon left>mdi-broom</v-icon>
-              Limpiar búsqueda
+              <span class="d-none d-sm-inline">Limpiar</span>
             </v-btn>
           </v-col>
         </v-row>
@@ -83,7 +96,8 @@
           v-if="noResultados"
           type="info"
           variant="tonal"
-          class="mb-4"
+          class="mb-3 mb-sm-4"
+          :density="$vuetify.display.xs ? 'compact' : 'default'"
           :text="mensajeNoResultados"
         />
 
@@ -98,7 +112,7 @@
                 label="Servicio"
                 variant="outlined"
                 required
-                density="compact"
+                :density="$vuetify.display.xs ? 'compact' : 'comfortable'"
                 hide-details
                 prepend-inner-icon="mdi-wrench-cog"
                 class="servicio-fit"
@@ -113,7 +127,7 @@
                 label="Fecha"
                 variant="outlined"
                 readonly
-                density="comfortable"
+                :density="$vuetify.display.xs ? 'compact' : 'comfortable'"
                 prepend-inner-icon="mdi-calendar"
               />
             </v-col>
@@ -123,7 +137,7 @@
                 label="Hora de Ingreso"
                 variant="outlined"
                 readonly
-                density="comfortable"
+                :density="$vuetify.display.xs ? 'compact' : 'comfortable'"
                 prepend-inner-icon="mdi-clock-time-four-outline"
               />
             </v-col>
@@ -135,7 +149,7 @@
                 label="Placa del Vehículo"
                 variant="outlined"
                 required
-                density="comfortable"
+                :density="$vuetify.display.xs ? 'compact' : 'comfortable'"
                 prepend-inner-icon="mdi-car-info"
                 @input="onPlacaInput"
                 :rules="[v => !!v || 'La placa es requerida']"
@@ -150,7 +164,7 @@
                 label="Tipo de Vehículo"
                 variant="outlined"
                 required
-                density="comfortable"
+                :density="$vuetify.display.xs ? 'compact' : 'comfortable'"
                 prepend-inner-icon="mdi-car-multiple"
                 :rules="[v => !!v || 'El tipo de vehículo es requerido']"
               />
@@ -164,7 +178,7 @@
                 label="¿Cómo nos conoció?"
                 variant="outlined"
                 required
-                density="comfortable"
+                :density="$vuetify.display.xs ? 'compact' : 'comfortable'"
                 prepend-inner-icon="mdi-account-question"
                 :rules="[v => !!v || 'Este campo es requerido']"
               />
@@ -177,20 +191,20 @@
                   v-model="form.asesorNombre"
                   label="Nombre del Asesor"
                   variant="outlined"
-                  density="comfortable"
+                  :density="$vuetify.display.xs ? 'compact' : 'comfortable'"
                   prepend-inner-icon="mdi-account-tie"
                   :rules="[v => !!v || 'El nombre del asesor es requerido']"
                 />
               </v-col>
             </template>
 
-            <!-- 👇 Panel “Datos detectados” SOLO si hay resultados -->
+            <!-- 👇 Panel "Datos detectados" SOLO si hay resultados -->
             <v-col cols="12" v-if="hasBusqueda">
-              <v-card variant="tonal" class="pa-4 rounded-xl">
-                <div class="d-flex align-center justify-space-between mb-3">
-                  <div class="d-flex align-center" style="gap:10px">
-                    <v-icon>mdi-magnify</v-icon>
-                    <strong>Datos detectados</strong>
+              <v-card variant="tonal" class="pa-3 pa-sm-4 rounded-xl">
+                <div class="d-flex align-center justify-space-between mb-2 mb-sm-3">
+                  <div class="d-flex align-center" style="gap:8px">
+                    <v-icon :size="$vuetify.display.xs ? 18 : 20">mdi-magnify</v-icon>
+                    <strong class="text-caption text-sm-body-2">Datos detectados</strong>
                     <v-progress-circular v-if="buscando" indeterminate size="18" class="ml-2" />
                   </div>
 
@@ -199,23 +213,25 @@
                     v-if="captacionChipText"
                     color="primary"
                     variant="elevated"
+                    :size="$vuetify.display.xs ? 'x-small' : 'small'"
                     prepend-icon="mdi-bullhorn"
                   >
-                    {{ captacionChipText }}
+                    <span class="text-caption">{{ captacionChipText }}</span>
                   </v-chip>
                 </div>
 
                 <!-- 💙 FILA CHIPS: CONVENIO / ASESOR / ÚLTIMA VISITA -->
-                <div class="d-flex flex-wrap mb-3" style="gap:8px">
+                <div class="d-flex flex-wrap mb-2 mb-sm-3" style="gap:6px">
                   <!-- Convenio detectado (sin SIN-COD) -->
                   <v-chip
                     v-if="convenioDetectado"
                     color="deep-purple-accent-4"
                     class="text-white"
                     variant="elevated"
+                    :size="$vuetify.display.xs ? 'x-small' : 'small'"
                     prepend-icon="mdi-file-document-outline"
                   >
-                    Convenio: {{ formatConvenioChip(convenioDetectado) }}
+                    <span class="text-caption">Convenio: {{ formatConvenioChip(convenioDetectado) }}</span>
                   </v-chip>
 
                   <!-- Asesor asignado (sin el texto 'Asesor convenio') -->
@@ -224,9 +240,10 @@
                     color="indigo"
                     class="text-white"
                     variant="elevated"
+                    :size="$vuetify.display.xs ? 'x-small' : 'small'"
                     prepend-icon="mdi-account-tie"
                   >
-                    {{ asesorAsignadoLabel }}
+                    <span class="text-caption">{{ asesorAsignadoLabel }}</span>
                   </v-chip>
 
                   <!-- Última visita -->
@@ -235,9 +252,10 @@
                     color="teal"
                     class="text-white"
                     variant="elevated"
+                    :size="$vuetify.display.xs ? 'x-small' : 'small'"
                     prepend-icon="mdi-calendar-clock"
                   >
-                    {{ ultimaVisitaChip }}
+                    <span class="text-caption">{{ ultimaVisitaChip }}</span>
                   </v-chip>
                 </div>
 
@@ -249,7 +267,7 @@
                       label="Clase (detectada)"
                       readonly
                       variant="outlined"
-                      density="comfortable"
+                      :density="$vuetify.display.xs ? 'compact' : 'comfortable'"
                       prepend-inner-icon="mdi-label-outline"
                     />
                   </v-col>
@@ -259,7 +277,7 @@
                       label="Marca (detectada)"
                       readonly
                       variant="outlined"
-                      density="comfortable"
+                      :density="$vuetify.display.xs ? 'compact' : 'comfortable'"
                       prepend-inner-icon="mdi-car-estate"
                     />
                   </v-col>
@@ -269,7 +287,7 @@
                       label="Línea (detectada)"
                       readonly
                       variant="outlined"
-                      density="comfortable"
+                      :density="$vuetify.display.xs ? 'compact' : 'comfortable'"
                       prepend-inner-icon="mdi-car-sports"
                     />
                   </v-col>
@@ -279,7 +297,7 @@
                       label="Modelo (detectado)"
                       readonly
                       variant="outlined"
-                      density="comfortable"
+                      :density="$vuetify.display.xs ? 'compact' : 'comfortable'"
                       prepend-inner-icon="mdi-numeric"
                     />
                   </v-col>
@@ -291,7 +309,7 @@
                       label="Cliente"
                       readonly
                       variant="outlined"
-                      density="comfortable"
+                      :density="$vuetify.display.xs ? 'compact' : 'comfortable'"
                       prepend-inner-icon="mdi-account"
                     />
                   </v-col>
@@ -301,7 +319,7 @@
                       label="Teléfono"
                       readonly
                       variant="outlined"
-                      density="comfortable"
+                      :density="$vuetify.display.xs ? 'compact' : 'comfortable'"
                       prepend-inner-icon="mdi-phone"
                     />
                   </v-col>
@@ -311,62 +329,82 @@
                       label="Email"
                       readonly
                       variant="outlined"
-                      density="comfortable"
+                      :density="$vuetify.display.xs ? 'compact' : 'comfortable'"
                       prepend-inner-icon="mdi-email-outline"
                     />
                   </v-col>
 
                   <!-- PANEL DATEO (si hay dateo) -->
                   <v-col cols="12" v-if="busquedaDateo">
-                    <v-card class="pa-4 rounded-lg dateo-card" variant="outlined">
-                      <div class="d-flex align-center justify-space-between flex-wrap" style="gap:10px">
-                        <div class="d-flex align-center" style="gap:12px">
-                          <v-avatar size="72" variant="elevated">
-                            <v-img v-if="busquedaDateo.imagen_url" :src="busquedaDateo.imagen_url" alt="Evidencia placa/telefono" />
-                            <v-icon v-else size="40">mdi-image-off-outline</v-icon>
+                    <v-card class="pa-2 pa-sm-4 rounded-lg dateo-card" variant="outlined">
+                      <div class="d-flex align-center justify-space-between flex-wrap" style="gap:8px">
+                        <div class="d-flex align-center" style="gap:10px">
+                          <v-avatar :size="$vuetify.display.xs ? 56 : 72" variant="elevated">
+                            <v-img
+                              v-if="busquedaDateo.imagen_url"
+                              :src="busquedaDateo.imagen_url"
+                              alt="Evidencia placa/telefono"
+                            />
+                            <v-icon v-else :size="$vuetify.display.xs ? 32 : 40">mdi-image-off-outline</v-icon>
                           </v-avatar>
                           <div>
-                            <div class="text-subtitle-1 font-weight-600">
+                            <div class="text-caption text-sm-subtitle-1 font-weight-600">
                               Dateo: <strong>{{ busquedaDateo.canal }}</strong>
-                              <span v-if="busquedaDateo.agente"> — {{ busquedaDateo.agente.nombre }}</span>
+                              <span v-if="busquedaDateo.agente" class="d-none d-sm-inline"> — {{ busquedaDateo.agente.nombre }}</span>
                             </div>
-                            <div class="text-body-2 text-medium-emphasis">
+                            <div class="text-caption text-sm-body-2 text-medium-emphasis">
                               Registrado: {{ dateoFechaHora }}
                             </div>
-                            <div class="text-body-2 text-medium-emphasis" v-if="busquedaDateo.observacion">
+                            <div class="text-caption text-sm-body-2 text-medium-emphasis" v-if="busquedaDateo.observacion">
                               {{ busquedaDateo.observacion }}
                             </div>
 
                             <!-- Convenio del dateo (sin SIN-COD) -->
                             <div class="mt-2" v-if="busquedaDateoConvenio">
-                              <v-chip color="deep-purple" text-color="white" variant="elevated" prepend-icon="mdi-file-document-multiple-outline">
+                              <v-chip
+                                color="deep-purple"
+                                text-color="white"
+                                variant="elevated"
+                                :size="$vuetify.display.xs ? 'x-small' : 'small'"
+                                prepend-icon="mdi-file-document-multiple-outline"
+                              >
                                 Convenio (dateo): {{ formatConvenioChip(busquedaDateoConvenio) }}
                               </v-chip>
                             </div>
                           </div>
                         </div>
 
-                        <div class="d-flex align-center" style="gap:8px">
-                          <v-chip color="primary" variant="elevated" prepend-icon="mdi-bullhorn">
-                            Captación sugerida: {{ busqueda?.captacionSugerida?.canal }}
-                            <span v-if="busqueda?.captacionSugerida?.agente"> — {{ busqueda?.captacionSugerida?.agente?.nombre }}</span>
+                        <div class="d-flex align-center flex-wrap" style="gap:6px">
+                          <v-chip
+                            color="primary"
+                            variant="elevated"
+                            :size="$vuetify.display.xs ? 'x-small' : 'small'"
+                            prepend-icon="mdi-bullhorn"
+                          >
+                            <span class="text-caption">
+                              Captación: {{ busqueda?.captacionSugerida?.canal }}
+                              <span v-if="busqueda?.captacionSugerida?.agente" class="d-none d-sm-inline"> — {{ busqueda?.captacionSugerida?.agente?.nombre }}</span>
+                            </span>
                           </v-chip>
 
                           <v-chip
                             v-if="reservaVigente"
                             color="success"
                             variant="elevated"
+                            :size="$vuetify.display.xs ? 'x-small' : 'small'"
                             prepend-icon="mdi-lock-clock"
                           >
-                            Reserva vigente hasta {{ reservaBloqueaHasta }}
+                            <span class="text-caption d-none d-sm-inline">Reserva vigente hasta {{ reservaBloqueaHasta }}</span>
+                            <span class="text-caption d-sm-none">Reservado</span>
                           </v-chip>
                           <v-chip
                             v-else
                             color="grey"
                             variant="tonal"
+                            :size="$vuetify.display.xs ? 'x-small' : 'small'"
                             prepend-icon="mdi-lock-open-outline"
                           >
-                            Sin reserva vigente
+                            <span class="text-caption">Sin reserva</span>
                           </v-chip>
                         </div>
                       </div>
@@ -380,26 +418,28 @@
               <v-textarea
                 v-model="form.observaciones"
                 label="Observaciones (opcional)"
-                rows="3"
+                :rows="$vuetify.display.xs ? 2 : 3"
                 auto-grow
                 variant="outlined"
-                density="comfortable"
+                :density="$vuetify.display.xs ? 'compact' : 'comfortable'"
                 prepend-inner-icon="mdi-comment-text-multiple"
               />
             </v-col>
 
             <!-- Botón crear -->
-            <v-col cols="12" class="text-right mt-4">
+            <v-col cols="12" class="text-right mt-2 mt-sm-4">
               <v-btn
                 color="primary"
                 @click="openConfirmDialog"
-                class="font-weight-bold py-3 px-6 action-btn"
-                size="large"
+                class="font-weight-bold action-btn"
+                :block="$vuetify.display.xs"
+                :size="$vuetify.display.xs ? 'default' : 'large'"
                 :loading="isSubmitting"
                 :disabled="isSubmitting"
               >
                 <v-icon left>mdi-plus-circle</v-icon>
-                Crear nuevo turno
+                <span v-if="$vuetify.display.xs">Crear turno</span>
+                <span v-else>Crear nuevo turno</span>
               </v-btn>
             </v-col>
           </v-row>
@@ -421,17 +461,34 @@
     </v-snackbar>
 
     <!-- Confirmación -->
-    <v-dialog v-model="showConfirmDialog" max-width="500px">
+    <v-dialog
+      v-model="showConfirmDialog"
+      :max-width="$vuetify.display.xs ? '100%' : '500'"
+      :fullscreen="$vuetify.display.xs"
+    >
       <v-card class="rounded-xl">
-        <v-card-title class="headline text-center text-primary font-weight-bold pa-4">
+        <v-card-title class="headline text-center text-primary font-weight-bold pa-3 pa-sm-4 text-subtitle-1 text-sm-h6">
           {{ confirmDialogTitle }}
         </v-card-title>
-        <v-card-text class="text-center text-body-1 pa-4">
+        <v-card-text class="text-center text-caption text-sm-body-1 pa-3 pa-sm-4">
           {{ confirmDialogMessage }}
         </v-card-text>
-        <v-card-actions class="justify-center pa-4">
-          <v-btn color="grey-darken-1" variant="outlined" @click="handleCancelAction">Cancelar</v-btn>
-          <v-btn :color="confirmDialogConfirmColor" variant="elevated" @click="handleConfirmAction" class="bordered-dialog-button">
+        <v-card-actions class="justify-center pa-3 pa-sm-4">
+          <v-btn
+            color="grey-darken-1"
+            variant="outlined"
+            :size="$vuetify.display.xs ? 'small' : 'default'"
+            @click="handleCancelAction"
+          >
+            Cancelar
+          </v-btn>
+          <v-btn
+            :color="confirmDialogConfirmColor"
+            variant="elevated"
+            :size="$vuetify.display.xs ? 'small' : 'default'"
+            @click="handleConfirmAction"
+            class="bordered-dialog-button"
+          >
             {{ confirmDialogConfirmText }}
           </v-btn>
         </v-card-actions>
@@ -453,27 +510,41 @@
 
 /* —— Header —— */
 .card-header {
-  display:flex; align-items:center; justify-content:space-between; gap:16px;
+  display:flex; align-items:center; justify-content:space-between; gap:12px;
   background:
     radial-gradient(1200px 200px at 20% -50%, rgba(25,118,210,.08), transparent 60%),
     radial-gradient(900px 180px at 80% -60%, rgba(76,175,80,.10), transparent 60%),
     linear-gradient(180deg, #ffffff, #f7f9fc);
-  border-top-left-radius:16px; border-top-right-radius:16px;
+  border-top-left-radius:12px; border-top-right-radius:12px;
 }
-.header-left { display:flex; align-items:center; gap:14px; }
+
+@media (min-width: 600px) {
+  .card-header {
+    gap:16px;
+    border-top-left-radius:16px; border-top-right-radius:16px;
+  }
+}
+
+.header-left { display:flex; align-items:center; gap:12px; }
 .icon-pill {
   display:inline-flex; align-items:center; justify-content:center;
   height:40px; width:40px; border-radius:10px;
   border:1px solid rgba(16,24,40,0.08); background:#fff;
   box-shadow:0 1px 2px rgba(16,24,40,0.06);
 }
-.title-group .title { margin:0; font-weight:700; letter-spacing:.2px; line-height:1.2; font-size:1.35rem; color:#0f172a; }
+.title-group .title { margin:0; font-weight:700; letter-spacing:.2px; line-height:1.2; color:#0f172a; }
 .title-group .subtitle { margin:2px 0 0 0; font-size:.925rem; color:#475569; }
 
 .turno-chip :deep(.v-chip__content) { font-weight:600; }
 .turno-chip {
   --chip-bg:#0ea5e9; background: linear-gradient(180deg,#0ea5e9,#0284c7);
-  color:#fff; box-shadow:0 6px 16px rgba(2,132,199,0.25);
+  color:#fff; box-shadow:0 4px 12px rgba(2,132,199,0.25);
+}
+
+@media (min-width: 600px) {
+  .turno-chip {
+    box-shadow:0 6px 16px rgba(2,132,199,0.25);
+  }
 }
 
 /* —— Divider —— */
@@ -481,15 +552,29 @@
 
 /* —— Inputs —— */
 :deep(.v-text-field .v-input__control),
-:deep(.v-select .v-input__control) { border-radius:10px; }
+:deep(.v-select .v-input__control) { border-radius:8px; }
+
+@media (min-width: 600px) {
+  :deep(.v-text-field .v-input__control),
+  :deep(.v-select .v-input__control) { border-radius:10px; }
+}
+
 :deep(.v-input__prepend-inner .v-icon) { color:#1976D2; }
 
 /* —— Button principal —— */
 .action-btn {
-  border-radius:12px !important; text-transform:none; letter-spacing:.2px;
-  box-shadow:0 6px 16px rgba(25,118,210,.25) !important;
+  border-radius:10px !important; text-transform:none; letter-spacing:.2px;
+  box-shadow:0 4px 12px rgba(25,118,210,.25) !important;
   border:1px solid rgba(16,24,40,0.06);
 }
+
+@media (min-width: 600px) {
+  .action-btn {
+    border-radius:12px !important;
+    box-shadow:0 6px 16px rgba(25,118,210,.25) !important;
+  }
+}
+
 .action-btn:hover {
   transform: translateY(-1px);
   box-shadow:0 10px 20px rgba(25,118,210,.28) !important;
@@ -591,12 +676,11 @@ const serviciosItems = ref<ServicioItem[]>([])
 const serviciosLoading = ref<boolean>(false)
 const serviciosMapById = ref<Record<number, ServicioDTO>>({})
 
-const telefonoBusqueda = ref<string>('')   // búsqueda por teléfono
+const telefonoBusqueda = ref<string>('')
 const buscando = ref<boolean>(false)
 const busqueda = ref<BusquedaResp | null>(null)
 const abortCtrl = ref<AbortController | null>(null)
 
-/** Evitar repetir misma búsqueda */
 const lastSearched = ref<{ placa: string, tel: string }>({ placa: '', tel: '' })
 
 const tipoVehiculoItems: ReadonlyArray<TipoVehiculoFrontend> = [
@@ -655,7 +739,6 @@ const convenioDetectado = computed<ConvenioDTO | null>(() => {
   return busquedaDateoConvenio.value || busqueda.value?.convenio || null
 })
 
-/** Etiqueta del asesor: "Nombre (Comercial|Convenio|Interno|Externo|Telemercadeo)" */
 function shortAsesorRol(tipo?: string): string {
   const t = (tipo || '').toUpperCase()
   if (t.includes('COMERCIAL')) return 'Comercial'
@@ -676,7 +759,7 @@ const ultimaVisitaChip = computed<string | null>(() => {
   const svc = u.servicioCodigo ? `${u.servicioCodigo}` : 'SERV'
   const sede = u.sedeNombre ? ` • ${u.sedeNombre}` : ''
   const est = u.estado ? ` • ${u.estado}` : ''
-  return `Última visita: ${u.fecha} • ${svc}${sede}${est}`
+  return `Última: ${u.fecha} • ${svc}${sede}${est}`
 })
 
 const noResultados = computed(() =>
@@ -687,9 +770,9 @@ const mensajeNoResultados = computed(() => {
   return `No encontramos registros por ${por}. Puedes crear el turno y se atribuye por defecto a FACHADA.`
 })
 
-const clienteNombre   = ref<string>('')   // para crear cliente básico si falta
-const clienteTelefono = ref<string>('')   // idem
-const clienteEmail    = ref<string>('')   // idem
+const clienteNombre   = ref<string>('')
+const clienteTelefono = ref<string>('')
+const clienteEmail    = ref<string>('')
 
 const formattedHoraIngreso = computed<string>(() => {
   const value = form.value.horaIngreso
@@ -698,14 +781,12 @@ const formattedHoraIngreso = computed<string>(() => {
   return time.isValid ? time.toFormat('hh:mm a') : value
 })
 
-/** Código de servicio actual (RTM/PREV/PERI/SOAT) para chip */
 const servicioCodigoActual = computed<string | null>(() => {
   const id = form.value.servicioId
   if (!id) return null
   return serviciosMapById.value[id]?.codigo ?? null
 })
 
-/** —— Panel Dateo —— **/
 const dateoFechaHora = computed(() => {
   const iso = busquedaDateo.value?.created_at
   if (!iso) return ''
@@ -720,7 +801,6 @@ const reservaBloqueaHasta = computed(() => {
   return dt.isValid ? dt.toFormat('dd LLL yyyy') : ''
 })
 
-/** Formatear texto del chip de convenio (sin mostrar "SIN-COD") */
 function formatConvenioChip(c?: ConvenioDTO | null): string {
   if (!c) return ''
   const code = (c.codigo || '').toUpperCase()
@@ -740,7 +820,6 @@ function onPlacaInput(e: Event) {
   if (target) form.value.placa = target.value.toUpperCase().replace(/\s|-/g, '')
 }
 
-/** Mapea clase a tipo UI */
 function mapClaseToTipo(clase?: { codigo?: string; nombre?: string } | null): TipoVehiculoFrontend | '' {
   if (!clase) return ''
   const code = String(clase.codigo || '').toUpperCase()
@@ -773,7 +852,7 @@ const captacionChipText = computed(() => {
   const s = busqueda.value?.captacionSugerida
   if (!s) return ''
   const a = s.agente ? ` — ${s.agente.nombre}` : ''
-  return `Captación sugerida: ${s.canal}${a}`
+  return `Sugerencia: ${s.canal}${a}`
 })
 
 /** ===== Buscar ===== **/
@@ -823,7 +902,6 @@ async function doSearch(force: boolean = false) {
 
     busqueda.value = resp || null
 
-    // ===== Elegir vehículo preferido =====
     let vehPreferido: VehiculoDTO | null = null
     const uv = (resp?.ultimaVisita ?? null) as UltimaVisitaDTO | null
     const placaUV = uv?.placa ? String(uv.placa).toUpperCase() : null
@@ -851,7 +929,6 @@ async function doSearch(force: boolean = false) {
       }
     }
 
-    // Poblar placa/tipo detectados
     if ((!placaOk || !form.value.placa) && vehPreferido?.placa) {
       form.value.placa = String(vehPreferido.placa).toUpperCase()
     }
@@ -863,12 +940,10 @@ async function doSearch(force: boolean = false) {
       busqueda.value = { ...(busqueda.value as any), vehiculo: vehPreferido } as BusquedaResp
     }
 
-    // Cliente
     clienteNombre.value   = resp?.cliente?.nombre   ?? ''
     clienteTelefono.value = resp?.cliente?.telefono ?? (telOk ? telRaw : '')
     clienteEmail.value    = resp?.cliente?.email    ?? ''
 
-    // Medio/canal sugerido
     if (resp?.captacionSugerida) {
       const canal = resp.captacionSugerida.canal
       const agente = resp.captacionSugerida.agente
@@ -883,7 +958,6 @@ async function doSearch(force: boolean = false) {
       form.value.asesorNombre = null
     }
 
-    // Guardar id de dateo (si hay)
     form.value._dateoId = resp?.dateoReciente?.id ?? null
   } catch (err) {
     if ((err as { name?: string })?.name === 'AbortError') return
@@ -977,7 +1051,6 @@ onMounted(async () => {
   await resetFormFields()
 })
 
-/* ✅ Watchers */
 watch(() => form.value.placa, () => {
   if (!AUTO_SEARCH_ON_COMPLETE) return
   const p = (form.value.placa || '').trim().toUpperCase()

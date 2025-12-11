@@ -1,16 +1,18 @@
 <template>
-  <v-container class="mt-6">
-    <v-card elevation="8" class="pa-8 rounded-xl bg-background-light">
+  <v-container class="py-4 py-sm-6" :fluid="$vuetify.display.xs">
+    <v-card elevation="8" class="pa-4 pa-sm-6 pa-md-8 rounded-xl bg-background-light">
       <v-card-title
-        class="text-h4 mb-6 font-weight-bold d-flex justify-center title-full-bordered-container"
+        class="text-h5 text-sm-h4 mb-4 mb-sm-6 font-weight-bold d-flex justify-center title-full-bordered-container"
       >
         <span class="title-text-with-border">
           📋 Turnos de Hoy
-          <span class="text-secondary">(HOY - {{ todayDate }})</span>
+          <span class="text-secondary d-none d-sm-inline">(HOY - {{ todayDate }})</span>
         </span>
       </v-card-title>
 
+      <!-- Filtros y acciones - Responsive -->
       <v-row class="mb-4 align-center">
+        <!-- Botón Refrescar -->
         <v-col cols="12" sm="6" md="3">
           <v-btn
             color="primary"
@@ -19,7 +21,8 @@
             @click="loadTurnosHoy"
             :loading="isLoading"
             class="bordered-button"
-            size="large"
+            :size="$vuetify.display.xs ? 'default' : 'large'"
+            :block="$vuetify.display.xs"
           >
             Refrescar
           </v-btn>
@@ -38,59 +41,67 @@
           />
         </v-col>
 
-        <v-col cols="12" sm="6" md="3" class="text-sm-right text-md-center">
+        <!-- Botón Ver estadísticas -->
+        <v-col cols="12" sm="6" md="3">
           <v-btn
             color="info"
             variant="outlined"
             prepend-icon="mdi-chart-bar"
             @click="openStatsModal"
             class="bordered-button-info"
-            size="large"
+            :size="$vuetify.display.xs ? 'default' : 'large'"
+            :block="$vuetify.display.xs"
           >
-            Ver estadísticas del día
+            <span v-if="$vuetify.display.smAndUp">Ver estadísticas del día</span>
+            <span v-else>Estadísticas</span>
           </v-btn>
         </v-col>
 
-        <v-col cols="12" sm="6" md="3" class="text-md-right">
+        <!-- Botón Crear Nuevo Turno -->
+        <v-col cols="12" sm="6" md="3">
           <v-btn
             color="success"
             variant="elevated"
             prepend-icon="mdi-plus-circle"
             @click="router.push('/rtm/crear-turno')"
             class="bordered-button-success"
-            size="large"
+            :size="$vuetify.display.xs ? 'default' : 'large'"
+            :block="$vuetify.display.xs"
           >
-            Crear Nuevo Turno
+            <span v-if="$vuetify.display.smAndUp">Crear Nuevo Turno</span>
+            <span v-else>Crear Turno</span>
           </v-btn>
         </v-col>
       </v-row>
 
-      <v-divider class="my-6" />
+      <v-divider class="my-4 my-sm-6" />
 
       <!-- Loading -->
       <v-row v-if="isLoading" class="justify-center my-10">
-        <v-progress-circular indeterminate color="primary" size="64" />
-        <p class="text-center text-subtitle-1 mt-4">
-          Cargando turnos del día...
-        </p>
+        <v-col cols="12" class="text-center">
+          <v-progress-circular indeterminate color="primary" :size="$vuetify.display.xs ? 48 : 64" />
+          <p class="text-caption text-sm-subtitle-1 mt-4">
+            Cargando turnos del día...
+          </p>
+        </v-col>
       </v-row>
 
       <!-- Sin turnos -->
       <v-row v-else-if="turnosFiltrados.length === 0" class="justify-center my-10">
         <v-col cols="12" class="text-center">
-          <v-icon size="64" color="grey-lighten-1">
+          <v-icon :size="$vuetify.display.xs ? 48 : 64" color="grey-lighten-1">
             mdi-inbox-remove-outline
           </v-icon>
-          <p class="text-h6 text-grey-darken-1 mt-4">
+          <p class="text-subtitle-1 text-sm-h6 text-grey-darken-1 mt-4">
             No hay turnos para hoy con el filtro seleccionado.
           </p>
-          <p class="text-body-1 text-grey-darken-1">
+          <p class="text-body-2 text-sm-body-1 text-grey-darken-1">
             ¡Es un buen momento para crear uno nuevo!
           </p>
         </v-col>
       </v-row>
 
-      <!-- Tarjetas -->
+      <!-- Tarjetas - Grid responsive: 1 col móvil, 2 tablet, 3-4 PC -->
       <v-row v-else>
         <v-col
           v-for="turno in turnosFiltrados"
@@ -101,27 +112,27 @@
           lg="3"
         >
           <v-card
-            class="turno-card pa-4 rounded-lg elevation-4"
+            class="turno-card pa-3 pa-sm-4 rounded-lg elevation-4"
             :color="cardColor(turno.estado)"
             :class="`estado-${turno.estado}`"
           >
-            <v-card-title class="text-h6 font-weight-bold pb-1 text-on-primary-text">
+            <v-card-title class="text-subtitle-1 text-sm-h6 font-weight-bold pb-1 text-on-primary-text">
               🔢 Turno: {{ displayTurnoNumero(turno) }}
             </v-card-title>
 
             <!-- Turno del servicio (RTM / SOAT / PREV / PERI) -->
-            <div class="text-subtitle-2 mb-2 font-weight-medium text-on-primary-text">
+            <div class="text-caption text-sm-subtitle-2 mb-2 font-weight-medium text-on-primary-text">
               {{ getServicioCodigo(turno) }}:
               <span class="font-weight-bold">
                 {{ displayTurnoServicio(turno) }}
               </span>
             </div>
 
-            <v-card-text>
+            <v-card-text class="pa-2 pa-sm-3">
               <!-- Chip de estado -->
               <v-chip
-                class="mb-3"
-                size="small"
+                class="mb-2 mb-sm-3"
+                :size="$vuetify.display.xs ? 'x-small' : 'small'"
                 :color="estadoChipColor(turno.estado)"
                 variant="elevated"
                 label
@@ -129,41 +140,43 @@
                 {{ estadoChipLabel(turno.estado) }}
               </v-chip>
 
-              <p class="text-subtitle-1 text-on-primary-text">
+              <p class="text-caption text-sm-subtitle-1 text-on-primary-text mb-1">
                 🛠 Servicio:
                 <span class="font-weight-medium">
                   {{ getServicioCodigo(turno) }}
                 </span>
               </p>
-              <p class="text-subtitle-1 text-on-primary-text">
+              <p class="text-caption text-sm-subtitle-1 text-on-primary-text mb-1">
                 🚗 Tipo Vehículo:
                 <span class="font-weight-medium">
                   {{ turno.tipoVehiculo || 'Desconocido' }}
                 </span>
               </p>
-              <p class="text-subtitle-1 text-on-primary-text">
+              <p class="text-caption text-sm-subtitle-1 text-on-primary-text mb-1">
                 🚗 Placa:
                 <span class="font-weight-medium">{{ turno.placa }}</span>
               </p>
-              <p class="text-subtitle-1 text-on-primary-text">
+              <p class="text-caption text-sm-subtitle-1 text-on-primary-text mb-2">
                 ⏰ Ingreso:
                 <span class="font-weight-medium">
                   {{ formatTime(turno.horaIngreso) }}
                 </span>
               </p>
 
-              <p class="text-subtitle-1 mt-3 font-weight-bold text-on-primary-text">
+              <p class="text-caption text-sm-subtitle-1 mt-2 mt-sm-3 font-weight-bold text-on-primary-text">
                 📌 Etapas:
               </p>
 
-              <v-list dense class="py-0 bg-transparent">
+              <v-list density="compact" class="py-0 bg-transparent">
                 <v-list-item
                   v-for="(etapa, i) in getEtapas(turno)"
                   :key="etapa.key || i"
                   class="py-0 px-0"
+                  :min-height="$vuetify.display.xs ? 32 : 40"
                 >
                   <template #prepend>
                     <v-icon
+                      :size="$vuetify.display.xs ? 18 : 20"
                       :color="iconColor(etapa, turno)"
                       :class="{
                         'etapa-icon-completed-finalizado':
@@ -185,6 +198,7 @@
                           variant="text"
                           color="button-text-light-secondary"
                           class="pa-0 text-capitalize text-on-primary-text"
+                          :size="$vuetify.display.xs ? 'x-small' : 'small'"
                           @click.stop="goToFacturacion(turno)"
                         >
                           Facturación
@@ -196,6 +210,7 @@
                           variant="text"
                           color="button-text-light-secondary"
                           class="pa-0 text-capitalize text-on-primary-text"
+                          :size="$vuetify.display.xs ? 'x-small' : 'small'"
                           @click.stop="goToCertificacion(turno)"
                         >
                           Certificación
@@ -208,7 +223,7 @@
                           'text-decoration-line-through text-on-primary-text-faded':
                             etapa.completed && etapa.name !== 'Puerta',
                         }"
-                        class="text-on-primary-text"
+                        class="text-caption text-sm-body-2 text-on-primary-text"
                       >
                         {{ etapa.name }}
                       </span>
@@ -217,6 +232,7 @@
                     <span
                       v-if="etapa.time"
                       class="text-on-primary-text-faded etapa-time"
+                      :class="$vuetify.display.xs ? 'text-caption' : ''"
                     >
                       {{ formatTime(etapa.time) }}
                     </span>
@@ -225,11 +241,12 @@
               </v-list>
             </v-card-text>
 
-            <v-card-actions class="justify-center pt-0">
+            <v-card-actions class="justify-center pt-0 flex-column flex-sm-row">
               <v-btn
                 color="button-text-light-warning"
                 variant="text"
                 prepend-icon="mdi-pencil"
+                :size="$vuetify.display.xs ? 'small' : 'default'"
                 @click="openConfirmDialog(turno, 'editar')"
               >
                 Editar
@@ -238,6 +255,7 @@
                 color="button-text-light-secondary"
                 variant="text"
                 prepend-icon="mdi-play"
+                :size="$vuetify.display.xs ? 'small' : 'default'"
                 @click="openConfirmDialog(turno, 'continuar')"
               >
                 Continuar
@@ -264,12 +282,12 @@
     </v-snackbar>
 
     <!-- Diálogo confirmar acción -->
-    <v-dialog v-model="confirmDialog.show" max-width="500">
+    <v-dialog v-model="confirmDialog.show" :max-width="$vuetify.display.xs ? '90%' : '500'">
       <v-card>
-        <v-card-title class="text-h6 font-weight-bold">
+        <v-card-title class="text-subtitle-1 text-sm-h6 font-weight-bold">
           {{ confirmDialog.title }}
         </v-card-title>
-        <v-card-text>
+        <v-card-text class="text-body-2 text-sm-body-1">
           {{ confirmDialog.message }}
         </v-card-text>
         <v-card-actions>
@@ -289,49 +307,54 @@
       </v-card>
     </v-dialog>
 
-    <!-- Modal estadísticas -->
-    <v-dialog v-model="showStatsModal" max-width="1000" content-class="elevation-24">
+    <!-- Modal estadísticas - Responsive -->
+    <v-dialog
+      v-model="showStatsModal"
+      :max-width="$vuetify.display.xs ? '95%' : '1000'"
+      :fullscreen="$vuetify.display.xs"
+      scrollable
+    >
       <v-card class="rounded-xl bg-white">
-        <v-card-title class="text-h5 text-center text-primary font-weight-bold py-4">
+        <v-card-title class="text-h6 text-sm-h5 text-center text-primary font-weight-bold py-3 py-sm-4">
           📊 Estadísticas de Turnos (Hoy)
         </v-card-title>
         <v-card-text>
-          <p class="text-h6 mb-1 text-center">
+          <p class="text-subtitle-1 text-sm-h6 mb-1 text-center">
             Total de turnos visibles hoy (excepto inactivos):
             <strong>{{ turnos.length }}</strong>
           </p>
-          <p class="text-body-2 text-center text-grey-darken-1">
+          <p class="text-caption text-sm-body-2 text-center text-grey-darken-1">
             Incluye turnos en proceso, finalizados y cancelados.
           </p>
 
           <v-row class="mt-4">
             <!-- Resumen por estado -->
             <v-col cols="12" md="4">
-              <v-card variant="outlined" class="pa-4 h-100">
-                <v-card-title class="text-h6 text-secondary">
+              <v-card variant="outlined" class="pa-3 pa-sm-4 h-100">
+                <v-card-title class="text-subtitle-1 text-sm-h6 text-secondary">
                   Por Estado
                 </v-card-title>
                 <v-list density="compact">
                   <v-list-item>
-                    <v-list-item-title>En proceso</v-list-item-title>
+                    <v-list-item-title class="text-caption text-sm-body-2">En proceso</v-list-item-title>
                     <template #append>
-                      <v-chip color="amber" label>
+                      <v-chip color="amber" label :size="$vuetify.display.xs ? 'small' : 'default'">
                         {{ conteoPorEstado.enProceso }}
                       </v-chip>
                     </template>
                   </v-list-item>
                   <v-list-item>
-                    <v-list-item-title>Finalizados</v-list-item-title>
+                    <v-list-item-title class="text-caption text-sm-body-2">Finalizados</v-list-item-title>
                     <template #append>
-                      <v-chip color="light-green-accent-4" label>
+                      <v-chip color="light-green-accent-4" label :size="$vuetify.display.xs ? 'small' : 'default'">
                         {{ conteoPorEstado.finalizados }}
                       </v-chip>
                     </template>
                   </v-list-item>
                   <v-list-item>
-                    <v-list-item-title>Cancelados</v-list-item-title>
+                    <v-list-item-title class="text-caption text-sm-body-2">Cancelados</v-list-item-title>
                     <template #append>
-                      <v-chip color="red-accent-2" label>
+                      <v-chip color="red-accent-2" label :size="$vuetify.display.xs ? 'small' : 'default'">
                         {{ conteoPorEstado.cancelados }}
                       </v-chip>
                     </template>
@@ -342,43 +365,45 @@
 
             <!-- Resumen por servicio + tipo de vehículo -->
             <v-col cols="12" md="8">
-              <v-card variant="outlined" class="pa-4">
-                <v-card-title class="text-h6 text-secondary">
+              <v-card variant="outlined" class="pa-3 pa-sm-4">
+                <v-card-title class="text-subtitle-1 text-sm-h6 text-secondary">
                   Por Servicio y Tipo de Vehículo
                 </v-card-title>
 
-                <v-table density="compact">
-                  <thead>
-                    <tr>
-                      <th>Servicio</th>
-                      <th class="text-center">Total</th>
-                      <th class="text-center">Liv. Particular</th>
-                      <th class="text-center">Liv. Taxi</th>
-                      <th class="text-center">Liv. Público</th>
-                      <th class="text-center">Motocicleta</th>
-                      <th class="text-center">Desconocido</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr
-                      v-for="(stats, servicioCodigo) in servicioStats"
-                      :key="servicioCodigo"
-                    >
-                      <td><strong>{{ servicioCodigo }}</strong></td>
-                      <td class="text-center">{{ stats.total }}</td>
-                      <td class="text-center">{{ stats.porTipo['Liviano Particular'] }}</td>
-                      <td class="text-center">{{ stats.porTipo['Liviano Taxi'] }}</td>
-                      <td class="text-center">{{ stats.porTipo['Liviano Público'] }}</td>
-                      <td class="text-center">{{ stats.porTipo['Motocicleta'] }}</td>
-                      <td class="text-center">{{ stats.porTipo['Desconocido'] }}</td>
-                    </tr>
-                    <tr v-if="Object.keys(servicioStats).length === 0">
-                      <td colspan="7" class="text-center text-grey-darken-1">
-                        No hay turnos para hoy.
-                      </td>
-                    </tr>
-                  </tbody>
-                </v-table>
+                <div class="table-scroll-x">
+                  <v-table density="compact" :class="$vuetify.display.xs ? 'text-caption' : ''">
+                    <thead>
+                      <tr>
+                        <th>Servicio</th>
+                        <th class="text-center">Total</th>
+                        <th class="text-center" v-if="$vuetify.display.smAndUp">Liv. Particular</th>
+                        <th class="text-center" v-if="$vuetify.display.smAndUp">Liv. Taxi</th>
+                        <th class="text-center" v-if="$vuetify.display.smAndUp">Liv. Público</th>
+                        <th class="text-center">Motocicleta</th>
+                        <th class="text-center" v-if="$vuetify.display.mdAndUp">Desconocido</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr
+                        v-for="(stats, servicioCodigo) in servicioStats"
+                        :key="servicioCodigo"
+                      >
+                        <td><strong>{{ servicioCodigo }}</strong></td>
+                        <td class="text-center">{{ stats.total }}</td>
+                        <td class="text-center" v-if="$vuetify.display.smAndUp">{{ stats.porTipo['Liviano Particular'] }}</td>
+                        <td class="text-center" v-if="$vuetify.display.smAndUp">{{ stats.porTipo['Liviano Taxi'] }}</td>
+                        <td class="text-center" v-if="$vuetify.display.smAndUp">{{ stats.porTipo['Liviano Público'] }}</td>
+                        <td class="text-center">{{ stats.porTipo['Motocicleta'] }}</td>
+                        <td class="text-center" v-if="$vuetify.display.mdAndUp">{{ stats.porTipo['Desconocido'] }}</td>
+                      </tr>
+                      <tr v-if="Object.keys(servicioStats).length === 0">
+                        <td :colspan="$vuetify.display.xs ? 3 : 7" class="text-center text-grey-darken-1">
+                          No hay turnos para hoy.
+                        </td>
+                      </tr>
+                    </tbody>
+                  </v-table>
+                </div>
               </v-card>
             </v-col>
           </v-row>
@@ -388,20 +413,20 @@
           <v-row>
             <!-- Gráfico por tipo de vehículo -->
             <v-col cols="12" md="6">
-              <v-card variant="outlined" class="pa-4">
-                <v-card-title class="text-h6 text-secondary">
+              <v-card variant="outlined" class="pa-3 pa-sm-4">
+                <v-card-title class="text-subtitle-1 text-sm-h6 text-secondary">
                   Por Tipo de Vehículo
                 </v-card-title>
-                <div style="height: 250px">
+                <div :style="{ height: $vuetify.display.xs ? '200px' : '250px' }">
                   <BarChart :data="chartDataTipoVehiculo" :options="chartOptions" />
                 </div>
               </v-card>
             </v-col>
 
-            <!-- Conteo por canal de captación / "¿Cómo nos conoció?" -->
+            <!-- Conteo por canal de captación -->
             <v-col cols="12" md="6">
-              <v-card variant="outlined" class="pa-4">
-                <v-card-title class="text-h6 text-secondary">
+              <v-card variant="outlined" class="pa-3 pa-sm-4">
+                <v-card-title class="text-subtitle-1 text-sm-h6 text-secondary">
                   Canal de captación (¿Cómo nos conoció?)
                 </v-card-title>
                 <v-list density="compact">
@@ -409,11 +434,11 @@
                     v-for="(count, medio) in statsData.medioEntero"
                     :key="medio"
                   >
-                    <v-list-item-title class="font-weight-medium text-capitalize">
+                    <v-list-item-title class="text-caption text-sm-body-2 font-weight-medium text-capitalize">
                       {{ medio }}:
                     </v-list-item-title>
                     <template #append>
-                      <v-chip color="blue-grey" label>
+                      <v-chip color="blue-grey" label :size="$vuetify.display.xs ? 'small' : 'default'">
                         {{ count }}
                       </v-chip>
                     </template>
@@ -424,16 +449,25 @@
           </v-row>
         </v-card-text>
 
-        <v-card-actions class="justify-end py-4">
+        <v-card-actions class="justify-end py-3 py-sm-4 flex-column flex-sm-row gap-2">
           <v-btn
             color="secondary"
             variant="outlined"
             prepend-icon="mdi-file-excel"
             @click="downloadExcelDia"
+            :size="$vuetify.display.xs ? 'small' : 'default'"
+            :block="$vuetify.display.xs"
           >
-            Descargar Excel del día
+            <span v-if="$vuetify.display.smAndUp">Descargar Excel del día</span>
+            <span v-else>Excel</span>
           </v-btn>
-          <v-btn color="primary" variant="elevated" @click="showStatsModal = false">
+          <v-btn
+            color="primary"
+            variant="elevated"
+            @click="showStatsModal = false"
+            :size="$vuetify.display.xs ? 'small' : 'default'"
+            :block="$vuetify.display.xs"
+          >
             Cerrar
           </v-btn>
         </v-card-actions>
@@ -445,6 +479,7 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
+import { useDisplay } from 'vuetify'
 import { DateTime } from 'luxon'
 import TurnosDelDiaService from '@/services/turnosdeldiaService'
 import { authSetStore } from '@/stores/AuthStore'
@@ -483,7 +518,6 @@ const TIPO_VEHICULO_KEYS: TipoVehiculoStatsKey[] = [
   'Desconocido',
 ]
 
-// Etiquetas para canal de captación alineadas con "¿Cómo nos conoció?" en CrearTurno
 type MedioCaptacionLabel = 'Redes Sociales' | 'Call Center' | 'Fachada' | 'Asesor' | 'Otros'
 
 interface ServicioEnTurno {
@@ -507,7 +541,6 @@ interface Turno {
   convenio: string | null
   referidoInterno: string | null
   referidoExterno: string | null
-  // Lo que venga de BD (viejo o nuevo): lo tratamos como string
   medioEntero: string | null
   observaciones: string | null
   funcionarioId: number
@@ -539,6 +572,8 @@ interface Etapa {
 
 /* ===== Estado ===== */
 const router = useRouter()
+const { xs, smAndUp, mdAndUp } = useDisplay()
+
 const turnos = ref<Turno[]>([])
 const isLoading = ref(true)
 const todayDate = ref('')
@@ -589,12 +624,10 @@ const conteoPorEstado = computed(() => {
   return res
 })
 
-/* ===== Stats por servicio y tipo vehiculo (todos los visibles) ===== */
+/* ===== Stats por servicio y tipo vehiculo ===== */
+/* ===== Stats por servicio y tipo vehiculo ===== */
 const servicioStats = computed(() => {
-  const base: Record<
-    string,
-    { total: number; porTipo: Record<TipoVehiculoStatsKey, number> }
-  > = {}
+  const base: Record<string, { total: number; porTipo: Record<TipoVehiculoStatsKey, number> }> = {}
 
   turnos.value.forEach((t) => {
     const servicio = getServicioCodigo(t) || 'SIN_SERVICIO'
@@ -619,7 +652,8 @@ const servicioStats = computed(() => {
   return base
 })
 
-/* ===== Confirm dialog editar/continuar ===== */
+
+/* ===== Confirm dialog ===== */
 const confirmDialog = ref({
   show: false,
   title: '',
@@ -680,7 +714,7 @@ const handleConfirmAction = () => {
   }
 }
 
-/* ===== Ir a facturación / certificación ===== */
+/* ===== Navegación ===== */
 const goToFacturacion = (turno: Turno) => {
   router.push({
     path: '/facturacion/subir-ticket',
@@ -717,7 +751,7 @@ const getServicioCodigo = (t: Turno): string => {
   return t.servicio?.codigoServicio ?? t.servicioCodigo ?? '—'
 }
 
-/* ===== Estado → label / colores ===== */
+/* ===== Colores ===== */
 const cardColor = (estado: Turno['estado']) => {
   if (estado === 'finalizado') return 'success'
   if (estado === 'cancelado') return 'error'
@@ -739,7 +773,6 @@ const estadoChipColor = (estado: Turno['estado']) => {
   return 'amber'
 }
 
-/* ===== Color del ícono de la etapa ===== */
 const iconColor = (etapa: Etapa, turno: Turno) => {
   if (!etapa.completed) {
     return 'on-primary-text-light'
@@ -750,7 +783,7 @@ const iconColor = (etapa: Etapa, turno: Turno) => {
   return 'success'
 }
 
-/* ===== Cargar turnos de hoy (incluye cancelados, excluye inactivos) ===== */
+/* ===== Cargar turnos ===== */
 const loadTurnosHoy = async () => {
   isLoading.value = true
   try {
@@ -776,10 +809,7 @@ const loadTurnosHoy = async () => {
         ? new Date(turno.fecha).toISOString().slice(0, 10)
         : ''
       const isToday = turnoFechaNormalizada === todayISO
-
-      // mostramos todos los estados de hoy excepto inactivos
       const notInactivo = turno.estado !== 'inactivo'
-
       return isToday && notInactivo
     })
 
@@ -805,7 +835,7 @@ const loadTurnosHoy = async () => {
   }
 }
 
-/* ===== Etapas (Puerta, Facturación, Certificación) ===== */
+/* ===== Etapas ===== */
 const getEtapas = (turno: Turno): Etapa[] => {
   const etapas: Etapa[] = [
     {
@@ -854,20 +884,16 @@ const initTipoVehiculoStats = () => {
   statsData.value.tipoVehiculo = base
 }
 
-// Mapea lo que viene en turno.medioEntero a nuestras etiquetas de canal de captación
 const mapMedioToCanalCaptacion = (
   medio: Turno['medioEntero']
 ): MedioCaptacionLabel => {
   if (!medio) return 'Otros'
   const m = medio.toString().toLowerCase()
 
-  // Posibles valores: "redes_sociales", "Redes Sociales", etc.
   if (m.includes('redes')) return 'Redes Sociales'
   if (m.includes('call') || m.includes('tele')) return 'Call Center'
   if (m.includes('fachada')) return 'Fachada'
   if (m.includes('asesor')) return 'Asesor'
-
-  // Referidos / convenios los agrupamos como Asesor
   if (m.includes('referido') || m.includes('convenio')) return 'Asesor'
 
   return 'Otros'
@@ -900,7 +926,6 @@ const openStatsModal = () => {
   showStatsModal.value = true
 }
 
-/* ===== Descargar Excel del día ===== */
 const downloadExcelDia = () => {
   try {
     const today = new Date()
@@ -917,10 +942,7 @@ const downloadExcelDia = () => {
     const day = parts.find((p) => p.type === 'day')?.value
     const todayISO = `${year}-${month}-${day}`
 
-    // Ajusta el endpoint si en tu backend está en otra ruta
     const url = `/api/turnos-rtm/reporte/excel?fechaInicio=${todayISO}&fechaFin=${todayISO}`
-
-
     window.open(url, '_blank')
   } catch (error) {
     console.error('Error al descargar Excel del día:', error)
@@ -981,30 +1003,49 @@ onMounted(() => {
   border-radius: 16px;
 }
 
-/* Título con borde */
 .title-full-bordered-container {
   padding: 0 !important;
 }
 
+/* En el <style scoped> de TurnosDelDia.vue */
 .title-text-with-border {
   border: 2px solid black;
-  padding: 10px 20px;
-  border-radius: 12px;
+  padding: 6px 12px;
+  border-radius: 8px;
   background-color: rgba(255, 255, 255, 0.9);
-  margin-bottom: 24px;
+  margin-bottom: 8px;
   display: inline-block;
   font-weight: bold;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.03em;
   color: var(--v-theme-primary);
+  font-size: 0.9rem;
+  line-height: 1.3;
+}
+
+@media (min-width: 600px) {
+  .title-text-with-border {
+    padding: 8px 16px;
+    margin-bottom: 16px;
+    font-size: 1.1rem;
+    letter-spacing: 0.05em;
+  }
+}
+
+@media (min-width: 960px) {
+  .title-text-with-border {
+    padding: 10px 20px;
+    margin-bottom: 24px;
+    font-size: 1.3rem;
+  }
 }
 
 .title-text-with-border .text-secondary {
   display: inline;
   margin-left: 8px;
   color: #4caf50;
+  font-size: 0.85em;
 }
 
-/* Botones con borde */
 .bordered-button,
 .bordered-button-info,
 .bordered-button-success {
@@ -1020,7 +1061,6 @@ onMounted(() => {
   box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2), 0 0 0 3px black !important;
 }
 
-/* Diálogo */
 .bordered-dialog-button {
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1), 0 0 0 1px black !important;
 }
@@ -1028,7 +1068,6 @@ onMounted(() => {
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2), 0 0 0 2px black !important;
 }
 
-/* Tarjetas de turno */
 .turno-card {
   transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
   border-radius: 12px;
@@ -1039,7 +1078,6 @@ onMounted(() => {
   box-shadow: 0 18px 35px rgba(0, 0, 0, 0.3);
 }
 
-/* Acentos por estado */
 .estado-cancelado {
   border: 2px solid #fca5a5;
 }
@@ -1050,7 +1088,6 @@ onMounted(() => {
   border: 2px solid #38bdf8;
 }
 
-/* Textos sobre fondo primario/success/error */
 .text-on-primary-text {
   color: rgb(var(--v-theme-on-primary-text)) !important;
 }
@@ -1058,28 +1095,35 @@ onMounted(() => {
   color: rgb(var(--v-theme-on-primary-text-faded)) !important;
 }
 
-/* Fila de etapa */
 .etapa-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
   width: 100%;
+  gap: 4px;
 }
 
 .etapa-label {
   display: flex;
   align-items: center;
+  flex: 1;
+  min-width: 0;
 }
 
-/* Hora de cada etapa */
 .etapa-time {
   text-align: right;
   font-family: monospace;
   font-size: 0.75rem;
-  min-width: 78px;
+  min-width: 70px;
+  flex-shrink: 0;
 }
 
-/* En tarjeta verde, chulos completados blancos */
+@media (min-width: 600px) {
+  .etapa-time {
+    min-width: 78px;
+  }
+}
+
 .etapa-icon-completed-finalizado {
   color: #ffffff !important;
 }
@@ -1091,7 +1135,13 @@ onMounted(() => {
   background-color: transparent !important;
 }
 
-.v-list-item-title {
-  font-size: 0.95rem;
+.table-scroll-x {
+  overflow-x: auto;
+}
+
+@media (max-width: 600px) {
+  .v-card-actions {
+    gap: 4px;
+  }
 }
 </style>

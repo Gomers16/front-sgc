@@ -1,15 +1,15 @@
 <template>
-  <v-container class="py-6">
+  <v-container class="py-6" fluid>
     <v-card elevation="10" class="rounded-2xl">
       <!-- Header -->
-      <v-card-title class="d-flex justify-space-between align-center flex-wrap py-5">
-        <div class="d-flex align-center">
-          <v-avatar class="mr-4" size="46" color="primary">
+      <v-card-title class="d-flex justify-space-between align-center flex-wrap pa-4 pa-sm-5">
+        <div class="d-flex align-center mb-3 mb-sm-0">
+          <v-avatar class="mr-3 mr-sm-4" :size="$vuetify.display.xs ? 36 : 46" color="primary">
             <v-icon>mdi-account-tie</v-icon>
           </v-avatar>
           <div>
-            <div class="text-h5 font-weight-bold">Ficha comercial</div>
-            <div class="text-medium-emphasis">
+            <div class="text-h6 text-sm-h5 font-weight-bold">Ficha comercial</div>
+            <div class="text-caption text-sm-body-2 text-medium-emphasis">
               <template v-if="asesor">
                 {{ asesor.nombre }} • {{ humanTipo(asesor.tipo) }}
               </template>
@@ -18,8 +18,8 @@
           </div>
         </div>
 
-        <!-- Filtros de periodo -->
-        <div class="d-flex align-center flex-wrap gap-2">
+        <!-- Filtros de periodo - Stack en móvil -->
+        <div class="d-flex flex-column flex-sm-row align-stretch align-sm-center flex-wrap gap-2 w-100 w-sm-auto">
           <v-text-field
             v-model="filtros.desde"
             type="date"
@@ -27,7 +27,7 @@
             density="comfortable"
             variant="outlined"
             hide-details
-            style="min-width: 160px"
+            :style="$vuetify.display.xs ? 'width: 100%' : 'min-width: 160px'"
           />
           <v-text-field
             v-model="filtros.hasta"
@@ -36,12 +36,17 @@
             density="comfortable"
             variant="outlined"
             hide-details
-            style="min-width: 160px"
+            :style="$vuetify.display.xs ? 'width: 100%' : 'min-width: 160px'"
           />
 
           <v-menu>
             <template #activator="{ props }">
-              <v-btn v-bind="props" variant="tonal" prepend-icon="mdi-calendar-range">
+              <v-btn
+                v-bind="props"
+                variant="tonal"
+                prepend-icon="mdi-calendar-range"
+                :block="$vuetify.display.xs"
+              >
                 Rangos rápidos
               </v-btn>
             </template>
@@ -61,15 +66,29 @@
             </v-list>
           </v-menu>
 
-          <v-btn color="primary" :loading="loading" @click="reload">Aplicar</v-btn>
-          <v-btn variant="text" :disabled="loading" @click="resetRango">Este mes</v-btn>
+          <v-btn
+            color="primary"
+            :loading="loading"
+            @click="reload"
+            :block="$vuetify.display.xs"
+          >
+            Aplicar
+          </v-btn>
+          <v-btn
+            variant="text"
+            :disabled="loading"
+            @click="resetRango"
+            :block="$vuetify.display.xs"
+          >
+            Este mes
+          </v-btn>
         </div>
       </v-card-title>
 
       <v-divider />
 
       <!-- Mensajes -->
-      <v-card-text class="py-5">
+      <v-card-text class="pa-3 pa-sm-5">
         <v-expand-transition>
           <v-alert v-if="globalError" type="error" variant="tonal" class="mb-5">
             {{ globalError }}
@@ -82,7 +101,7 @@
           <v-col cols="12">
             <v-card variant="outlined" rounded="lg">
               <v-card-text class="py-3">
-                <div class="d-flex flex-wrap align-center" style="gap: 24px">
+                <div class="d-flex flex-wrap align-center" style="gap: 16px">
                   <template v-if="asesor && !loading">
                     <div class="data-item">
                       <span class="data-label">Nombre:</span>
@@ -92,15 +111,15 @@
                       <span class="data-label">Tipo:</span>
                       <span class="data-value">{{ humanTipo(asesor?.tipo) }}</span>
                     </div>
-                    <div class="data-item">
+                    <div class="data-item" v-if="$vuetify.display.smAndUp">
                       <span class="data-label">Teléfono:</span>
                       <span class="data-value">{{ asesor.telefono ?? '—' }}</span>
                     </div>
-                    <div class="data-item">
+                    <div class="data-item" v-if="$vuetify.display.mdAndUp">
                       <span class="data-label">Correo:</span>
                       <span class="data-value">{{ asesor.email || asesor.correo || '—' }}</span>
                     </div>
-                    <div class="data-item">
+                    <div class="data-item" v-if="$vuetify.display.mdAndUp">
                       <span class="data-label">Documento:</span>
                       <span class="data-value">{{ docFull(asesor) }}</span>
                     </div>
@@ -119,8 +138,8 @@
             </v-card>
           </v-col>
 
-          <!-- KPIs Grid 4x2 -->
-          <v-col cols="6" sm="3">
+          <!-- KPIs Grid 4x2 - Responsive: 2 columnas en móvil, 4 en tablet+ -->
+          <v-col cols="6" md="3">
             <div class="kpi-card-compact">
               <div class="kpi-title-compact">Prospectos</div>
               <div class="kpi-value-compact">{{ kpi.prospectos }}</div>
@@ -128,7 +147,7 @@
             </div>
           </v-col>
 
-          <v-col cols="6" sm="3">
+          <v-col cols="6" md="3">
             <div class="kpi-card-compact">
               <div class="kpi-title-compact">Dateos exitosos</div>
               <div class="kpi-value-compact text-success">{{ kpi.dateosExitosos }}</div>
@@ -136,7 +155,7 @@
             </div>
           </v-col>
 
-          <v-col cols="6" sm="3">
+          <v-col cols="6" md="3">
             <div class="kpi-card-compact">
               <div class="kpi-title-compact">Total generado</div>
               <div class="kpi-value-compact">{{ money(kpi.montoGenerado) }}</div>
@@ -146,7 +165,7 @@
             </div>
           </v-col>
 
-          <v-col cols="6" sm="3">
+          <v-col cols="6" md="3">
             <div class="kpi-card-compact kpi-warning">
               <div class="kpi-title-compact">🟡 Pendientes</div>
               <div class="kpi-value-compact">{{ money(kpi.comisionesPendientes) }}</div>
@@ -155,7 +174,7 @@
           </v-col>
 
           <!-- Segunda fila de KPIs -->
-          <v-col cols="6" sm="3">
+          <v-col cols="6" md="3">
             <div class="kpi-card-compact kpi-info">
               <div class="kpi-title-compact">🔵 Aprobadas</div>
               <div class="kpi-value-compact">{{ money(kpi.comisionesAprobadas) }}</div>
@@ -163,7 +182,7 @@
             </div>
           </v-col>
 
-          <v-col cols="6" sm="3">
+          <v-col cols="6" md="3">
             <div class="kpi-card-compact kpi-success">
               <div class="kpi-title-compact">✅ Pagadas</div>
               <div class="kpi-value-compact">{{ money(kpi.comisionesPagadas) }}</div>
@@ -171,7 +190,7 @@
             </div>
           </v-col>
 
-          <v-col cols="6" sm="3">
+          <v-col cols="6" md="3">
             <div class="kpi-card-compact kpi-primary">
               <div class="kpi-title-compact">💰 Saldo</div>
               <div class="kpi-value-compact" :class="saldoEstimado < 0 ? 'text-error' : ''">
@@ -181,7 +200,7 @@
             </div>
           </v-col>
 
-          <v-col cols="6" sm="3">
+          <v-col cols="6" md="3">
             <div class="kpi-card-compact kpi-clickable" @click="abrirHistorialPagos">
               <div class="kpi-title-compact">📊 Historial</div>
               <v-btn size="small" color="success" variant="tonal" block class="mt-1">
@@ -234,8 +253,10 @@
           <!-- Info del periodo -->
           <v-col cols="12" :sm="esAsesorComercial ? 6 : 12">
             <v-alert type="info" variant="tonal" density="compact" class="mb-0">
-              <div class="d-flex justify-space-between align-center">
-                <span><strong>Periodo actual:</strong> {{ rangoLegible }}</span>
+              <div class="d-flex flex-column flex-sm-row justify-space-between align-start align-sm-center gap-2">
+                <span class="text-caption text-sm-body-2">
+                  <strong>Periodo actual:</strong> {{ rangoLegible }}
+                </span>
                 <v-chip size="small" color="primary" variant="flat">
                   Reseteo mensual activo
                 </v-chip>
@@ -246,57 +267,73 @@
 
         <!-- Tabs -->
         <v-tabs v-model="tab" align-tabs="start" class="mb-2">
-          <v-tab value="prospectos" prepend-icon="mdi-account-search">Prospectos</v-tab>
+          <v-tab value="prospectos" prepend-icon="mdi-account-search">
+            <span :class="$vuetify.display.xs ? 'd-none' : ''">Prospectos</span>
+            <span :class="$vuetify.display.xs ? '' : 'd-none'">
+              <v-icon>mdi-account-search</v-icon>
+            </span>
+          </v-tab>
 
           <!-- Ocultar pestaña Convenios si es asesor convenio -->
           <v-tab v-if="!esAsesorConvenio" value="convenios" prepend-icon="mdi-handshake">
-            Convenios
+            <span :class="$vuetify.display.xs ? 'd-none' : ''">Convenios</span>
+            <span :class="$vuetify.display.xs ? '' : 'd-none'">
+              <v-icon>mdi-handshake</v-icon>
+            </span>
           </v-tab>
 
-          <v-tab value="dateos" prepend-icon="mdi-clipboard-check-multiple">Dateos</v-tab>
+          <v-tab value="dateos" prepend-icon="mdi-clipboard-check-multiple">
+            <span :class="$vuetify.display.xs ? 'd-none' : ''">Dateos</span>
+            <span :class="$vuetify.display.xs ? '' : 'd-none'">
+              <v-icon>mdi-clipboard-check-multiple</v-icon>
+            </span>
+          </v-tab>
         </v-tabs>
 
         <v-window v-model="tab">
           <!-- Prospectos -->
           <v-window-item value="prospectos">
-  <div class="d-flex justify-space-between align-center mb-3">
-    <div class="text-medium-emphasis">
-      <template v-if="verTodosProspectos">
-        <strong>{{ totalProspectosTodos }}</strong> prospecto(s) del asesor (todos).
-      </template>
-      <template v-else>
-        <strong>{{ totalProspectosEnRango }}</strong> prospecto(s) del asesor en el rango.
-      </template>
-    </div>
-  </div>
+            <div class="d-flex flex-column flex-sm-row justify-space-between align-start align-sm-center mb-3 gap-2">
+              <div class="text-caption text-sm-body-2 text-medium-emphasis">
+                <template v-if="verTodosProspectos">
+                  <strong>{{ totalProspectosTodos }}</strong> prospecto(s) del asesor (todos).
+                </template>
+                <template v-else>
+                  <strong>{{ totalProspectosEnRango }}</strong> prospecto(s) del asesor en el rango.
+                </template>
+              </div>
+            </div>
 
-  <!-- Nueva fila con botón crear y switch -->
-  <div class="d-flex justify-space-between align-center mb-2">
-    <v-btn
-      color="primary"
-      prepend-icon="mdi-plus-circle"
-      @click="irACrearProspecto"
-      v-if="puedeCrearProspecto"
-    >
-      Crear prospecto
-    </v-btn>
+            <!-- Nueva fila con botón crear y switch -->
+            <div class="d-flex flex-column flex-sm-row justify-space-between align-stretch align-sm-center mb-2 gap-2">
+              <v-btn
+                color="primary"
+                prepend-icon="mdi-plus-circle"
+                @click="irACrearProspecto"
+                v-if="puedeCrearProspecto"
+                :block="$vuetify.display.xs"
+              >
+                Crear prospecto
+              </v-btn>
 
-    <v-switch
-      v-model="verTodosProspectos"
-      color="primary"
-      inset
-      label="Ver todos los prospectos"
-      hide-details
-    />
-  </div>
+              <v-switch
+                v-model="verTodosProspectos"
+                color="primary"
+                inset
+                label="Ver todos los prospectos"
+                hide-details
+                density="compact"
+              />
+            </div>
 
-  <v-data-table
-    :items="prospectosVisibles"
-    :headers="headersProspectos"
+            <v-data-table
+              :items="prospectosVisibles"
+              :headers="headersProspectosResponsive"
               :loading="loading"
               class="elevation-1"
               item-key="id"
               :no-data-text="'Sin prospectos para los filtros'"
+              density="comfortable"
             >
               <template #loading>
                 <v-skeleton-loader type="table-row@6" />
@@ -370,6 +407,7 @@
               class="elevation-1"
               item-key="id"
               :no-data-text="'Sin convenios asignados'"
+              density="comfortable"
             >
               <template #loading>
                 <v-skeleton-loader type="table-row@6" />
@@ -382,67 +420,75 @@
 
           <!-- Dateos -->
           <v-window-item value="dateos">
-  <div class="d-flex justify-space-between align-center mb-3">
-    <div class="text-medium-emphasis">
-      <strong>{{ totalDateosFiltrados }}</strong> dateo(s) ·
-      Exitosos: <strong>{{ totalExitosos }}</strong> ·
-      {{ esAsesorConvenio ? 'Monto total (comisión convenio):' : 'Monto total (comisión asesor):' }}
-      <strong>{{ money(totalComisionAsesor) }}</strong>
-    </div>
-  </div>
+            <div class="d-flex flex-column flex-sm-row justify-space-between align-start align-sm-center mb-3 gap-2">
+              <div class="text-caption text-sm-body-2 text-medium-emphasis">
+                <strong>{{ totalDateosFiltrados }}</strong> dateo(s) ·
+                Exitosos: <strong>{{ totalExitosos }}</strong> ·
+                {{ esAsesorConvenio ? 'Monto total (comisión convenio):' : 'Monto total (comisión asesor):' }}
+                <strong>{{ money(totalComisionAsesor) }}</strong>
+              </div>
+            </div>
 
-  <!-- Nueva fila con botón crear y filtros -->
-  <div class="d-flex justify-space-between align-center mb-2">
-    <v-btn
-      color="primary"
-      prepend-icon="mdi-plus-circle"
-      @click="irACrearDateo"
-      v-if="puedeCrearDateo"
-    >
-      Crear dateo
-    </v-btn>
+            <!-- Nueva fila con botón crear y filtros -->
+            <div class="d-flex flex-column flex-sm-row justify-space-between align-stretch align-sm-center mb-2 gap-2">
+              <v-btn
+                color="primary"
+                prepend-icon="mdi-plus-circle"
+                @click="irACrearDateo"
+                v-if="puedeCrearDateo"
+                :block="$vuetify.display.xs"
+              >
+                Crear dateo
+              </v-btn>
 
-    <div class="d-flex align-center" style="gap:8px">
-      <v-switch
-        v-model="verTodosDateos"
-        color="primary"
-        inset
-        label="Ver todos los dateos"
-        hide-details
-      />
-      <v-switch
-        v-model="filtrosDateo.soloExitosos"
-        color="success"
-        inset
-        label="Solo exitosos"
-        hide-details
-      />
-      <v-btn
-        size="small"
-        variant="tonal"
-        prepend-icon="mdi-download"
-        @click="exportCsv(false)"
-      >
-        Exportar CSV
-      </v-btn>
-      <v-btn
-        size="small"
-        color="success"
-        prepend-icon="mdi-download"
-        @click="exportCsv(true)"
-      >
-        CSV (solo exitosos)
-      </v-btn>
-    </div>
-  </div>
+              <div class="d-flex flex-column flex-sm-row align-stretch align-sm-center w-100 w-sm-auto" style="gap:8px">
+                <v-switch
+                  v-model="verTodosDateos"
+                  color="primary"
+                  inset
+                  label="Ver todos los dateos"
+                  hide-details
+                  density="compact"
+                />
+                <v-switch
+                  v-model="filtrosDateo.soloExitosos"
+                  color="success"
+                  inset
+                  label="Solo exitosos"
+                  hide-details
+                  density="compact"
+                />
+                <v-btn
+                  size="small"
+                  variant="tonal"
+                  prepend-icon="mdi-download"
+                  @click="exportCsv(false)"
+                  :block="$vuetify.display.xs"
+                >
+                  <span v-if="$vuetify.display.smAndUp">Exportar CSV</span>
+                  <span v-else>CSV</span>
+                </v-btn>
+                <v-btn
+                  size="small"
+                  color="success"
+                  prepend-icon="mdi-download"
+                  @click="exportCsv(true)"
+                  :block="$vuetify.display.xs"
+                >
+                  <span v-if="$vuetify.display.smAndUp">CSV (solo exitosos)</span>
+                  <span v-else>CSV ✓</span>
+                </v-btn>
+              </div>
+            </div>
 
-  <v-data-table
-    :items="dateosFiltrados"
-    :headers="headersDateos"
+            <v-data-table
+              :items="dateosFiltrados"
+              :headers="headersDateosResponsive"
               :loading="loading"
               class="elevation-1"
               item-key="id"
               :no-data-text="'Sin dateos para los filtros'"
+              density="comfortable"
             >
               <template #loading>
                 <v-skeleton-loader type="table-row@6" />
@@ -453,7 +499,7 @@
                 <div class="d-flex items-center">
                   <v-avatar
                     v-if="item.imagen_url"
-                    size="42"
+                    :size="$vuetify.display.xs ? 32 : 42"
                     class="evidence-thumb"
                     @click="openViewer(item.imagen_url)"
                   >
@@ -481,9 +527,14 @@
                 <span v-else class="text-medium-emphasis">—</span>
               </template>
 
-              <!-- Estado -->
+              <!-- Estado (resultado del dateo) -->
               <template #item.resultado="{ item }">
-                <v-chip :color="chipColorResultado(item.resultado)" size="small" variant="flat">
+                <v-chip
+                  :color="chipColorResultado(item.resultado)"
+                  size="small"
+                  variant="flat"
+                  :prepend-icon="item.resultado === 'RE_DATEAR' ? 'mdi-refresh' : undefined"
+                >
                   {{ textoResultado(item.resultado) }}
                 </v-chip>
               </template>
@@ -492,8 +543,8 @@
               <template #item.turnoInfo="{ item }">
                 <div
                   v-if="item.turnoInfo"
-                  class="d-flex align-center justify-center"
-                  style="gap:6px"
+                  class="d-flex flex-column flex-sm-row align-start align-sm-center justify-center"
+                  style="gap:4px"
                 >
                   <v-chip size="x-small" color="primary" variant="tonal" class="font-weight-600">
                     {{ (item.turnoInfo.fecha && formatDateOnly(item.turnoInfo.fecha)) || '—' }}
@@ -544,7 +595,9 @@
 
               <!-- Fecha creado -->
               <template #item.created_at="{ item }">
-                {{ item.created_at_fmt || fmtDate(item.created_at) }}
+                <span class="text-caption text-sm-body-2">
+                  {{ item.created_at_fmt || fmtDate(item.created_at) }}
+                </span>
               </template>
             </v-data-table>
           </v-window-item>
@@ -576,16 +629,16 @@
     </v-dialog>
 
     <!-- Diálogo de metas: SOLO si es asesor comercial -->
-    <v-dialog v-if="esAsesorComercial" v-model="metasDialogVisible" max-width="820">
+    <v-dialog v-if="esAsesorComercial" v-model="metasDialogVisible" max-width="820" scrollable>
       <v-card>
-        <v-card-title class="d-flex justify-space-between align-center">
+        <v-card-title class="d-flex flex-column flex-sm-row justify-space-between align-start align-sm-center gap-2">
           <div>
             Metas mensuales RTM
             <div class="text-caption text-medium-emphasis">
               {{ asesor?.nombre || 'Asesor' }}
             </div>
           </div>
-          <div class="d-flex align-center" style="gap:8px">
+          <div class="d-flex flex-column flex-sm-row align-stretch align-sm-center w-100 w-sm-auto" style="gap:8px">
             <v-text-field
               v-model="metaMes"
               type="month"
@@ -715,8 +768,8 @@
 
           <!-- Resumen -->
           <v-alert type="success" variant="tonal" class="mb-3">
-            <div class="d-flex justify-space-between align-center">
-              <div>
+            <div class="d-flex flex-column flex-sm-row justify-space-between align-start align-sm-center gap-2">
+              <div class="text-caption text-sm-body-2">
                 <strong>{{ historialPagos.length }}</strong> pago(s) en el rango seleccionado
               </div>
               <div class="text-h6 font-weight-bold">
@@ -751,7 +804,7 @@
             </template>
 
             <template #item.convenio="{ item }">
-              <span class="text-body-2">{{ item.convenio }}</span>
+              <span class="text-caption text-sm-body-2">{{ item.convenio }}</span>
             </template>
 
             <template #item.monto="{ item }">
@@ -774,6 +827,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useDisplay } from 'vuetify'
 import { get } from '@/services/http'
 // ✅ Imports necesarios
 import { getMiFicha, getAsesorById } from '@/services/asesoresService'
@@ -811,6 +865,9 @@ type Convenio = {
   vigencia_desde?: string | null
   vigencia_hasta?: string | null
 }
+
+// 🔥 Vuetify display helper
+const { mdAndUp, smAndUp, xs } = useDisplay()
 
 // 🔥 CORRECCIÓN 1: Obtener asesorId dinámicamente según contexto
 const router = useRouter()
@@ -889,7 +946,7 @@ const rangoLegible = computed(() => {
   return `${f(filtros.value.desde)} → ${f(filtros.value.hasta)}`
 })
 
-/* ===== Headers de tablas ===== */
+/* ===== Headers de tablas RESPONSIVE ===== */
 const headersProspectos = [
   { title: 'ID', key: 'id', sortable: true },
   { title: 'Nombre', key: 'nombre', sortable: true },
@@ -902,13 +959,41 @@ const headersProspectos = [
   { title: 'Acciones', key: 'acciones', sortable: false, align: 'end' as const },
 ] as const
 
+// 📱 Headers responsive para prospectos (ocultar columnas en móvil)
+const headersProspectosResponsive = computed(() => {
+  if (xs.value) {
+    // Móvil pequeño: solo esenciales
+    return [
+      { title: 'Placa', key: 'placa', sortable: true },
+      { title: 'Nombre', key: 'nombre', sortable: true },
+      { title: 'RTM', key: 'tecno', sortable: false },
+      { title: '', key: 'acciones', sortable: false, align: 'end' as const },
+    ]
+  }
+
+  if (smAndUp.value && !mdAndUp.value) {
+    // Tablet: más columnas
+    return [
+      { title: 'ID', key: 'id', sortable: true },
+      { title: 'Nombre', key: 'nombre', sortable: true },
+      { title: 'Placa', key: 'placa', sortable: true },
+      { title: 'SOAT', key: 'soat', sortable: false },
+      { title: 'RTM', key: 'tecno', sortable: false },
+      { title: '', key: 'acciones', sortable: false, align: 'end' as const },
+    ]
+  }
+
+  // Desktop: todas
+  return headersProspectos
+})
+
 const headersConvenios = [
   { title: 'ID', key: 'id' },
   { title: 'Nombre', key: 'nombre' },
   { title: 'Vigencia', key: 'vigencia' },
 ] as const
 
-/* ✨ Encabezados de dateos: con columna Estado Pago */
+/* ✨ Encabezados de dateos: con columna Estado Pago RESPONSIVE */
 const headersDateos = computed(() => {
   const tituloComision = esAsesorConvenio.value ? 'Comisión convenio' : 'Comisión asesor'
   return [
@@ -923,6 +1008,37 @@ const headersDateos = computed(() => {
     { title: '💰 Estado Pago', key: 'estadoComision', align: 'center' as const },
     { title: 'Creado', key: 'created_at' },
   ] as const
+})
+
+// 📱 Headers responsive para dateos
+const headersDateosResponsive = computed(() => {
+  const tituloComision = esAsesorConvenio.value ? 'Comisión' : 'Comisión'
+
+  if (xs.value) {
+    // Móvil pequeño: ultra compacto
+    return [
+      { title: 'Foto', key: 'imagen_url' },
+      { title: 'Placa', key: 'placa' },
+      { title: 'Estado', key: 'resultado' },
+      { title: '💰', key: 'estadoComision', align: 'center' as const },
+    ]
+  }
+
+  if (smAndUp.value && !mdAndUp.value) {
+    // Tablet: más info
+    return [
+      { title: 'ID', key: 'id' },
+      { title: 'Foto', key: 'imagen_url' },
+      { title: 'Placa', key: 'placa' },
+      { title: 'Convenio', key: 'convenio' },
+      { title: 'Estado', key: 'resultado' },
+      { title: tituloComision, key: 'comisionAsesor', align: 'end' as const },
+      { title: '💰 Pago', key: 'estadoComision', align: 'center' as const },
+    ]
+  }
+
+  // Desktop: todas
+  return headersDateos.value
 })
 
 /* ===== Headers metas (dialogo) ===== */
@@ -1014,12 +1130,14 @@ function chipColorResultado(r?: string) {
   if (r === 'EXITOSO') return 'success'
   if (r === 'NO_EXITOSO') return 'error'
   if (r === 'EN_PROCESO') return 'info'
+  if (r === 'RE_DATEAR') return 'orange'
   return 'warning'
 }
 function textoResultado(r?: string) {
   if (r === 'EXITOSO') return 'Exitoso'
   if (r === 'NO_EXITOSO') return 'No exitoso'
   if (r === 'EN_PROCESO') return 'En proceso'
+  if (r === 'RE_DATEAR') return 'Re-datear'
   return 'Pendiente'
 }
 function chipColorEstadoTurno(e?: string) {
@@ -1068,12 +1186,6 @@ const comisionesPorDateo = computed(() => {
 
 /**
  * 🎯 Comisión dinámica según rol del asesor - VERSIÓN FINAL CORREGIDA
- *  - Asesor comercial:
- *      • CON convenio → solo valor_unitario (comisión dateo)
- *      • SIN convenio → valor_unitario + valor_cliente (dateo + placa)
- *  - Asesor convenio:
- *      • Cuando otros usan su convenio → solo valor_cliente (comisión placa)
- *      • Cuando él mismo datea → valor_unitario + valor_cliente (ambas)
  */
 function getComisionPorRolParaDateo(dateoId: number): number {
   const arr = comisionesPorDateo.value.get(Number(dateoId)) || []
@@ -1081,10 +1193,9 @@ function getComisionPorRolParaDateo(dateoId: number): number {
   // 🟢 ASESOR CONVENIO
   if (esAsesorConvenio.value) {
     return arr.reduce((sum, c: any) => {
-      const montoAsesor = Number(c.valor_unitario || 0)    // Comisión por dateo
-      const montoConvenio = Number(c.valor_cliente || 0)   // Comisión por placa/convenio
+      const montoAsesor = Number(c.valor_unitario || 0)
+      const montoConvenio = Number(c.valor_cliente || 0)
 
-      // 🔥 CLAVE: El convenio de la comisión coincide con el convenio del asesor
       const esConvenioDelAsesor =
         c.convenio &&
         convenioDelAsesor.value &&
@@ -1094,12 +1205,10 @@ function getComisionPorRolParaDateo(dateoId: number): number {
 
       let total = 0
 
-      // Cuando otros usan su convenio → solo la parte de convenio
       if (esConvenioDelAsesor) {
         total += montoConvenio
       }
 
-      // Cuando él mismo datea → además se suma la parte de asesor
       if (esAsesorQueDateo) {
         total += montoAsesor
       }
@@ -1113,33 +1222,25 @@ function getComisionPorRolParaDateo(dateoId: number): number {
     const montoAsesor = Number(c.valor_unitario || 0)
     const montoConvenio = Number(c.valor_cliente || 0)
 
-    // Detectar si hay convenio asociado
     const hayConvenio = !!c.convenio
 
     if (hayConvenio) {
-      // 💼 Comercial usando convenio → SOLO dateo
       return sum + montoAsesor
     }
 
-    // 💼 Comercial SIN convenio → se lleva dateo + placa
     return sum + montoAsesor + montoConvenio
   }, 0)
 }
 
 /**
  * 💰 NUEVO: Obtener estado de comisión más relevante para un dateo
- * Prioridad: PAGADA > APROBADA > PENDIENTE > ANULADA > null
  */
 function getEstadoComisionParaDateo(dateoId: number): string | null {
   const arr = comisionesPorDateo.value.get(Number(dateoId)) || []
   if (!arr.length) return null
 
-  // 🔥 Filtrar comisiones relevantes según rol
   const comisionesRelevantes = arr.filter((c: any) => {
     if (esAsesorConvenio.value) {
-      // Asesor convenio: buscar donde:
-      // 1. El convenio de la comisión es el suyo (asesor_secundario_id)
-      // 2. O él mismo es el asesor (asesor_id)
       const esConvenioDelAsesor =
         c.convenio &&
         convenioDelAsesor.value &&
@@ -1150,13 +1251,11 @@ function getEstadoComisionParaDateo(dateoId: number): string | null {
       return esConvenioDelAsesor || esAsesorQueDateo
     }
 
-    // Asesor comercial: buscar donde él es el asesor principal
     return c.asesor?.id === asesorId.value
   })
 
   if (!comisionesRelevantes.length) return null
 
-  // Priorizar estados: PAGADA > APROBADA > PENDIENTE > ANULADA
   const prioridad = { PAGADA: 4, APROBADA: 3, PENDIENTE: 2, ANULADA: 1 }
 
   const estadoMasRelevante = comisionesRelevantes.reduce((mejor: any, actual: any) => {
@@ -1196,8 +1295,7 @@ function getEstadoComisionIcon(estado: string | null): string {
 }
 
 /**
- * 💰 Calcular comisiones por estado (PENDIENTE, APROBADA, PAGADA)
- * Retorna un objeto con el desglose de comisiones según su estado
+ * 💰 Calcular comisiones por estado
  */
 function calcularComisionesPorEstado(dateosExitosos: any[]) {
   let totalGenerado = 0
@@ -1209,10 +1307,8 @@ function calcularComisionesPorEstado(dateosExitosos: any[]) {
     const dateoId = Number(dateo.id)
     const arr = comisionesPorDateo.value.get(dateoId) || []
 
-    // Filtrar comisiones relevantes según rol
     const comisionesRelevantes = arr.filter((c: any) => {
       if (esAsesorConvenio.value) {
-        // Asesor convenio
         const esConvenioDelAsesor =
           c.convenio &&
           convenioDelAsesor.value &&
@@ -1223,11 +1319,9 @@ function calcularComisionesPorEstado(dateosExitosos: any[]) {
         return esConvenioDelAsesor || esAsesorQueDateo
       }
 
-      // Asesor comercial
       return c.asesor?.id === asesorId.value
     })
 
-    // Sumar por estado
     for (const c of comisionesRelevantes) {
       const monto = getComisionPorRolParaDateo(dateoId)
 
@@ -1240,9 +1334,7 @@ function calcularComisionesPorEstado(dateosExitosos: any[]) {
       } else if (c.estado === 'PENDIENTE') {
         comisionesPendientes += monto
       }
-      // ANULADA no se cuenta en ninguna categoría
 
-      // Solo contamos una vez por dateo, así que salimos del loop
       break
     }
   }
@@ -1253,14 +1345,6 @@ function calcularComisionesPorEstado(dateosExitosos: any[]) {
     comisionesAprobadas,
     comisionesPagadas,
   }
-}
-
-/**
- * Cálculo del KPI "Generado por dateos" (deprecated, usar calcularComisionesPorEstado)
- * Usamos SIEMPRE la misma lógica de getComisionPorRolParaDateo
- */
-async function calcularMontoGenerado(exitosos: any[]) {
-  return exitosos.reduce((acc: number, d: any) => acc + getComisionPorRolParaDateo(d.id), 0)
 }
 
 /* ===== Prospectos: ver todos / solo en rango ===== */
@@ -1304,7 +1388,6 @@ const dateosFiltrados = computed(() => {
 
 const totalDateosFiltrados = computed(() => dateosFiltrados.value.length)
 const totalExitosos = computed(() => dateosFiltrados.value.filter((d) => isExitoso(d)).length)
-/* Para KPIs: también mostramos el monto dinámico según rol */
 const totalComisionAsesor = computed(() =>
   dateosFiltrados.value
     .filter((d) => isExitoso(d))
@@ -1316,11 +1399,11 @@ const kpi = ref({
   prospectos: 0,
   convenios: 0,
   dateosExitosos: 0,
-  montoGenerado: 0, // Total de todas las comisiones (dinámico por rol)
-  comisionesPendientes: 0, // 🟡 Comisiones pendientes
-  comisionesAprobadas: 0,  // 🔵 Comisiones aprobadas
-  comisionesPagadas: 0,    // ✅ Comisiones pagadas
-  pagosRegistrados: 0, // Deprecated: usar comisionesPagadas
+  montoGenerado: 0,
+  comisionesPendientes: 0,
+  comisionesAprobadas: 0,
+  comisionesPagadas: 0,
+  pagosRegistrados: 0,
 })
 const saldoEstimado = computed(() => kpi.value.montoGenerado - kpi.value.comisionesPagadas)
 
@@ -1358,7 +1441,6 @@ const historialFiltros = ref({
   hasta: ''
 })
 
-// Inicializar filtros de historial con el año actual
 function initHistorialFiltros() {
   const hoy = new Date()
   const inicioAnio = new Date(hoy.getFullYear(), 0, 1)
@@ -1367,11 +1449,9 @@ function initHistorialFiltros() {
 }
 initHistorialFiltros()
 
-/* Valores referencias RTM (editables si backend retorna otros) */
 const valorRtmMoto = ref(126100)
 const valorRtmVehiculo = ref(208738)
 
-/* ===== Historial de pagos ===== */
 const historialPagos = computed(() => {
   const desde = new Date(historialFiltros.value.desde + 'T00:00:00')
   const hasta = new Date(historialFiltros.value.hasta + 'T23:59:59')
@@ -1385,12 +1465,10 @@ const historialPagos = computed(() => {
     dateoId: number
   }> = []
 
-  // Iterar todos los dateos exitosos
   for (const dateo of dateos.value.filter((d) => isExitoso(d))) {
     const dateoId = Number((dateo as any).id)
     const arr = comisionesPorDateo.value.get(dateoId) || []
 
-    // Filtrar comisiones relevantes y PAGADAS
     const comisionesRelevantes = arr.filter((c: any) => {
       if (c.estado !== 'PAGADA') return false
 
@@ -1406,12 +1484,10 @@ const historialPagos = computed(() => {
       return c.asesor?.id === asesorId.value
     })
 
-    // Si hay comisión pagada, agregar al historial
     for (const c of comisionesRelevantes) {
       const fechaPago = c.generado_at || (dateo as any).created_at || ''
       const fechaPagoDate = fechaPago ? new Date(fechaPago) : null
 
-      // Filtrar por rango de fechas
       if (fechaPagoDate && (fechaPagoDate < desde || fechaPagoDate > hasta)) {
         continue
       }
@@ -1425,11 +1501,10 @@ const historialPagos = computed(() => {
         dateoId: dateoId,
       })
 
-      break // Solo una vez por dateo
+      break
     }
   }
 
-  // Ordenar por fecha descendente
   return pagos.sort((a, b) => {
     const dateA = new Date(a.fecha).getTime()
     const dateB = new Date(b.fecha).getTime()
@@ -1446,7 +1521,6 @@ function abrirHistorialPagos() {
 }
 
 function aplicarFiltroHistorial() {
-  // El computed se actualiza automáticamente
   historialLoading.value = true
   setTimeout(() => {
     historialLoading.value = false
@@ -1492,7 +1566,6 @@ function calcComisionMeta(item: MetaMensualRow) {
   return (total * pct) / 100
 }
 
-/* resumen card */
 const metaResumen = computed(() => {
   const row = metasRows.value[0]
   if (!row) return null
@@ -1510,7 +1583,7 @@ const metaResumen = computed(() => {
 async function loadMetasAsesor() {
   metasLoading.value = true
   try {
-     const res = await listMetasMensuales({ mes: metaMes.value, asesorId: asesorId.value })
+    const res = await listMetasMensuales({ mes: metaMes.value, asesorId: asesorId.value })
     metasRows.value = res.data
 
     const row = metasRows.value[0]
@@ -1569,15 +1642,12 @@ function normalizeAsesor(raw: any): Asesor | null {
   }
 }
 
-// 🔥 CORRECCIÓN 3: Usar endpoint correcto según rol
 async function fetchAsesor(id: number) {
   try {
-    // Si soy COMERCIAL y estoy viendo MI propia ficha → usar /me
     if (authStore.isComercial && id === authStore.currentAgenteId) {
       const r = await getMiFicha()
       if (r) return normalizeAsesor(r)
     } else {
-      // Si soy GERENCIA/ADMIN viendo ficha de otro → usar /agentes-captacion/:id
       const r = await getAsesorById(id)
       if (r) return normalizeAsesor(r)
     }
@@ -1587,7 +1657,6 @@ async function fetchAsesor(id: number) {
   return null
 }
 
-/** Calcula vigente desde una fecha si falta el flag */
 function computeVigenteFromDate(flag: unknown, venc: unknown): boolean | null {
   if (flag === true || flag === false) return flag as boolean
   if (!venc) return null
@@ -1599,7 +1668,6 @@ function computeVigenteFromDate(flag: unknown, venc: unknown): boolean | null {
   return d.getTime() >= today.getTime()
 }
 
-/** Normaliza claves y completa flags desde vencimientos */
 function normalizeProspecto(p: Record<string, unknown>) {
   const soat_venc = (p.soat_vencimiento ?? p.soatVencimiento ?? null) as string | null
   const tecno_venc = (p.tecno_vencimiento ?? p.tecnoVencimiento ?? null) as string | null
@@ -1687,13 +1755,10 @@ async function fetchDateosUnionAsesorYConvenio(opts: {
     return await fetchByAgente()
   }
 
-  // 🚀 Asesor convenio: buscar en AMBOS roles
   const calls: Promise<Dateo[]>[] = []
 
-  // 1️⃣ Como AGENTE (usando asesor_convenio_id)
   calls.push(fetchByAgente())
 
-  // 2️⃣ Como CONVENIO - buscar el convenio directamente por nombre EXACTO
   try {
     const resConvenio = await get<any>(
       `${API}/convenios/buscar-por-nombre?nombre=${encodeURIComponent(a.nombre)}`
@@ -1710,7 +1775,6 @@ async function fetchDateosUnionAsesorYConvenio(opts: {
 
   const results = await Promise.all(calls)
 
-  // Unir sin duplicados por id
   const map = new Map<number, Dateo>()
   for (const arr of results) {
     if (!Array.isArray(arr)) continue
@@ -1770,7 +1834,6 @@ async function fetchPagos(_id: number) {
   return []
 }
 
-/* ===== Carga principal ===== */
 async function loadAll() {
   loading.value = true
   globalError.value = null
@@ -1815,7 +1878,6 @@ async function loadAll() {
     })
     const exitosos = dateosEnRango.filter((x) => isExitoso(x))
 
-    // 💰 Calcular comisiones por estado
     const comisionesPorEstado = calcularComisionesPorEstado(exitosos)
 
     kpi.value = {
@@ -1826,7 +1888,7 @@ async function loadAll() {
       comisionesPendientes: comisionesPorEstado.comisionesPendientes,
       comisionesAprobadas: comisionesPorEstado.comisionesAprobadas,
       comisionesPagadas: comisionesPorEstado.comisionesPagadas,
-      pagosRegistrados: comisionesPorEstado.comisionesPagadas, // Deprecated
+      pagosRegistrados: comisionesPorEstado.comisionesPagadas,
     }
   } catch (e: any) {
     globalError.value = e?.message || 'No fue posible cargar la ficha comercial'
@@ -1861,7 +1923,6 @@ watch(
       })
       const exitosos = dEnRango.filter((x) => isExitoso(x))
 
-      // 💰 Actualizar KPIs con comisiones por estado
       const comisionesPorEstado = calcularComisionesPorEstado(exitosos)
       kpi.value.montoGenerado = comisionesPorEstado.totalGenerado
       kpi.value.comisionesPendientes = comisionesPorEstado.comisionesPendientes
@@ -1873,7 +1934,6 @@ watch(
 )
 
 onMounted(async () => {
-  // ✅ Solo esperar si es COMERCIAL SIN route.params.id
   if (authStore.isComercial && !route.params.id) {
     let intentos = 0
     const maxIntentos = 10
@@ -1897,7 +1957,6 @@ onMounted(async () => {
   await loadAll()
 })
 
-/* ===== Navegación extra ===== */
 function verProspecto(id: number) {
   router.push({
     name: 'ComercialProspectoDetalle',
@@ -1918,10 +1977,6 @@ function irACrearProspecto() {
     name: 'ComercialProspectoNuevo',
     query: { fromFicha: String(asesorId.value) }
   }).catch(() => {})
-}
-/* ===== Exportar CSV (dateos) ===== */
-function getMontoDateo(d: Dateo) {
-  return getComisionPorRolParaDateo((d as any).id)
 }
 
 function formatFechaCSV(fechaISO?: string): string {
@@ -1953,7 +2008,7 @@ function exportCsv(soloExitosos: boolean) {
     telefono: d.telefono || '',
     convenio: d.convenio?.nombre || 'Sin convenio',
     estado: isExitoso(d) ? 'EXITOSO' : textoResultado(d.resultado),
-    monto_comision: getMontoDateo(d),
+    monto_comision: getComisionPorRolParaDateo(d.id),
     estado_comision: getEstadoComisionLabel(getEstadoComisionParaDateo(d.id)),
     fecha_creacion: formatFechaCSV(d.created_at),
   }))
@@ -2017,12 +2072,14 @@ function csvEscape(val: unknown) {
   display: flex;
   align-items: center;
   gap: 6px;
+  min-width: fit-content;
 }
 
 .data-label {
   font-weight: 600;
   font-size: 0.85rem;
   color: rgba(0, 0, 0, 0.6);
+  white-space: nowrap;
 }
 
 .data-value {
@@ -2098,33 +2155,6 @@ function csvEscape(val: unknown) {
   margin-top: 2px;
 }
 
-/* Estilos antiguos para compatibilidad */
-.kpi-card {
-  border: 1px solid rgba(0, 0, 0, 0.06);
-  border-radius: 14px;
-  padding: 14px 16px;
-  height: 100%;
-  background: rgb(var(--v-theme-surface));
-}
-
-.kpi-title {
-  font-weight: 600;
-  font-size: 0.9rem;
-  color: rgba(0, 0, 0, 0.6);
-}
-
-.kpi-value {
-  font-weight: 800;
-  font-size: 1.4rem;
-  line-height: 1.2;
-  margin: 6px 0;
-}
-
-.kpi-sub {
-  font-size: 0.8rem;
-  color: rgba(0, 0, 0, 0.45);
-}
-
 .gap-2 {
   gap: 8px;
 }
@@ -2141,7 +2171,7 @@ function csvEscape(val: unknown) {
 }
 
 .doc-date {
-  font-size: 12px;
+  font-size: 11px;
   opacity: 0.7;
   margin-top: 2px;
 }
@@ -2154,11 +2184,11 @@ function csvEscape(val: unknown) {
 :deep(td[data-key='preventiva']),
 :deep(th[data-key='peritaje']),
 :deep(td[data-key='peritaje']) {
-  min-width: 132px;
+  min-width: 120px;
 }
 
 :deep(table.v-table) {
-  font-size: 0.92rem;
+  font-size: 0.88rem;
 }
 
 :deep(.v-data-table-footer) {
@@ -2169,12 +2199,21 @@ function csvEscape(val: unknown) {
   letter-spacing: 0.2px;
 }
 
+/* 📱 Responsive ajustes */
 @media (max-width: 960px) {
   .kpi-value-compact {
     font-size: 1.1rem;
   }
   .kpi-title-compact {
     font-size: 0.75rem;
+  }
+
+  :deep(table.v-table) {
+    font-size: 0.82rem;
+  }
+
+  .doc-date {
+    font-size: 10px;
   }
 }
 
@@ -2185,10 +2224,35 @@ function csvEscape(val: unknown) {
 
   .kpi-card-compact {
     min-height: 80px;
+    padding: 10px 12px;
   }
 
   .kpi-value-compact {
     font-size: 1rem;
+  }
+
+  .kpi-title-compact {
+    font-size: 0.7rem;
+  }
+
+  .kpi-sub-compact {
+    font-size: 0.65rem;
+  }
+
+  :deep(table.v-table) {
+    font-size: 0.78rem;
+  }
+
+  :deep(.v-data-table-footer) {
+    font-size: 0.75rem;
+  }
+
+  .doc-cell {
+    font-size: 0.75rem;
+  }
+
+  .doc-date {
+    font-size: 9px;
   }
 }
 </style>

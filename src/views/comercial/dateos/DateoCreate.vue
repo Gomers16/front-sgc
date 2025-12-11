@@ -1,24 +1,38 @@
 <template>
-  <v-container class="py-6">
-    <v-card elevation="10" class="rounded-2xl">
-      <v-card-title class="d-flex justify-space-between align-center flex-wrap py-5">
+  <v-container class="py-4 py-sm-6">
+    <v-card elevation="10" class="rounded-xl rounded-sm-2xl">
+      <v-card-title class="d-flex justify-space-between align-center flex-wrap py-3 py-sm-5 px-3 px-sm-4">
         <div class="d-flex align-center">
-          <v-avatar class="mr-4" size="46" color="primary">
-            <v-icon>mdi-clipboard-plus</v-icon>
+          <v-avatar
+            class="mr-2 mr-sm-4"
+            :size="$vuetify.display.xs ? 40 : 46"
+            color="primary"
+          >
+            <v-icon :size="$vuetify.display.xs ? 20 : 24">mdi-clipboard-plus</v-icon>
           </v-avatar>
           <div>
-            <div class="text-h5 font-weight-bold">Nuevo dateo</div>
-            <div class="text-medium-emphasis">Registrar nueva captación de cliente</div>
+            <div class="text-subtitle-1 text-sm-h5 font-weight-bold">
+              <span class="d-none d-sm-inline">Nuevo dateo</span>
+              <span class="d-sm-none">Nuevo</span>
+            </div>
+            <div class="text-caption text-sm-body-2 text-medium-emphasis d-none d-sm-block">
+              Registrar nueva captación de cliente
+            </div>
           </div>
         </div>
-        <v-btn variant="text" prepend-icon="mdi-arrow-left" @click="router.back()">
+        <v-btn
+          variant="text"
+          prepend-icon="mdi-arrow-left"
+          :size="$vuetify.display.xs ? 'small' : 'default'"
+          @click="router.back()"
+        >
           Volver
         </v-btn>
       </v-card-title>
 
       <v-divider />
 
-      <v-card-text class="py-6">
+      <v-card-text class="py-4 py-sm-6 px-3 px-sm-4">
         <!-- Formulario -->
         <v-form ref="formRef" @submit.prevent="handleSubmit">
           <v-row>
@@ -29,6 +43,7 @@
                 :items="canalesOptions"
                 label="Canal de captación"
                 variant="outlined"
+                :density="$vuetify.display.xs ? 'compact' : 'comfortable'"
                 :rules="[rules.required]"
                 prepend-inner-icon="mdi-source-branch"
                 :disabled="canalBloqueado"
@@ -42,6 +57,7 @@
                 :items="['ASESOR_COMERCIAL', 'ASESOR_CONVENIO']"
                 label="Tipo de Asesor"
                 variant="outlined"
+                :density="$vuetify.display.xs ? 'compact' : 'comfortable'"
                 :rules="[rules.required]"
                 prepend-inner-icon="mdi-account-settings"
                 :disabled="tipoAsesorBloqueado"
@@ -57,6 +73,7 @@
                 item-value="id"
                 label="Agente / Asesor"
                 variant="outlined"
+                :density="$vuetify.display.xs ? 'compact' : 'comfortable'"
                 :rules="mostrarAgente ? [rules.required] : []"
                 prepend-inner-icon="mdi-account"
                 :disabled="agenteBloqueado"
@@ -65,12 +82,16 @@
                 <template #item="{ props, item }">
                   <v-list-item v-bind="props">
                     <template #prepend>
-                      <v-avatar size="32" color="primary">
-                        <v-icon size="20">mdi-account</v-icon>
+                      <v-avatar :size="$vuetify.display.xs ? 28 : 32" color="primary">
+                        <v-icon :size="$vuetify.display.xs ? 16 : 20">mdi-account</v-icon>
                       </v-avatar>
                     </template>
-                    <v-list-item-title>{{ item.raw.nombre }}</v-list-item-title>
-                    <v-list-item-subtitle>{{ item.raw.tipo }}</v-list-item-subtitle>
+                    <v-list-item-title class="text-caption text-sm-body-2">
+                      {{ item.raw.nombre }}
+                    </v-list-item-title>
+                    <v-list-item-subtitle class="text-caption">
+                      {{ item.raw.tipo }}
+                    </v-list-item-subtitle>
                   </v-list-item>
                 </template>
               </v-autocomplete>
@@ -85,6 +106,7 @@
                 item-value="id"
                 label="Convenio (opcional)"
                 variant="outlined"
+                :density="$vuetify.display.xs ? 'compact' : 'comfortable'"
                 prepend-inner-icon="mdi-handshake"
                 clearable
                 :disabled="isConvenioDisabled || convenioBloqueado"
@@ -93,11 +115,13 @@
                 <template #item="{ props, item }">
                   <v-list-item v-bind="props">
                     <template #prepend>
-                      <v-avatar size="32" color="secondary">
-                        <v-icon size="20">mdi-handshake</v-icon>
+                      <v-avatar :size="$vuetify.display.xs ? 28 : 32" color="secondary">
+                        <v-icon :size="$vuetify.display.xs ? 16 : 20">mdi-handshake</v-icon>
                       </v-avatar>
                     </template>
-                    <v-list-item-title>{{ item.raw.nombre }}</v-list-item-title>
+                    <v-list-item-title class="text-caption text-sm-body-2">
+                      {{ item.raw.nombre }}
+                    </v-list-item-title>
                   </v-list-item>
                 </template>
               </v-autocomplete>
@@ -109,6 +133,7 @@
                 v-model="form.placa"
                 label="Placa del vehículo *"
                 variant="outlined"
+                :density="$vuetify.display.xs ? 'compact' : 'comfortable'"
                 :rules="[rules.required, rules.placaLength]"
                 prepend-inner-icon="mdi-car"
                 @input="normalizePlaca"
@@ -125,6 +150,7 @@
                 v-model="form.telefono"
                 label="Teléfono cliente (opcional)"
                 variant="outlined"
+                :density="$vuetify.display.xs ? 'compact' : 'comfortable'"
                 prepend-inner-icon="mdi-phone"
                 @input="normalizeTelefono"
               />
@@ -136,7 +162,8 @@
                 v-model="form.observacion"
                 label="Observaciones (opcional)"
                 variant="outlined"
-                rows="3"
+                :density="$vuetify.display.xs ? 'compact' : 'comfortable'"
+                :rows="$vuetify.display.xs ? 2 : 3"
                 prepend-inner-icon="mdi-note-text"
               />
             </v-col>
@@ -147,22 +174,31 @@
                 v-model="imageFile"
                 label="Evidencia fotográfica (opcional)"
                 variant="outlined"
+                :density="$vuetify.display.xs ? 'compact' : 'comfortable'"
                 accept="image/*"
                 prepend-icon="mdi-camera"
+                :rules="[maxSizeRule]"
+                show-size
+                :multiple="false"
                 @change="handleImageChange"
+                @click:clear="handleClearImage"
               >
                 <template #selection="{ fileNames }">
-                  <v-chip size="small" label color="primary">
+                  <v-chip :size="$vuetify.display.xs ? 'x-small' : 'small'" label color="primary">
                     {{ fileNames[0] }}
                   </v-chip>
                 </template>
               </v-file-input>
 
+              <small class="text-caption text-medium-emphasis">
+                Tamaño máx. {{ MAX_IMAGE_MB }}MB. Formatos: JPG/PNG/WEBP/HEIC…
+              </small>
+
               <div v-if="imagePreview" class="mt-2">
                 <v-img
                   :src="imagePreview"
-                  max-width="300"
-                  max-height="200"
+                  :max-width="$vuetify.display.xs ? '100%' : '300'"
+                  :max-height="$vuetify.display.xs ? 150 : 200"
                   class="rounded"
                 />
               </div>
@@ -170,19 +206,29 @@
           </v-row>
 
           <!-- Acciones -->
-          <v-divider class="my-4" />
+          <v-divider class="my-3 my-sm-4" />
 
-          <div class="d-flex gap-2">
+          <div class="d-flex gap-2 flex-wrap">
             <v-btn
               color="primary"
-              :loading="loading"
-              :disabled="!canSubmit || loading"
+              :loading="loading || uploading"
+              :disabled="!canSubmit || loading || uploading"
+              :size="$vuetify.display.xs ? 'small' : 'default'"
+              :block="$vuetify.display.xs"
               @click="showConfirmDialog = true"
               prepend-icon="mdi-content-save"
             >
-              Guardar
+              <span v-if="uploading">Subiendo imagen...</span>
+              <span v-else-if="$vuetify.display.xs">Guardar</span>
+              <span v-else>Guardar dateo</span>
             </v-btn>
-            <v-btn variant="text" @click="router.back()">
+            <v-btn
+              variant="text"
+              :size="$vuetify.display.xs ? 'small' : 'default'"
+              :block="$vuetify.display.xs"
+              :disabled="loading || uploading"
+              @click="router.back()"
+            >
               Cancelar
             </v-btn>
           </div>
@@ -191,25 +237,38 @@
     </v-card>
 
     <!-- Modal de confirmación -->
-    <v-dialog v-model="showConfirmDialog" max-width="500" persistent>
+    <v-dialog
+      v-model="showConfirmDialog"
+      :max-width="$vuetify.display.xs ? '100%' : '500'"
+      :fullscreen="$vuetify.display.xs"
+      persistent
+    >
       <v-card>
-        <v-card-title class="d-flex align-center justify-center py-6">
-          <v-icon color="warning" size="60">mdi-help-circle</v-icon>
+        <v-card-title class="d-flex align-center justify-center py-4 py-sm-6">
+          <v-icon color="warning" :size="$vuetify.display.xs ? 48 : 60">
+            mdi-help-circle
+          </v-icon>
         </v-card-title>
-        <v-card-text class="text-center">
-          <div class="text-h5 font-weight-bold mb-2">¿Estás seguro?</div>
-          <div class="text-body-1 text-medium-emphasis">
+        <v-card-text class="text-center px-3 px-sm-4">
+          <div class="text-subtitle-1 text-sm-h5 font-weight-bold mb-2">¿Estás seguro?</div>
+          <div class="text-caption text-sm-body-1 text-medium-emphasis">
             ¿Deseas crear este dateo con los datos ingresados?
           </div>
         </v-card-text>
-        <v-card-actions class="justify-center pb-6 gap-2">
-          <v-btn variant="text" @click="showConfirmDialog = false">
+        <v-card-actions class="justify-center pb-4 pb-sm-6 gap-2">
+          <v-btn
+            variant="text"
+            :size="$vuetify.display.xs ? 'small' : 'default'"
+            :disabled="loading || uploading"
+            @click="showConfirmDialog = false"
+          >
             Cancelar
           </v-btn>
           <v-btn
             color="primary"
             variant="elevated"
-            :loading="loading"
+            :size="$vuetify.display.xs ? 'small' : 'default'"
+            :loading="loading || uploading"
             @click="confirmCreate"
           >
             Sí, crear dateo
@@ -219,22 +278,31 @@
     </v-dialog>
 
     <!-- Modal de éxito -->
-    <v-dialog v-model="showSuccessDialog" max-width="500" persistent>
+    <v-dialog
+      v-model="showSuccessDialog"
+      :max-width="$vuetify.display.xs ? '100%' : '500'"
+      :fullscreen="$vuetify.display.xs"
+      persistent
+    >
       <v-card>
-        <v-card-title class="d-flex align-center justify-center py-6">
-          <v-icon color="success" size="60">mdi-check-circle</v-icon>
+        <v-card-title class="d-flex align-center justify-center py-4 py-sm-6">
+          <v-icon color="success" :size="$vuetify.display.xs ? 48 : 60">
+            mdi-check-circle
+          </v-icon>
         </v-card-title>
-        <v-card-text class="text-center">
-          <div class="text-h5 font-weight-bold mb-2">¡Dateo creado exitosamente!</div>
-          <div class="text-body-1 text-medium-emphasis">
+        <v-card-text class="text-center px-3 px-sm-4">
+          <div class="text-subtitle-1 text-sm-h5 font-weight-bold mb-2">
+            ¡Dateo creado exitosamente!
+          </div>
+          <div class="text-caption text-sm-body-1 text-medium-emphasis">
             El dateo ha sido registrado correctamente en el sistema.
           </div>
         </v-card-text>
-        <v-card-actions class="justify-center pb-6">
+        <v-card-actions class="justify-center pb-4 pb-sm-6">
           <v-btn
             color="primary"
             variant="elevated"
-            size="large"
+            :size="$vuetify.display.xs ? 'default' : 'large'"
             @click="handleConfirmSuccess"
           >
             Aceptar
@@ -251,10 +319,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { createDateo } from '@/services/dateosService'
 import { listAgentesCaptacion, listConveniosAsignados } from '@/services/conveniosService'
+import { uploadImage, type UploadImageResponse } from '@/services/uploadsService'
+import { listConveniosLight } from '@/services/dateosService' // 👈 AGREGAR ESTA LÍNEA
 
 const router = useRouter()
 const route = useRoute()
@@ -269,6 +339,7 @@ const convenioBloqueado = ref(false)
 /* ===== Estado del formulario ===== */
 const formRef = ref<any>(null)
 const loading = ref(false)
+const uploading = ref(false)
 const showConfirmDialog = ref(false)
 const showSuccessDialog = ref(false)
 const snackbar = ref<{ show: boolean; text: string; color: 'success' | 'error' }>({
@@ -285,6 +356,11 @@ const form = ref({
   telefono: '',
   observacion: '',
   tipo_asesor: null as 'ASESOR_COMERCIAL' | 'ASESOR_CONVENIO' | null,
+  imagen_url: null as string | null,
+  imagen_mime: null as string | null,
+  imagen_tamano_bytes: null as number | null,
+  imagen_hash: null as string | null,
+  imagen_origen_id: null as string | number | null,
 })
 
 /* ===== Opciones de selects ===== */
@@ -337,8 +413,71 @@ const isConvenioDisabled = computed(() => {
 })
 
 /* ===== Imagen ===== */
-const imageFile = ref<File[]>([])
+const imageFile = ref<File | File[] | null>(null)
 const imagePreview = ref('')
+const MAX_IMAGE_MB = 8
+
+function maxSizeRule(v: File | File[] | null) {
+  const f = Array.isArray(v) ? v?.[0] : v
+  if (!f) return true
+  return f.size <= MAX_IMAGE_MB * 1024 * 1024 || `La imagen no debe superar ${MAX_IMAGE_MB}MB`
+}
+
+function handleImageChange() {
+  console.log('📁 handleImageChange - imageFile.value:', imageFile.value)
+
+  // Limpiar preview anterior
+  if (imagePreview.value) {
+    URL.revokeObjectURL(imagePreview.value)
+    imagePreview.value = ''
+  }
+
+  // Limpiar datos de imagen anterior
+  form.value.imagen_url = null
+  form.value.imagen_mime = null
+  form.value.imagen_tamano_bytes = null
+  form.value.imagen_hash = null
+  form.value.imagen_origen_id = null
+
+  // Obtener el archivo
+  let file: File | null = null
+
+  if (Array.isArray(imageFile.value)) {
+    file = imageFile.value[0] || null
+  } else if (imageFile.value instanceof File) {
+    file = imageFile.value
+  }
+
+  if (file && file instanceof File) {
+    console.log('✅ Archivo válido seleccionado:', file.name, `(${file.size} bytes)`)
+    imagePreview.value = URL.createObjectURL(file)
+  } else {
+    console.log('ℹ️ No se seleccionó ningún archivo válido')
+  }
+}
+
+function handleClearImage() {
+  console.log('🧹 Limpiando imagen...')
+
+  if (imagePreview.value) {
+    URL.revokeObjectURL(imagePreview.value)
+  }
+
+  imagePreview.value = ''
+  imageFile.value = null
+
+  form.value.imagen_url = null
+  form.value.imagen_mime = null
+  form.value.imagen_tamano_bytes = null
+  form.value.imagen_hash = null
+  form.value.imagen_origen_id = null
+}
+
+onBeforeUnmount(() => {
+  if (imagePreview.value) {
+    URL.revokeObjectURL(imagePreview.value)
+  }
+})
 
 /* ===== Reglas ===== */
 const rules = {
@@ -366,7 +505,6 @@ const canSubmit = computed(() => {
 /* ===== Normalización ===== */
 function normalizePlaca() {
   if (!form.value.placa) return
-  // 🔥 Forzar mayúsculas y eliminar espacios/guiones
   form.value.placa = form.value.placa.toUpperCase().replace(/[\s-]/g, '').slice(0, 6)
 }
 
@@ -408,7 +546,6 @@ function autoSeleccionarConvenioAsesorConvenio() {
 watch(
   () => form.value.tipo_asesor,
   (nuevo) => {
-    // Si viene desde ficha y los combos están bloqueados, no reseteamos nada
     if (fromAsesor.value && tipoAsesorBloqueado.value && agenteBloqueado.value) {
       return
     }
@@ -438,37 +575,63 @@ watch(
   }
 )
 
-/* ===== Subir imagen ===== */
-async function uploadImage(file: File): Promise<string | null> {
-  try {
-    const formData = new FormData()
-    formData.append('image', file)
+/* ===== 🔥 Subir imagen con validación robusta ===== */
+async function subirImagen(): Promise<boolean> {
+  console.log('🔍 DEBUG subirImagen - imageFile.value:', imageFile.value)
+  console.log('🔍 DEBUG tipo:', typeof imageFile.value)
+  console.log('🔍 DEBUG es array?:', Array.isArray(imageFile.value))
 
-    const response = await fetch('/api/uploads/images', {
-      method: 'POST',
-      body: formData,
-      headers: {
-        Authorization: `Bearer ${localStorage.getItem('token')}`,
-      },
-    })
+  // Obtener el archivo según el tipo
+  let file: File | null = null
 
-    if (!response.ok) throw new Error('Error al subir imagen')
-
-    const data = await response.json()
-    return data.url || data.path || null
-  } catch (error) {
-    console.error('Error subiendo imagen:', error)
-    return null
+  if (Array.isArray(imageFile.value)) {
+    file = imageFile.value[0] || null
+    console.log('🔍 DEBUG primer elemento array:', file)
+  } else if (imageFile.value instanceof File) {
+    file = imageFile.value
+    console.log('🔍 DEBUG es File directo:', file)
   }
-}
 
-function handleImageChange(event: Event) {
-  const files = imageFile.value
-  if (files && files.length > 0) {
-    const file = files[0]
-    imagePreview.value = URL.createObjectURL(file)
-  } else {
-    imagePreview.value = ''
+  // Validar que existe el archivo
+  if (!file) {
+    console.log('ℹ️ No hay imagen para subir')
+    return true // No hay imagen, ok
+  }
+
+  // Validar que es realmente un File
+  if (!(file instanceof File)) {
+    console.error('❌ El objeto no es un File:', file)
+    snackbar.value = {
+      show: true,
+      color: 'error',
+      text: 'Error: el archivo seleccionado no es válido.'
+    }
+    return false
+  }
+
+  uploading.value = true
+  try {
+    console.log('📤 Subiendo imagen:', file.name, `(${file.size} bytes)`)
+    const data: UploadImageResponse = await uploadImage(file)
+
+    form.value.imagen_url = data.url ?? null
+    form.value.imagen_mime = data.mime ?? file.type ?? null
+    form.value.imagen_tamano_bytes = typeof data.size === 'number' ? data.size : file.size
+    form.value.imagen_hash = data.hash ?? null
+    form.value.imagen_origen_id = data.id ?? null
+
+    console.log('✅ Imagen subida exitosamente:', form.value.imagen_url)
+    return true
+  } catch (error) {
+    console.error('❌ Error subiendo imagen:', error)
+    snackbar.value = {
+      show: true,
+      color: 'error',
+      text: 'Error al subir la imagen. Intenta de nuevo.'
+    }
+    return false
+  } finally {
+    uploading.value = false
   }
 }
 
@@ -478,7 +641,7 @@ async function confirmCreate() {
   await handleSubmit()
 }
 
-/* ===== Submit ===== */
+/* ===== 🔥 Submit con subida automática de imagen ===== */
 async function handleSubmit() {
   const valid = await formRef.value?.validate()
   if (!valid?.valid) {
@@ -489,12 +652,15 @@ async function handleSubmit() {
   loading.value = true
 
   try {
-    let imagen_url: string | null = null
-    if (imageFile.value && imageFile.value.length > 0) {
-      imagen_url = await uploadImage(imageFile.value[0])
+    // 🔥 PASO 1: Subir imagen si existe
+    const imagenSubida = await subirImagen()
+    if (!imagenSubida) {
+      loading.value = false
+      return // Error al subir imagen
     }
 
-    const payload = {
+    // 🔥 PASO 2: Preparar payload con todos los campos (incluida imagen)
+    const payload: any = {
       canal: form.value.canal,
       origen: 'UI' as const,
       agente_id: form.value.agente_id,
@@ -502,12 +668,25 @@ async function handleSubmit() {
       placa: form.value.placa ? form.value.placa.toUpperCase().trim() : null,
       telefono: form.value.telefono || null,
       observacion: form.value.observacion || null,
-      imagen_url,
     }
 
+    // 🔥 Agregar campos de imagen si existen
+    if (form.value.imagen_url) {
+      payload.imagen_url = form.value.imagen_url
+      payload.imagen_mime = form.value.imagen_mime ?? null
+      payload.imagen_tamano_bytes = form.value.imagen_tamano_bytes ?? null
+      payload.imagen_hash = form.value.imagen_hash ?? null
+      payload.imagen_origen_id = form.value.imagen_origen_id ?? null
+    }
+
+    console.log('🔥 Creando dateo con payload:', payload)
+
     await createDateo(payload)
+
+    console.log('✅ Dateo creado exitosamente')
     showSuccessDialog.value = true
   } catch (error: any) {
+    console.error('❌ Error creando dateo:', error)
     const msg = error?.response?.data?.message || error?.message || 'Error al crear el dateo'
     snackbar.value = { show: true, color: 'error', text: msg }
   } finally {
@@ -545,27 +724,20 @@ function inicializarDesdeFicha() {
   const asesor = agentes.value.find((a) => a.id === fromAsesor.value)
   if (!asesor) return
 
-  // Siempre canal asesor
   form.value.canal = 'ASESOR'
   canalBloqueado.value = true
 
-  // Tipo asesor según agente
-  const tipo =
-    asesor.tipo === 'ASESOR_CONVENIO' ? 'ASESOR_CONVENIO' : 'ASESOR_COMERCIAL'
+  const tipo = asesor.tipo === 'ASESOR_CONVENIO' ? 'ASESOR_CONVENIO' : 'ASESOR_COMERCIAL'
   form.value.tipo_asesor = tipo
   tipoAsesorBloqueado.value = true
 
-  // Agente fijo
   form.value.agente_id = asesor.id
   agenteBloqueado.value = true
 
-  // Lógica por tipo
   if (tipo === 'ASESOR_COMERCIAL') {
-    // Puede elegir convenio, pero cargamos los suyos
     convenioBloqueado.value = false
     loadConveniosAsignadosByAsesor(asesor.id)
   } else {
-    // ASESOR_CONVENIO: su convenio se auto-selecciona y se bloquea
     convenioBloqueado.value = true
     autoSeleccionarConvenioAsesorConvenio()
   }
@@ -574,18 +746,20 @@ function inicializarDesdeFicha() {
 /* ===== Cargar catálogos ===== */
 async function loadCatalogos() {
   try {
+    // ✅ Cargar agentes
     const agentesData = await listAgentesCaptacion()
     agentes.value = agentesData
 
-    const conveniosRes = await fetch('/api/convenios/light?activo=1', {
-      headers: {
-        Authorization: `Bearer ${localStorage.getItem('token')}`,
-      },
-    })
-    const conveniosData = await conveniosRes.json()
-    conveniosAll.value = conveniosData.data || []
+    // ✅ Usar el servicio correcto para convenios (en lugar de fetch manual)
+    try {
+      const conveniosData = await listConveniosLight()
+      conveniosAll.value = conveniosData || []
+    } catch (error) {
+      console.error('Error cargando convenios:', error)
+      // Si falla, intentar cargar de forma alternativa o dejar vacío
+      conveniosAll.value = []
+    }
 
-    // Si venimos desde ficha, configuramos y bloqueamos
     if (fromAsesor.value) {
       inicializarDesdeFicha()
     }
@@ -599,11 +773,16 @@ onMounted(() => {
   fromAsesor.value = q ? Number(q) : null
   loadCatalogos()
 })
-
 </script>
 
 <style scoped>
 .gap-2 {
   gap: 8px;
+}
+
+@media (max-width: 599px) {
+  .gap-2 {
+    gap: 6px;
+  }
 }
 </style>

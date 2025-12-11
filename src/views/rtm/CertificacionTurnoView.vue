@@ -1,27 +1,41 @@
 <template>
-  <v-container class="py-6">
+  <v-container class="py-4 py-sm-6">
     <!-- HEADER -->
-    <v-card elevation="10" class="rounded-2xl mb-6">
-      <v-card-title class="d-flex align-center justify-space-between flex-wrap py-4">
+    <v-card elevation="10" class="rounded-xl rounded-sm-2xl mb-4 mb-sm-6">
+      <v-card-title class="d-flex align-center justify-space-between flex-wrap py-3 py-sm-4 px-3 px-sm-4">
         <div class="d-flex align-center">
-          <v-avatar size="40" class="mr-3" color="light-blue-darken-3">
-            <v-icon>mdi-check-decagram</v-icon>
+          <v-avatar :size="$vuetify.display.xs ? 32 : 40" class="mr-2 mr-sm-3" color="light-blue-darken-3">
+            <v-icon :size="$vuetify.display.xs ? 18 : 20">mdi-check-decagram</v-icon>
           </v-avatar>
           <div>
-            <div class="text-h5 font-weight-bold">Certificación / Subir evidencia</div>
-            <div class="text-caption text-medium-emphasis" v-if="turno">
+            <div class="text-subtitle-2 text-sm-h5 font-weight-bold">
+              Certificación<span class="d-none d-sm-inline"> / Subir evidencia</span>
+            </div>
+            <div class="text-caption text-sm-caption text-medium-emphasis" v-if="turno">
               Turno #{{ turno.turnoNumero }} • {{ turno.placa }} • {{ getServicioCodigo(turno) }}
             </div>
           </div>
         </div>
 
-        <div class="d-flex align-center flex-wrap" style="gap:10px">
-          <v-chip v-if="turno" :color="estadoColor" variant="tonal" class="font-weight-bold">
+        <div class="d-flex align-center flex-wrap" style="gap:8px">
+          <v-chip
+            v-if="turno"
+            :color="estadoColor"
+            variant="tonal"
+            :size="$vuetify.display.xs ? 'small' : 'default'"
+            class="font-weight-bold"
+          >
             {{ estadoTexto }}
           </v-chip>
 
-          <v-btn prepend-icon="mdi-arrow-left" variant="text" @click="goBack">
-            Volver a turnos
+          <v-btn
+            prepend-icon="mdi-arrow-left"
+            variant="text"
+            :size="$vuetify.display.xs ? 'small' : 'default'"
+            @click="goBack"
+          >
+            <span class="d-none d-sm-inline">Volver a turnos</span>
+            <span class="d-sm-none">Volver</span>
           </v-btn>
         </div>
       </v-card-title>
@@ -30,17 +44,18 @@
     <v-row>
       <!-- IZQUIERDA: Evidencia -->
       <v-col cols="12" md="6">
-        <v-card elevation="8" class="rounded-xl mb-4">
-          <v-card-title class="py-4">
-            <v-icon class="mr-2">mdi-image-plus</v-icon>
-            Evidencia de certificación (pantallazo FLUR)
+        <v-card elevation="8" class="rounded-xl mb-3 mb-sm-4">
+          <v-card-title class="py-3 py-sm-4 px-3 px-sm-4 text-subtitle-2 text-sm-h6">
+            <v-icon class="mr-2" :size="$vuetify.display.xs ? 18 : 20">mdi-image-plus</v-icon>
+            <span class="d-none d-sm-inline">Evidencia de certificación (pantallazo FLUR)</span>
+            <span class="d-sm-none">Evidencia FLUR</span>
           </v-card-title>
           <v-divider />
 
-          <v-card-text>
+          <v-card-text class="pa-3 pa-sm-4">
             <!-- Dropzone -->
             <div
-              class="dropzone rounded-lg mb-4"
+              class="dropzone rounded-lg mb-3 mb-sm-4"
               :class="{ 'dropzone--active': dragging }"
               @dragover.prevent="dragging = true"
               @dragleave.prevent="dragging = false"
@@ -48,11 +63,13 @@
               @click="selectFile"
             >
               <div class="text-center">
-                <div class="text-subtitle-1 font-weight-bold">
-                  Suelta el pantallazo aquí o haz clic para seleccionar
+                <div class="text-caption text-sm-subtitle-1 font-weight-bold">
+                  <span class="d-none d-sm-inline">Suelta el pantallazo aquí o haz clic para seleccionar</span>
+                  <span class="d-sm-none">Toca para seleccionar imagen</span>
                 </div>
-                <div class="text-medium-emphasis">
-                  Imagen JPG o PNG (hasta 8 MB)
+                <div class="text-caption text-medium-emphasis">
+                  <span class="d-none d-sm-inline">Imagen JPG o PNG (hasta 8 MB)</span>
+                  <span class="d-sm-none">JPG/PNG (máx 8MB)</span>
                 </div>
                 <input
                   ref="fileInput"
@@ -67,35 +84,39 @@
             <!-- Preview -->
             <v-expand-transition>
               <div v-if="previewUrl" class="preview-wrapper">
-                <div class="d-flex align-center justify-space-between mb-2">
-                  <div class="d-flex align-center" style="gap:8px">
+                <div class="d-flex align-center justify-space-between mb-2 flex-wrap">
+                  <div class="d-flex align-center flex-wrap" style="gap:6px">
                     <v-btn
-                      size="small"
+                      :size="$vuetify.display.xs ? 'x-small' : 'small'"
                       variant="tonal"
                       prepend-icon="mdi-magnify-minus"
                       @click="zoomOut"
                     >
-                      Zoom -
+                      <span class="d-none d-sm-inline">Zoom -</span>
+                      <span class="d-sm-none">-</span>
                     </v-btn>
                     <v-btn
-                      size="small"
+                      :size="$vuetify.display.xs ? 'x-small' : 'small'"
                       variant="tonal"
                       prepend-icon="mdi-magnify-plus"
                       @click="zoomIn"
                     >
-                      Zoom +
+                      <span class="d-none d-sm-inline">Zoom +</span>
+                      <span class="d-sm-none">+</span>
                     </v-btn>
                     <v-btn
-                      size="small"
+                      :size="$vuetify.display.xs ? 'x-small' : 'small'"
                       variant="tonal"
                       prepend-icon="mdi-rotate-right"
                       @click="rotateRight"
                     >
-                      Rotar 90°
+                      <span class="d-none d-sm-inline">Rotar 90°</span>
+                      <span class="d-sm-none">↻</span>
                     </v-btn>
                     <v-btn
-                      size="small"
+                      :size="$vuetify.display.xs ? 'x-small' : 'small'"
                       variant="text"
+                      class="d-none d-sm-inline-flex"
                       @click="fitWidth"
                     >
                       Ajustar a ancho
@@ -103,13 +124,14 @@
                   </div>
 
                   <v-btn
-                    size="small"
+                    :size="$vuetify.display.xs ? 'x-small' : 'small'"
                     variant="text"
                     color="error"
                     prepend-icon="mdi-delete"
                     @click.stop="limpiarEvidencia"
                   >
-                    Quitar evidencia
+                    <span class="d-none d-sm-inline">Quitar evidencia</span>
+                    <span class="d-sm-none">Quitar</span>
                   </v-btn>
                 </div>
 
@@ -123,9 +145,10 @@
             <v-textarea
               v-model="nota"
               label="Notas del ingeniero (opcional)"
-              rows="2"
+              :rows="$vuetify.display.xs ? 2 : 2"
               auto-grow
-              class="mt-4"
+              class="mt-3 mt-sm-4"
+              :density="$vuetify.display.xs ? 'compact' : 'comfortable'"
               clearable
             />
           </v-card-text>
@@ -134,28 +157,28 @@
 
       <!-- DERECHA: Info del turno + acción -->
       <v-col cols="12" md="6">
-        <v-card elevation="8" class="rounded-xl mb-4">
-          <v-card-title class="py-4 d-flex align-center justify-space-between">
+        <v-card elevation="8" class="rounded-xl mb-3 mb-sm-4">
+          <v-card-title class="py-3 py-sm-4 px-3 px-sm-4 d-flex align-center justify-space-between text-subtitle-2 text-sm-h6">
             <div class="d-flex align-center">
-              <v-icon class="mr-2">mdi-clipboard-text</v-icon>
+              <v-icon class="mr-2" :size="$vuetify.display.xs ? 18 : 20">mdi-clipboard-text</v-icon>
               Detalle del turno
             </div>
           </v-card-title>
           <v-divider />
 
-          <v-card-text v-if="loadingTurno">
-            <div class="d-flex justify-center my-6">
-              <v-progress-circular indeterminate color="primary" />
+          <v-card-text v-if="loadingTurno" class="pa-3 pa-sm-4">
+            <div class="d-flex justify-center my-4 my-sm-6">
+              <v-progress-circular indeterminate color="primary" :size="$vuetify.display.xs ? 40 : 60" />
             </div>
           </v-card-text>
 
-          <v-card-text v-else-if="!turno">
-            <v-alert type="error" variant="tonal">
+          <v-card-text v-else-if="!turno" class="pa-3 pa-sm-4">
+            <v-alert type="error" variant="tonal" :density="$vuetify.display.xs ? 'compact' : 'default'">
               No se pudo cargar la información del turno.
             </v-alert>
           </v-card-text>
 
-          <v-card-text v-else>
+          <v-card-text v-else class="pa-3 pa-sm-4">
             <v-row>
               <v-col cols="6">
                 <div class="label">Turno</div>
@@ -186,7 +209,11 @@
               <v-col cols="6">
                 <div class="label">Estado</div>
                 <div class="value">
-                  <v-chip size="small" :color="chipEstadoColor" variant="tonal">
+                  <v-chip
+                    :size="$vuetify.display.xs ? 'x-small' : 'small'"
+                    :color="chipEstadoColor"
+                    variant="tonal"
+                  >
                     {{ capitalizar(turno.estado) }}
                   </v-chip>
                 </div>
@@ -206,41 +233,52 @@
               </v-col>
             </v-row>
 
-            <v-divider class="my-4" />
+            <v-divider class="my-3 my-sm-4" />
 
             <!-- Recordatorio de flujo -->
             <v-alert
               type="info"
               variant="tonal"
-              class="mb-4"
-              density="compact"
+              class="mb-3 mb-sm-4"
+              :density="$vuetify.display.xs ? 'compact' : 'comfortable'"
             >
-              Sube el pantallazo del FLUR. Al confirmar se marcará la
-              <b>certificación</b> y el turno quedará <b>finalizado</b>.
+              <span class="text-caption text-sm-body-2">
+                Sube el pantallazo del FLUR. Al confirmar se marcará la
+                <b>certificación</b> y el turno quedará <b>finalizado</b>.
+              </span>
             </v-alert>
 
             <v-alert
               v-if="turno.tieneFacturacion === false"
               type="warning"
               variant="tonal"
-              class="mb-4"
-              density="compact"
+              class="mb-3 mb-sm-4"
+              :density="$vuetify.display.xs ? 'compact' : 'comfortable'"
             >
-              Este turno aún no tiene facturación registrada.
-              Puedes subir la evidencia, pero se recomienda facturar antes de finalizar.
+              <span class="text-caption text-sm-body-2">
+                Este turno aún no tiene facturación registrada.
+                Puedes subir la evidencia, pero se recomienda facturar antes de finalizar.
+              </span>
             </v-alert>
 
-            <div class="d-flex align-center justify-end" style="gap:10px">
-              <v-btn variant="text" @click="goBack">
+            <div class="d-flex align-center justify-end flex-wrap" style="gap:8px">
+              <v-btn
+                variant="text"
+                :size="$vuetify.display.xs ? 'small' : 'default'"
+                @click="goBack"
+              >
                 Cancelar
               </v-btn>
               <v-btn
                 color="primary"
                 :disabled="!puedeConfirmar"
                 :loading="saving"
+                :block="$vuetify.display.xs"
+                :size="$vuetify.display.xs ? 'small' : 'default'"
                 @click="openConfirm"
               >
-                Marcar como certificado y finalizar
+                <span v-if="$vuetify.display.xs">Certificar</span>
+                <span v-else>Marcar como certificado y finalizar</span>
               </v-btn>
             </div>
           </v-card-text>
@@ -249,15 +287,19 @@
     </v-row>
 
     <!-- DIALOG CONFIRMACIÓN -->
-    <v-dialog v-model="dialogConfirm" max-width="620">
+    <v-dialog
+      v-model="dialogConfirm"
+      :max-width="$vuetify.display.xs ? '100%' : '620'"
+      :fullscreen="$vuetify.display.xs"
+    >
       <v-card>
-        <v-card-title class="d-flex align-center">
-          <v-icon class="mr-2">mdi-shield-check</v-icon>
+        <v-card-title class="d-flex align-center pa-3 pa-sm-4 text-subtitle-1 text-sm-h6">
+          <v-icon class="mr-2" :size="$vuetify.display.xs ? 18 : 20">mdi-shield-check</v-icon>
           Confirmar certificación
         </v-card-title>
         <v-divider />
-        <v-card-text>
-          <p class="text-body-2 mb-3">
+        <v-card-text class="pa-3 pa-sm-4">
+          <p class="text-caption text-sm-body-2 mb-2 mb-sm-3">
             Se guardará la evidencia de certificación y el turno se marcará como
             <b>finalizado</b> con la hora actual de salida.
           </p>
@@ -295,15 +337,20 @@
             </v-col>
           </v-row>
         </v-card-text>
-        <v-card-actions class="px-4 pb-4">
+        <v-card-actions class="px-3 px-sm-4 pb-3 pb-sm-4">
           <v-spacer />
-          <v-btn variant="text" @click="dialogConfirm = false">
+          <v-btn
+            variant="text"
+            :size="$vuetify.display.xs ? 'small' : 'default'"
+            @click="dialogConfirm = false"
+          >
             Cancelar
           </v-btn>
           <v-btn
             color="primary"
             :loading="saving"
             :disabled="saving"
+            :size="$vuetify.display.xs ? 'small' : 'default'"
             @click="confirmarYGuardar"
           >
             Confirmar
@@ -373,11 +420,9 @@ interface Turno {
   servicioCodigo?: string
   servicioNombre?: string
 
-  // puede venir como funcionario o usuario según el back
   funcionario?: FuncionarioLite
   usuario?: FuncionarioLite
 
-  // bandera desde facturación, si ya tiene factura
   tieneFacturacion?: boolean | null
 }
 
@@ -559,7 +604,6 @@ async function confirmarYGuardar() {
   try {
     const turnoId = turno.value.id
 
-    // Subir evidencia de certificación (el back ya finaliza el turno)
     await CertificacionService.subirEvidencia(
       turnoId,
       previewBlob.value,
@@ -612,36 +656,70 @@ onMounted(() => {
 
 <style scoped>
 .v-card {
-  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.08), 0 6px 6px rgba(0, 0, 0, 0.05);
-  border-radius: 16px;
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.08), 0 4px 4px rgba(0, 0, 0, 0.05);
+  border-radius: 12px;
+}
+
+@media (min-width: 600px) {
+  .v-card {
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.08), 0 6px 6px rgba(0, 0, 0, 0.05);
+    border-radius: 16px;
+  }
 }
 
 .section-title {
   font-weight: 700;
-  margin-bottom: 10px;
-  font-size: 0.95rem;
+  margin-bottom: 8px;
+  font-size: 0.85rem;
   letter-spacing: 0.3px;
 }
 
+@media (min-width: 600px) {
+  .section-title {
+    margin-bottom: 10px;
+    font-size: 0.95rem;
+  }
+}
+
 .label {
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   color: #6b7280;
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
 
+@media (min-width: 600px) {
+  .label {
+    font-size: 0.75rem;
+  }
+}
+
 .value {
   font-weight: 600;
+  font-size: 0.85rem;
+}
+
+@media (min-width: 600px) {
+  .value {
+    font-size: 0.95rem;
+  }
 }
 
 /* Dropzone */
 .dropzone {
   border: 2px dashed rgba(0, 0, 0, 0.25);
-  padding: 22px;
+  padding: 16px;
   cursor: pointer;
   background: #f0f9ff;
   transition: 0.3s;
-  border-radius: 12px;
+  border-radius: 10px;
+}
+
+@media (min-width: 600px) {
+  .dropzone {
+    padding: 22px;
+    border-radius: 12px;
+  }
 }
 
 .dropzone--active {
@@ -652,13 +730,21 @@ onMounted(() => {
 /* Preview */
 .preview-wrapper .preview-canvas {
   width: 100%;
-  max-height: 60vh;
+  max-height: 50vh;
   overflow: auto;
   background: #fafafa;
   border: 1px solid #eee;
-  border-radius: 12px;
-  padding: 8px;
+  border-radius: 10px;
+  padding: 6px;
   text-align: center;
+}
+
+@media (min-width: 600px) {
+  .preview-wrapper .preview-canvas {
+    max-height: 60vh;
+    border-radius: 12px;
+    padding: 8px;
+  }
 }
 
 .preview-canvas img {
@@ -672,9 +758,22 @@ onMounted(() => {
 }
 
 .rounded-xl {
+  border-radius: 12px;
+}
+
+@media (min-width: 600px) {
+  .rounded-xl {
+    border-radius: 16px;
+  }
+}
+
+.rounded-2xl {
   border-radius: 16px;
 }
-.rounded-2xl {
-  border-radius: 20px;
+
+@media (min-width: 600px) {
+  .rounded-2xl {
+    border-radius: 20px;
+  }
 }
 </style>

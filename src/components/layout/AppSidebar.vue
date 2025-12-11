@@ -1,12 +1,14 @@
 <!-- src/components/layout/AppSidebar.vue -->
 <template>
   <v-navigation-drawer
-    expand-on-hover
-    rail
+    v-model="drawer"
+    :permanent="$vuetify.display.mdAndUp"
+    :temporary="$vuetify.display.smAndDown"
+    :expand-on-hover="$vuetify.display.mdAndUp"
+    :rail="$vuetify.display.mdAndUp"
     app
-    permanent
     color="#0B3B82"
-    style="margin-top: 64px"
+    style="margin-top: 56px"
     :width="280"
     :rail-width="64"
   >
@@ -17,7 +19,7 @@
     <v-divider class="my-2" />
 
     <v-list density="compact" nav>
-      <!-- Dashboard - Oculto para comerciales y contabilidad -->
+      <!-- Dashboard -->
       <v-list-item
         v-if="can.verDashboard()"
         prepend-icon="mdi-view-dashboard"
@@ -27,7 +29,7 @@
         class="nav-item"
       />
 
-      <!-- 🆕 Mi Ficha Comercial - Solo para comerciales -->
+      <!-- Mi Ficha Comercial -->
       <v-list-item
         v-if="can.verMiFichaComercial() && auth.currentAgenteId"
         prepend-icon="mdi-account-star"
@@ -40,7 +42,7 @@
         class="nav-item"
       />
 
-      <!-- Turnos - Solo operativos, gerencia y admin -->
+      <!-- Turnos -->
       <v-list-group
         v-if="can.verTurnos()"
         value="rtm"
@@ -69,7 +71,7 @@
         />
       </v-list-group>
 
-      <!-- Comercial - Gerencia, Admin y Contabilidad -->
+      <!-- Comercial -->
       <v-list-group
         v-if="can.verComercial()"
         value="comercial"
@@ -81,7 +83,7 @@
           <v-list-item v-bind="props" title="Comercial" />
         </template>
 
-        <!-- Asesores - Solo listado para CONTABILIDAD -->
+        <!-- Asesores -->
         <v-list-group
           v-if="can.verListadoAgentes()"
           value="comercial-asesores"
@@ -109,7 +111,6 @@
           </template>
 
           <v-list-item title="Listado" :to="{ path: '/comercial/dateos' }" link />
-          <!-- ❌ Nuevo dateo - Solo SUPER_ADMIN, GERENCIA y COMERCIAL -->
           <v-list-item
             v-if="can.crearDateo()"
             title="Nuevo dateo"
@@ -134,27 +135,25 @@
         </v-list-group>
 
         <!-- Prospectos -->
-<v-list-group
-  v-if="can.verProspectos()"
-  value="comercial-prospectos"
-  prepend-icon="mdi-account-search-outline"
-  class="nav-item"
-  color="#FACC15"
->
-  <template #activator="{ props }">
-    <v-list-item v-bind="props" title="Prospectos" />
-  </template>
+        <v-list-group
+          v-if="can.verProspectos()"
+          value="comercial-prospectos"
+          prepend-icon="mdi-account-search-outline"
+          class="nav-item"
+          color="#FACC15"
+        >
+          <template #activator="{ props }">
+            <v-list-item v-bind="props" title="Prospectos" />
+          </template>
 
-  <v-list-item title="Listado" :to="{ path: '/comercial/prospectos' }" link />
-
-  <!-- ❌ Nuevo prospecto - Solo SUPER_ADMIN, GERENCIA y COMERCIAL -->
-  <v-list-item
-    v-if="can.crearProspecto()"
-    title="Nuevo prospecto"
-    :to="{ path: '/comercial/prospectos/nuevo' }"
-    link
-  />
-</v-list-group>
+          <v-list-item title="Listado" :to="{ path: '/comercial/prospectos' }" link />
+          <v-list-item
+            v-if="can.crearProspecto()"
+            title="Nuevo prospecto"
+            :to="{ path: '/comercial/prospectos/nuevo' }"
+            link
+          />
+        </v-list-group>
 
         <!-- Clientes -->
         <v-list-group
@@ -183,8 +182,6 @@
           </template>
 
           <v-list-item title="Resumen / Listado" :to="{ path: '/comercial/comisiones' }" link />
-
-          <!-- ❌ Config de comisiones - Solo SUPER_ADMIN y GERENCIA -->
           <v-list-item
             v-if="can.configurarComisiones()"
             title="Parámetros / Configuración"
@@ -194,7 +191,7 @@
         </v-list-group>
       </v-list-group>
 
-      <!-- Gestión Documental - Solo RRHH, Gerencia, Admin -->
+      <!-- Gestión Documental -->
       <v-list-group
         v-if="can.verGestionDocumental()"
         value="gestion-documental"
@@ -258,13 +255,14 @@
 <script setup lang="ts">
 import { useAuthStore } from '@/stores/AuthStore'
 import { usePermissions } from '@/composables/usePermissions'
+import { useDrawer } from '@/composables/useDrawer'
 
 const auth = useAuthStore()
 const { can } = usePermissions()
+const { drawer } = useDrawer()
 </script>
 
 <style scoped>
-/* Fondo corporativo azul con detalle amarillo */
 .v-navigation-drawer {
   background: linear-gradient(180deg, #0b3b82, #0057b7);
   color: #e5e7eb;
@@ -272,13 +270,18 @@ const { can } = usePermissions()
   border-right: 1px solid rgba(15, 23, 42, 0.18);
 }
 
-/* Al expandir, respetar el ancho definido */
+/* Ajustar margen top según tamaño de navbar */
+@media (min-width: 600px) {
+  .v-navigation-drawer {
+    margin-top: 64px !important;
+  }
+}
+
 .v-navigation-drawer.v-navigation-drawer--expand-on-hover:not(.v-navigation-drawer--rail) {
   width: 280px !important;
   min-width: 280px !important;
 }
 
-/* Bloque de usuario */
 .user-info {
   padding-top: 16px;
   padding-bottom: 16px;
@@ -297,13 +300,11 @@ const { can } = usePermissions()
   opacity: 0.8;
 }
 
-/* Títulos de grupos e items */
 .nav-item :deep(.v-list-item-title) {
   font-weight: 500;
   font-size: 0.86rem;
 }
 
-/* Texto e iconos por defecto */
 :deep(.v-list-item) {
   color: #e5e7eb !important;
 }
@@ -312,12 +313,10 @@ const { can } = usePermissions()
   color: #e5e7eb !important;
 }
 
-/* Hover más corporativo */
 :deep(.v-list-item:hover) {
   background-color: rgba(15, 23, 42, 0.35) !important;
 }
 
-/* Estado activo con acento amarillo de marca */
 :deep(.v-list-item--active) {
   background-color: rgba(250, 204, 21, 0.18) !important;
   color: #facc15 !important;

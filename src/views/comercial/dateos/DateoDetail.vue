@@ -1,22 +1,34 @@
 <template>
-  <v-container class="py-6">
-    <v-btn variant="text" class="mb-3" prepend-icon="mdi-arrow-left" @click="volver">Volver</v-btn>
+  <v-container class="py-4 py-sm-6">
+    <v-btn
+      variant="text"
+      class="mb-3 mb-sm-4"
+      prepend-icon="mdi-arrow-left"
+      :size="$vuetify.display.xs ? 'small' : 'default'"
+      @click="volver"
+    >
+      Volver
+    </v-btn>
 
     <v-skeleton-loader v-if="loading" type="card, card" />
 
-    <v-row v-else class="g-4">
+    <v-row v-else class="g-3 g-sm-4">
       <!-- Ficha -->
       <v-col cols="12" md="6">
-        <v-card elevation="4" class="rounded-lg">
-          <v-card-title class="d-flex align-center justify-space-between">
-            <span class="text-subtitle-1 font-weight-bold">Dateo #{{ dateo?.id }}</span>
-            <v-chip size="small" variant="flat">{{ getCanalLabel(form.canal) }}</v-chip>
+        <v-card elevation="4" class="rounded-lg rounded-sm-xl">
+          <v-card-title class="d-flex align-center justify-space-between pa-3 pa-sm-4">
+            <span class="text-subtitle-2 text-sm-subtitle-1 font-weight-bold">
+              Dateo #{{ dateo?.id }}
+            </span>
+            <v-chip :size="$vuetify.display.xs ? 'x-small' : 'small'" variant="flat">
+              {{ getCanalLabel(form.canal) }}
+            </v-chip>
           </v-card-title>
           <v-divider />
-          <v-card-text>
+          <v-card-text class="pa-3 pa-sm-4">
             <v-row class="g-2">
               <v-col cols="12">
-                <div class="text-body-2 mb-2">
+                <div class="text-caption text-sm-body-2 mb-2">
                   <strong>Creado:</strong>
                   {{ dateo?.created_at_fmt || fmt(dateo?.created_at) }}
                 </div>
@@ -29,7 +41,7 @@
                   :items="canalItems"
                   label="Canal"
                   variant="outlined"
-                  density="comfortable"
+                  :density="$vuetify.display.xs ? 'compact' : 'comfortable'"
                   prepend-inner-icon="mdi-source-branch"
                   :disabled="!editando"
                   :readonly="!editando"
@@ -42,7 +54,7 @@
                   v-model="form.placa"
                   label="Placa *"
                   variant="outlined"
-                  density="comfortable"
+                  :density="$vuetify.display.xs ? 'compact' : 'comfortable'"
                   prepend-inner-icon="mdi-card-text"
                   :rules="editando ? [rules.required, rules.placaLength] : []"
                   :counter="editando ? 6 : false"
@@ -61,7 +73,7 @@
                   v-model="form.telefono"
                   label="Teléfono"
                   variant="outlined"
-                  density="comfortable"
+                  :density="$vuetify.display.xs ? 'compact' : 'comfortable'"
                   prepend-inner-icon="mdi-phone"
                   type="tel"
                   :disabled="!editando"
@@ -70,7 +82,7 @@
               </v-col>
 
               <v-col cols="12">
-                <div class="text-body-2">
+                <div class="text-caption text-sm-body-2">
                   <strong>Agente:</strong> {{ dateo?.agente?.nombre || '—' }}
                   <span v-if="dateo?.agente" class="text-medium-emphasis">
                     ({{ mapTipoCorto(dateo?.agente?.tipo) }})
@@ -79,7 +91,7 @@
               </v-col>
 
               <v-col cols="12">
-                <div class="text-body-2">
+                <div class="text-caption text-sm-body-2">
                   <strong>Convenio:</strong> {{ dateo?.convenio?.nombre || '—' }}
                 </div>
               </v-col>
@@ -87,7 +99,7 @@
 
             <!-- Turno (solo visual) -->
             <v-divider class="my-3" />
-            <div class="text-subtitle-2 mb-2 font-weight-600">Turno vinculado</div>
+            <div class="text-caption text-sm-subtitle-2 mb-2 font-weight-600">Turno vinculado</div>
 
             <div v-if="dateo?.turnoInfo" class="d-flex align-center flex-wrap" style="gap:6px">
               <v-chip size="x-small" color="primary" variant="tonal" class="font-weight-600">
@@ -119,11 +131,13 @@
                 {{ textoEstadoTurno(dateo?.turnoInfo?.estado || dateo?.resultado) }}
               </v-chip>
             </div>
-            <div v-else class="text-medium-emphasis">— Sin turno vinculado —</div>
+            <div v-else class="text-caption text-sm-body-2 text-medium-emphasis">
+              — Sin turno vinculado —
+            </div>
           </v-card-text>
 
           <!-- Acciones de la ficha -->
-          <v-card-actions class="px-4 pb-4 pt-0">
+          <v-card-actions class="px-3 px-sm-4 pb-3 pb-sm-4 pt-0">
             <v-spacer />
 
             <!-- Modo lectura: botón Editar -->
@@ -131,6 +145,7 @@
               v-if="!editando"
               color="primary"
               variant="tonal"
+              :size="$vuetify.display.xs ? 'small' : 'default'"
               @click="activarEdicion"
               prepend-icon="mdi-pencil"
             >
@@ -144,14 +159,17 @@
                 @click="guardar"
                 :loading="saving"
                 :disabled="!isFormValid"
+                :size="$vuetify.display.xs ? 'small' : 'default'"
                 prepend-icon="mdi-content-save"
               >
-                Guardar
+                <span v-if="$vuetify.display.xs">Guardar</span>
+                <span v-else>Guardar cambios</span>
               </v-btn>
               <v-btn
                 variant="text"
                 @click="cancelarEdicion"
                 :disabled="saving"
+                :size="$vuetify.display.xs ? 'small' : 'default'"
               >
                 Cancelar
               </v-btn>
@@ -162,10 +180,12 @@
 
       <!-- Resultado -->
       <v-col cols="12" md="6">
-        <v-card elevation="4" class="rounded-lg">
-          <v-card-title class="text-subtitle-1 font-weight-bold">Resultado</v-card-title>
+        <v-card elevation="4" class="rounded-lg rounded-sm-xl">
+          <v-card-title class="text-subtitle-2 text-sm-subtitle-1 font-weight-bold pa-3 pa-sm-4">
+            Resultado
+          </v-card-title>
           <v-divider />
-          <v-card-text>
+          <v-card-text class="pa-3 pa-sm-4">
             <v-row class="g-2">
               <v-col cols="12">
                 <v-select
@@ -173,14 +193,14 @@
                   :items="resultadoItems"
                   label="Resultado"
                   variant="outlined"
-                  density="comfortable"
+                  :density="$vuetify.display.xs ? 'compact' : 'comfortable'"
                   :disabled="!editando"
                   :readonly="!editando"
                 />
               </v-col>
             </v-row>
           </v-card-text>
-          <v-card-actions class="px-4 pb-4 pt-0">
+          <v-card-actions class="px-3 px-sm-4 pb-3 pb-sm-4 pt-0">
             <v-spacer />
 
             <template v-if="editando">
@@ -189,9 +209,11 @@
                 @click="guardar"
                 :loading="saving"
                 :disabled="!isFormValid"
+                :size="$vuetify.display.xs ? 'small' : 'default'"
                 prepend-icon="mdi-content-save"
               >
-                Guardar
+                <span v-if="$vuetify.display.xs">Guardar</span>
+                <span v-else>Guardar cambios</span>
               </v-btn>
             </template>
 
@@ -199,6 +221,7 @@
               color="error"
               variant="tonal"
               @click="openEliminar"
+              :size="$vuetify.display.xs ? 'small' : 'default'"
               prepend-icon="mdi-delete"
               :disabled="editando"
             >
@@ -210,17 +233,20 @@
 
       <!-- Observación / Evidencia -->
       <v-col cols="12">
-        <v-card elevation="4" class="rounded-lg">
-          <v-card-title class="text-subtitle-1 font-weight-bold">Observación y evidencia</v-card-title>
+        <v-card elevation="4" class="rounded-lg rounded-sm-xl">
+          <v-card-title class="text-subtitle-2 text-sm-subtitle-1 font-weight-bold pa-3 pa-sm-4">
+            Observación y evidencia
+          </v-card-title>
           <v-divider />
-          <v-card-text>
+          <v-card-text class="pa-3 pa-sm-4">
             <v-row class="g-2">
               <v-col cols="12" sm="8">
                 <v-textarea
                   v-model="form.observacion"
                   label="Observación"
                   variant="outlined"
-                  rows="3"
+                  :rows="$vuetify.display.xs ? 2 : 3"
+                  :density="$vuetify.display.xs ? 'compact' : 'comfortable'"
                   :disabled="!editando"
                   :readonly="!editando"
                 />
@@ -231,7 +257,7 @@
                   v-model="evidenciaModel"
                   label="Cambiar evidencia (foto)"
                   variant="outlined"
-                  density="comfortable"
+                  :density="$vuetify.display.xs ? 'compact' : 'comfortable'"
                   accept="image/*"
                   prepend-icon="mdi-image"
                   :clearable="true"
@@ -240,7 +266,7 @@
                   :rules="[maxSizeRule]"
                   :disabled="uploading || !editando"
                 />
-                <small class="text-medium-emphasis">
+                <small class="text-caption text-medium-emphasis">
                   Tamaño máx. {{ MAX_IMAGE_MB }}MB. Formatos: JPG/PNG/WEBP/HEIC…
                 </small>
 
@@ -249,50 +275,41 @@
                   v-if="previewUrl || form.imagen_url"
                   :src="previewUrl || form.imagen_url!"
                   class="mt-2 rounded"
-                  height="160"
+                  :height="$vuetify.display.xs ? 120 : 160"
                   cover
                 />
                 <div v-else class="mt-2 text-medium-emphasis text-caption">
                   No hay evidencia asociada.
                 </div>
 
-                <div v-if="editando" class="d-flex gap-1 mt-2">
+                <div v-if="editando && form.imagen_url" class="d-flex gap-1 mt-2">
                   <v-btn
-                    color="primary"
-                    variant="tonal"
-                    size="small"
-                    :loading="uploading"
-                    :disabled="!evidenciaFile || uploading"
-                    @click="subirYAplicar"
-                    prepend-icon="mdi-cloud-upload"
-                  >
-                    Subir evidencia
-                  </v-btn>
-                  <v-btn
-                    v-if="form.imagen_url"
                     color="secondary"
                     variant="text"
-                    size="small"
+                    :size="$vuetify.display.xs ? 'x-small' : 'small'"
                     :href="form.imagen_url!"
                     target="_blank"
                     prepend-icon="mdi-open-in-new"
                   >
-                    Ver original
+                    <span class="d-none d-sm-inline">Ver original</span>
+                    <span class="d-sm-none">Ver</span>
                   </v-btn>
                 </div>
               </v-col>
             </v-row>
           </v-card-text>
-          <v-card-actions v-if="editando" class="px-4 pb-4 pt-0">
+          <v-card-actions v-if="editando" class="px-3 px-sm-4 pb-3 pb-sm-4 pt-0">
             <v-spacer />
             <v-btn
               color="primary"
               @click="guardar"
               :loading="saving"
               :disabled="!isFormValid"
+              :size="$vuetify.display.xs ? 'small' : 'default'"
               prepend-icon="mdi-content-save"
             >
-              Guardar
+              <span v-if="$vuetify.display.xs">Guardar</span>
+              <span v-else>Guardar cambios</span>
             </v-btn>
           </v-card-actions>
         </v-card>
@@ -300,14 +317,35 @@
     </v-row>
 
     <!-- Diálogo eliminar -->
-    <v-dialog v-model="dlgEliminar.visible" max-width="420">
+    <v-dialog
+      v-model="dlgEliminar.visible"
+      :max-width="$vuetify.display.xs ? '100%' : '420'"
+      :fullscreen="$vuetify.display.xs"
+    >
       <v-card>
-        <v-card-title class="text-h6">Eliminar dateo</v-card-title>
-        <v-card-text>¿Estás seguro? Esta acción no se puede deshacer.</v-card-text>
-        <v-card-actions>
+        <v-card-title class="text-subtitle-1 text-sm-h6 pa-3 pa-sm-4">
+          Eliminar dateo
+        </v-card-title>
+        <v-card-text class="pa-3 pa-sm-4 text-caption text-sm-body-2">
+          ¿Estás seguro? Esta acción no se puede deshacer.
+        </v-card-text>
+        <v-card-actions class="px-3 px-sm-4 pb-3 pb-sm-4">
           <v-spacer />
-          <v-btn variant="text" @click="dlgEliminar.visible = false">Cancelar</v-btn>
-          <v-btn color="error" :loading="dlgEliminar.loading" @click="doEliminar">Eliminar</v-btn>
+          <v-btn
+            variant="text"
+            :size="$vuetify.display.xs ? 'small' : 'default'"
+            @click="dlgEliminar.visible = false"
+          >
+            Cancelar
+          </v-btn>
+          <v-btn
+            color="error"
+            :loading="dlgEliminar.loading"
+            :size="$vuetify.display.xs ? 'small' : 'default'"
+            @click="doEliminar"
+          >
+            Eliminar
+          </v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
@@ -338,10 +376,9 @@ const id = Number(route.params.id)
 
 const loading = ref<boolean>(true)
 const saving = ref<boolean>(false)
-const editando = ref<boolean>(false) // 🔥 Nuevo estado para controlar edición
+const editando = ref<boolean>(false)
 const dateo = ref<Dateo | null>(null)
 
-// Backup para cancelar edición
 const backupForm = ref<FormShape | null>(null)
 
 const resultadoItems: { title: string; value: ResultadoDateo }[] = [
@@ -400,19 +437,16 @@ const isFormValid = computed(() => {
 
 /* ===== Modo Edición ===== */
 function activarEdicion() {
-  // Guardar backup
   backupForm.value = JSON.parse(JSON.stringify(form.value))
   editando.value = true
 }
 
 function cancelarEdicion() {
-  // Restaurar backup
   if (backupForm.value) {
     form.value = JSON.parse(JSON.stringify(backupForm.value))
   }
   editando.value = false
 
-  // Limpiar preview de imagen
   if (previewUrl.value) {
     URL.revokeObjectURL(previewUrl.value)
     previewUrl.value = null
@@ -425,7 +459,6 @@ function cancelarEdicion() {
 function normalizePlaca(event: Event) {
   const input = event.target as HTMLInputElement
   if (input && input.value) {
-    // 🔥 Forzar mayúsculas, eliminar espacios/guiones, limitar a 6 caracteres
     const normalized = input.value.toUpperCase().replace(/[\s-]/g, '').slice(0, 6)
     form.value.placa = normalized
     input.value = normalized
@@ -500,7 +533,7 @@ function formatDateOnly(iso?: string) {
   return `${d}/${m}/${y}`
 }
 
-/* ===== Carga y guardado ===== */
+/* ===== Carga ===== */
 async function load() {
   loading.value = true
   try {
@@ -524,7 +557,6 @@ async function load() {
     evidenciaModel.value = null
     evidenciaFile.value = null
 
-    // Salir del modo edición después de cargar
     editando.value = false
   } catch (e) {
     const message =
@@ -533,48 +565,6 @@ async function load() {
     snackbar.value = { visible: true, msg: message, color: 'error' }
   } finally {
     loading.value = false
-  }
-}
-
-async function guardar() {
-  if (!isFormValid.value) {
-    snackbar.value = {
-      visible: true,
-      msg: 'La placa debe tener exactamente 6 caracteres',
-      color: 'error'
-    }
-    return
-  }
-
-  saving.value = true
-  try {
-    const payload = {
-      resultado: form.value.resultado,
-      observacion: form.value.observacion || null,
-      placa: form.value.placa.trim().toUpperCase(),
-      telefono: form.value.telefono || null,
-      canal: form.value.canal,
-    }
-
-    console.log('🔥 Guardando dateo con payload:', payload)
-
-    const response = await updateDateo(id, payload)
-
-    console.log('✅ Respuesta del servidor:', response)
-
-    snackbar.value = { visible: true, msg: 'Cambios guardados correctamente ✅', color: 'success' }
-
-    // Recargar datos
-    await load()
-
-  } catch (e) {
-    console.error('❌ Error guardando:', e)
-    const message =
-      (e as { response?: { data?: { message?: string } } }).response?.data?.message ||
-      'No se pudo guardar'
-    snackbar.value = { visible: true, msg: message, color: 'error' }
-  } finally {
-    saving.value = false
   }
 }
 
@@ -594,31 +584,76 @@ async function uploadImagen() {
   }
 }
 
-async function subirYAplicar() {
+/* ===== 🔥 GUARDAR (con subida automática de imagen) ===== */
+async function guardar() {
+  if (!isFormValid.value) {
+    snackbar.value = {
+      visible: true,
+      msg: 'La placa debe tener exactamente 6 caracteres',
+      color: 'error'
+    }
+    return
+  }
+
+  saving.value = true
   try {
-    await uploadImagen()
-    if (!form.value.imagen_url) throw new Error('No se recibió la URL de la imagen')
-
-    await updateDateo(id, {
-      imagen_url: form.value.imagen_url,
-      imagen_mime: form.value.imagen_mime ?? null,
-      imagen_tamano_bytes: form.value.imagen_tamano_bytes ?? null,
-      imagen_hash: form.value.imagen_hash ?? null,
-      imagen_origen_id: form.value.imagen_origen_id ?? null,
-    })
-
-    evidenciaModel.value = null
-    evidenciaFile.value = null
-    if (previewUrl.value) {
-      URL.revokeObjectURL(previewUrl.value)
-      previewUrl.value = null
+    // 🔥 PASO 1: Si hay imagen pendiente, subirla primero
+    if (evidenciaFile.value instanceof File) {
+      console.log('📤 Subiendo imagen antes de guardar...')
+      await uploadImagen()
+      if (!form.value.imagen_url) {
+        throw new Error('No se recibió la URL de la imagen después de subirla')
+      }
+      console.log('✅ Imagen subida:', form.value.imagen_url)
     }
 
+    // 🔥 PASO 2: Preparar payload con TODOS los campos (incluida imagen)
+    const payload: any = {
+      resultado: form.value.resultado,
+      observacion: form.value.observacion || null,
+      placa: form.value.placa.trim().toUpperCase(),
+      telefono: form.value.telefono || null,
+      canal: form.value.canal,
+    }
+
+    // 🔥 AGREGAR campos de imagen si existen
+    if (form.value.imagen_url) {
+      payload.imagen_url = form.value.imagen_url
+      payload.imagen_mime = form.value.imagen_mime ?? null
+      payload.imagen_tamano_bytes = form.value.imagen_tamano_bytes ?? null
+      payload.imagen_hash = form.value.imagen_hash ?? null
+      payload.imagen_origen_id = form.value.imagen_origen_id ?? null
+    }
+
+    console.log('🔥 Guardando dateo con payload:', payload)
+
+    const response = await updateDateo(id, payload)
+
+    console.log('✅ Respuesta del servidor:', response)
+
+    snackbar.value = { visible: true, msg: 'Cambios guardados correctamente ✅', color: 'success' }
+
+    // 🔥 PASO 3: Limpiar estado de imagen temporal
+    if (evidenciaFile.value) {
+      evidenciaModel.value = null
+      evidenciaFile.value = null
+      if (previewUrl.value) {
+        URL.revokeObjectURL(previewUrl.value)
+        previewUrl.value = null
+      }
+    }
+
+    // Recargar datos
     await load()
-    snackbar.value = { visible: true, msg: 'Evidencia actualizada', color: 'success' }
+
   } catch (e) {
-    const message = e instanceof Error ? e.message : 'No se pudo actualizar la evidencia'
+    console.error('❌ Error guardando:', e)
+    const message =
+      (e as { response?: { data?: { message?: string } } }).response?.data?.message ||
+      (e instanceof Error ? e.message : 'No se pudo guardar')
     snackbar.value = { visible: true, msg: message, color: 'error' }
+  } finally {
+    saving.value = false
   }
 }
 
@@ -653,7 +688,12 @@ onMounted(load)
 
 <style scoped>
 .g-4 { gap: 16px; }
+.g-3 { gap: 12px; }
 .g-2 { gap: 8px; }
 .gap-1 { gap: 4px; }
 .font-weight-600 { font-weight: 600; }
+
+@media (min-width: 600px) {
+  .g-4 { gap: 16px; }
+}
 </style>

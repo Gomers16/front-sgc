@@ -1,20 +1,23 @@
 <template>
   <v-container class="mt-6">
-    <v-card elevation="8" class="pa-8 rounded-xl">
+    <v-card elevation="8" class="pa-4 pa-sm-6 pa-md-8 rounded-xl">
       <v-card-title
-        class="text-h4 mb-6 font-weight-bold d-flex justify-center title-full-bordered-container"
+        class="text-h5 text-sm-h4 mb-4 mb-sm-6 font-weight-bold d-flex justify-center title-full-bordered-container"
       >
         <span class="title-text-with-border">
-          🔍 Histórico y Estado de Turnos
+          🔍 Histórico<span class="d-none d-sm-inline"> y Estado</span> de Turnos
         </span>
       </v-card-title>
 
       <!-- FILTROS -->
       <v-row class="mb-2">
         <v-col cols="12" md="6" class="d-flex align-center flex-wrap">
-          <span class="mr-3 text-medium-emphasis">Rápidos:</span>
+          <span class="mr-2 mr-sm-3 text-caption text-sm-body-2 text-medium-emphasis">
+            Rápidos:
+          </span>
           <v-chip
             class="mr-2 mb-2"
+            :size="$vuetify.display.xs ? 'small' : 'default'"
             color="grey"
             variant="outlined"
             @click="setServicioFiltro(null)"
@@ -26,6 +29,7 @@
             v-for="s in serviciosChips"
             :key="s.value"
             class="mr-2 mb-2"
+            :size="$vuetify.display.xs ? 'small' : 'default'"
             color="primary"
             @click="setServicioFiltro(s.value)"
             :variant="servicioFiltroId === s.value ? 'flat' : 'outlined'"
@@ -35,58 +39,66 @@
         </v-col>
       </v-row>
 
-      <v-row class="mb-4">
-        <v-col cols="12" md="4">
+      <v-row class="mb-2 mb-sm-4">
+        <v-col cols="12" sm="6" md="4">
           <v-text-field
             v-model="searchPlaca"
             label="Buscar por Placa"
             prepend-inner-icon="mdi-magnify"
             variant="outlined"
+            density="compact"
             clearable
           />
         </v-col>
-        <v-col cols="12" md="4">
+        <v-col cols="12" sm="6" md="4">
           <v-text-field
             v-model="searchTurnoNumero"
             label="Buscar por Turno #"
             prepend-inner-icon="mdi-numeric"
             variant="outlined"
+            density="compact"
             clearable
             type="number"
           />
         </v-col>
-        <v-col cols="12" md="4">
+        <v-col cols="12" sm="6" md="4">
           <v-text-field
             v-model="filterDate"
             label="Filtrar por Fecha"
             prepend-inner-icon="mdi-calendar"
             variant="outlined"
+            density="compact"
             type="date"
             clearable
           />
         </v-col>
 
         <v-col cols="12" class="d-flex flex-wrap justify-end align-center">
+          <!-- Botones con texto abreviado en móvil -->
           <v-btn
             color="primary"
             variant="elevated"
             prepend-icon="mdi-filter"
             @click="applyFilters"
             :loading="isLoading"
-            class="mb-2 mr-4 bordered-button"
-            size="default"
+            :block="$vuetify.display.xs"
+            class="mb-2 mr-0 mr-sm-4 bordered-button"
+            :size="$vuetify.display.xs ? 'small' : 'default'"
           >
-            Aplicar Filtros
+            <span v-if="$vuetify.display.xs">Filtrar</span>
+            <span v-else>Aplicar Filtros</span>
           </v-btn>
+
           <v-btn
             color="grey"
             variant="outlined"
             prepend-icon="mdi-close-circle-outline"
-            class="mb-2 mr-4 bordered-button-grey"
-            size="default"
+            class="mb-2 mr-0 mr-sm-4 bordered-button-grey"
+            :block="$vuetify.display.xs"
+            :size="$vuetify.display.xs ? 'small' : 'default'"
             @click="clearFilters"
           >
-            Limpiar Filtros
+            Limpiar
           </v-btn>
 
           <v-btn
@@ -94,59 +106,68 @@
             variant="outlined"
             prepend-icon="mdi-calendar-today"
             @click="setTodayAndFilter"
-            class="mb-2 mr-4 bordered-button-info"
-            size="default"
+            :block="$vuetify.display.xs"
+            class="mb-2 mr-0 mr-sm-4 bordered-button-info"
+            :size="$vuetify.display.xs ? 'small' : 'default'"
           >
-            Ver Turnos de Hoy
+            <span v-if="$vuetify.display.xs">Hoy</span>
+            <span v-else>Ver Turnos de Hoy</span>
           </v-btn>
+
           <v-btn
             color="cyan-darken-1"
             variant="outlined"
             prepend-icon="mdi-calendar-month"
             @click="setMonthAndFilter"
-            class="mb-2 mr-4 bordered-button-cyan"
-            size="default"
+            :block="$vuetify.display.xs"
+            class="mb-2 mr-0 mr-sm-4 bordered-button-cyan"
+            :size="$vuetify.display.xs ? 'small' : 'default'"
           >
-            Ver Turnos del Mes
+            <span v-if="$vuetify.display.xs">Mes</span>
+            <span v-else>Ver Turnos del Mes</span>
           </v-btn>
 
           <v-btn
             color="secondary"
             variant="elevated"
             prepend-icon="mdi-chart-bar"
-            class="mb-2 mr-4 bordered-button-secondary"
-            size="default"
+            :block="$vuetify.display.xs"
+            class="mb-2 mr-0 mr-sm-4 bordered-button-secondary"
+            :size="$vuetify.display.xs ? 'small' : 'default'"
             @click="goToReporteCaptacion"
           >
-            Reporte por Captación
+            <span v-if="$vuetify.display.xs">Reporte</span>
+            <span v-else>Reporte por Captación</span>
           </v-btn>
 
-          <!-- NUEVO: Botón Importar RepGeneral -->
           <v-btn
             color="deep-purple"
             variant="elevated"
             prepend-icon="mdi-file-import"
+            :block="$vuetify.display.xs"
             class="mb-2 bordered-button-secondary"
-            size="default"
+            :size="$vuetify.display.xs ? 'small' : 'default'"
             @click="openImportDialog"
           >
-            Importar RepGeneral
+            <span v-if="$vuetify.display.xs">Importar</span>
+            <span v-else>Importar RepGeneral</span>
           </v-btn>
         </v-col>
       </v-row>
 
-      <v-divider class="my-6" />
+      <v-divider class="my-4 my-sm-6" />
 
       <!-- TABLA -->
       <div class="table-scroll-x">
         <v-data-table
-          :headers="headers"
+          :headers="headersResponsive"
           :items="turnos"
           :loading="isLoading"
           loading-text="Cargando histórico de turnos..."
           no-data-text="No hay turnos para mostrar con los filtros aplicados."
           class="elevation-1"
           :sort-by="defaultSort"
+          :density="$vuetify.display.xs ? 'compact' : 'default'"
         >
           <!-- Turno # global -->
           <template #item.turnoNumero="{ item }">
@@ -164,38 +185,55 @@
 
           <!-- Fecha -->
           <template #item.fecha="{ item }">
-            <span class="nowrap col-fecha">{{ formatDate(item.fecha) }}</span>
+            <span class="nowrap col-fecha text-caption text-sm-body-2">
+              {{ formatDate(item.fecha) }}
+            </span>
           </template>
 
           <!-- Hora ingreso -->
           <template #item.horaIngreso="{ item }">
-            <span class="nowrap col-hora">
+            <span class="nowrap col-hora text-caption text-sm-body-2">
               {{ formatTime(item.horaIngreso ?? '') }}
             </span>
           </template>
 
           <!-- Placa -->
           <template #item.placa="{ item }">
-            <span class="font-weight-bold">{{ item.placa }}</span>
+            <span class="font-weight-bold text-caption text-sm-body-2">
+              {{ item.placa }}
+            </span>
           </template>
 
           <!-- Tipo vehículo -->
           <template #item.tipoVehiculo="{ item }">
-            <v-chip size="small" color="grey-darken-1" variant="outlined">
+            <v-chip
+              :size="$vuetify.display.xs ? 'x-small' : 'small'"
+              color="grey-darken-1"
+              variant="outlined"
+            >
               {{ item.tipoVehiculo ?? '—' }}
             </v-chip>
           </template>
 
           <!-- Servicio (solo código: PERI / SOAT / RTM / PREV) -->
           <template #item.servicio="{ item }">
-            <v-chip size="small" color="primary" variant="flat" class="font-weight-bold">
+            <v-chip
+              :size="$vuetify.display.xs ? 'x-small' : 'small'"
+              color="primary"
+              variant="flat"
+              class="font-weight-bold"
+            >
               {{ getServicioCodigo(item) }}
             </v-chip>
           </template>
 
           <!-- Estado -->
           <template #item.estado="{ item }">
-            <v-chip :color="getTurnoStatusColor(item.estado)" dark small>
+            <v-chip
+              :color="getTurnoStatusColor(item.estado)"
+              dark
+              :size="$vuetify.display.xs ? 'x-small' : 'small'"
+            >
               {{ getTurnoStatusText(item.estado) }}
             </v-chip>
           </template>
@@ -203,7 +241,7 @@
           <!-- Visita: abre modal de historial -->
           <template #item.visitaVehiculoTexto="{ item }">
             <v-chip
-              size="small"
+              :size="$vuetify.display.xs ? 'x-small' : 'small'"
               color="teal"
               variant="outlined"
               class="cursor-pointer"
@@ -217,21 +255,28 @@
           <template #item.captacion="{ item }">
             <v-chip
               v-if="item.canalAtribucion"
-              size="small"
+              :size="$vuetify.display.xs ? 'x-small' : 'small'"
               color="purple"
               variant="flat"
               prepend-icon="mdi-clipboard-text-clock"
             >
               {{ getCaptacionLabel(item) }}
             </v-chip>
-            <span v-else>—</span>
+            <span v-else class="text-caption">—</span>
           </template>
 
           <!-- Acciones -->
           <template #item.actions="{ item }">
-            <v-btn color="info" variant="text" small @click="openDetails(item)">
-              Ver detalles
-              <v-icon end>mdi-eye</v-icon>
+            <v-btn
+              color="info"
+              variant="text"
+              :size="$vuetify.display.xs ? 'x-small' : 'small'"
+              @click="openDetails(item)"
+            >
+              <span v-if="$vuetify.display.smAndUp">Ver</span>
+              <v-icon :size="$vuetify.display.xs ? 'small' : 'default'">
+                mdi-eye
+              </v-icon>
             </v-btn>
           </template>
         </v-data-table>
@@ -239,42 +284,60 @@
     </v-card>
 
     <!-- Detalle de turno -->
-    <v-dialog v-model="detailsDialog" max-width="800">
+    <v-dialog
+      v-model="detailsDialog"
+      :max-width="$vuetify.display.xs ? '100%' : '800'"
+      :fullscreen="$vuetify.display.xs"
+    >
       <v-card>
-        <v-card-title class="text-h6 font-weight-bold">
+        <v-card-title class="text-subtitle-1 text-sm-h6 font-weight-bold pa-3 pa-sm-4">
           Detalle del turno #{{ selectedTurno?.turnoNumero ?? '—' }}
         </v-card-title>
 
-        <v-card-text v-if="selectedTurno">
+        <v-card-text v-if="selectedTurno" class="pa-3 pa-sm-4">
           <v-row>
             <v-col cols="12" md="6">
-              <h4 class="text-subtitle-1 font-weight-bold mb-2">Datos generales</h4>
-              <p><strong>Fecha:</strong> {{ formatDate(selectedTurno.fecha) }}</p>
-              <p>
+              <h4 class="text-body-2 text-sm-subtitle-1 font-weight-bold mb-2">
+                Datos generales
+              </h4>
+              <p class="text-caption text-sm-body-2">
+                <strong>Fecha:</strong> {{ formatDate(selectedTurno.fecha) }}
+              </p>
+              <p class="text-caption text-sm-body-2">
                 <strong>Hora ingreso:</strong>
                 {{ formatTime(selectedTurno.horaIngreso) }}
               </p>
-              <p><strong>Hora salida:</strong> {{ selectedTurno.horaSalida || '—' }}</p>
-              <p>
+              <p class="text-caption text-sm-body-2">
+                <strong>Hora salida:</strong> {{ selectedTurno.horaSalida || '—' }}
+              </p>
+              <p class="text-caption text-sm-body-2">
                 <strong>Tiempo servicio:</strong>
                 {{ selectedTurno.tiempoServicio || '—' }}
               </p>
-              <p>
+              <p class="text-caption text-sm-body-2">
                 <strong>Estado:</strong>
                 {{ getTurnoStatusText(selectedTurno.estado) }}
               </p>
             </v-col>
 
             <v-col cols="12" md="6">
-              <h4 class="text-subtitle-1 font-weight-bold mb-2">Vehículo y servicio</h4>
-              <p><strong>Placa:</strong> {{ selectedTurno.placa }}</p>
-              <p><strong>Color:</strong> {{ getVehiculoColor(selectedTurno) }}</p>
-              <p>
+              <h4 class="text-body-2 text-sm-subtitle-1 font-weight-bold mb-2">
+                Vehículo y servicio
+              </h4>
+              <p class="text-caption text-sm-body-2">
+                <strong>Placa:</strong> {{ selectedTurno.placa }}
+              </p>
+              <p class="text-caption text-sm-body-2">
+                <strong>Color:</strong> {{ getVehiculoColor(selectedTurno) }}
+              </p>
+              <p class="text-caption text-sm-body-2">
                 <strong>Tarjeta de propiedad:</strong>
                 {{ getVehiculoMatricula(selectedTurno) }}
               </p>
-              <p><strong>Tipo vehículo:</strong> {{ selectedTurno.tipoVehiculo || '—' }}</p>
-              <p>
+              <p class="text-caption text-sm-body-2">
+                <strong>Tipo vehículo:</strong> {{ selectedTurno.tipoVehiculo || '—' }}
+              </p>
+              <p class="text-caption text-sm-body-2">
                 <strong>Servicio:</strong>
                 {{ getServicioCodigo(selectedTurno) || '—' }}
               </p>
@@ -285,22 +348,36 @@
 
           <v-row>
             <v-col cols="12" md="6">
-              <h4 class="text-subtitle-1 font-weight-bold mb-2">Cliente (propietario)</h4>
-              <p><strong>Nombre:</strong> {{ getClienteNombre(selectedTurno) }}</p>
-              <p><strong>Teléfono:</strong> {{ getClienteTelefono(selectedTurno) }}</p>
+              <h4 class="text-body-2 text-sm-subtitle-1 font-weight-bold mb-2">
+                Cliente (propietario)
+              </h4>
+              <p class="text-caption text-sm-body-2">
+                <strong>Nombre:</strong> {{ getClienteNombre(selectedTurno) }}
+              </p>
+              <p class="text-caption text-sm-body-2">
+                <strong>Teléfono:</strong> {{ getClienteTelefono(selectedTurno) }}
+              </p>
 
-              <h4 class="text-subtitle-1 font-weight-bold mb-2 mt-4">Conductor</h4>
-              <p><strong>Nombre:</strong> {{ getConductorNombre(selectedTurno) }}</p>
-              <p><strong>Teléfono:</strong> {{ getConductorTelefono(selectedTurno) }}</p>
+              <h4 class="text-body-2 text-sm-subtitle-1 font-weight-bold mb-2 mt-4">
+                Conductor
+              </h4>
+              <p class="text-caption text-sm-body-2">
+                <strong>Nombre:</strong> {{ getConductorNombre(selectedTurno) }}
+              </p>
+              <p class="text-caption text-sm-body-2">
+                <strong>Teléfono:</strong> {{ getConductorTelefono(selectedTurno) }}
+              </p>
             </v-col>
 
             <v-col cols="12" md="6">
-              <h4 class="text-subtitle-1 font-weight-bold mb-2">Captación</h4>
-              <p>
+              <h4 class="text-body-2 text-sm-subtitle-1 font-weight-bold mb-2">
+                Captación
+              </h4>
+              <p class="text-caption text-sm-body-2">
                 <strong>Canal:</strong>
                 {{ prettifyCanal(selectedTurno.canalAtribucion) }}
               </p>
-              <p>
+              <p class="text-caption text-sm-body-2">
                 <strong>Agente:</strong>
                 <span v-if="selectedTurno.agenteCaptacion?.id">
                   {{ selectedTurno.agenteCaptacion.nombre }}
@@ -315,58 +392,86 @@
 
           <v-row>
             <v-col cols="12" md="6">
-              <h4 class="text-subtitle-1 font-weight-bold mb-2">Historial de visitas</h4>
-              <p>
+              <h4 class="text-body-2 text-sm-subtitle-1 font-weight-bold mb-2">
+                Historial de visitas
+              </h4>
+              <p class="text-caption text-sm-body-2">
                 <strong>Visita:</strong>
                 {{ selectedTurno.visitaVehiculoTexto || '—' }}
               </p>
-              <p></p>
             </v-col>
 
             <v-col cols="12" md="6">
-              <h4 class="text-subtitle-1 font-weight-bold mb-2">Operación</h4>
-              <p><strong>Usuario:</strong> {{ getUsuarioNombre(selectedTurno) }}</p>
-              <p><strong>Sede:</strong> {{ selectedTurno.sede?.nombre ?? '—' }}</p>
+              <h4 class="text-body-2 text-sm-subtitle-1 font-weight-bold mb-2">
+                Operación
+              </h4>
+              <p class="text-caption text-sm-body-2">
+                <strong>Usuario:</strong> {{ getUsuarioNombre(selectedTurno) }}
+              </p>
+              <p class="text-caption text-sm-body-2">
+                <strong>Sede:</strong> {{ selectedTurno.sede?.nombre ?? '—' }}
+              </p>
 
-              <h4 class="text-subtitle-1 font-weight-bold mb-2 mt-4">Observaciones</h4>
-              <p>{{ selectedTurno.observaciones || '—' }}</p>
+              <h4 class="text-body-2 text-sm-subtitle-1 font-weight-bold mb-2 mt-4">
+                Observaciones
+              </h4>
+              <p class="text-caption text-sm-body-2">
+                {{ selectedTurno.observaciones || '—' }}
+              </p>
             </v-col>
           </v-row>
         </v-card-text>
 
-        <v-card-actions>
+        <v-card-actions class="pa-3 pa-sm-4">
           <v-spacer />
-          <v-btn variant="text" @click="detailsDialog = false">
+          <v-btn
+            variant="text"
+            :size="$vuetify.display.xs ? 'small' : 'default'"
+            @click="detailsDialog = false"
+          >
             Cerrar
           </v-btn>
-          <v-btn color="primary" variant="elevated" @click="goToEditSelected">
-            Ir a edición
+          <v-btn
+            color="primary"
+            variant="elevated"
+            :size="$vuetify.display.xs ? 'small' : 'default'"
+            @click="goToEditSelected"
+          >
+            <span v-if="$vuetify.display.xs">Editar</span>
+            <span v-else>Ir a edición</span>
           </v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
 
     <!-- MODAL HISTORIAL DE VISITAS (por placa) -->
-    <v-dialog v-model="visitasDialog" max-width="700">
+    <v-dialog
+      v-model="visitasDialog"
+      :max-width="$vuetify.display.xs ? '100%' : '700'"
+      :fullscreen="$vuetify.display.xs"
+    >
       <v-card>
-        <v-card-title class="text-h6 font-weight-bold">
+        <v-card-title class="text-subtitle-1 text-sm-h6 font-weight-bold pa-3 pa-sm-4">
           Historial de visitas
         </v-card-title>
 
-        <v-card-text>
-          <p class="mb-4">
+        <v-card-text class="pa-3 pa-sm-4">
+          <p class="mb-3 mb-sm-4 text-caption text-sm-body-2">
             <strong>Placa:</strong> {{ visitasPlacaActual || '—' }}
           </p>
 
           <div v-if="visitasHistorial.length">
-            <v-table density="compact">
+            <v-table
+              :density="$vuetify.display.xs ? 'compact' : 'default'"
+              class="text-caption text-sm-body-2"
+            >
               <thead>
                 <tr>
                   <th>Placa</th>
                   <th>Servicio</th>
                   <th># Visita</th>
-                  <th>Fecha</th>
-                  <th>Cliente</th>
+                  <th class="d-none d-sm-table-cell">Fecha</th>
+                  <th class="d-none d-md-table-cell">Cliente</th>
                 </tr>
               </thead>
               <tbody>
@@ -378,23 +483,27 @@
                   <td>{{ visitasPlacaActual }}</td>
                   <td>{{ v.servicioCodigo || '—' }}</td>
                   <td>{{ v.orden }}</td>
-                  <td>{{ v.fechaStr }}</td>
-                  <td>{{ v.clienteNombre || '—' }}</td>
+                  <td class="d-none d-sm-table-cell">{{ v.fechaStr }}</td>
+                  <td class="d-none d-md-table-cell">{{ v.clienteNombre || '—' }}</td>
                 </tr>
               </tbody>
             </v-table>
-            <small class="text-caption">
+            <small class="text-caption d-block mt-2">
               La fila resaltada corresponde al turno seleccionado.
             </small>
           </div>
-          <div v-else>
+          <div v-else class="text-caption text-sm-body-2">
             No hay historial de visitas para esta placa.
           </div>
         </v-card-text>
 
-        <v-card-actions>
+        <v-card-actions class="pa-3 pa-sm-4">
           <v-spacer />
-          <v-btn variant="text" @click="visitasDialog = false">
+          <v-btn
+            variant="text"
+            :size="$vuetify.display.xs ? 'small' : 'default'"
+            @click="visitasDialog = false"
+          >
             Cerrar
           </v-btn>
         </v-card-actions>
@@ -402,14 +511,18 @@
     </v-dialog>
 
     <!-- MODAL IMPORTAR REPGENERAL -->
-    <v-dialog v-model="importDialog" max-width="650">
+    <v-dialog
+      v-model="importDialog"
+      :max-width="$vuetify.display.xs ? '100%' : '650'"
+      :fullscreen="$vuetify.display.xs"
+    >
       <v-card>
-        <v-card-title class="text-h6 font-weight-bold">
+        <v-card-title class="text-subtitle-1 text-sm-h6 font-weight-bold pa-3 pa-sm-4">
           Importar RepGeneral (CSV)
         </v-card-title>
 
-        <v-card-text>
-          <p class="mb-4">
+        <v-card-text class="pa-3 pa-sm-4">
+          <p class="mb-3 mb-sm-4 text-caption text-sm-body-2">
             Selecciona el archivo <strong>.csv</strong> generado por el CDA (RepGeneral)
             para actualizar clientes, vehículos y conductores en el sistema.
           </p>
@@ -419,6 +532,7 @@
             label="Archivo RepGeneral (.csv)"
             accept=".csv"
             prepend-icon="mdi-file-delimited"
+            :density="$vuetify.display.xs ? 'compact' : 'default'"
             show-size
             clearable
             :disabled="importLoading"
@@ -426,25 +540,28 @@
 
           <v-btn
             color="primary"
-            class="mt-4"
+            class="mt-3 mt-sm-4"
             prepend-icon="mdi-upload"
             :loading="importLoading"
             :disabled="importLoading"
+            :block="$vuetify.display.xs"
+            :size="$vuetify.display.xs ? 'small' : 'default'"
             @click="handleImportRepGeneral"
           >
             Importar
           </v-btn>
 
-          <div v-if="importResult" class="mt-6">
+          <div v-if="importResult" class="mt-4 mt-sm-6">
             <v-alert
               :type="importResult.ok ? 'success' : 'warning'"
               border="start"
               variant="tonal"
+              :density="$vuetify.display.xs ? 'compact' : 'default'"
             >
-              <div class="mb-2">
+              <div class="mb-2 text-caption text-sm-body-2">
                 <strong>{{ importResult.message }}</strong>
               </div>
-              <div class="text-body-2">
+              <div class="text-caption text-sm-body-2">
                 <p>Clientes creados: {{ importResult.resumen.clientesCreados }}</p>
                 <p>Clientes actualizados: {{ importResult.resumen.clientesActualizados }}</p>
                 <p>Vehículos creados: {{ importResult.resumen.vehiculosCreados }}</p>
@@ -456,9 +573,14 @@
           </div>
         </v-card-text>
 
-        <v-card-actions>
+        <v-card-actions class="pa-3 pa-sm-4">
           <v-spacer />
-          <v-btn variant="text" :disabled="importLoading" @click="importDialog = false">
+          <v-btn
+            variant="text"
+            :size="$vuetify.display.xs ? 'small' : 'default'"
+            :disabled="importLoading"
+            @click="importDialog = false"
+          >
             Cerrar
           </v-btn>
         </v-card-actions>
@@ -485,6 +607,7 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
+import { useDisplay } from 'vuetify'
 import { DateTime } from 'luxon'
 import TurnosDelDiaService from '@/services/turnosdeldiaService'
 import repGeneralService, { RepGeneralImportResponse } from '@/services/repGeneralService'
@@ -542,7 +665,7 @@ interface HistVisit {
   id: number
   fechaStr: string
   clienteNombre: string | null
-  servicioCodigo?: string | null   // NUEVO: viene del controlador
+  servicioCodigo?: string | null
 }
 
 interface Turno {
@@ -597,6 +720,7 @@ interface FetchTurnosFilters {
 }
 
 const router = useRouter()
+const { xs, smAndUp, mdAndUp } = useDisplay()
 
 const turnos = ref<Turno[]>([])
 const isLoading = ref(false)
@@ -624,25 +748,52 @@ const visitasTurnoActualId = ref<number | null>(null)
 const visitasHistorial = ref<Array<HistVisit & { orden: number }>>([])
 const visitasPlacaActual = ref<string>('')
 
-/* NUEVO: estado para import RepGeneral */
 const importDialog = ref(false)
 const importFile = ref<File | File[] | null>(null)
 const importLoading = ref(false)
 const importResult = ref<RepGeneralImportResponse | null>(null)
 
-const headers = [
-  { title: 'Turno #', key: 'turnoNumero', align: 'center' },
-  { title: 'Svc #', key: 'turnoNumeroServicio', align: 'center' },
-  { title: 'Fecha', key: 'fecha' },
-  { title: 'Hora Ingreso', key: 'horaIngreso' },
-  { title: 'Placa', key: 'placa' },
-  { title: 'Tipo Vehículo', key: 'tipoVehiculo' },
-  { title: 'Servicio', key: 'servicio' },
-  { title: 'Estado', key: 'estado' },
-  { title: 'Visita', key: 'visitaVehiculoTexto' },
-  { title: 'Captación', key: 'captacion' },
-  { title: 'Acciones', key: 'actions', sortable: false, align: 'center' },
-]
+// HEADERS RESPONSIVE
+const headersResponsive = computed(() => {
+  // Móvil (xs): Solo columnas esenciales
+  if (xs.value) {
+    return [
+      { title: '#', key: 'turnoNumero', align: 'center' as const },
+      { title: 'Placa', key: 'placa' },
+      { title: 'Svc', key: 'servicio' },
+      { title: 'Estado', key: 'estado' },
+      { title: '', key: 'actions', sortable: false, align: 'center' as const },
+    ]
+  }
+
+  // Tablet (sm): Columnas intermedias
+  if (smAndUp.value && !mdAndUp.value) {
+    return [
+      { title: 'Turno #', key: 'turnoNumero', align: 'center' as const },
+      { title: 'Fecha', key: 'fecha' },
+      { title: 'Placa', key: 'placa' },
+      { title: 'Tipo', key: 'tipoVehiculo' },
+      { title: 'Servicio', key: 'servicio' },
+      { title: 'Estado', key: 'estado' },
+      { title: 'Acciones', key: 'actions', sortable: false, align: 'center' as const },
+    ]
+  }
+
+  // Desktop (md+): Todas las columnas
+  return [
+    { title: 'Turno #', key: 'turnoNumero', align: 'center' as const },
+    { title: 'Svc #', key: 'turnoNumeroServicio', align: 'center' as const },
+    { title: 'Fecha', key: 'fecha' },
+    { title: 'Hora Ingreso', key: 'horaIngreso' },
+    { title: 'Placa', key: 'placa' },
+    { title: 'Tipo Vehículo', key: 'tipoVehiculo' },
+    { title: 'Servicio', key: 'servicio' },
+    { title: 'Estado', key: 'estado' },
+    { title: 'Visita', key: 'visitaVehiculoTexto' },
+    { title: 'Captación', key: 'captacion' },
+    { title: 'Acciones', key: 'actions', sortable: false, align: 'center' as const },
+  ]
+})
 
 const defaultSort = [
   { key: 'fecha', order: 'desc' as const },
@@ -680,7 +831,6 @@ const getTurnoStatusColor = (estado: EstadoTurno): string => {
   }
 }
 
-/** Servicio: solo código */
 const getServicioCodigo = (t: Turno): string => {
   const s = t.servicio
   if (!s) return '—'
@@ -750,12 +900,10 @@ const getCaptacionLabel = (t: Turno): string => {
   if (canal === 'ASESOR') {
     const tipo = prettifyAgenteTipo(t.agenteCaptacion?.tipo)
     if (t.agenteCaptacion?.nombre) {
-      // Resultado: "Asesor — Juan Morales (Asesor Comercial / Asesor Externo / ...)"
       return `Asesor — ${t.agenteCaptacion.nombre}${
         tipo && tipo !== '—' ? ` (${tipo})` : ''
       }`
     }
-    // Si no tenemos nombre, solo mostramos "Asesor"
     return 'Asesor'
   }
 
@@ -905,16 +1053,13 @@ const setMonthAndFilter = () => {
   fetchTurnosFromApi(firstDayOfMonth, lastDayOfMonth)
 }
 
-/* NUEVO: abrir/cerrar modal import */
 const openImportDialog = () => {
   importDialog.value = true
   importFile.value = null
   importResult.value = null
 }
 
-/* NUEVO: handler para importar RepGeneral */
 const handleImportRepGeneral = async () => {
-  // Manejar File o File[]
   const value = importFile.value
   let file: File | null = null
   if (value instanceof File) {
@@ -937,7 +1082,6 @@ const handleImportRepGeneral = async () => {
 
     if (resp.ok) {
       showSnackbar(resp.message || 'Importación realizada correctamente.', 'success')
-      // Opcional: recargar turnos para ver impacto (sobre todo si más adelante usamos RepGeneral para turnos)
       await fetchTurnosFromApi()
     } else {
       showSnackbar(resp.message || 'La importación terminó con advertencias.', 'warning')
@@ -967,14 +1111,23 @@ onMounted(async () => {
 
 .title-text-with-border {
   border: 2px solid black;
-  padding: 10px 20px;
+  padding: 8px 16px;
   border-radius: 12px;
   background-color: rgba(255, 255, 255, 0.9);
-  margin-bottom: 24px;
+  margin-bottom: 16px;
   display: inline-block;
   font-weight: bold;
   letter-spacing: 0.05em;
   color: var(--v-theme-primary);
+  font-size: 1.1rem;
+}
+
+@media (min-width: 600px) {
+  .title-text-with-border {
+    padding: 10px 20px;
+    margin-bottom: 24px;
+    font-size: 1.5rem;
+  }
 }
 
 .v-card {
@@ -988,14 +1141,25 @@ onMounted(async () => {
 .bordered-button-cyan,
 .bordered-button-grey,
 .bordered-button-secondary {
-  border-radius: 10px;
+  border-radius: 8px;
   transition: all 0.3s ease;
-  box-shadow: 0 4px 6px rgba(0,0,0,0.1), 0 0 0 2px black !important;
+  box-shadow: 0 3px 5px rgba(0,0,0,0.1), 0 0 0 2px black !important;
+}
+
+@media (min-width: 600px) {
+  .bordered-button,
+  .bordered-button-info,
+  .bordered-button-cyan,
+  .bordered-button-grey,
+  .bordered-button-secondary {
+    border-radius: 10px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1), 0 0 0 2px black !important;
+  }
 }
 
 .bordered-button:hover,
 .bordered-button-info:hover,
-.bordered-button-cyan,
+.bordered-button-cyan:hover,
 .bordered-button-grey:hover,
 .bordered-button-secondary:hover {
   transform: translateY(-2px);
@@ -1004,24 +1168,53 @@ onMounted(async () => {
 
 .turno-number-display {
   font-weight: bold;
-  font-size: 1.1em;
+  font-size: 0.95em;
   color: var(--v-theme-primary);
   display: block;
   text-align: center;
   padding: 2px 0;
 }
 
+@media (min-width: 600px) {
+  .turno-number-display {
+    font-size: 1.1em;
+  }
+}
+
 .turno-number-svc {
   color: var(--v-theme-secondary);
 }
 
-.nowrap { white-space: nowrap; display: inline-block; }
-.col-fecha { min-width: 140px; }
-.col-hora  { min-width: 140px; }
+.nowrap {
+  white-space: nowrap;
+  display: inline-block;
+}
 
-.table-scroll-x { overflow-x: auto; }
+.col-fecha {
+  min-width: 100px;
+}
 
-.cursor-pointer { cursor: pointer; }
+.col-hora {
+  min-width: 100px;
+}
+
+@media (min-width: 600px) {
+  .col-fecha {
+    min-width: 140px;
+  }
+
+  .col-hora {
+    min-width: 140px;
+  }
+}
+
+.table-scroll-x {
+  overflow-x: auto;
+}
+
+.cursor-pointer {
+  cursor: pointer;
+}
 
 .row-actual {
   font-weight: 600;

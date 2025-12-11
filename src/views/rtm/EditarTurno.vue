@@ -1,41 +1,51 @@
 <template>
-  <v-container class="mt-6">
-    <v-card elevation="8" class="pa-0 rounded-2xl card-surface">
+  <v-container class="mt-4 mt-sm-6">
+    <v-card elevation="8" class="pa-0 rounded-xl rounded-sm-2xl card-surface">
       <!-- Header corporativo -->
-      <div class="card-header px-6 py-5">
+      <div class="card-header px-4 px-sm-6 py-3 py-sm-5">
         <div class="header-left">
-          <div class="icon-pill">
+          <div class="icon-pill d-none d-sm-inline-flex">
             <v-icon size="22">mdi-clipboard-text-outline</v-icon>
           </div>
           <div class="title-group">
-            <h2 class="title">Editar Turno</h2>
-            <p class="subtitle">Actualiza la información del turno seleccionado</p>
+            <h2 class="title text-h6 text-sm-h5">Editar Turno</h2>
+            <p class="subtitle d-none d-sm-block">Actualiza la información del turno seleccionado</p>
           </div>
         </div>
 
-        <div class="d-flex align-center flex-wrap" style="gap:10px">
-          <v-chip class="turno-chip" size="large" variant="elevated" prepend-icon="mdi-counter">
-            Global: {{ form.turnoNumero ?? '—' }}
+        <div class="d-flex align-center flex-wrap" style="gap:6px">
+          <v-chip
+            class="turno-chip"
+            :size="$vuetify.display.xs ? 'small' : 'default'"
+            variant="elevated"
+            prepend-icon="mdi-counter"
+          >
+            <span class="d-none d-sm-inline">Global: </span>{{ form.turnoNumero ?? '—' }}
           </v-chip>
-          <v-chip class="turno-chip" size="large" variant="elevated" prepend-icon="mdi-counter">
+          <v-chip
+            class="turno-chip"
+            :size="$vuetify.display.xs ? 'small' : 'default'"
+            variant="elevated"
+            prepend-icon="mdi-counter"
+          >
             {{ servicioCodigoActual || 'SERV' }}: {{ form.turnoNumeroServicio ?? '—' }}
           </v-chip>
 
           <!-- Chip de estado -->
           <v-chip
-            size="large"
+            :size="$vuetify.display.xs ? 'small' : 'default'"
             variant="elevated"
             :color="estadoColor"
             prepend-icon="mdi-circle-medium"
           >
-            Estado: {{ form.estado }}
+            <span class="d-none d-sm-inline">Estado: </span>{{ form.estado }}
           </v-chip>
         </div>
       </div>
 
-      <v-divider class="mx-6 divider-muted" />
+      <v-divider class="mx-4 mx-sm-6 divider-muted" />
 
-      <div class="pa-8">
+      <div class="pa-4 pa-sm-6 pa-md-8">
         <v-form ref="formRef" @submit.prevent="openConfirmDialog">
           <v-row dense>
             <!-- Servicio -->
@@ -47,7 +57,7 @@
                 label="Servicio"
                 variant="outlined"
                 required
-                density="compact"
+                :density="$vuetify.display.xs ? 'compact' : 'comfortable'"
                 hide-details
                 prepend-inner-icon="mdi-wrench-cog"
                 class="servicio-fit"
@@ -62,7 +72,7 @@
                 label="Fecha"
                 variant="outlined"
                 readonly
-                density="comfortable"
+                :density="$vuetify.display.xs ? 'compact' : 'comfortable'"
                 prepend-inner-icon="mdi-calendar"
               />
             </v-col>
@@ -71,7 +81,7 @@
                 v-model="form.horaIngreso"
                 label="Hora de Ingreso (HH:mm)"
                 variant="outlined"
-                density="comfortable"
+                :density="$vuetify.display.xs ? 'compact' : 'comfortable'"
                 prepend-inner-icon="mdi-clock-time-four-outline"
               />
             </v-col>
@@ -83,7 +93,7 @@
                 label="Placa del Vehículo"
                 variant="outlined"
                 required
-                density="comfortable"
+                :density="$vuetify.display.xs ? 'compact' : 'comfortable'"
                 prepend-inner-icon="mdi-car-info"
                 @input="onPlacaInput"
                 :rules="[v => !!v || 'La placa es requerida']"
@@ -98,7 +108,7 @@
                 label="Tipo de Vehículo"
                 variant="outlined"
                 required
-                density="comfortable"
+                :density="$vuetify.display.xs ? 'compact' : 'comfortable'"
                 prepend-inner-icon="mdi-car-multiple"
                 :rules="[v => !!v || 'El tipo de vehículo es requerido']"
               />
@@ -112,7 +122,7 @@
                 label="¿Cómo nos conoció?"
                 variant="outlined"
                 required
-                density="comfortable"
+                :density="$vuetify.display.xs ? 'compact' : 'comfortable'"
                 prepend-inner-icon="mdi-account-question"
                 :rules="[v => !!v || 'Este campo es requerido']"
               />
@@ -125,7 +135,7 @@
                   v-model="form.asesorNombre"
                   label="Nombre del Asesor"
                   variant="outlined"
-                  density="comfortable"
+                  :density="$vuetify.display.xs ? 'compact' : 'comfortable'"
                   prepend-inner-icon="mdi-account-tie"
                 />
               </v-col>
@@ -136,10 +146,10 @@
               <v-textarea
                 v-model="form.observaciones"
                 label="Observaciones (opcional)"
-                rows="3"
+                :rows="$vuetify.display.xs ? 2 : 3"
                 auto-grow
                 variant="outlined"
-                density="comfortable"
+                :density="$vuetify.display.xs ? 'compact' : 'comfortable'"
                 prepend-inner-icon="mdi-comment-text-multiple"
               />
             </v-col>
@@ -152,7 +162,7 @@
                 label="Estado del Turno"
                 variant="outlined"
                 required
-                density="comfortable"
+                :density="$vuetify.display.xs ? 'compact' : 'comfortable'"
                 prepend-inner-icon="mdi-check-decagram"
               />
             </v-col>
@@ -161,7 +171,7 @@
                 v-model="form.horaSalida"
                 label="Hora de Salida (HH:mm:ss)"
                 variant="outlined"
-                density="comfortable"
+                :density="$vuetify.display.xs ? 'compact' : 'comfortable'"
                 clearable
                 prepend-inner-icon="mdi-clock-end"
               />
@@ -171,7 +181,7 @@
                 v-model="form.tiempoServicio"
                 label="Tiempo de Servicio (ej. 30 min)"
                 variant="outlined"
-                density="comfortable"
+                :density="$vuetify.display.xs ? 'compact' : 'comfortable'"
                 clearable
                 prepend-inner-icon="mdi-timer-outline"
               />
@@ -180,24 +190,24 @@
             <!-- ====== Fila 1: Captación/Dateo + Cliente ====== -->
             <v-col cols="12" md="6" class="d-flex">
               <v-card variant="tonal" class="card-compact d-flex flex-column flex-grow-1">
-                <div class="card-header">
-                  <v-icon class="mr-2">mdi-bullhorn</v-icon>
+                <div class="card-header text-caption text-sm-body-2">
+                  <v-icon class="mr-2" :size="$vuetify.display.xs ? 18 : 20">mdi-bullhorn</v-icon>
                   <span>Captación / Dateo</span>
                 </div>
 
                 <!-- Chips de canal actual y agente -->
-                <div class="mb-2 d-flex flex-wrap" style="gap:8px">
+                <div class="mb-2 d-flex flex-wrap" style="gap:6px">
                   <v-chip
-                    size="small"
+                    :size="$vuetify.display.xs ? 'x-small' : 'small'"
                     color="teal"
                     variant="elevated"
                     prepend-icon="mdi-bullhorn"
                   >
-                    Canal actual: {{ canalPretty }}
+                    Canal: {{ canalPretty }}
                   </v-chip>
                   <v-chip
                     v-if="agenteChip"
-                    size="small"
+                    :size="$vuetify.display.xs ? 'x-small' : 'small'"
                     color="indigo"
                     variant="elevated"
                     prepend-icon="mdi-account-tie"
@@ -208,34 +218,34 @@
 
                 <!-- Panel tipo dateo con imagen y datos -->
                 <div v-if="dateo">
-                  <v-card class="pa-4 rounded-lg dateo-card" variant="outlined">
+                  <v-card class="pa-2 pa-sm-4 rounded-lg dateo-card" variant="outlined">
                     <div
                       class="d-flex align-center justify-space-between flex-wrap"
-                      style="gap:10px"
+                      style="gap:8px"
                     >
-                      <div class="d-flex align-center" style="gap:12px">
-                        <v-avatar size="72" variant="elevated">
+                      <div class="d-flex align-center" style="gap:10px">
+                        <v-avatar :size="$vuetify.display.xs ? 56 : 72" variant="elevated">
                           <v-img
                             v-if="dateoImagenUrl"
                             :src="dateoImagenUrl"
                             alt="Evidencia placa/telefono"
                           />
-                          <v-icon v-else size="40">mdi-image-off-outline</v-icon>
+                          <v-icon v-else :size="$vuetify.display.xs ? 32 : 40">mdi-image-off-outline</v-icon>
                         </v-avatar>
                         <div>
-                          <div class="text-subtitle-1 font-weight-600">
+                          <div class="text-caption text-sm-subtitle-1 font-weight-600">
                             Dateo:
                             <strong>{{ dateoCanalPretty }}</strong>
-                            <span v-if="dateoAgenteNombre"> — {{ dateoAgenteNombre }}</span>
+                            <span v-if="dateoAgenteNombre" class="d-none d-sm-inline"> — {{ dateoAgenteNombre }}</span>
                           </div>
-                          <div class="text-body-2 text-medium-emphasis">
+                          <div class="text-caption text-sm-body-2 text-medium-emphasis">
                             Origen: {{ dateoOrigenPretty }}
                           </div>
-                          <div class="text-body-2 text-medium-emphasis">
+                          <div class="text-caption text-sm-body-2 text-medium-emphasis">
                             Registrado: {{ dateoFechaHora }}
                           </div>
                           <div
-                            class="text-body-2 text-medium-emphasis"
+                            class="text-caption text-sm-body-2 text-medium-emphasis"
                             v-if="dateo?.observacion"
                           >
                             {{ dateo?.observacion }}
@@ -247,9 +257,10 @@
                               color="deep-purple"
                               text-color="white"
                               variant="elevated"
+                              :size="$vuetify.display.xs ? 'x-small' : 'small'"
                               prepend-icon="mdi-file-document-multiple-outline"
                             >
-                              Convenio (dateo): {{ formatConvenioChip(dateoConvenio) }}
+                              Convenio: {{ formatConvenioChip(dateoConvenio) }}
                             </v-chip>
                           </div>
                         </div>
@@ -258,7 +269,7 @@
                   </v-card>
                 </div>
                 <div v-else>
-                  <div class="text-body-2 text-medium-emphasis">
+                  <div class="text-caption text-sm-body-2 text-medium-emphasis">
                     No hay dateo asociado a este turno.
                   </div>
                 </div>
@@ -267,15 +278,15 @@
 
             <v-col cols="12" md="6" class="d-flex">
               <v-card variant="tonal" class="card-compact d-flex flex-column flex-grow-1">
-                <div class="card-header">
-                  <v-icon class="mr-2">mdi-account</v-icon>
+                <div class="card-header text-caption text-sm-body-2">
+                  <v-icon class="mr-2" :size="$vuetify.display.xs ? 18 : 20">mdi-account</v-icon>
                   <span>Datos del Cliente</span>
                 </div>
                 <v-text-field
                   :model-value="cliente?.nombre || '—'"
                   label="Nombre"
                   variant="outlined"
-                  density="compact"
+                  :density="$vuetify.display.xs ? 'compact' : 'comfortable'"
                   readonly
                   prepend-inner-icon="mdi-account"
                   class="mb-2"
@@ -284,7 +295,7 @@
                   :model-value="cliente?.telefono || '—'"
                   label="Teléfono"
                   variant="outlined"
-                  density="compact"
+                  :density="$vuetify.display.xs ? 'compact' : 'comfortable'"
                   readonly
                   prepend-inner-icon="mdi-phone"
                   class="mb-2"
@@ -293,7 +304,7 @@
                   :model-value="cliente?.email || '—'"
                   label="Email"
                   variant="outlined"
-                  density="compact"
+                  :density="$vuetify.display.xs ? 'compact' : 'comfortable'"
                   readonly
                   prepend-inner-icon="mdi-email"
                 />
@@ -303,15 +314,15 @@
             <!-- ====== Fila 2: Vehículo + Metadatos ====== -->
             <v-col cols="12" md="6" class="d-flex">
               <v-card variant="tonal" class="card-compact d-flex flex-column flex-grow-1">
-                <div class="card-header">
-                  <v-icon class="mr-2">mdi-car-info</v-icon>
+                <div class="card-header text-caption text-sm-body-2">
+                  <v-icon class="mr-2" :size="$vuetify.display.xs ? 18 : 20">mdi-car-info</v-icon>
                   <span>Datos del Vehículo</span>
                 </div>
                 <v-text-field
                   :model-value="form.placa"
                   label="Placa"
                   variant="outlined"
-                  density="compact"
+                  :density="$vuetify.display.xs ? 'compact' : 'comfortable'"
                   readonly
                   prepend-inner-icon="mdi-car"
                   class="mb-2"
@@ -320,7 +331,7 @@
                   :model-value="vehiculoClase"
                   label="Clase"
                   variant="outlined"
-                  density="compact"
+                  :density="$vuetify.display.xs ? 'compact' : 'comfortable'"
                   readonly
                   prepend-inner-icon="mdi-shape-outline"
                   class="mb-2"
@@ -329,7 +340,7 @@
                   :model-value="vehiculo?.marca || '—'"
                   label="Marca"
                   variant="outlined"
-                  density="compact"
+                  :density="$vuetify.display.xs ? 'compact' : 'comfortable'"
                   readonly
                   prepend-inner-icon="mdi-alpha-m-box"
                   class="mb-2"
@@ -338,7 +349,7 @@
                   :model-value="vehiculo?.linea || '—'"
                   label="Línea"
                   variant="outlined"
-                  density="compact"
+                  :density="$vuetify.display.xs ? 'compact' : 'comfortable'"
                   readonly
                   prepend-inner-icon="mdi-timeline-outline"
                   class="mb-2"
@@ -347,7 +358,7 @@
                   :model-value="vehiculo?.modelo != null ? String(vehiculo?.modelo) : '—'"
                   label="Modelo"
                   variant="outlined"
-                  density="compact"
+                  :density="$vuetify.display.xs ? 'compact' : 'comfortable'"
                   readonly
                   prepend-inner-icon="mdi-numeric"
                 />
@@ -356,15 +367,15 @@
 
             <v-col cols="12" md="6" class="d-flex">
               <v-card variant="tonal" class="card-compact d-flex flex-column flex-grow-1">
-                <div class="card-header">
-                  <v-icon class="mr-2">mdi-information-outline</v-icon>
+                <div class="card-header text-caption text-sm-body-2">
+                  <v-icon class="mr-2" :size="$vuetify.display.xs ? 18 : 20">mdi-information-outline</v-icon>
                   <span>Metadatos</span>
                 </div>
                 <v-text-field
                   :model-value="usuarioNombre"
                   label="Usuario"
                   variant="outlined"
-                  density="compact"
+                  :density="$vuetify.display.xs ? 'compact' : 'comfortable'"
                   readonly
                   prepend-inner-icon="mdi-account-badge"
                   class="mb-2"
@@ -373,7 +384,7 @@
                   :model-value="sedeNombre"
                   label="Sede"
                   variant="outlined"
-                  density="compact"
+                  :density="$vuetify.display.xs ? 'compact' : 'comfortable'"
                   readonly
                   prepend-inner-icon="mdi-office-building"
                   class="mb-2"
@@ -383,7 +394,14 @@
 
             <!-- Botones -->
             <v-col cols="12" class="text-right mt-2">
-              <v-btn color="grey-darken-1" variant="outlined" class="mr-2" @click="goBack">
+              <v-btn
+                color="grey-darken-1"
+                variant="outlined"
+                :block="$vuetify.display.xs"
+                class="mr-0 mr-sm-2 mb-2"
+                :size="$vuetify.display.xs ? 'default' : 'default'"
+                @click="goBack"
+              >
                 <v-icon left>mdi-arrow-left</v-icon>
                 Volver
               </v-btn>
@@ -391,25 +409,30 @@
               <v-btn
                 color="error"
                 variant="outlined"
-                class="mr-2"
+                :block="$vuetify.display.xs"
+                class="mr-0 mr-sm-2 mb-2"
                 :loading="isCancelling"
                 :disabled="isCancelling || form.estado === 'cancelado'"
+                :size="$vuetify.display.xs ? 'default' : 'default'"
                 @click="openCancelDialog"
               >
                 <v-icon left>mdi-close-circle-outline</v-icon>
-                Cancelar turno
+                <span v-if="$vuetify.display.xs">Cancelar</span>
+                <span v-else>Cancelar turno</span>
               </v-btn>
 
               <v-btn
                 color="primary"
-                class="font-weight-bold py-3 px-6 action-btn"
-                size="large"
+                class="font-weight-bold action-btn"
+                :block="$vuetify.display.xs"
+                :size="$vuetify.display.xs ? 'default' : 'large'"
                 :loading="isSaving"
                 :disabled="isSaving"
                 @click="openConfirmDialog"
               >
                 <v-icon left>mdi-content-save</v-icon>
-                Guardar cambios
+                <span v-if="$vuetify.display.xs">Guardar</span>
+                <span v-else>Guardar cambios</span>
               </v-btn>
             </v-col>
           </v-row>
@@ -431,19 +454,33 @@
     </v-snackbar>
 
     <!-- Confirmación GUARDAR -->
-    <v-dialog v-model="showConfirmDialog" max-width="500">
+    <v-dialog
+      v-model="showConfirmDialog"
+      :max-width="$vuetify.display.xs ? '100%' : '500'"
+      :fullscreen="$vuetify.display.xs"
+    >
       <v-card class="rounded-xl">
-        <v-card-title class="headline text-center text-primary font-weight-bold pa-4">
+        <v-card-title class="headline text-center text-primary font-weight-bold pa-3 pa-sm-4 text-subtitle-1 text-sm-h6">
           Confirmar Guardado
         </v-card-title>
-        <v-card-text class="text-center text-body-1 pa-4">
+        <v-card-text class="text-center text-caption text-sm-body-1 pa-3 pa-sm-4">
           ¿Deseas guardar los cambios del turno?
         </v-card-text>
-        <v-card-actions class="justify-center pa-4">
-          <v-btn color="grey-darken-1" variant="outlined" @click="showConfirmDialog = false">
+        <v-card-actions class="justify-center pa-3 pa-sm-4">
+          <v-btn
+            color="grey-darken-1"
+            variant="outlined"
+            :size="$vuetify.display.xs ? 'small' : 'default'"
+            @click="showConfirmDialog = false"
+          >
             Cancelar
           </v-btn>
-          <v-btn color="primary" variant="elevated" @click="save">
+          <v-btn
+            color="primary"
+            variant="elevated"
+            :size="$vuetify.display.xs ? 'small' : 'default'"
+            @click="save"
+          >
             Guardar
           </v-btn>
         </v-card-actions>
@@ -451,21 +488,35 @@
     </v-dialog>
 
     <!-- Confirmación CANCELAR TURNO -->
-    <v-dialog v-model="showCancelDialog" max-width="500">
+    <v-dialog
+      v-model="showCancelDialog"
+      :max-width="$vuetify.display.xs ? '100%' : '500'"
+      :fullscreen="$vuetify.display.xs"
+    >
       <v-card class="rounded-xl">
-        <v-card-title class="headline text-center text-error font-weight-bold pa-4">
+        <v-card-title class="headline text-center text-error font-weight-bold pa-3 pa-sm-4 text-subtitle-1 text-sm-h6">
           Cancelar turno
         </v-card-title>
-        <v-card-text class="text-center text-body-1 pa-4">
+        <v-card-text class="text-center text-caption text-sm-body-1 pa-3 pa-sm-4">
           ¿Seguro que quieres cancelar este turno?<br />
           Se marcará como <strong>cancelado</strong>, pero conservará sus números de turno.
         </v-card-text>
-        <v-card-actions class="justify-center pa-4">
-          <v-btn color="grey-darken-1" variant="outlined" @click="showCancelDialog = false">
+        <v-card-actions class="justify-center pa-3 pa-sm-4">
+          <v-btn
+            color="grey-darken-1"
+            variant="outlined"
+            :size="$vuetify.display.xs ? 'small' : 'default'"
+            @click="showCancelDialog = false"
+          >
             No, volver
           </v-btn>
-          <v-btn color="error" variant="elevated" @click="cancelTurno">
-            Sí, cancelar turno
+          <v-btn
+            color="error"
+            variant="elevated"
+            :size="$vuetify.display.xs ? 'small' : 'default'"
+            @click="cancelTurno"
+          >
+            Sí, cancelar
           </v-btn>
         </v-card-actions>
       </v-card>
@@ -474,7 +525,7 @@
     <!-- Loader -->
     <v-dialog v-model="isLoading" persistent width="300">
       <v-card color="primary" dark>
-        <v-card-text class="py-4 text-center">
+        <v-card-text class="py-4 text-center text-caption text-sm-body-2">
           Cargando turno...
           <v-progress-linear indeterminate color="white" class="mb-0" />
         </v-card-text>
@@ -910,27 +961,41 @@ onMounted(async () => {
 
 /* —— Header —— */
 .card-header {
-  display:flex; align-items:center; justify-content:space-between; gap:16px;
+  display:flex; align-items:center; justify-content:space-between; gap:12px;
   background:
     radial-gradient(1200px 200px at 20% -50%, rgba(25,118,210,.08), transparent 60%),
     radial-gradient(900px 180px at 80% -60%, rgba(76,175,80,.10), transparent 60%),
     linear-gradient(180deg, #ffffff, #f7f9fc);
-  border-top-left-radius:16px; border-top-right-radius:16px;
+  border-top-left-radius:12px; border-top-right-radius:12px;
 }
-.header-left { display:flex; align-items:center; gap:14px; }
+
+@media (min-width: 600px) {
+  .card-header {
+    gap:16px;
+    border-top-left-radius:16px; border-top-right-radius:16px;
+  }
+}
+
+.header-left { display:flex; align-items:center; gap:12px; }
 .icon-pill {
   display:inline-flex; align-items:center; justify-content:center;
   height:40px; width:40px; border-radius:10px;
   border:1px solid rgba(16,24,40,0.08); background:#fff;
   box-shadow:0 1px 2px rgba(16,24,40,0.06);
 }
-.title-group .title { margin:0; font-weight:700; letter-spacing:.2px; line-height:1.2; font-size:1.35rem; color:#0f172a; }
+.title-group .title { margin:0; font-weight:700; letter-spacing:.2px; line-height:1.2; color:#0f172a; }
 .title-group .subtitle { margin:2px 0 0 0; font-size:.925rem; color:#475569; }
 
 .turno-chip :deep(.v-chip__content) { font-weight:600; }
 .turno-chip {
   --chip-bg:#0ea5e9; background: linear-gradient(180deg,#0ea5e9,#0284c7);
-  color:#fff; box-shadow:0 6px 16px rgba(2,132,199,0.25);
+  color:#fff; box-shadow:0 4px 12px rgba(2,132,199,0.25);
+}
+
+@media (min-width: 600px) {
+  .turno-chip {
+    box-shadow:0 6px 16px rgba(2,132,199,0.25);
+  }
 }
 
 /* —— Divider —— */
@@ -938,15 +1003,29 @@ onMounted(async () => {
 
 /* —— Inputs —— */
 :deep(.v-text-field .v-input__control),
-:deep(.v-select .v-input__control) { border-radius:10px; }
+:deep(.v-select .v-input__control) { border-radius:8px; }
+
+@media (min-width: 600px) {
+  :deep(.v-text-field .v-input__control),
+  :deep(.v-select .v-input__control) { border-radius:10px; }
+}
+
 :deep(.v-input__prepend-inner .v-icon) { color:#1976D2; }
 
 /* —— Button principal —— */
 .action-btn {
-  border-radius:12px !important; text-transform:none; letter-spacing:.2px;
-  box-shadow:0 6px 16px rgba(25,118,210,.25) !important;
+  border-radius:10px !important; text-transform:none; letter-spacing:.2px;
+  box-shadow:0 4px 12px rgba(25,118,210,.25) !important;
   border:1px solid rgba(16,24,40,0.06);
 }
+
+@media (min-width: 600px) {
+  .action-btn {
+    border-radius:12px !important;
+    box-shadow:0 6px 16px rgba(25,118,210,.25) !important;
+  }
+}
+
 .action-btn:hover {
   transform: translateY(-1px);
   box-shadow:0 10px 20px rgba(25,118,210,.28) !important;
@@ -954,15 +1033,29 @@ onMounted(async () => {
 
 /* Tarjetas compactas 2×2 */
 .card-compact {
-  padding: 12px;
-  border-radius: 12px;
+  padding: 10px;
+  border-radius: 10px;
   border: 1px dashed rgba(16,24,40,0.12);
 }
+
+@media (min-width: 600px) {
+  .card-compact {
+    padding: 12px;
+    border-radius: 12px;
+  }
+}
+
 .card-header {
   display:flex;
   align-items:center;
   font-weight:700;
-  margin-bottom:8px;
+  margin-bottom:6px;
+}
+
+@media (min-width: 600px) {
+  .card-header {
+    margin-bottom:8px;
+  }
 }
 
 /* Panel dateo estilo CrearTurno */
