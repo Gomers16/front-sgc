@@ -1,86 +1,102 @@
 <!--
-📌 HeaderButtons.vue (ejemplo de nombre)
-Contenedor de botones en el encabezado del login.
+📌 HeaderButtons.vue
+Contenedor preparado para botones del header (actualmente vacío)
 
-✔ Funcionalidad actual:
-  - El template no tiene botones (se eliminaron a tu solicitud).
-  - Solo queda el contenedor `.header-buttons` con estilos que lo posicionan,
-    por si más adelante quieres volver a poner botones (ej: iniciar sesión,
-    recuperar contraseña, etc.).
+✅ Características:
+   - Posicionamiento absoluto responsive
+   - Preparado para agregar botones en el futuro
+   - Se adapta a móvil, tablet y desktop
+   - Actualmente oculto pero con estructura lista
 
-💡 Ubicación recomendada:
-  - Dado que es un fragmento específico de la pantalla de **login**,
-    está bien en `src/components/login/HeaderButtons.vue`.
-  - Alternativas:
-      • Si es algo muy pequeño/reutilizable → `src/components/ui/`
-      • Si es exclusivo del login → `src/components/login/`
-
-👉 Como ahora no tiene botones, su uso es decorativo/estructural.
+💡 Ubicación: src/components/login/HeaderButtons.vue
 -->
 
 <template>
   <div class="header-buttons">
-    <!-- Los botones han sido eliminados según tu solicitud -->
+    <!-- Botones eliminados - estructura lista para el futuro -->
   </div>
 </template>
 
 <script setup lang="ts">
-/* No hay lógica reactiva ni props porque no hay botones */
+// Sin lógica porque no hay botones actualmente
 </script>
 
 <style scoped>
-/* Contenedor del header */
+/* ========= CONTENEDOR (ACTUALMENTE OCULTO) ========= */
 .header-buttons {
   position: absolute;
-  top: 1.8rem;
-  right: 2rem;
-  display: flex;             /* Mantiene la estructura flex por si vuelven botones */
-  gap: 1.2rem;               /* Espaciado entre botones */
+  top: clamp(12px, 2vh, 24px);
+  right: clamp(12px, 3vw, 32px);
+  display: flex;
   flex-wrap: wrap;
   justify-content: flex-end;
   align-items: center;
-  padding: 0 0.5rem;
+  gap: clamp(8px, 1.5vw, 16px);
+  padding: 0;
   box-sizing: border-box;
   z-index: 10;
 
-  /* Como no hay botones, lo "apagamos" */
+  /* Oculto porque no hay botones */
   width: 0;
   height: 0;
   overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
 }
 
-/* 🔎 Media queries: ajustan la posición si en el futuro vuelves a tener botones */
-@media (min-width: 1200px) {
+/* ========= CUANDO SE AGREGUEN BOTONES, ELIMINAR ESTAS LÍNEAS: ========= */
+/*
+  width: 0;
+  height: 0;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+*/
+
+/* ========= DESKTOP (>1024px) ========= */
+@media (min-width: 1025px) {
   .header-buttons {
-    top: 2rem;
-    right: 3rem;
-    gap: 1.5rem;
+    top: clamp(20px, 2.5vh, 32px);
+    right: clamp(24px, 3.5vw, 48px);
+    gap: 18px;
   }
 }
 
-@media (max-width: 1024px) {
+/* ========= TABLET (481px - 1024px) ========= */
+@media (min-width: 481px) and (max-width: 1024px) {
   .header-buttons {
-    top: 1.5rem;
-    right: 1.5rem;
-    gap: 1rem;
+    top: clamp(16px, 2vh, 24px);
+    right: clamp(16px, 3vw, 32px);
+    gap: 12px;
   }
 }
 
-@media (max-width: 768px) {
+/* ========= MÓVIL (<480px) ========= */
+@media (max-width: 480px) {
   .header-buttons {
     flex-direction: column;
-    top: 1rem;
-    right: 1rem;
-    gap: 0.8rem;
+    top: 12px;
+    right: 12px;
+    gap: 8px;
     align-items: flex-end;
   }
 }
 
-@media (max-width: 480px) {
+/* ========= PANTALLAS BAJAS ========= */
+@media (max-height: 640px) {
   .header-buttons {
-    top: 0.8rem;
-    right: 0.8rem;
-    gap: 0.6rem;
+    top: 8px;
+    right: 12px;
+    gap: 6px;
+  }
+}
+
+/* ========= LANDSCAPE MÓVIL ========= */
+@media (max-width: 812px) and (max-height: 480px) and (orientation: landscape) {
+  .header-buttons {
+    top: 6px;
+    right: 12px;
+    flex-direction: row;
   }
 }
 </style>
