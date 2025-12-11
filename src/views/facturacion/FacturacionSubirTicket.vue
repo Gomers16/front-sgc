@@ -13,9 +13,9 @@
         </div>
 
         <div class="d-flex align-center flex-wrap" style="gap:10px">
-          <!-- Loader OCR -->
+          <!-- Loader OCR (solo si NO es SOAT) -->
           <v-progress-circular
-            v-if="ocr.status==='running'"
+            v-if="!esSOAT && ocr.status==='running'"
             indeterminate
             color="info"
             :size="28"
@@ -37,6 +37,12 @@
         </div>
       </v-card-title>
     </v-card>
+
+    <!-- ALERTA SOAT -->
+    <v-alert v-if="esSOAT" type="info" variant="tonal" class="mb-4" prominent>
+      <v-icon class="mr-2">mdi-information</v-icon>
+      <strong>Servicio SOAT detectado:</strong> Solo se requiere subir la imagen de la factura. No es necesario llenar campos adicionales.
+    </v-alert>
 
     <v-row>
       <!-- IZQUIERDA: Evidencia -->
@@ -75,7 +81,8 @@
                     <v-btn size="small" variant="text" @click="fitWidth">Ajustar a ancho</v-btn>
                   </div>
 
-                  <div class="d-flex align-center" style="gap:10px">
+                  <!-- OCR status (solo si NO es SOAT) -->
+                  <div v-if="!esSOAT" class="d-flex align-center" style="gap:10px">
                     <template v-if="ocr.status==='running'">
                       <v-progress-circular indeterminate color="info" :size="22" :width="2" />
                     </template>
@@ -171,36 +178,41 @@
               </v-col>
             </v-row>
 
-            <!-- Captación / Dateo -->
-            <v-divider class="my-4" />
-            <div class="text-subtitle-2 mb-2">Captación / Dateo</div>
+            <!-- Captación / Dateo (solo si NO es SOAT) -->
+            <template v-if="!esSOAT">
+              <v-divider class="my-4" />
+              <div class="text-subtitle-2 mb-2">Captación / Dateo</div>
 
-            <!-- Asesor Comercial -->
-            <div class="capt-line" v-if="turnoCard.agenteComercialNombre">
-              <v-chip size="small" color="secondary" variant="tonal">Asesor comercial</v-chip>
-              <span class="text-medium-emphasis">{{ turnoCard.agenteComercialNombre }}</span>
-            </div>
+              <!-- Asesor Comercial -->
+              <div class="capt-line" v-if="turnoCard.agenteComercialNombre">
+                <v-chip size="small" color="secondary" variant="tonal">Asesor comercial</v-chip>
+                <span class="text-medium-emphasis">{{ turnoCard.agenteComercialNombre }}</span>
+              </div>
 
-            <!-- Asesor Convenio -->
-            <div class="capt-line" v-if="turnoCard.asesorConvenioNombre">
-              <v-chip size="small" color="teal" variant="tonal">Asesor convenio</v-chip>
-              <span class="text-medium-emphasis">{{ turnoCard.asesorConvenioNombre }}</span>
-            </div>
+              <!-- Asesor Convenio -->
+              <div class="capt-line" v-if="turnoCard.asesorConvenioNombre">
+                <v-chip size="small" color="teal" variant="tonal">Asesor convenio</v-chip>
+                <span class="text-medium-emphasis">{{ turnoCard.asesorConvenioNombre }}</span>
+              </div>
 
-            <!-- Convenio -->
-            <div class="capt-line" v-if="turnoCard.convenioNombre">
-              <v-chip size="small" color="blue-grey" variant="tonal">Convenio</v-chip>
-              <span class="text-medium-emphasis">{{ turnoCard.convenioNombre }}</span>
-            </div>
+              <!-- Convenio -->
+              <div class="capt-line" v-if="turnoCard.convenioNombre">
+                <v-chip size="small" color="blue-grey" variant="tonal">Convenio</v-chip>
+                <span class="text-medium-emphasis">{{ turnoCard.convenioNombre }}</span>
+              </div>
+            </template>
 
             <v-alert type="info" variant="tonal" class="mt-4">
-              Esta facturación quedará asociada al turno mostrado. (Sin prellenar campos).
+              {{ esSOAT
+                ? 'Para SOAT solo se requiere la imagen de la factura.'
+                : 'Esta facturación quedará asociada al turno mostrado.'
+              }}
             </v-alert>
           </v-card-text>
         </v-card>
 
-        <!-- Formulario derecha (datos detectados) -->
-        <v-card elevation="8" class="rounded-xl">
+        <!-- Formulario derecha (datos detectados) - OCULTO SI ES SOAT -->
+        <v-card v-if="!esSOAT" elevation="8" class="rounded-xl">
           <v-card-text>
             <div class="section-title">Datos detectados automáticamente</div>
 
@@ -285,6 +297,29 @@
             </div>
           </v-card-text>
         </v-card>
+
+        <!-- Botón de confirmación SOAT (simplificado) -->
+        <v-card v-else elevation="8" class="rounded-xl">
+          <v-card-text>
+            <div class="text-center">
+              <v-icon size="64" color="primary" class="mb-3">mdi-file-document-check</v-icon>
+              <div class="text-h6 mb-2">Servicio SOAT</div>
+              <div class="text-body-2 text-medium-emphasis mb-4">
+                Con la imagen de la factura es suficiente para proceder.
+              </div>
+              <v-btn
+                color="primary"
+                size="large"
+                block
+                :disabled="!requeridosOk"
+                @click="openConfirm"
+                prepend-icon="mdi-check-circle"
+              >
+                Confirmar facturación SOAT
+              </v-btn>
+            </div>
+          </v-card-text>
+        </v-card>
       </v-col>
     </v-row>
 
@@ -295,8 +330,9 @@
         <v-card-text>
           <ul class="mt-2">
             <li>Arrastra la imagen o pega con <b>Ctrl+V</b>.</li>
-            <li>Si la foto está torcida, pulsa <b>Rotar 90°</b> y luego <b>Reintentar OCR</b>.</li>
-            <li>El sistema detecta datos clave: <i>Placa</i>, <i>Total</i>, <i>Fecha</i> y <i>Hora</i>, además de NIT/PIN/Marca.</li>
+            <li v-if="!esSOAT">Si la foto está torcida, pulsa <b>Rotar 90°</b> y luego <b>Reintentar OCR</b>.</li>
+            <li v-if="!esSOAT">El sistema detecta datos clave: <i>Placa</i>, <i>Total</i>, <i>Fecha</i> y <i>Hora</i>, además de NIT/PIN/Marca.</li>
+            <li v-if="esSOAT"><b>Servicio SOAT:</b> Solo se requiere subir la imagen de la factura. No es necesario llenar campos.</li>
           </ul>
         </v-card-text>
         <v-card-actions>
@@ -311,16 +347,20 @@
       <v-card>
         <v-card-title class="d-flex align-center">
           <v-icon class="mr-2">mdi-shield-check</v-icon>
-          Confirmar facturación
+          Confirmar facturación {{ esSOAT ? 'SOAT' : '' }}
         </v-card-title>
         <v-divider />
         <v-card-text>
           <div class="text-body-2 mb-3">
-            Revisa los datos. Al confirmar se guardará la facturación asociada al turno mostrado y se procesará la comisión automática si aplica.
+            {{ esSOAT
+              ? 'Al confirmar se guardará la imagen de la factura SOAT asociada al turno mostrado.'
+              : 'Revisa los datos. Al confirmar se guardará la facturación asociada al turno mostrado y se procesará la comisión automática si aplica.'
+            }}
           </div>
 
           <v-row>
-            <v-col cols="12" md="6">
+            <!-- Columna izquierda: Ticket (solo si NO es SOAT) -->
+            <v-col v-if="!esSOAT" cols="12" md="6">
               <div class="section-title">Ticket</div>
               <div class="label">Placa</div>
               <div class="value mb-2">{{ form.placa || '—' }}</div>
@@ -341,7 +381,8 @@
               <div class="value">{{ form.nit || '—' }} / {{ form.pin || '—' }} / {{ form.marca || '—' }}</div>
             </v-col>
 
-            <v-col cols="12" md="6">
+            <!-- Columna derecha (o única si es SOAT): Turno asociado -->
+            <v-col cols="12" :md="esSOAT ? 12 : 6">
               <div class="section-title">Turno asociado</div>
               <div class="label">Turno / Servicio</div>
               <div class="value mb-2">#{{ turnoCard.numero ?? '—' }} • {{ turnoCard.servicioNombre || '—' }}</div>
@@ -352,30 +393,32 @@
               <div class="label">Sede / Funcionario</div>
               <div class="value mb-2">{{ turnoCard.sede || '—' }} • {{ turnoCard.funcionario || '—' }}</div>
 
-              <div class="label">Canal</div>
-              <div class="value mb-2">
-                <v-chip v-if="turnoCard.captacionCanal" :color="canalChipColor(turnoCard.captacionCanal)" size="small" variant="tonal">
-                  {{ humanCanal(turnoCard.captacionCanal) }}
-                </v-chip>
-                <span v-else>—</span>
-              </div>
+              <template v-if="!esSOAT">
+                <div class="label">Canal</div>
+                <div class="value mb-2">
+                  <v-chip v-if="turnoCard.captacionCanal" :color="canalChipColor(turnoCard.captacionCanal)" size="small" variant="tonal">
+                    {{ humanCanal(turnoCard.captacionCanal) }}
+                  </v-chip>
+                  <span v-else>—</span>
+                </div>
 
-              <div class="label">Asesores / Convenio</div>
-              <div class="value">
-                <div class="capt-line" v-if="turnoCard.agenteComercialNombre">
-                  <v-chip size="x-small" color="secondary" variant="tonal">Comercial</v-chip>
-                  <span class="text-medium-emphasis">{{ turnoCard.agenteComercialNombre }}</span>
+                <div class="label">Asesores / Convenio</div>
+                <div class="value">
+                  <div class="capt-line" v-if="turnoCard.agenteComercialNombre">
+                    <v-chip size="x-small" color="secondary" variant="tonal">Comercial</v-chip>
+                    <span class="text-medium-emphasis">{{ turnoCard.agenteComercialNombre }}</span>
+                  </div>
+                  <div class="capt-line" v-if="turnoCard.asesorConvenioNombre">
+                    <v-chip size="x-small" color="teal" variant="tonal">Convenio</v-chip>
+                    <span class="text-medium-emphasis">{{ turnoCard.asesorConvenioNombre }}</span>
+                  </div>
+                  <div class="capt-line" v-if="turnoCard.convenioNombre">
+                    <v-chip size="x-small" color="blue-grey" variant="tonal">Convenio</v-chip>
+                    <span class="text-medium-emphasis">{{ turnoCard.convenioNombre }}</span>
+                  </div>
+                  <div v-if="!turnoCard.agenteComercialNombre && !turnoCard.asesorConvenioNombre && !turnoCard.convenioNombre">—</div>
                 </div>
-                <div class="capt-line" v-if="turnoCard.asesorConvenioNombre">
-                  <v-chip size="x-small" color="teal" variant="tonal">Convenio</v-chip>
-                  <span class="text-medium-emphasis">{{ turnoCard.asesorConvenioNombre }}</span>
-                </div>
-                <div class="capt-line" v-if="turnoCard.convenioNombre">
-                  <v-chip size="x-small" color="blue-grey" variant="tonal">Convenio</v-chip>
-                  <span class="text-medium-emphasis">{{ turnoCard.convenioNombre }}</span>
-                </div>
-                <div v-if="!turnoCard.agenteComercialNombre && !turnoCard.asesorConvenioNombre && !turnoCard.convenioNombre">—</div>
-              </div>
+              </template>
             </v-col>
           </v-row>
         </v-card-text>
@@ -411,11 +454,16 @@
             </div>
           </v-alert>
 
-          <div class="text-body-2">
+          <div class="text-body-2" v-if="!esSOAT">
             <b>Placa:</b> {{ form.placa || '—' }} •
             <b>Fecha:</b> {{ form.fecha || '—' }} •
             <b>Hora:</b> {{ hora12 || '—' }} •
             <b>Total:</b> {{ totalFacturaDisplay || totalDisplay || '—' }}
+          </div>
+          <div class="text-body-2" v-else>
+            <b>Servicio:</b> SOAT •
+            <b>Turno:</b> #{{ turnoCard.numero }} •
+            <b>Placa:</b> {{ turnoCard.placa || '—' }}
           </div>
         </v-card-text>
         <v-card-actions class="px-4 pb-4">
@@ -433,13 +481,6 @@
 </template>
 
 <script setup lang="ts">
-/**
- * Facturación / Subir ticket — BLOQUE SCRIPT (actualizado)
- * Cambios clave respecto a tu versión:
- *  - Se mantiene la lógica de no duplicar tickets (currentTicketId).
- *  - Al cerrar el modal de resultado ahora se navega de vuelta a Turnos del día.
- */
-
 import { ref, reactive, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import TurnosDelDiaService from '@/services/turnosdeldiaService'
@@ -488,7 +529,6 @@ const form = reactive({
   nit: '',
   pin: '',
   marca: '',
-  // Totales explícitos
   subtotal: 0,
   iva: 0,
   totalFactura: 0,
@@ -499,7 +539,7 @@ const ivaDisplay = ref('')
 const totalFacturaDisplay = ref('')
 
 /* ===== Hora en 12h para UI ===== */
-const hora12 = ref('') // ej: "05:03:14 PM"
+const hora12 = ref('')
 function to12h(hhmmss: string) {
   if (!hhmmss) return ''
   let [hh='00', mm='00', ss='00'] = hhmmss.split(':')
@@ -529,17 +569,35 @@ function onHora12Blur() {
   }
 }
 
+/* ===================== DETECCIÓN SOAT ===================== */
+const esSOAT = computed(() => {
+  const codigo = (turnoCard.servicioCodigo || '').toUpperCase()
+  const nombre = (turnoCard.servicioNombre || '').toUpperCase()
+  return codigo.includes('SOAT') || nombre.includes('SOAT')
+})
+
 /* ===================== Estado visual ===================== */
-const requeridosOk = computed(() =>
-  !!form.placa && (form.total > 0 || form.totalFactura > 0) && !!form.fecha && !!form.hora
-)
+const requeridosOk = computed(() => {
+  // Para SOAT: solo requiere imagen
+  if (esSOAT.value) {
+    return !!previewUrl.value
+  }
+  // Para otros servicios: campos completos
+  return !!form.placa && (form.total > 0 || form.totalFactura > 0) && !!form.fecha && !!form.hora
+})
+
 const estado = computed(() => {
+  if (esSOAT.value) {
+    return previewUrl.value ? 'SOAT - Listo para confirmar' : 'SOAT - Subir imagen'
+  }
   if (ocr.status === 'running') return 'Procesando'
   if (ocr.status === 'done' && requeridosOk.value) return 'OCR listo'
   if (ocr.status === 'done') return 'OCR listo (completa los faltantes)'
   return 'Borrador'
 })
+
 const estadoColor = computed(() => {
+  if (esSOAT.value) return previewUrl.value ? 'success' : 'grey'
   switch (estado.value) {
     case 'Procesando': return 'info'
     case 'OCR listo':
@@ -651,7 +709,7 @@ function parseTicket(txt: string) {
   const cleanLines = txt
     .replace(/\r/g, '')
     .replace(/[·•]/g, '.')
-    .replace(/[“”]/g, '"')
+    .replace(/[""]/g, '"')
     .split('\n')
     .map(l => l.trim())
     .filter(Boolean)
@@ -904,9 +962,8 @@ function hydrateTurnoCard(turno: any) {
   turnoCard.convenioNombre =
     dateo?.convenio?.nombre ?? turno.convenio?.nombre ?? turno.convenioNombre ?? null
 
-  if (form.placa) syncPlacaWithTurno()
+  if (form.placa && !esSOAT.value) syncPlacaWithTurno()
 
-  // === IDs crudos para sincronía con backend ===
   turnoMeta.servicioId = (turno.servicio?.id ?? turno.servicio_id ?? null) as number | null
   turnoMeta.sedeId     = (turno.sede?.id     ?? turno.sede_id     ?? null) as number | null
   const _dateo = turno.captacionDateo ?? turno.dateo ?? null
@@ -914,7 +971,7 @@ function hydrateTurnoCard(turno: any) {
   turnoMeta.agenteId   = (turno.agenteCaptacion?.id ?? turno.agente_id ?? null) as number | null
 }
 
-/* ===================== Sincronización de PLACA ===================== */
+/* ===================== Sincronización de PLACA (solo si NO es SOAT) ===================== */
 const RGX_CAR   = /^[A-Z]{3}\d{3}$/
 const RGX_MOTO  = /^[A-Z]{3}\d{2}[A-Z]$/
 const toLetter: Record<string,string> = { '0':'O','1':'I','2':'Z','3':'E','4':'A','5':'S','6':'G','7':'T','8':'B','9':'P' }
@@ -955,7 +1012,7 @@ function hamming(a: string, b: string) {
   return k
 }
 function syncPlacaWithTurno() {
-  if (!form.placa) return
+  if (!form.placa || esSOAT.value) return
   const turnPlate = (turnoCard.placa || '').toUpperCase()
   const fromOcr   = normalizePlate(form.placa)
 
@@ -1045,14 +1102,12 @@ async function ensureTicketForTurnoWithFile(file: File) {
   const turnoId = getTurnoIdFromQuery()
   if (!turnoId) return null
 
-  // 1) ¿Ya hay ticket para este turno? → úsalo
   const existing = await findExistingTicketByTurno(turnoId)
   if (existing) {
     currentTicketId.value = existing.id
     return existing
   }
 
-  // 2) Crear una sola vez (sin repetir POST). Rotación como metadato + IDs de snapshot.
   const created = await FacturacionService.createFromFile({
     file,
     turno_id: turnoId,
@@ -1091,14 +1146,28 @@ async function handleFile(file: File) {
   imageRotation.value = 0
   imageScale.value = 1
 
-  // OCR cliente inmediato (para prellenar campos de UI)
+  // Si es SOAT: NO ejecutar OCR (ni cliente ni servidor)
+  if (esSOAT.value) {
+    snack.text = '📸 Imagen cargada - SOAT no requiere OCR'
+    snack.show = true
+
+    // Solo crear el ticket en backend (sin OCR)
+    try {
+      await ensureTicketForTurnoWithFile(file)
+    } catch (err: any) {
+      console.error('Error creando ticket SOAT:', err)
+      snack.text = `❌ No se pudo crear el ticket: ${err?.message || 'Error'}`
+      snack.show = true
+    }
+    return
+  }
+
+  // Para otros servicios: ejecutar OCR normal
   await startLocalOCR(file)
 
-  // Crear/asegurar ticket en backend (solo una vez) y lanzar OCR backend
   try {
     const createdOrExisting = await ensureTicketForTurnoWithFile(file)
     if (createdOrExisting?.id) {
-      // Si el usuario rotó, informamos al backend antes del reocr
       if (imageRotation.value) {
         await FacturacionService.update(createdOrExisting.id, { image_rotation: imageRotation.value })
       }
@@ -1131,7 +1200,7 @@ async function startLocalOCR(file: File) {
     ocr.progress = 100
     if (json.campos) fillFromCampos(json.campos)
     else if (json.text) parseTicket(json.text)
-    if (form.placa) syncPlacaWithTurno()
+    if (form.placa && !esSOAT.value) syncPlacaWithTurno()
     snack.text = '✅ OCR completado'
     snack.show = true
   } catch (err) {
@@ -1143,8 +1212,7 @@ async function startLocalOCR(file: File) {
 }
 
 async function retryOCR() {
-  if (!previewBlob.value) return
-  // Actualiza rotación en backend y re-OCR server si ya existe
+  if (!previewBlob.value || esSOAT.value) return
   if (currentTicketId.value) {
     try {
       await FacturacionService.update(currentTicketId.value, { image_rotation: imageRotation.value })
@@ -1155,7 +1223,6 @@ async function retryOCR() {
       console.error('reocr server error', e)
     }
   }
-  // Reprocesa local para UI
   await startLocalOCR(previewBlob.value)
 }
 
@@ -1191,10 +1258,14 @@ function resetAll() {
   hora12.value = ''
 }
 
-/* ===================== Confirmación y Guardado (sin re-POST de archivo) ===================== */
+/* ===================== Confirmación y Guardado ===================== */
 function openConfirm() {
   if (!requeridosOk.value) {
-    snack.text = 'Completa placa, total, fecha y hora antes de confirmar.'
+    if (esSOAT.value) {
+      snack.text = 'Sube la imagen de la factura SOAT antes de confirmar.'
+    } else {
+      snack.text = 'Completa placa, total, fecha y hora antes de confirmar.'
+    }
     snack.show = true
     return
   }
@@ -1205,7 +1276,6 @@ async function confirmarYGuardar() {
   if (saving.value) return
   saving.value = true
   try {
-    // Asegura que exista un ticket en backend (si el usuario pegó imagen pero no se creó aún)
     if (!currentTicketId.value && previewBlob.value) {
       const ensured = await ensureTicketForTurnoWithFile(previewBlob.value)
       if (ensured?.id) currentTicketId.value = ensured.id
@@ -1213,46 +1283,53 @@ async function confirmarYGuardar() {
     const id = currentTicketId.value
     if (!id) throw new Error('No hay ticket creado para este turno')
 
-    // Componer fecha_pago en ISO completo (America/Bogota = -05:00)
-    const fechaPagoISO = form.fecha && form.hora
-      ? `${form.fecha}T${form.hora}-05:00`
-      : null
+    // Si es SOAT: payload mínimo (solo imagen + turno)
+    if (esSOAT.value) {
+      await FacturacionService.update(id, {
+        image_rotation: imageRotation.value || 0,
+        turno_id: getTurnoIdFromQuery(),
+        dateo_id: turnoMeta.dateoId,
+        sede_id: turnoMeta.sedeId,
+        servicio_id: turnoMeta.servicioId,
+      })
+    } else {
+      // Para otros servicios: payload completo
+      const fechaPagoISO = form.fecha && form.hora
+        ? `${form.fecha}T${form.hora}-05:00`
+        : null
 
-    // 1) PATCH con campos finales (+ IDs por si el ticket se creó sin alguno)
-    await FacturacionService.update(id, {
-      placa: String(form.placa || '').toUpperCase(),
-      fecha_pago: fechaPagoISO, // ISO completo
-      // Campos de totales:
-      total: form.totalFactura || form.total || 0,
-      subtotal: form.subtotal || null,
-      iva: form.iva || null,
-      total_factura: form.totalFactura || null,
-      // Datos extra:
-      vendedor_text: form.vendedor || null,
-      prefijo: form.prefijo || null,
-      consecutivo: form.consecutivo || null,
-      nit: form.nit || null,
-      pin: form.pin || null,
-      marca: form.marca || null,
-      image_rotation: imageRotation.value || 0,
-      // IDs de asociación/snapshot
-      turno_id: getTurnoIdFromQuery(),
-      dateo_id: turnoMeta.dateoId,
-      sede_id: turnoMeta.sedeId,
-      servicio_id: turnoMeta.servicioId,
-    })
+      await FacturacionService.update(id, {
+        placa: String(form.placa || '').toUpperCase(),
+        fecha_pago: fechaPagoISO,
+        total: form.totalFactura || form.total || 0,
+        subtotal: form.subtotal || null,
+        iva: form.iva || null,
+        total_factura: form.totalFactura || null,
+        vendedor_text: form.vendedor || null,
+        prefijo: form.prefijo || null,
+        consecutivo: form.consecutivo || null,
+        nit: form.nit || null,
+        pin: form.pin || null,
+        marca: form.marca || null,
+        image_rotation: imageRotation.value || 0,
+        turno_id: getTurnoIdFromQuery(),
+        dateo_id: turnoMeta.dateoId,
+        sede_id: turnoMeta.sedeId,
+        servicio_id: turnoMeta.servicioId,
+      })
+    }
 
-    // 2) Confirmar
     const confirmed = await FacturacionService.confirmar(id)
     result.value = confirmed || { ok: true }
 
     dialogConfirm.value = false
     dialogResult.value = false
 
-    snack.text = '✅ Facturación guardada y confirmada'
+    snack.text = esSOAT.value
+      ? '✅ Facturación SOAT guardada correctamente'
+      : '✅ Facturación guardada y confirmada'
     snack.show = true
 
-    // Volver a turnos del día
     router.push('/rtm/turnos-dia')
   } catch (err: any) {
     console.error('confirmarYGuardar error:', err)
@@ -1268,7 +1345,6 @@ function closeResult() {
   dialogResult.value = false
 }
 
-/* Opcional: ver detalle de facturación concreta */
 function goToDetalle(id: number) {
   router.push({ path: `/facturacion/historico`, query: { ticketId: id } })
 }
@@ -1278,14 +1354,13 @@ onMounted(async () => {
   window.addEventListener('paste', onPaste)
   await fetchTurnoAndHydrate()
 
-  // Si ya existe ticket para el turno (entraron por "revisión"):
   const turnoId = getTurnoIdFromQuery()
   if (turnoId) {
     const existing = await findExistingTicketByTurno(turnoId)
     if (existing) currentTicketId.value = existing.id
   }
 
-  if (form.placa) syncPlacaWithTurno()
+  if (form.placa && !esSOAT.value) syncPlacaWithTurno()
 })
 onBeforeUnmount(() => {
   window.removeEventListener('paste', onPaste)
@@ -1293,7 +1368,6 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
-/* ===== Cards & layout ===== */
 .v-card {
   box-shadow: 0 10px 20px rgba(0,0,0,0.08), 0 6px 6px rgba(0,0,0,0.05);
   border-radius: 16px;
@@ -1308,7 +1382,7 @@ onBeforeUnmount(() => {
 
 .label {
   font-size: .75rem;
-  color: #6b7280; /* text-gray-500 */
+  color: #6b7280;
   text-transform: uppercase;
   letter-spacing: .04em;
 }
@@ -1317,7 +1391,6 @@ onBeforeUnmount(() => {
   font-weight: 600;
 }
 
-/* ===== Dropzone & preview ===== */
 .dropzone {
   border: 2px dashed rgba(0,0,0,.25);
   padding: 22px;
@@ -1348,7 +1421,6 @@ onBeforeUnmount(() => {
   transition: transform .2s ease;
 }
 
-/* ===== Captación chips / lines ===== */
 .capt-line {
   display: flex;
   align-items: center;
@@ -1357,7 +1429,6 @@ onBeforeUnmount(() => {
   margin-top: 6px;
 }
 
-/* ===== Small helpers ===== */
 .text-medium-emphasis {
   color: rgba(0,0,0,.6);
 }
@@ -1365,7 +1436,6 @@ onBeforeUnmount(() => {
 .rounded-xl { border-radius: 16px; }
 .rounded-2xl { border-radius: 20px; }
 
-/* Make dialog content breathe a bit more on desktop */
 :deep(.v-dialog .v-card) {
   border-radius: 16px;
 }
