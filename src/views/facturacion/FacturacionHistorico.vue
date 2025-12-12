@@ -33,6 +33,28 @@
         hover
         @update:options="onUpdateOptions"
       >
+        <!-- COLUMNA TIPO (NUEVO) -->
+        <template #item.tipo="{ item }">
+          <v-chip
+            v-if="esServicioSimplificado(item)"
+            size="small"
+            color="info"
+            variant="tonal"
+            prepend-icon="mdi-lightning-bolt"
+          >
+            Simplificado
+          </v-chip>
+          <v-chip
+            v-else
+            size="small"
+            color="secondary"
+            variant="tonal"
+            prepend-icon="mdi-file-document"
+          >
+            Completo
+          </v-chip>
+        </template>
+
         <template #item.estado="{ item }">
           <v-chip :color="estadoColor(item.estado)" size="small" variant="tonal" class="font-weight-bold">
             {{ item.estado }}
@@ -106,6 +128,16 @@
             <span v-if="dialog.item?.id" class="ml-2 text-medium-emphasis">#{{ dialog.item.id }}</span>
           </div>
           <div class="d-flex align-center" style="gap:8px">
+            <!-- BADGE TIPO SERVICIO (NUEVO) -->
+            <v-chip
+              v-if="esServicioSimplificado(dialog.item)"
+              size="small"
+              color="info"
+              variant="tonal"
+              prepend-icon="mdi-lightning-bolt"
+            >
+              Simplificado
+            </v-chip>
             <v-chip
               v-if="dialog.item?.estado"
               :color="estadoColor(dialog.item.estado)"
@@ -120,6 +152,18 @@
         <v-divider />
 
         <v-card-text>
+          <!-- ALERTA SERVICIO SIMPLIFICADO (NUEVO) -->
+          <v-alert
+            v-if="esServicioSimplificado(dialog.item)"
+            type="info"
+            variant="tonal"
+            class="mb-4"
+          >
+            <v-icon class="mr-2">mdi-information</v-icon>
+            <strong>Servicio simplificado ({{ getServicioNombre(dialog.item) }}):</strong>
+            Solo requiere imagen de factura. Los campos adicionales son opcionales.
+          </v-alert>
+
           <div class="text-body-2 mb-4">
             Resumen de la facturación confirmada / registrada.
           </div>
@@ -187,8 +231,8 @@
             <!-- COLUMNA DERECHA: DATOS -->
             <v-col cols="12" md="7">
               <v-row>
-                <!-- Datos del Ticket -->
-                <v-col cols="12" md="6">
+                <!-- Datos del Ticket (solo si NO es simplificado O tiene datos) -->
+                <v-col cols="12" md="6" v-if="!esServicioSimplificado(dialog.item) || tieneInfoTicket(dialog.item)">
                   <div class="section-title">Ticket</div>
 
                   <div class="label">Placa</div>
@@ -225,7 +269,7 @@
                 </v-col>
 
                 <!-- Turno asociado -->
-                <v-col cols="12" md="6">
+                <v-col cols="12" :md="esServicioSimplificado(dialog.item) && !tieneInfoTicket(dialog.item) ? 12 : 6">
                   <div class="section-title">Turno asociado</div>
 
                   <div class="label">Turno / Servicio</div>
@@ -243,39 +287,42 @@
                     {{ getSedeNombre(dialog.item) }} • {{ dialog.item?.funcionarioNombre || '—' }}
                   </div>
 
-                  <div class="label">Canal</div>
-                  <div class="value mb-2">
-                    <v-chip
-                      v-if="dialog.item?.canalAtribucion"
-                      :color="canalChipColor(dialog.item?.canalAtribucion)"
-                      size="small"
-                      variant="tonal"
-                    >
-                      {{ humanCanal(dialog.item?.canalAtribucion) }}
-                    </v-chip>
-                    <span v-else>—</span>
-                  </div>
+                  <!-- Canal y comisiones solo si NO es simplificado -->
+                  <template v-if="!esServicioSimplificado(dialog.item)">
+                    <div class="label">Canal</div>
+                    <div class="value mb-2">
+                      <v-chip
+                        v-if="dialog.item?.canalAtribucion"
+                        :color="canalChipColor(dialog.item?.canalAtribucion)"
+                        size="small"
+                        variant="tonal"
+                      >
+                        {{ humanCanal(dialog.item?.canalAtribucion) }}
+                      </v-chip>
+                      <span v-else>—</span>
+                    </div>
 
-                  <div class="label">Asesores / Convenio</div>
-                  <div class="value">
-                    <div class="capt-line" v-if="dialog.item?.dateo?.agente?.nombre">
-                      <v-chip size="x-small" color="secondary" variant="tonal">Comercial</v-chip>
-                      <span class="text-medium-emphasis">{{ dialog.item?.dateo?.agente?.nombre }}</span>
+                    <div class="label">Asesores / Convenio</div>
+                    <div class="value">
+                      <div class="capt-line" v-if="dialog.item?.dateo?.agente?.nombre">
+                        <v-chip size="x-small" color="secondary" variant="tonal">Comercial</v-chip>
+                        <span class="text-medium-emphasis">{{ dialog.item?.dateo?.agente?.nombre }}</span>
+                      </div>
+                      <div class="capt-line" v-if="dialog.item?.dateo?.asesorConvenio?.nombre">
+                        <v-chip size="x-small" color="teal" variant="tonal">Convenio</v-chip>
+                        <span class="text-medium-emphasis">{{ dialog.item?.dateo?.asesorConvenio?.nombre }}</span>
+                      </div>
+                      <div class="capt-line" v-if="dialog.item?.dateo?.convenio?.nombre">
+                        <v-chip size="x-small" color="blue-grey" variant="tonal">Convenio</v-chip>
+                        <span class="text-medium-emphasis">{{ dialog.item?.dateo?.convenio?.nombre }}</span>
+                      </div>
+                      <div
+                        v-if="!dialog.item?.dateo?.agente && !dialog.item?.dateo?.asesorConvenio && !dialog.item?.dateo?.convenio"
+                      >
+                        —
+                      </div>
                     </div>
-                    <div class="capt-line" v-if="dialog.item?.dateo?.asesorConvenio?.nombre">
-                      <v-chip size="x-small" color="teal" variant="tonal">Convenio</v-chip>
-                      <span class="text-medium-emphasis">{{ dialog.item?.dateo?.asesorConvenio?.nombre }}</span>
-                    </div>
-                    <div class="capt-line" v-if="dialog.item?.dateo?.convenio?.nombre">
-                      <v-chip size="x-small" color="blue-grey" variant="tonal">Convenio</v-chip>
-                      <span class="text-medium-emphasis">{{ dialog.item?.dateo?.convenio?.nombre }}</span>
-                    </div>
-                    <div
-                      v-if="!dialog.item?.dateo?.agente && !dialog.item?.dateo?.asesorConvenio && !dialog.item?.dateo?.convenio"
-                    >
-                      —
-                    </div>
-                  </div>
+                  </template>
                 </v-col>
               </v-row>
             </v-col>
@@ -314,6 +361,7 @@ const pages = computed(() => Math.max(1, Math.ceil(total.value / pagination.valu
 
 const headers = [
   { title: 'ID', key: 'id', width: 80 },
+  { title: 'Tipo', key: 'tipo', width: 140 },
   { title: 'Estado', key: 'estado', width: 140 },
   { title: 'Placa', key: 'placa', width: 120 },
   { title: 'Fecha pago', key: 'fecha_pago', width: 160 },
@@ -346,6 +394,38 @@ function onUpdateOptions(opts: { page?: number; itemsPerPage?: number; sortBy?: 
   if (typeof opts.itemsPerPage === 'number') pagination.value.itemsPerPage = opts.itemsPerPage
   if (opts.sortBy) pagination.value.sortBy = opts.sortBy
   refresh()
+}
+
+/* ===== NUEVA FUNCIÓN: Detecta si es servicio simplificado ===== */
+function esServicioSimplificado(item: any): boolean {
+  const codigo = (item?.servicioCodigo || item?.servicio_codigo || '').toUpperCase()
+  const nombre = (item?.servicioNombre || item?.servicio_nombre || item?.servicio?.nombreServicio || '').toUpperCase()
+
+  // SOAT
+  if (codigo.includes('SOAT') || nombre.includes('SOAT')) return true
+
+  // PREVENTIVA
+  if (codigo.includes('PREV') || nombre.includes('PREVENTIVA')) return true
+
+  // PERITAJE
+  if (codigo.includes('PERI') || nombre.includes('PERITAJE')) return true
+
+  return false
+}
+
+/* ===== NUEVA FUNCIÓN: Verifica si tiene info de ticket ===== */
+function tieneInfoTicket(item: any): boolean {
+  return !!(
+    item?.placa ||
+    item?.vendedorText ||
+    item?.vendedor_text ||
+    item?.nit ||
+    item?.prefijo ||
+    item?.consecutivo ||
+    item?.pin ||
+    item?.marca ||
+    pickTotal(item) > 0
+  )
 }
 
 /* ===== Fecha pago fallback chain ===== */
