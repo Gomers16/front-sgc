@@ -89,7 +89,7 @@ export interface FacturacionTicket {
   created_at: string
   updated_at: string
 
-  // 🔹 Enriquecidos (virtuales del backend al preloade ar turno/servicio)
+  // 🔹 Enriquecidos (virtuales del backend al preloadear turno/servicio)
   turnoGlobal?: number | null
   turnoServicio?: number | null
   tipoVehiculoSnapshot?: string | null
@@ -116,12 +116,14 @@ export interface TicketUpdatePayload {
   placa?: string | null
   total?: number | null
   fecha_pago?: string | null
+  turno_id?: number | null
+  dateo_id?: number | null
   sede_id?: number | null
   agente_id?: number | null
+  servicio_id?: number | null
   prefijo?: string | null
   consecutivo?: string | null
   forma_pago?: FormaPago | null
-  servicio_id?: number | null
   doc_tipo?: DocTipo | null
   doc_numero?: string | null
   nombre?: string | null

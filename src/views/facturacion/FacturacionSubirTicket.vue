@@ -469,9 +469,14 @@
         <v-card-actions class="px-4 pb-4">
           <v-spacer />
           <v-btn color="primary" variant="flat" @click="closeResult">Cerrar</v-btn>
-          <v-btn variant="tonal" prepend-icon="mdi-open-in-new" v-if="result?.id || result?.data?.id" @click="goToDetalle(result?.id || result?.data?.id)">
-            Ver detalle
-          </v-btn>
+          <v-btn
+  variant="tonal"
+  prepend-icon="mdi-open-in-new"
+  v-if="result?.id || result?.data?.id"
+  @click="goToDetalle((result?.id || result?.data?.id) as number)"
+>
+  Ver detalle
+</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
@@ -485,6 +490,50 @@ import { ref, reactive, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import TurnosDelDiaService from '@/services/turnosdeldiaService'
 import { FacturacionService } from '@/services/facturacion_service'
+
+/* ===================== Interfaces y tipos ===================== */
+interface FacturacionResult {
+  ok?: boolean
+  folio?: string
+  id?: number
+  estado?: string
+  data?: {
+    id?: number
+    [key: string]: unknown
+  }
+  [key: string]: unknown
+}
+
+interface CamposOCR {
+  placa?: string
+  nit?: string
+  pin?: string
+  marca?: string
+  vendedor?: string
+  prefijo?: string
+  consecutivo?: string
+  fechaHora?: string
+  fecha?: string
+  hora?: string
+  subtotal?: number | string
+  iva?: number | string
+  totalFactura?: number | string
+  total?: number | string
+  [key: string]: unknown
+}
+
+interface OCRResponse {
+  ok: boolean
+  text?: string
+  message?: string
+  campos?: CamposOCR
+}
+
+interface TurnoResponse {
+  data?: Record<string, unknown>
+  [key: string]: unknown
+}
+
 
 /* ===================== Router / Query ===================== */
 const route = useRoute()
@@ -504,7 +553,7 @@ const snack = reactive({ show: false, text: '' })
 const dialogConfirm = ref(false)
 const dialogResult = ref(false)
 const saving = ref(false)
-const result = ref<any>(null)
+const result = ref<FacturacionResult | null>(null)
 
 /* ====== Ticket actual (id en backend) ====== */
 const currentTicketId = ref<number | null>(null)
@@ -865,24 +914,26 @@ function splitISOField(v?: string) {
   const [f, hRaw] = v.split('T')
   return { fecha: f, hora: normalizeHora(hRaw || '') }
 }
-function fillFromCampos(c?: any) {
+function fillFromCampos(c?: CamposOCR) {
   if (!c) return
-  const setIf = (val: any, setter: (v:any)=>void) => { if (val !== undefined && val !== null && val !== '') setter(val) }
+  const setIf = (val: unknown, setter: (v: unknown) => void) => {
+    if (val !== undefined && val !== null && val !== '') setter(val)
+  }
 
-  setIf(c.placa,        (v)=> { form.placa = String(v).toUpperCase(); syncPlacaWithTurno() })
-  setIf(c.nit,          (v)=> form.nit = String(v))
-  setIf(c.pin,          (v)=> form.pin = String(v))
-  setIf(c.marca,        (v)=> form.marca = String(v))
-  setIf(c.vendedor,     (v)=> form.vendedor = String(v))
-  setIf(c.prefijo,      (v)=> form.prefijo = String(v))
-  setIf(c.consecutivo,  (v)=> form.consecutivo = String(v))
+  setIf(c.placa,        (v) => { form.placa = String(v).toUpperCase(); syncPlacaWithTurno() })
+  setIf(c.nit,          (v) => form.nit = String(v))
+  setIf(c.pin,          (v) => form.pin = String(v))
+  setIf(c.marca,        (v) => form.marca = String(v))
+  setIf(c.vendedor,     (v) => form.vendedor = String(v))
+  setIf(c.prefijo,      (v) => form.prefijo = String(v))
+  setIf(c.consecutivo,  (v) => form.consecutivo = String(v))
 
   if (c.fechaHora) {
     const { fecha, hora } = splitISOField(String(c.fechaHora))
     if (fecha) form.fecha = fecha
     if (hora) { form.hora = hora; hora12.value = to12h(hora) }
   } else {
-    setIf(c.fecha, (v)=> form.fecha = String(v))
+    setIf(c.fecha, (v) => form.fecha = String(v))
     if (c.hora !== undefined) {
       const h24 = normalizeHora(String(c.hora)) || to24hFrom12(String(c.hora))
       form.hora = h24
@@ -987,22 +1038,28 @@ function canalChipColor(c?: Canal | null) {
     default: return 'grey'
   }
 }
-function hydrateTurnoCard(turno: any) {
+function hydrateTurnoCard(turno: Record<string, unknown>) {
   turnoCard.numeroGlobal =
-    turno.turnoNumeroGlobal ?? turno.numeroGlobal ?? turno.global ?? turno.consecutivoGlobal ?? null
+    (turno.turnoNumeroGlobal ?? turno.numeroGlobal ?? turno.global ?? turno.consecutivoGlobal ?? null) as number | null
   turnoCard.numeroServicio =
-    turno.turnoNumeroServicio ?? turno.numeroServicio ?? turno.consecutivoServicio ?? null
-  turnoCard.numero = turno.turnoNumero ?? turno.numero ?? turno.id ?? null
-  turnoCard.placa = (turno.placa ?? turno.vehiculo?.placa ?? '').toUpperCase() || null
-  const servCodigo =
-    turno.servicio?.codigoServicio ?? turno.servicioCodigo ?? turno.servicio?.codigo ?? null
-  const servNombre =
-    turno.servicio?.nombreServicio ?? turno.servicioNombre ?? turno.servicio?.nombre ?? null
-  turnoCard.servicioCodigo = servCodigo
-  turnoCard.servicioNombre = servNombre
-  turnoCard.tipoVehiculo = turno.tipoVehiculo ?? mapClaseToTipo(turno.vehiculo?.clase ?? null) ?? null
+    (turno.turnoNumeroServicio ?? turno.numeroServicio ?? turno.consecutivoServicio ?? null) as number | null
+  turnoCard.numero = (turno.turnoNumero ?? turno.numero ?? turno.id ?? null) as number | null
+
+  const vehiculo = turno.vehiculo as Record<string, unknown> | undefined
+  turnoCard.placa = (turno.placa ?? vehiculo?.placa ?? '').toString().toUpperCase() || null
+
+  const servicio = turno.servicio as Record<string, unknown> | undefined
+  const servCodigo = servicio?.codigoServicio ?? turno.servicioCodigo ?? servicio?.codigo ?? null
+  const servNombre = servicio?.nombreServicio ?? turno.servicioNombre ?? servicio?.nombre ?? null
+  turnoCard.servicioCodigo = servCodigo as string | null
+  turnoCard.servicioNombre = servNombre as string | null
+
+  const clase = vehiculo?.clase as { id?: number; codigo?: string; nombre?: string } | undefined
+  turnoCard.tipoVehiculo = (turno.tipoVehiculo ?? mapClaseToTipo(clase ?? null) ?? null) as string | null
+
   const horaIng = turno.horaIngreso ?? turno.ingresoHora ?? null
   turnoCard.horaIngreso = horaIng ? to12h(normalizeHora(String(horaIng))) : null
+
   if (turno.fecha) {
     const f = String(turno.fecha)
     turnoCard.fecha = f.includes('T') ? splitISO(f).fecha : f
@@ -1012,6 +1069,7 @@ function hydrateTurnoCard(turno: any) {
   } else {
     turnoCard.fecha = null
   }
+
   const est = (turno.estado || '').toString().toLowerCase()
   turnoCard.estado = est ? est.charAt(0).toUpperCase() + est.slice(1) : null
   turnoCard.estadoColor =
@@ -1019,33 +1077,46 @@ function hydrateTurnoCard(turno: any) {
     : est === 'cancelado' ? 'error'
     : est === 'finalizado' ? 'blue-grey'
     : 'grey'
-  turnoCard.sede = turno.sede?.nombre ?? turno.sedeNombre ?? null
-  turnoCard.funcionario = (turno.usuario?.nombres && turno.usuario?.apellidos)
-    ? `${turno.usuario.nombres} ${turno.usuario.apellidos}`
-    : (turno.funcionario?.nombres && turno.funcionario?.apellidos)
-      ? `${turno.funcionario.nombres} ${turno.funcionario.apellidos}`
-      : turno.funcionarioNombre ?? null
 
-  const dateo =
-    turno.captacionDateo ??
-    turno.captacion ??
-    turno.dateo ?? null
+  const sede = turno.sede as Record<string, unknown> | undefined
+  turnoCard.sede = (sede?.nombre ?? turno.sedeNombre ?? null) as string | null
+
+  const usuario = turno.usuario as Record<string, unknown> | undefined
+  const funcionario = turno.funcionario as Record<string, unknown> | undefined
+  turnoCard.funcionario = (usuario?.nombres && usuario?.apellidos)
+    ? `${usuario.nombres} ${usuario.apellidos}`
+    : (funcionario?.nombres && funcionario?.apellidos)
+      ? `${funcionario.nombres} ${funcionario.apellidos}`
+      : (turno.funcionarioNombre ?? null) as string | null
+
+  const dateo = (turno.captacionDateo ?? turno.captacion ?? turno.dateo ?? null) as Record<string, unknown> | null
 
   turnoCard.captacionCanal = (dateo?.canal ?? turno.canalAtribucion ?? null) as Canal | null
+
+  const agenteCaptacion = turno.agenteCaptacion as Record<string, unknown> | undefined
+  const agenteFromDateo = dateo?.agente as Record<string, unknown> | undefined
+  const asesorComercial = turno.asesorComercial as Record<string, unknown> | undefined
   turnoCard.agenteComercialNombre =
-    turno.agenteCaptacion?.nombre ?? dateo?.agente?.nombre ?? turno.asesorComercial?.nombre ?? null
+    (agenteCaptacion?.nombre ?? agenteFromDateo?.nombre ?? asesorComercial?.nombre ?? null) as string | null
+
+  const asesorConvenioFromDateo = dateo?.asesorConvenio as Record<string, unknown> | undefined
+  const asesorConvenioFromTurno = turno.asesorConvenio as Record<string, unknown> | undefined
+  const agenteConvenio = turno.agenteConvenio as Record<string, unknown> | undefined
   turnoCard.asesorConvenioNombre =
-    dateo?.asesorConvenio?.nombre ?? turno.asesorConvenio?.nombre ?? turno.agenteConvenio?.nombre ?? null
+    (asesorConvenioFromDateo?.nombre ?? asesorConvenioFromTurno?.nombre ?? agenteConvenio?.nombre ?? null) as string | null
+
+  const convenioFromDateo = dateo?.convenio as Record<string, unknown> | undefined
+  const convenioFromTurno = turno.convenio as Record<string, unknown> | undefined
   turnoCard.convenioNombre =
-    dateo?.convenio?.nombre ?? turno.convenio?.nombre ?? turno.convenioNombre ?? null
+    (convenioFromDateo?.nombre ?? convenioFromTurno?.nombre ?? turno.convenioNombre ?? null) as string | null
 
   if (form.placa && !esServicioSimplificado.value) syncPlacaWithTurno()
 
-  turnoMeta.servicioId = (turno.servicio?.id ?? turno.servicio_id ?? null) as number | null
-  turnoMeta.sedeId     = (turno.sede?.id     ?? turno.sede_id     ?? null) as number | null
-  const _dateo = turno.captacionDateo ?? turno.dateo ?? null
+  turnoMeta.servicioId = (servicio?.id ?? turno.servicio_id ?? null) as number | null
+  turnoMeta.sedeId     = (sede?.id     ?? turno.sede_id     ?? null) as number | null
+  const _dateo = (turno.captacionDateo ?? turno.dateo ?? null) as Record<string, unknown> | null
   turnoMeta.dateoId    = (_dateo?.id ?? turno.dateo_id ?? null) as number | null
-  turnoMeta.agenteId   = (turno.agenteCaptacion?.id ?? turno.agente_id ?? null) as number | null
+  turnoMeta.agenteId   = (agenteCaptacion?.id ?? turno.agente_id ?? null) as number | null
 }
 
 /* ===================== Sincronización de PLACA (solo si NO es servicio simplificado) ===================== */
@@ -1125,10 +1196,10 @@ function syncPlacaWithTurno() {
 
 /* ===================== ID del turno desde query ===================== */
 function getTurnoIdFromQuery(): number | null {
-  const q = route.query
+  const q = route.query as Record<string, unknown>
   const keys = ['turnoId', 'turno', 'id', 'turnold']
   for (const k of keys) {
-    const v = (q as any)[k]
+    const v = q[k]
     if (Array.isArray(v)) {
       const n = Number(v[0])
       if (!Number.isNaN(n)) return n
@@ -1149,15 +1220,15 @@ async function fetchTurnoAndHydrate() {
   }
 
   try {
-    const resp = await TurnosDelDiaService.fetchTurnoById(turnoId)
-    const turno = (resp as any)?.data ?? resp
+    const resp = await TurnosDelDiaService.fetchTurnoById(turnoId) as unknown as TurnoResponse
+    const turno = resp?.data ?? resp
 
     if (!turno) {
       console.warn('La respuesta de fetchTurnoById está vacía:', resp)
       return
     }
 
-    hydrateTurnoCard(turno)
+    hydrateTurnoCard(turno as Record<string, unknown>)
   } catch (err) {
     console.error('Error cargando turno asociado:', err)
     snack.text = '❌ No se pudo cargar la información del turno'
@@ -1231,9 +1302,10 @@ async function handleFile(file: File) {
     // Solo crear el ticket en backend (sin OCR)
     try {
       await ensureTicketForTurnoWithFile(file)
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const errorMsg = err instanceof Error ? err.message : 'Error'
       console.error('Error creando ticket simplificado:', err)
-      snack.text = `❌ No se pudo crear el ticket: ${err?.message || 'Error'}`
+      snack.text = `❌ No se pudo crear el ticket: ${errorMsg}`
       snack.show = true
     }
     return
@@ -1252,9 +1324,10 @@ async function handleFile(file: File) {
       snack.text = '✅ OCR del servidor ejecutado'
       snack.show = true
     }
-  } catch (err: any) {
+  } catch (err: unknown) {
+    const errorMsg = err instanceof Error ? err.message : 'Error'
     console.error('Error creando/asegurando ticket:', err)
-    snack.text = `❌ No se pudo crear el ticket: ${err?.message || 'Error'}`
+    snack.text = `❌ No se pudo crear el ticket: ${errorMsg}`
     snack.show = true
   }
 }
@@ -1266,11 +1339,11 @@ async function startLocalOCR(file: File) {
   try {
     const blob = await getRotatedBlob(file, imageRotation.value)
     const fd = new FormData()
-    fd.append('archivo', blob, (file as any).name || 'ticket.jpg')
+    fd.append('archivo', blob, file.name || 'ticket.jpg')
 
     const resp = await fetch('/api/ocr/parse-ticket', { method: 'POST', body: fd })
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
-    const json = await resp.json() as { ok:boolean; text?:string; message?:string; campos?:any }
+    const json = await resp.json() as OCRResponse
     if (!json?.ok || (!json.text && !json.campos)) throw new Error(json?.message || 'OCR vacío')
 
     ocr.status = 'done'
@@ -1362,9 +1435,9 @@ async function confirmarYGuardar() {
     if (!id) throw new Error('No hay ticket creado para este turno')
 
     // 🔥 OBTENER EL TICKET ACTUAL PARA GARANTIZAR QUE TENEMOS SEDE/AGENTE
-    let ticketActual: any = null
+    let ticketActual: Record<string, unknown> | null = null
     try {
-      ticketActual = await FacturacionService.getById(id)
+      ticketActual = await FacturacionService.getById(id) as unknown as Record<string, unknown>
     } catch (err) {
       console.warn('No se pudo obtener ticket actual:', err)
     }
@@ -1372,14 +1445,14 @@ async function confirmarYGuardar() {
     // Si es servicio simplificado: payload mínimo (solo imagen + turno)
     if (esServicioSimplificado.value) {
       // 🔥 GARANTIZAR QUE SE ENVÍEN LOS IDs NECESARIOS
-      const sedeIdFinal = turnoMeta.sedeId || ticketActual?.sede_id || ticketActual?.sedeId || null
-      const agenteIdFinal = turnoMeta.agenteId || ticketActual?.agente_id || ticketActual?.agenteId || null
-      const dateoIdFinal = turnoMeta.dateoId || ticketActual?.dateo_id || ticketActual?.dateoId || null
-      const servicioIdFinal = turnoMeta.servicioId || ticketActual?.servicio_id || ticketActual?.servicioId || null
+      const sedeIdFinal = turnoMeta.sedeId || (ticketActual?.sede_id as number) || (ticketActual?.sedeId as number) || undefined
+      const agenteIdFinal = turnoMeta.agenteId || (ticketActual?.agente_id as number) || (ticketActual?.agenteId as number) || undefined
+      const dateoIdFinal = turnoMeta.dateoId || (ticketActual?.dateo_id as number) || (ticketActual?.dateoId as number) || undefined
+      const servicioIdFinal = turnoMeta.servicioId || (ticketActual?.servicio_id as number) || (ticketActual?.servicioId as number) || undefined
 
       await FacturacionService.update(id, {
         image_rotation: imageRotation.value || 0,
-        turno_id: getTurnoIdFromQuery(),
+        turno_id: getTurnoIdFromQuery() ?? undefined,
         dateo_id: dateoIdFinal,
         sede_id: sedeIdFinal,
         agente_id: agenteIdFinal,
@@ -1387,7 +1460,7 @@ async function confirmarYGuardar() {
       })
     } else {
       // 🔥 VALIDACIÓN DE FECHA ANTES DE CONSTRUIR ISO
-      let fechaPagoISO: string | null = null
+      let fechaPagoISO: string | undefined = undefined
 
       if (form.fecha && form.hora) {
         // Validar formato de fecha (debe ser YYYY-MM-DD)
@@ -1413,34 +1486,34 @@ async function confirmarYGuardar() {
       }
 
       // 🔥 GARANTIZAR QUE SEDE_ID O AGENTE_ID SE ENVÍEN
-      const sedeIdFinal = turnoMeta.sedeId || ticketActual?.sede_id || ticketActual?.sedeId || null
-      const agenteIdFinal = turnoMeta.agenteId || ticketActual?.agente_id || ticketActual?.agenteId || null
-      const dateoIdFinal = turnoMeta.dateoId || ticketActual?.dateo_id || ticketActual?.dateoId || null
-      const servicioIdFinal = turnoMeta.servicioId || ticketActual?.servicio_id || ticketActual?.servicioId || null
+      const sedeIdFinal = turnoMeta.sedeId || (ticketActual?.sede_id as number) || (ticketActual?.sedeId as number) || undefined
+      const agenteIdFinal = turnoMeta.agenteId || (ticketActual?.agente_id as number) || (ticketActual?.agenteId as number) || undefined
+      const dateoIdFinal = turnoMeta.dateoId || (ticketActual?.dateo_id as number) || (ticketActual?.dateoId as number) || undefined
+      const servicioIdFinal = turnoMeta.servicioId || (ticketActual?.servicio_id as number) || (ticketActual?.servicioId as number) || undefined
 
       await FacturacionService.update(id, {
         placa: String(form.placa || '').toUpperCase(),
         fecha_pago: fechaPagoISO,
         total: form.totalFactura || form.total || 0,
-        subtotal: form.subtotal || null,
-        iva: form.iva || null,
-        total_factura: form.totalFactura || null,
-        vendedor_text: form.vendedor || null,
-        prefijo: form.prefijo || null,
-        consecutivo: form.consecutivo || null,
-        nit: form.nit || null,
-        pin: form.pin || null,
-        marca: form.marca || null,
+        subtotal: form.subtotal || undefined,
+        iva: form.iva || undefined,
+        total_factura: form.totalFactura || undefined,
+        vendedor_text: form.vendedor || undefined,
+        prefijo: form.prefijo || undefined,
+        consecutivo: form.consecutivo || undefined,
+        nit: form.nit || undefined,
+        pin: form.pin || undefined,
+        marca: form.marca || undefined,
         image_rotation: imageRotation.value || 0,
-        turno_id: getTurnoIdFromQuery(),
+        turno_id: getTurnoIdFromQuery() ?? undefined,
         dateo_id: dateoIdFinal,
         sede_id: sedeIdFinal,
-        agente_id: agenteIdFinal, // 🔥 IMPORTANTE: Agregar agente_id
+        agente_id: agenteIdFinal,
         servicio_id: servicioIdFinal,
       })
     }
 
-    const confirmed = await FacturacionService.confirmar(id)
+    const confirmed = await FacturacionService.confirmar(id) as unknown as FacturacionResult
     result.value = confirmed || { ok: true }
 
     dialogConfirm.value = false
@@ -1452,9 +1525,10 @@ async function confirmarYGuardar() {
     snack.show = true
 
     router.push('/rtm/turnos-dia')
-  } catch (err: any) {
+  } catch (err: unknown) {
+    const errorMsg = err instanceof Error ? err.message : 'Error desconocido'
     console.error('confirmarYGuardar error:', err)
-    snack.text = `❌ No se pudo guardar: ${err?.message || 'Error desconocido'}`
+    snack.text = `❌ No se pudo guardar: ${errorMsg}`
     snack.show = true
   } finally {
     saving.value = false
