@@ -115,7 +115,13 @@ export interface ProspectoByPlaca {
     fecha_asignacion: string | null
     asesor?: { id?: number; nombre?: string | null } | null
   } | null
-  resumenVigencias?: any
+  resumenVigencias?: Record<string, unknown>
+}
+
+export interface DateoAutoConvenioResponse {
+  message?: string
+  dateo?: DateoLight
+  turno?: Record<string, unknown>
 }
 
 /* ===== Funciones ===== */
@@ -142,7 +148,7 @@ export async function crearDateoAutoPorConvenio(payload: {
   telefono?: string
   convenioId?: number // opcional para permitir inferencia en backend
 }) {
-  return post<any, typeof payload>('/api/captacion-dateos/auto-convenio', payload)
+  return post<DateoAutoConvenioResponse, typeof payload>('/api/captacion-dateos/auto-convenio', payload)
 }
 
 /**
@@ -189,16 +195,19 @@ export async function getConveniosByAsesor(asesorId: number, vigente = true) {
  * Además, normalizamos created_at por si llega como createdAt.
  */
 export async function getProspectosByCreador(asesorId: number) {
-  const raw = await get<any[]>(`/api/prospectos/asesor/${asesorId}/list`, {
+  const raw = await get<unknown[]>(`/api/prospectos/asesor/${asesorId}/list`, {
     params: { vigente: 1 },
   })
   if (!Array.isArray(raw)) return []
-  return raw.map((p) => ({
-    id: p.id,
-    placa: p.placa ?? null,
-    telefono: p.telefono ?? null,
-    nombre: p.nombre ?? null,
-    origen: p.origen ?? null,
-    created_at: p.created_at ?? p.createdAt ?? null,
-  })) as ProspectoLight[]
+  return raw.map((p) => {
+    const pObj = p as Record<string, unknown>
+    return {
+      id: pObj.id as number,
+      placa: (pObj.placa as string | null) ?? null,
+      telefono: (pObj.telefono as string | null) ?? null,
+      nombre: (pObj.nombre as string | null) ?? null,
+      origen: (pObj.origen as string | null) ?? null,
+      created_at: (pObj.created_at ?? pObj.createdAt ?? null) as string | null,
+    }
+  }) as ProspectoLight[]
 }

@@ -687,12 +687,55 @@ function splitISO(iso: string) {
   const [fecha, horaRaw = ''] = iso.split('T')
   return { fecha, hora: normalizeHora(horaRaw) }
 }
+
+// 🔥 FUNCIÓN CORREGIDA: normalizeFecha
 function normalizeFecha(s: string): string {
-  const [d, m, yRaw] = s.replace(/-/g, '/').split('/')
-  const yyyy = (yRaw?.length === 2) ? `20${yRaw}` : yRaw
-  if (!d || !m || !yyyy) return ''
-  return `${yyyy}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`
+  if (!s) return ''
+
+  // Si ya está en formato YYYY-MM-DD válido, retornar tal cual
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
+    return s
+  }
+
+  // Intentar parsear DD-MM-YYYY o DD/MM/YYYY
+  const parts = s.replace(/-/g, '/').split('/')
+
+  // Si tiene 3 partes, determinar el formato
+  if (parts.length === 3) {
+    const [first, second, third] = parts
+
+    // Si el primer valor es > 31 o tiene 4 dígitos, es YYYY-MM-DD
+    if (first.length === 4 || parseInt(first) > 31) {
+      const yyyy = first.length === 2 ? `20${first}` : first
+      const mm = second.padStart(2, '0')
+      const dd = third.padStart(2, '0')
+
+      // Validar rangos
+      if (parseInt(mm) < 1 || parseInt(mm) > 12 || parseInt(dd) < 1 || parseInt(dd) > 31) {
+        console.error(`Fecha inválida: ${yyyy}-${mm}-${dd}`)
+        return ''
+      }
+
+      return `${yyyy}-${mm}-${dd}`
+    } else {
+      // Formato DD-MM-YYYY o DD/MM/YYYY
+      const dd = first.padStart(2, '0')
+      const mm = second.padStart(2, '0')
+      const yyyy = third.length === 2 ? `20${third}` : third
+
+      // Validar rangos
+      if (parseInt(mm) < 1 || parseInt(mm) > 12 || parseInt(dd) < 1 || parseInt(dd) > 31) {
+        console.error(`Fecha inválida: ${yyyy}-${mm}-${dd}`)
+        return ''
+      }
+
+      return `${yyyy}-${mm}-${dd}`
+    }
+  }
+
+  return ''
 }
+
 function normalizeHora(h: string): string {
   const t = h.replace(/\./g, ':').trim()
   const ampm = /(AM|PM)$/i.test(t)
@@ -706,8 +749,19 @@ function normalizeHora(h: string): string {
   }
   return `${String(H).padStart(2, '0')}:${String(mm).padStart(2,'0')}:${String(ss).padStart(2,'0')}`
 }
+
+// 🔥 FUNCIÓN CORREGIDA: toLocalDateAndTime
 function toLocalDateAndTime(fecha: string, hora: string) {
-  return { fecha: normalizeFecha(fecha), hora: normalizeHora(hora) }
+  const fechaNormalizada = normalizeFecha(fecha)
+  const horaNormalizada = normalizeHora(hora)
+
+  // Validar que la fecha normalizada sea válida
+  if (fechaNormalizada && !/^\d{4}-\d{2}-\d{2}$/.test(fechaNormalizada)) {
+    console.error('toLocalDateAndTime: fecha inválida después de normalizar:', fechaNormalizada)
+    return { fecha: '', hora: horaNormalizada }
+  }
+
+  return { fecha: fechaNormalizada, hora: horaNormalizada }
 }
 
 /* ===================== Parser fallback local ===================== */
@@ -715,6 +769,7 @@ function pullNumber(s?: string | null) {
   if (!s) return 0
   return Number(String(s).replace(/[^\d]/g, '')) || 0
 }
+
 function parseTicket(txt: string) {
   const cleanLines = txt
     .replace(/\r/g, '')
@@ -756,18 +811,30 @@ function parseTicket(txt: string) {
     form.consecutivo = m[2]
   }
 
-  // FECHA y HORA
+  // 🔥 FECHA y HORA CORREGIDO
   const mFechaHora = asOne.match(/FECHA[:\s]*([\d\/\-]{6,10}).{0,20}HORA[:\s]*([0-9:\. ]+[AP]?M?)/i)
   const mFecha = mFechaHora ? null : asOne.match(/FECHA[:\s]*([\d\/\-]{6,10})/i)
   const mHora  = mFechaHora ? null : asOne.match(/HORA[:\s]*([0-9:\. ]+[AP]?M?)/i)
 
   if (mFechaHora) {
     const { fecha, hora } = toLocalDateAndTime(mFechaHora[1], mFechaHora[2])
-    if (fecha) form.fecha = fecha
-    if (hora) { form.hora = hora; hora12.value = to12h(hora) }
+    if (fecha) {
+      const fechaNormalizada = normalizeFecha(fecha)
+      if (fechaNormalizada) form.fecha = fechaNormalizada
+    }
+    if (hora) {
+      form.hora = hora
+      hora12.value = to12h(hora)
+    }
   } else {
-    if (mFecha) form.fecha = normalizeFecha(mFecha[1])
-    if (mHora)  { form.hora  = normalizeHora(mHora[1]); hora12.value = form.hora ? to12h(form.hora) : '' }
+    if (mFecha) {
+      const fechaNormalizada = normalizeFecha(mFecha[1])
+      if (fechaNormalizada) form.fecha = fechaNormalizada
+    }
+    if (mHora) {
+      form.hora = normalizeHora(mHora[1])
+      hora12.value = form.hora ? to12h(form.hora) : ''
+    }
   }
 
   // SUBTOTAL / IVA / TOTAL
@@ -1282,6 +1349,7 @@ function openConfirm() {
   dialogConfirm.value = true
 }
 
+// 🔥 FUNCIÓN CORREGIDA: confirmarYGuardar
 async function confirmarYGuardar() {
   if (saving.value) return
   saving.value = true
@@ -1293,20 +1361,62 @@ async function confirmarYGuardar() {
     const id = currentTicketId.value
     if (!id) throw new Error('No hay ticket creado para este turno')
 
+    // 🔥 OBTENER EL TICKET ACTUAL PARA GARANTIZAR QUE TENEMOS SEDE/AGENTE
+    let ticketActual: any = null
+    try {
+      ticketActual = await FacturacionService.getById(id)
+    } catch (err) {
+      console.warn('No se pudo obtener ticket actual:', err)
+    }
+
     // Si es servicio simplificado: payload mínimo (solo imagen + turno)
     if (esServicioSimplificado.value) {
+      // 🔥 GARANTIZAR QUE SE ENVÍEN LOS IDs NECESARIOS
+      const sedeIdFinal = turnoMeta.sedeId || ticketActual?.sede_id || ticketActual?.sedeId || null
+      const agenteIdFinal = turnoMeta.agenteId || ticketActual?.agente_id || ticketActual?.agenteId || null
+      const dateoIdFinal = turnoMeta.dateoId || ticketActual?.dateo_id || ticketActual?.dateoId || null
+      const servicioIdFinal = turnoMeta.servicioId || ticketActual?.servicio_id || ticketActual?.servicioId || null
+
       await FacturacionService.update(id, {
         image_rotation: imageRotation.value || 0,
         turno_id: getTurnoIdFromQuery(),
-        dateo_id: turnoMeta.dateoId,
-        sede_id: turnoMeta.sedeId,
-        servicio_id: turnoMeta.servicioId,
+        dateo_id: dateoIdFinal,
+        sede_id: sedeIdFinal,
+        agente_id: agenteIdFinal,
+        servicio_id: servicioIdFinal,
       })
     } else {
-      // Para otros servicios: payload completo
-      const fechaPagoISO = form.fecha && form.hora
-        ? `${form.fecha}T${form.hora}-05:00`
-        : null
+      // 🔥 VALIDACIÓN DE FECHA ANTES DE CONSTRUIR ISO
+      let fechaPagoISO: string | null = null
+
+      if (form.fecha && form.hora) {
+        // Validar formato de fecha (debe ser YYYY-MM-DD)
+        const fechaRegex = /^\d{4}-\d{2}-\d{2}$/
+        if (!fechaRegex.test(form.fecha)) {
+          throw new Error(`Formato de fecha inválido: ${form.fecha}. Debe ser YYYY-MM-DD`)
+        }
+
+        // Validar que la fecha sea válida (no mes 18, día 32, etc)
+        const [year, month, day] = form.fecha.split('-').map(Number)
+        const testDate = new Date(year, month - 1, day)
+
+        if (
+          testDate.getFullYear() !== year ||
+          testDate.getMonth() !== month - 1 ||
+          testDate.getDate() !== day
+        ) {
+          throw new Error(`Fecha inválida: año=${year}, mes=${month}, día=${day}`)
+        }
+
+        // Construir ISO solo si la fecha es válida
+        fechaPagoISO = `${form.fecha}T${form.hora}-05:00`
+      }
+
+      // 🔥 GARANTIZAR QUE SEDE_ID O AGENTE_ID SE ENVÍEN
+      const sedeIdFinal = turnoMeta.sedeId || ticketActual?.sede_id || ticketActual?.sedeId || null
+      const agenteIdFinal = turnoMeta.agenteId || ticketActual?.agente_id || ticketActual?.agenteId || null
+      const dateoIdFinal = turnoMeta.dateoId || ticketActual?.dateo_id || ticketActual?.dateoId || null
+      const servicioIdFinal = turnoMeta.servicioId || ticketActual?.servicio_id || ticketActual?.servicioId || null
 
       await FacturacionService.update(id, {
         placa: String(form.placa || '').toUpperCase(),
@@ -1323,9 +1433,10 @@ async function confirmarYGuardar() {
         marca: form.marca || null,
         image_rotation: imageRotation.value || 0,
         turno_id: getTurnoIdFromQuery(),
-        dateo_id: turnoMeta.dateoId,
-        sede_id: turnoMeta.sedeId,
-        servicio_id: turnoMeta.servicioId,
+        dateo_id: dateoIdFinal,
+        sede_id: sedeIdFinal,
+        agente_id: agenteIdFinal, // 🔥 IMPORTANTE: Agregar agente_id
+        servicio_id: servicioIdFinal,
       })
     }
 
@@ -1349,7 +1460,6 @@ async function confirmarYGuardar() {
     saving.value = false
   }
 }
-
 /* ===================== Navegación post-resultado ===================== */
 function closeResult() {
   dialogResult.value = false

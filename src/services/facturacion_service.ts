@@ -112,6 +112,36 @@ export interface Paginated<T> {
   data: T[]
 }
 
+export interface TicketUpdatePayload {
+  placa?: string | null
+  total?: number | null
+  fecha_pago?: string | null
+  sede_id?: number | null
+  agente_id?: number | null
+  prefijo?: string | null
+  consecutivo?: string | null
+  forma_pago?: FormaPago | null
+  servicio_id?: number | null
+  doc_tipo?: DocTipo | null
+  doc_numero?: string | null
+  nombre?: string | null
+  telefono?: string | null
+  observaciones?: string | null
+  ocr_conf_baja_revisado?: boolean
+  image_rotation?: number
+  nit?: string | null
+  pin?: string | null
+  marca?: string | null
+  vendedor_text?: string | null
+  subtotal?: number | null
+  iva?: number | null
+  total_factura?: number | null
+  pago_consignacion?: number | null
+  pago_tarjeta?: number | null
+  pago_efectivo?: number | null
+  pago_cambio?: number | null
+}
+
 /* =============================== Endpoints =============================== */
 
 const base = '/api/facturacion/tickets' // ⬅️ con slash inicial
@@ -136,7 +166,7 @@ export const FacturacionService = {
     const p: Record<string, string | number> = {}
     if (params) {
       Object.entries(params).forEach(([k, v]) => {
-        if (v !== undefined && v !== null && v !== '') p[k] = v as any
+        if (v !== undefined && v !== null && v !== '') p[k] = v as string | number
       })
     }
     return get<Paginated<FacturacionTicket>>(base, { params: p })
@@ -226,41 +256,7 @@ export const FacturacionService = {
   /**
    * Actualiza campos editables del formulario.
    */
-  update(
-    id: number | string,
-    body: Partial<{
-      placa: string | null
-      total: number | null
-      fecha_pago: string | null // ISO
-      sede_id: number | null
-      agente_id: number | null
-      prefijo: string | null
-      consecutivo: string | null
-      forma_pago: FormaPago | null
-      servicio_id: number | null
-      doc_tipo: DocTipo | null
-      doc_numero: string | null
-      nombre: string | null
-      telefono: string | null
-      observaciones: string | null
-      ocr_conf_baja_revisado: boolean
-      image_rotation: number
-
-      // OCR / totales explícitos
-      nit: string | null
-      pin: string | null
-      marca: string | null
-      vendedor_text: string | null
-      subtotal: number | null
-      iva: number | null
-      total_factura: number | null
-
-      pago_consignacion: number | null
-      pago_tarjeta: number | null
-      pago_efectivo: number | null
-      pago_cambio: number | null
-    }>
-  ) {
+  update(id: number | string, body: TicketUpdatePayload) {
     return patch<FacturacionTicket>(`${base}/${id}`, body)
   },
 
@@ -297,13 +293,13 @@ export const FacturacionService = {
       image_rotation?: number | null
       filename?: string
     }
-    updatePatch?: Parameters<typeof this.update>[1]
+    updatePatch?: TicketUpdatePayload
     forzar?: boolean
   }) {
-    const created = await this.createFromFile({ file, ...(meta || {}) })
-    const ocrd = await this.reocr(created.id)
-    const updated = updatePatch ? await this.update(ocrd.id, updatePatch) : ocrd
-    const confirmed = await this.confirmar(updated.id, !!forzar)
+    const created = await FacturacionService.createFromFile({ file, ...(meta || {}) })
+    const ocrd = await FacturacionService.reocr(created.id)
+    const updated = updatePatch ? await FacturacionService.update(ocrd.id, updatePatch) : ocrd
+    const confirmed = await FacturacionService.confirmar(updated.id, !!forzar)
     return confirmed
   },
 }

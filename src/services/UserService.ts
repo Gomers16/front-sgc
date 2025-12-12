@@ -141,7 +141,7 @@ export interface User {
 const pendingCreates = new Map<string, AbortController>()
 const pendingUpdates = new Map<number, AbortController>()
 const makeIdempotencyKey = (suffix?: string) =>
-  (crypto as any)?.randomUUID?.() || `${Date.now()}-${Math.random()}${suffix ? ':' + suffix : ''}`
+  crypto?.randomUUID?.() || `${Date.now()}-${Math.random()}${suffix ? ':' + suffix : ''}`
 
 /* ================================
    Usuarios

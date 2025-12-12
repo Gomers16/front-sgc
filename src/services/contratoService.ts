@@ -49,6 +49,7 @@ export interface ContratoSalarioPayload {
   auxilioTransporte: number
   auxilioNoSalarial: number
   fechaEfectiva?: string // ISO
+  actorId?: number
 }
 
 export interface HistorialEstadoContrato {
@@ -129,6 +130,7 @@ export interface ContratoCreatePayload {
   bonoSalarial?: number
   auxilioTransporte?: number
   auxilioNoSalarial?: number
+  actorId?: number
 }
 
 export interface ContratoUpdatePayload extends Partial<ContratoCreatePayload> {
@@ -142,6 +144,7 @@ export interface AnexarContratoResponse {
 
 export interface ArchivoMetaData {
   url?: string | null
+  path?: string | null
   nombreOriginal?: string | null
   filename?: string | null
   name?: string | null
@@ -156,7 +159,6 @@ export interface ArchivoMeta {
   size?: number | null
   fechaEmision?: string | null
   fechaExpiracion?: string | null
-  [k: string]: unknown
 }
 
 export type TipoAfiliacion = 'eps' | 'arl' | 'afp' | 'afc' | 'ccf'
@@ -184,8 +186,8 @@ function getActorId(): number | null {
     const raw = localStorage.getItem(k) ?? sessionStorage.getItem(k)
     if (!raw) continue
     try {
-      const obj = JSON.parse(raw) as any
-      const id = obj?.id ?? obj?.user?.id ?? obj?.data?.id
+      const obj = JSON.parse(raw) as Record<string, unknown>
+      const id = obj?.id ?? (obj?.user as Record<string, unknown>)?.id ?? (obj?.data as Record<string, unknown>)?.id
       const n = toNumOrNull(id)
       if (n) return n
     } catch { /* ignore */ }
@@ -222,10 +224,10 @@ function toPublicUrl(maybePathOrUrl?: string | null): string | null {
 
 export function crearContrato(payload: ContratoCreatePayload) {
   const actorId = getActorId()
-  const body: any = { ...payload }
+  const body: ContratoCreatePayload & { actorId?: number } = { ...payload }
   if (actorId && body.actorId == null) body.actorId = actorId
 
-  return post<Contrato, any>('/api/contratos', body, {
+  return post<Contrato, ContratoCreatePayload & { actorId?: number }>('/api/contratos', body, {
     headers: withActorHeaders(),
     credentials: 'include',
   })
@@ -233,10 +235,10 @@ export function crearContrato(payload: ContratoCreatePayload) {
 
 export function actualizarContrato(contratoId: number, payload: ContratoUpdatePayload) {
   const actorId = getActorId()
-  const body: any = { ...payload }
+  const body: ContratoUpdatePayload & { actorId?: number } = { ...payload }
   if (actorId && body.actorId == null) body.actorId = actorId
 
-  return patch<Contrato, any>(`/api/contratos/${contratoId}`, body, {
+  return patch<Contrato, ContratoUpdatePayload & { actorId?: number }>(`/api/contratos/${contratoId}`, body, {
     headers: withActorHeaders(),
     credentials: 'include',
   })
@@ -244,10 +246,10 @@ export function actualizarContrato(contratoId: number, payload: ContratoUpdatePa
 
 export function cambiarEstadoContrato(contratoId: number, estado: EstadoContrato) {
   const actorId = getActorId()
-  const payload: any = { estado }
+  const payload: { estado: EstadoContrato; actorId?: number } = { estado }
   if (actorId) payload.actorId = actorId
 
-  return patch<Contrato, any>(
+  return patch<Contrato, { estado: EstadoContrato; actorId?: number }>(
     `/api/contratos/${contratoId}`,
     payload,
     {
@@ -337,7 +339,7 @@ export function anexarContrato(form: AnexarContratoForm) {
 
 export function crearContratoSalario(payload: ContratoSalarioPayload) {
   const actorId = getActorId()
-  const body: any = { ...payload }
+  const body: ContratoSalarioPayload = { ...payload }
   if (actorId && body.actorId == null) body.actorId = actorId
 
   return post(`/api/contratos/${payload.contratoId}/salarios`, body, {

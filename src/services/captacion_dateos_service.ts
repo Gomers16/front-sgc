@@ -55,7 +55,7 @@ export const CaptacionDateosService = {
     if (params) {
       const { consumido, ...rest } = params
       Object.entries(rest).forEach(([k, v]) => {
-        if (v !== undefined && v !== null && v !== '') p[k] = v as any
+        if (v !== undefined && v !== null && v !== '') p[k] = v as string | number
       })
       if (consumido !== undefined) p.consumido = String(consumido)
     }

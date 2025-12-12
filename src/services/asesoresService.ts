@@ -60,16 +60,17 @@ export interface ConvenioLite {
 }
 
 /* ===== Normalizadores ===== */
-function normalizeListShape<T = any>(
-  r: any,
+function normalizeListShape<T = unknown>(
+  r: unknown,
   fallback: { page?: number; perPage?: number } = {}
 ): ListResponse<T> {
-  const data: T[] = Array.isArray(r) ? r : (r?.data ?? r?.items ?? r?.rows ?? [])
+  const rObj = r as Record<string, unknown>
+  const data: T[] = Array.isArray(r) ? r : (rObj?.data ?? rObj?.items ?? rObj?.rows ?? []) as T[]
   const total = Array.isArray(r)
     ? data.length
-    : Number(r?.total ?? r?.meta?.total ?? r?.totalItems ?? r?.count ?? data.length) || 0
-  const page = Number(r?.page ?? r?.meta?.current_page ?? fallback.page ?? 1)
-  const perPage = Number(r?.perPage ?? r?.meta?.per_page ?? fallback.perPage ?? 10)
+    : Number(rObj?.total ?? (rObj?.meta as Record<string, unknown>)?.total ?? rObj?.totalItems ?? rObj?.count ?? data.length) || 0
+  const page = Number(rObj?.page ?? (rObj?.meta as Record<string, unknown>)?.current_page ?? fallback.page ?? 1)
+  const perPage = Number(rObj?.perPage ?? (rObj?.meta as Record<string, unknown>)?.per_page ?? fallback.perPage ?? 10)
   return { data, total, page, perPage }
 }
 
@@ -85,7 +86,7 @@ function normalizeTipo(value?: string | null): TipoAsesor | string | null {
   return value
 }
 
-function normalizeBool(v: any): boolean {
+function normalizeBool(v: unknown): boolean {
   if (v === true || v === 1 || v === '1') return true
   if (v === false || v === 0 || v === '0') return false
   if (typeof v === 'string') {
@@ -96,62 +97,68 @@ function normalizeBool(v: any): boolean {
   return false
 }
 
-function mapAgente(raw: any): Agente {
-  const created = raw?.created_at ?? raw?.createdAt ?? null
-  const updated = raw?.updated_at ?? raw?.updatedAt ?? null
+function mapAgente(raw: unknown): Agente {
+  const rawObj = raw as Record<string, unknown>
+  const created = rawObj?.created_at ?? rawObj?.createdAt ?? null
+  const updated = rawObj?.updated_at ?? rawObj?.updatedAt ?? null
 
   // ✅ PRIORIDAD:
   // 1) 'activo' ya calculado por el backend (boolean)
   // 2) 'activo_calc' que viene como 0/1
   // 3) variantes legacy (is_active / isActive)
   let activoFinal: boolean | undefined
-  if (raw?.activo !== undefined) {
-    activoFinal = normalizeBool(raw.activo)
-  } else if (raw?.activo_calc !== undefined) {
-    activoFinal = normalizeBool(raw.activo_calc)
-  } else if (raw?.is_active !== undefined || raw?.isActive !== undefined) {
-    activoFinal = normalizeBool(raw?.is_active ?? raw?.isActive)
+  if (rawObj?.activo !== undefined) {
+    activoFinal = normalizeBool(rawObj.activo)
+  } else if (rawObj?.activo_calc !== undefined) {
+    activoFinal = normalizeBool(rawObj.activo_calc)
+  } else if (rawObj?.is_active !== undefined || rawObj?.isActive !== undefined) {
+    activoFinal = normalizeBool(rawObj?.is_active ?? rawObj?.isActive)
   }
 
   return {
-    id: Number(raw?.id),
-    nombre: String(raw?.nombre ?? ''),
-    tipo: normalizeTipo(raw?.tipo ?? raw?.agente_tipo ?? null),
-    telefono: raw?.telefono ?? null,
-    docTipo: raw?.docTipo ?? raw?.doc_tipo ?? null,
-    docNumero: raw?.docNumero ?? raw?.doc_numero ?? null,
+    id: Number(rawObj?.id),
+    nombre: String(rawObj?.nombre ?? ''),
+    tipo: normalizeTipo((rawObj?.tipo ?? rawObj?.agente_tipo ?? null) as string | null),
+    telefono: (rawObj?.telefono as string | null) ?? null,
+    docTipo: (rawObj?.docTipo ?? rawObj?.doc_tipo ?? null) as 'CC' | 'NIT' | null,
+    docNumero: (rawObj?.docNumero ?? rawObj?.doc_numero ?? null) as string | null,
     activo: activoFinal,
     created_at: typeof created === 'string' ? created : (created?.toString?.() ?? null),
     updated_at: typeof updated === 'string' ? updated : (updated?.toString?.() ?? null),
   }
 }
 
-function mapProspecto(raw: any): ProspectoLite {
+function mapProspecto(raw: unknown): ProspectoLite {
+  const rawObj = raw as Record<string, unknown>
   return {
-    id: Number(raw?.id),
-    placa: raw?.placa ?? null,
-    telefono: raw?.telefono ?? null,
-    nombre: raw?.nombre ?? null,
-    convenio_id: raw?.convenio_id ?? raw?.convenioId ?? null,
-    created_at: raw?.created_at ?? raw?.createdAt ?? null,
-    updated_at: raw?.updated_at ?? raw?.updatedAt ?? null,
+    id: Number(rawObj?.id),
+    placa: (rawObj?.placa as string | null) ?? null,
+    telefono: (rawObj?.telefono as string | null) ?? null,
+    nombre: (rawObj?.nombre as string | null) ?? null,
+    convenio_id: (rawObj?.convenio_id ?? rawObj?.convenioId ?? null) as number | null,
+    created_at: (rawObj?.created_at ?? rawObj?.createdAt ?? null) as string | null,
+    updated_at: (rawObj?.updated_at ?? rawObj?.updatedAt ?? null) as string | null,
   }
 }
 
-function mapConvenio(raw: any): ConvenioLite {
+function mapConvenio(raw: unknown): ConvenioLite {
+  const rawObj = raw as Record<string, unknown>
+  const pivot = rawObj?.pivot as Record<string, unknown> | undefined
+  const asignacion = rawObj?.asignacion as Record<string, unknown> | undefined
+
   return {
-    id: Number(raw?.id),
-    nombre: String(raw?.nombre ?? ''),
+    id: Number(rawObj?.id),
+    nombre: String(rawObj?.nombre ?? ''),
     vigencia_desde:
-      raw?.vigencia_desde ??
-      raw?.pivot_fecha_inicio ??
-      raw?.asignacion?.fecha_asignacion ??
-      null,
+      (rawObj?.vigencia_desde ??
+      pivot?.fecha_inicio ??
+      asignacion?.fecha_asignacion ??
+      null) as string | null,
     vigencia_hasta:
-      raw?.vigencia_hasta ??
-      raw?.pivot_fecha_fin ??
-      raw?.asignacion?.fecha_fin ??
-      null,
+      (rawObj?.vigencia_hasta ??
+      pivot?.fecha_fin ??
+      asignacion?.fecha_fin ??
+      null) as string | null,
   }
 }
 
@@ -180,7 +187,7 @@ export async function listAsesores(
       ? undefined
       : (params.activo === true || params.activo === 1) ? 'true' : 'false'
 
-  const resp = await get<any>(`${API}/agentes-captacion`, {
+  const resp = await get<unknown>(`${API}/agentes-captacion`, {
     params: {
       q: params.q,
       tipo: tipoParam,
@@ -192,37 +199,41 @@ export async function listAsesores(
     },
   })
 
-  const norm = normalizeListShape<any>(resp, params)
+  const norm = normalizeListShape<unknown>(resp, params)
   const mapped: Agente[] = (norm.data || []).map(mapAgente)
   return { ...norm, data: mapped }
 }
 
 /** Detalle de asesor */
 export async function getAsesorById(id: number): Promise<Agente> {
-  const r = await get<any>(`${API}/agentes-captacion/${id}`)
+  const r = await get<unknown>(`${API}/agentes-captacion/${id}`)
   return mapAgente(r)
 }
 
 /** 🆕 Obtener MI ficha (del usuario autenticado) */
 export async function getMiFicha(): Promise<Agente> {
-  const r = await get<any>(`${API}/agentes-captacion/me`)
+  const r = await get<unknown>(`${API}/agentes-captacion/me`)
   return mapAgente(r)
 }
 
 /** Resumen por asesor (conteos convenios y prospectos) */
 export async function getResumenAsesor(id: number): Promise<ResumenAsesor> {
-  const r = await get<any>(`${API}/agentes-captacion/${id}/resumen`)
+  const r = await get<unknown>(`${API}/agentes-captacion/${id}/resumen`)
+  const rObj = r as Record<string, unknown>
+  const convenios = rObj?.convenios as Record<string, unknown> | undefined
+  const prospectos = rObj?.prospectos as Record<string, unknown> | undefined
+
   return {
     convenios: {
-      total: Number(r?.convenios?.total ?? r?.convenios?.asignaciones ?? 0),
-      vigentes: Number(r?.convenios?.vigentes ?? 0),
-      asignaciones: Number(r?.convenios?.asignaciones ?? r?.convenios?.total ?? 0),
+      total: Number(convenios?.total ?? convenios?.asignaciones ?? 0),
+      vigentes: Number(convenios?.vigentes ?? 0),
+      asignaciones: Number(convenios?.asignaciones ?? convenios?.total ?? 0),
     },
     prospectos: {
-      total: Number(r?.prospectos?.total ?? r?.prospectos?.vigentes ?? 0),
-      vigentes: r?.prospectos?.vigentes !== undefined ? Number(r?.prospectos?.vigentes) : undefined,
-      hoy: Number(r?.prospectos?.hoy ?? 0),
-      mes: Number(r?.prospectos?.mes ?? 0),
+      total: Number(prospectos?.total ?? prospectos?.vigentes ?? 0),
+      vigentes: prospectos?.vigentes !== undefined ? Number(prospectos?.vigentes) : undefined,
+      hoy: Number(prospectos?.hoy ?? 0),
+      mes: Number(prospectos?.mes ?? 0),
     },
   }
 }
@@ -237,10 +248,10 @@ export async function listProspectosDelAsesor(
       ? 1
       : (params.vigente === true || params.vigente === 1) ? 1 : 0
 
-  const r = await get<any>(`${API}/agentes-captacion/${asesorId}/prospectos`, {
+  const r = await get<unknown>(`${API}/agentes-captacion/${asesorId}/prospectos`, {
     params: { vigente: vigenteParam, q: params.q },
   })
-  const arr = Array.isArray(r) ? r : (r?.data ?? [])
+  const arr = Array.isArray(r) ? r : ((r as Record<string, unknown>)?.data ?? []) as unknown[]
   return arr.map(mapProspecto)
 }
 
@@ -249,10 +260,10 @@ export async function listConveniosDelAsesor(
   asesorId: number,
   vigente = true
 ): Promise<ConvenioLite[]> {
-  const r = await get<any>(`${API}/agentes-captacion/${asesorId}/convenios`, {
+  const r = await get<unknown>(`${API}/agentes-captacion/${asesorId}/convenios`, {
     params: { vigente: vigente ? 1 : 0 },
   })
-  const arr = Array.isArray(r) ? r : (r?.data ?? [])
+  const arr = Array.isArray(r) ? r : ((r as Record<string, unknown>)?.data ?? []) as unknown[]
   return arr.map(mapConvenio)
 }
 
@@ -260,7 +271,7 @@ export async function listConveniosDelAsesor(
 const api = {
   listAsesores,
   getAsesorById,
-  getMiFicha, // ✅ AGREGADO
+  getMiFicha,
   getResumenAsesor,
   listProspectosDelAsesor,
   listConveniosDelAsesor,

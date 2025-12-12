@@ -5,7 +5,7 @@ const BASE = import.meta.env.VITE_API_BASE_URL
 
 type HttpMethod = 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE'
 
-function buildQuery(params?: Record<string, any>) {
+function buildQuery(params?: Record<string, unknown>) {
   const q = new URLSearchParams()
   if (!params) return ''
   Object.entries(params).forEach(([k, v]) => {
@@ -18,7 +18,7 @@ function buildQuery(params?: Record<string, any>) {
 
 async function apiFetch<T>(
   endpoint: string,
-  opts: { method?: HttpMethod; body?: any; query?: Record<string, any>; headers?: HeadersInit } = {}
+  opts: { method?: HttpMethod; body?: unknown; query?: Record<string, unknown>; headers?: HeadersInit } = {}
 ) {
   const url = `${BASE}${endpoint}${buildQuery(opts.query)}`
 
@@ -27,7 +27,7 @@ async function apiFetch<T>(
   // 🔐 Usar el MISMO almacenamiento que el http.ts
   const token =
     sessionStorage.getItem('token') || localStorage.getItem('token') // fallback por si algo aún quedó en local
-  if (token) (headers as any).Authorization = `Bearer ${token}`
+  if (token) (headers as Record<string, string>).Authorization = `Bearer ${token}`
 
   const res = await fetch(url, {
     method: opts.method || 'GET',
@@ -39,7 +39,7 @@ async function apiFetch<T>(
     let msg = `HTTP ${res.status}`
     try {
       const err = await res.json()
-      msg = err?.message || JSON.stringify(err)
+      msg = (err as Record<string, unknown>)?.message as string || JSON.stringify(err)
     } catch {}
     throw new Error(msg)
   }
@@ -80,8 +80,8 @@ export interface TurnoLight {
 }
 
 export interface ComisionListItem {
-  tiene_desglose: any
-  desglose: any
+  tiene_desglose?: boolean
+  desglose?: Record<string, unknown>[]
   id: number
   /** id del dateo en captacion_dateos (para enganchar con la tabla de dateos) */
   dateo_id?: number
@@ -194,125 +194,131 @@ export interface MetaMensualRow {
   total_facturacion_motos?: number
   total_facturacion_vehiculos?: number
   total_facturacion_global?: number
-
-  [key: string]: any
 }
 
 /* ================= Helpers de mapeo (backend → UI) ================= */
 
-function num(v: any): number {
+function num(v: unknown): number {
   const n = typeof v === 'string' ? Number(v) : v
   return Number.isFinite(n) ? Number(n) : 0
 }
 
-function mapServicio(apiServ: any): ServicioLight | null {
+function mapServicio(apiServ: unknown): ServicioLight | null {
   if (!apiServ) return null
+  const srv = apiServ as Record<string, unknown>
   return {
-    id: apiServ.id ?? undefined,
-    codigo: apiServ.codigoServicio ?? apiServ.codigo ?? undefined,
-    nombre: apiServ.nombreServicio ?? apiServ.nombre ?? undefined,
+    id: (srv.id as number) ?? undefined,
+    codigo: (srv.codigoServicio ?? srv.codigo) as string ?? undefined,
+    nombre: (srv.nombreServicio ?? srv.nombre) as string ?? undefined,
   }
 }
 
-function mapTurno(api: any): TurnoLight | null {
+function mapTurno(api: unknown): TurnoLight | null {
   if (!api) return null
+  const t = api as Record<string, unknown>
+  const vehiculo = t.vehiculo as Record<string, unknown> | undefined
+
   return {
-    id: api.id ?? api.turno_id ?? api.numero ?? 0,
-    numero: api.numero ?? api.id ?? api.turno_id,
-    fecha: api.fecha ?? api.created_at ?? api.createdAt ?? undefined,
-    placa: api.placa ?? api.vehiculo?.placa ?? undefined,
-    servicio: mapServicio(api.servicio),
+    id: (t.id ?? t.turno_id ?? t.numero ?? 0) as number,
+    numero: (t.numero ?? t.id ?? t.turno_id) as string | number | undefined,
+    fecha: (t.fecha ?? t.created_at ?? t.createdAt) as string | undefined,
+    placa: (t.placa ?? vehiculo?.placa) as string | undefined,
+    servicio: mapServicio(t.servicio),
 
     numero_global:
-      api.numero_global ?? api.numeroGlobal ?? api.turnoNumero ?? undefined,
+      (t.numero_global ?? t.numeroGlobal ?? t.turnoNumero) as number | string | undefined,
     numero_servicio:
-      api.numero_servicio ??
-      api.numeroServicio ??
-      api.turnoNumeroServicio ??
-      api.turno_numero_servicio ??
-      undefined,
+      (t.numero_servicio ??
+      t.numeroServicio ??
+      t.turnoNumeroServicio ??
+      t.turno_numero_servicio) as number | string | undefined,
   }
 }
 
-function mapAsesor(api: any): AgenteLight | null {
+function mapAsesor(api: unknown): AgenteLight | null {
   if (!api) return null
+  const a = api as Record<string, unknown>
   return {
-    id: api.id,
-    nombre: api.nombre ?? api.nombre_completo ?? '—',
+    id: a.id as number,
+    nombre: (a.nombre ?? a.nombre_completo ?? '—') as string,
     // dejamos que el backend marque tipo = 'CONVENIO' cuando aplique
-    tipo: api.tipo ?? api.tipo_agente ?? 'INTERNO',
+    tipo: (a.tipo ?? a.tipo_agente ?? 'INTERNO') as string,
   }
 }
 
-function mapConvenio(api: any): ConvenioLight | null {
+function mapConvenio(api: unknown): ConvenioLight | null {
   if (!api) return null
-  return { id: api.id, nombre: api.nombre }
+  const c = api as Record<string, unknown>
+  return { id: c.id as number, nombre: c.nombre as string }
 }
 
 /** 👇 Nuevo helper para agentes de captación (listados y /me) */
-function mapAgenteCaptacion(api: any): AgenteLight | null {
+function mapAgenteCaptacion(api: unknown): AgenteLight | null {
   if (!api) return null
+  const a = api as Record<string, unknown>
   return {
-    id: api.id,
-    nombre: api.nombre ?? api.nombre_completo ?? api.nombreCompleto ?? '—',
-    tipo: api.tipo ?? api.tipo_agente ?? api.tipoAgente ?? 'INTERNO',
+    id: a.id as number,
+    nombre: (a.nombre ?? a.nombre_completo ?? a.nombreCompleto ?? '—') as string,
+    tipo: (a.tipo ?? a.tipo_agente ?? a.tipoAgente ?? 'INTERNO') as string,
   }
 }
 
-function mapComisionToListItem(api: any): ComisionListItem {
+function mapComisionToListItem(api: unknown): ComisionListItem {
+  const a = api as Record<string, unknown>
   // API ya trae valor_unitario (monto asesor), valor_cliente (base convenio) y valor_total
-  const valor_unitario = num(api.valor_unitario ?? api.monto ?? 0)
-  const valor_cliente = api.valor_cliente != null ? num(api.valor_cliente) : null
+  const valor_unitario = num(a.valor_unitario ?? a.monto ?? 0)
+  const valor_cliente = a.valor_cliente != null ? num(a.valor_cliente) : null
   const valor_total =
-    api.valor_total !== undefined
-      ? num(api.valor_total)
+    a.valor_total !== undefined
+      ? num(a.valor_total)
       : valor_unitario + (valor_cliente ?? 0)
 
-  const generado = api.generado_at ?? api.fecha_calculo ?? api.created_at ?? api.createdAt
+  const generado = a.generado_at ?? a.fecha_calculo ?? a.created_at ?? a.createdAt
 
-  const turno = api.turno ? mapTurno(api.turno) : null
-  const asesor = api.asesor ?? null
-  const convenio = api.convenio ?? null
+  const turno = a.turno ? mapTurno(a.turno) : null
+  const asesor = a.asesor ?? null
+  const convenio = a.convenio ?? null
 
   const dateoId =
-    api.dateo_id ??
-    api.captacion_dateo_id ??
-    api.captacionDateoId ??
-    api.dateoId ??
+    a.dateo_id ??
+    a.captacion_dateo_id ??
+    a.captacionDateoId ??
+    a.dateoId ??
     null
 
   return {
-    id: api.id,
+    id: a.id as number,
     dateo_id: dateoId != null ? Number(dateoId) : undefined,
 
-    estado: (api.estado as ComisionEstado) ?? 'PENDIENTE',
-    cantidad: num(api.cantidad ?? 1),
+    estado: (a.estado as ComisionEstado) ?? 'PENDIENTE',
+    cantidad: num(a.cantidad ?? 1),
     valor_unitario,
     valor_cliente,
     valor_total,
     generado_at: generado ? String(generado) : undefined,
     asesor: asesor
       ? mapAsesor(asesor)
-      : api.asesor_id
-      ? { id: api.asesor_id, nombre: '—', tipo: 'INTERNO' }
+      : a.asesor_id
+      ? { id: a.asesor_id as number, nombre: '—', tipo: 'INTERNO' }
       : null,
     convenio: convenio
       ? mapConvenio(convenio)
-      : api.convenio_id
-      ? { id: api.convenio_id, nombre: '—' }
+      : a.convenio_id
+      ? { id: a.convenio_id as number, nombre: '—' }
       : null,
     turno,
   }
 }
 
-function mapComisionToDetail(api: any): ComisionDetail {
+function mapComisionToDetail(api: unknown): ComisionDetail {
   const base = mapComisionToListItem(api)
+  const a = api as Record<string, unknown>
   return {
     ...base,
-    aprobado_at: api.aprobado_at ?? null,
-    pagado_at: api.pagado_at ?? null,
-    anulado_at: api.anulado_at ?? null,
-    observacion: api.observacion ?? null,
+    aprobado_at: (a.aprobado_at as string) ?? null,
+    pagado_at: (a.pagado_at as string) ?? null,
+    anulado_at: (a.anulado_at as string) ?? null,
+    observacion: (a.observacion as string) ?? null,
   }
 }
 
@@ -320,100 +326,102 @@ function mapComisionToDetail(api: any): ComisionDetail {
  * Mapea una fila de configuración (es_config = true) del backend
  * al tipo ComisionConfig del front.
  */
-function mapConfigToUi(api: any): ComisionConfig {
+function mapConfigToUi(api: unknown): ComisionConfig {
+  const a = api as Record<string, unknown>
   return {
-    id: api.id,
+    id: a.id as number,
     es_config: true,
-    asesor_id: api.asesor_id ?? api.asesorId ?? null,
-    tipo_vehiculo: api.tipo_vehiculo ?? api.tipoVehiculo ?? null,
-    valor_placa: num(api.valor_placa ?? api.base),
-    valor_dateo: num(api.valor_dateo ?? api.monto),
+    asesor_id: (a.asesor_id ?? a.asesorId ?? null) as number | null,
+    tipo_vehiculo: (a.tipo_vehiculo ?? a.tipoVehiculo ?? null) as TipoVehiculoComision | null,
+    valor_placa: num(a.valor_placa ?? a.base),
+    valor_dateo: num(a.valor_dateo ?? a.monto),
     fecha_calculo:
-      api.fecha_calculo ??
-      api.fechaCalculo ??
-      api.created_at ??
-      api.createdAt ??
-      null,
+      (a.fecha_calculo ??
+      a.fechaCalculo ??
+      a.created_at ??
+      a.createdAt ??
+      null) as string | null,
   }
 }
 
 /** Mapea una fila de meta mensual (config + posible resumen) */
-function mapMetaMensual(api: any): MetaMensualRow {
+function mapMetaMensual(api: unknown): MetaMensualRow {
+  const a = api as Record<string, unknown>
   const rtmMotos =
-    api.rtm_motos != null
-      ? num(api.rtm_motos)
-      : api.rtmMotos != null
-      ? num(api.rtmMotos)
+    a.rtm_motos != null
+      ? num(a.rtm_motos)
+      : a.rtmMotos != null
+      ? num(a.rtmMotos)
       : undefined
 
   const rtmVehiculos =
-    api.rtm_vehiculos != null
-      ? num(api.rtm_vehiculos)
-      : api.rtmVehiculos != null
-      ? num(api.rtmVehiculos)
+    a.rtm_vehiculos != null
+      ? num(a.rtm_vehiculos)
+      : a.rtmVehiculos != null
+      ? num(a.rtmVehiculos)
       : undefined
 
   return {
-    id: api.id,
-    asesor_id: api.asesor_id ?? api.asesorId ?? null,
-    asesor_nombre: api.asesor_nombre ?? api.asesorNombre ?? null,
-    asesor_tipo: api.asesor_tipo ?? api.asesorTipo ?? null, // 👈 importante para filtrar convenios en el front
-    mes: api.mes ?? null,
+    id: a.id as number,
+    asesor_id: (a.asesor_id ?? a.asesorId ?? null) as number | null,
+    asesor_nombre: (a.asesor_nombre ?? a.asesorNombre ?? null) as string | null,
+    asesor_tipo: (a.asesor_tipo ?? a.asesorTipo ?? null) as string | null, // 👈 importante para filtrar convenios en el front
+    mes: (a.mes ?? null) as string | null,
 
     // Config de meta
-    tipo_vehiculo: api.tipo_vehiculo ?? api.tipoVehiculo ?? null,
-    meta_mensual: num(api.meta_mensual ?? api.metaMensual ?? api.meta_rtm ?? 0),
+    tipo_vehiculo: (a.tipo_vehiculo ?? a.tipoVehiculo ?? null) as TipoVehiculoComision | null,
+    meta_mensual: num(a.meta_mensual ?? a.metaMensual ?? a.meta_rtm ?? 0),
     porcentaje_extra: num(
-      api.porcentaje_extra ??
-        api.porcentajeExtra ??
-        api.porcentaje_comision_meta ??
+      a.porcentaje_extra ??
+        a.porcentajeExtra ??
+        a.porcentaje_comision_meta ??
         0
     ),
     valor_rtm_moto:
-      api.valor_rtm_moto != null
-        ? num(api.valor_rtm_moto)
-        : api.valorRtmMoto != null
-        ? num(api.valorRtmMoto)
+      a.valor_rtm_moto != null
+        ? num(a.valor_rtm_moto)
+        : a.valorRtmMoto != null
+        ? num(a.valorRtmMoto)
         : null,
     valor_rtm_vehiculo:
-      api.valor_rtm_vehiculo != null
-        ? num(api.valor_rtm_vehiculo)
-        : api.valorRtmVehiculo != null
-        ? num(api.valorRtmVehiculo)
+      a.valor_rtm_vehiculo != null
+        ? num(a.valor_rtm_vehiculo)
+        : a.valorRtmVehiculo != null
+        ? num(a.valorRtmVehiculo)
         : null,
     fecha_actualizacion:
-      api.fecha_actualizacion ??
-      api.fechaActualizacion ??
-      api.updated_at ??
-      api.updatedAt ??
-      api.created_at ??
-      api.createdAt ??
-      null,
+      (a.fecha_actualizacion ??
+      a.fechaActualizacion ??
+      a.updated_at ??
+      a.updatedAt ??
+      a.created_at ??
+      a.createdAt ??
+      null) as string | null,
 
     // Campos de resumen (cantidades)
     rtm_motos: rtmMotos,
     rtm_vehiculos: rtmVehiculos,
-    meta_rtm: api.meta_rtm ?? null,
-    meta_global_rtm: api.meta_global_rtm ?? null,
+    meta_rtm: (a.meta_rtm ?? null) as number | null,
+    meta_global_rtm: (a.meta_global_rtm ?? null) as number | null,
     porcentaje_comision_meta:
-      api.porcentaje_comision_meta ?? api.porcentaje_extra ?? null,
+      (a.porcentaje_comision_meta ?? a.porcentaje_extra ?? null) as number | null,
 
     // Totales (cantidad y dinero) calculados por el backend
     total_rtm_motos:
-      api.total_rtm_motos != null ? num(api.total_rtm_motos) : rtmMotos,
+      a.total_rtm_motos != null ? num(a.total_rtm_motos) : rtmMotos,
     total_rtm_vehiculos:
-      api.total_rtm_vehiculos != null ? num(api.total_rtm_vehiculos) : rtmVehiculos,
+      a.total_rtm_vehiculos != null ? num(a.total_rtm_vehiculos) : rtmVehiculos,
     total_facturacion_motos:
-      api.total_facturacion_motos != null
-        ? num(api.total_facturacion_motos)
+      a.total_facturacion_motos != null
+        ? num(a.total_facturacion_motos)
         : undefined,
     total_facturacion_vehiculos:
-      api.total_facturacion_vehiculos != null
-        ? num(api.total_facturacion_vehiculos)
+      a.total_facturacion_vehiculos != null
+        ? num(a.total_facturacion_vehiculos)
         : undefined,
     total_facturacion_global:
-      api.total_facturacion_global != null
-        ? num(api.total_facturacion_global)
+      a.total_facturacion_global != null
+        ? num(a.total_facturacion_global)
         : undefined,
   }
 }
@@ -423,18 +431,19 @@ function mapMetaMensual(api: any): MetaMensualRow {
 /* ===== Comisiones reales ===== */
 
 export async function listComisiones(params: ListParams) {
-  const raw = await apiFetch<any>('/comisiones', { query: params as any })
+  const raw = await apiFetch<unknown>('/comisiones', { query: params as Record<string, unknown> })
+  const r = raw as Record<string, unknown>
 
-  if (Array.isArray(raw?.data)) {
-    const mapped = (raw.data as any[]).map(mapComisionToListItem)
+  if (Array.isArray(r?.data)) {
+    const mapped = (r.data as unknown[]).map(mapComisionToListItem)
     return {
       data: mapped,
-      total: num(raw.total ?? raw.meta?.total ?? mapped.length),
-      page: num(raw.page ?? raw.meta?.current_page ?? params.page ?? 1),
-      perPage: num(raw.perPage ?? raw.meta?.per_page ?? params.perPage ?? 10),
+      total: num(r.total ?? (r.meta as Record<string, unknown>)?.total ?? mapped.length),
+      page: num(r.page ?? (r.meta as Record<string, unknown>)?.current_page ?? params.page ?? 1),
+      perPage: num(r.perPage ?? (r.meta as Record<string, unknown>)?.per_page ?? params.perPage ?? 10),
     } as ListResponse<ComisionListItem>
   } else if (Array.isArray(raw)) {
-    const mapped = (raw as any[]).map(mapComisionToListItem)
+    const mapped = (raw as unknown[]).map(mapComisionToListItem)
     return {
       data: mapped,
       total: mapped.length,
@@ -448,7 +457,7 @@ export async function listComisiones(params: ListParams) {
 }
 
 export async function getComision(id: number) {
-  const raw = await apiFetch<any>(`/comisiones/${id}`)
+  const raw = await apiFetch<unknown>(`/comisiones/${id}`)
   return mapComisionToDetail(raw)
 }
 
@@ -456,7 +465,7 @@ export async function patchValores(
   id: number,
   payload: { cantidad: number; valor_unitario: number }
 ) {
-  const raw = await apiFetch<any>(`/comisiones/${id}/valores`, {
+  const raw = await apiFetch<unknown>(`/comisiones/${id}/valores`, {
     method: 'PATCH',
     body: payload,
   })
@@ -464,21 +473,21 @@ export async function patchValores(
 }
 
 export async function aprobarComision(id: number) {
-  const raw = await apiFetch<any>(`/comisiones/${id}/aprobar`, {
+  const raw = await apiFetch<unknown>(`/comisiones/${id}/aprobar`, {
     method: 'POST',
   })
   return mapComisionToDetail(raw)
 }
 
 export async function pagarComision(id: number) {
-  const raw = await apiFetch<any>(`/comisiones/${id}/pagar`, {
+  const raw = await apiFetch<unknown>(`/comisiones/${id}/pagar`, {
     method: 'POST',
   })
   return mapComisionToDetail(raw)
 }
 
 export async function anularComision(id: number) {
-  const raw = await apiFetch<any>(`/comisiones/${id}/anular`, {
+  const raw = await apiFetch<unknown>(`/comisiones/${id}/anular`, {
     method: 'POST',
   })
   return mapComisionToDetail(raw)
@@ -495,11 +504,11 @@ export async function listConfigsComision(params?: {
   asesorId?: number
   tipoVehiculo?: TipoVehiculoComision
 }) {
-  const raw = await apiFetch<{ data: any[] }>('/comisiones/config', {
+  const raw = await apiFetch<{ data: unknown[] }>('/comisiones/config', {
     query: {
       asesorId: params?.asesorId,
       tipoVehiculo: params?.tipoVehiculo,
-    } as any,
+    } as Record<string, unknown>,
   })
 
   const rows = Array.isArray(raw?.data) ? raw.data : []
@@ -512,7 +521,7 @@ export async function listConfigsComision(params?: {
  * POST /api/comisiones/config
  */
 export async function upsertConfigComision(payload: ComisionConfigPayload) {
-  const raw = await apiFetch<any>('/comisiones/config', {
+  const raw = await apiFetch<unknown>('/comisiones/config', {
     method: 'POST',
     body: payload,
   })
@@ -527,7 +536,7 @@ export async function updateConfigComision(
   id: number,
   payload: Partial<ComisionConfigPayload>
 ) {
-  const raw = await apiFetch<any>(`/comisiones/config/${id}`, {
+  const raw = await apiFetch<unknown>(`/comisiones/config/${id}`, {
     method: 'PATCH',
     body: payload,
   })
@@ -539,7 +548,7 @@ export async function updateConfigComision(
  * DELETE /api/comisiones/config/:id
  */
 export async function deleteConfigComision(id: number) {
-  await apiFetch<any>(`/comisiones/config/${id}`, {
+  await apiFetch<unknown>(`/comisiones/config/${id}`, {
     method: 'DELETE',
   })
 }
@@ -549,14 +558,15 @@ export async function deleteConfigComision(id: number) {
 export async function listAgentesCaptacion() {
   try {
     // 1) Intentar listado general (SUPER_ADMIN / GERENCIA)
-    const res = await apiFetch<any>('/agentes-captacion', {
+    const res = await apiFetch<unknown>('/agentes-captacion', {
       query: { perPage: 200 },
     })
 
-    let rows: any[] = Array.isArray(res?.data)
-      ? res.data
+    const r = res as Record<string, unknown>
+    const rows: unknown[] = Array.isArray(r?.data)
+      ? r.data
       : Array.isArray(res)
-      ? res
+      ? res as unknown[]
       : []
 
     if (rows.length > 0) {
@@ -566,7 +576,7 @@ export async function listAgentesCaptacion() {
     }
 
     // 2) Fallback: si viene vacío, probar /me (asesor comercial)
-    const me = await apiFetch<any>('/agentes-captacion/me')
+    const me = await apiFetch<unknown>('/agentes-captacion/me')
     const agente = mapAgenteCaptacion(me)
     if (agente) {
       return [agente]
@@ -600,7 +610,7 @@ export async function listMetasMensuales(params?: {
 
   const endpoint = hasMes ? '/comisiones/metas-mensuales' : '/comisiones/metas'
 
-  const raw = await apiFetch<{ data?: any[] } | any[]>(endpoint, {
+  const raw = await apiFetch<{ data?: unknown[] } | unknown[]>(endpoint, {
     query: hasMes
       ? {
           asesorId: params?.asesorId,
@@ -611,17 +621,18 @@ export async function listMetasMensuales(params?: {
         },
   })
 
-  const rowsRaw = Array.isArray((raw as any)?.data)
-    ? (raw as any).data
+  const rawObj = raw as Record<string, unknown>
+  const rowsRaw = Array.isArray(rawObj?.data)
+    ? rawObj.data
     : Array.isArray(raw)
-    ? raw
+    ? raw as unknown[]
     : []
 
   const mapped = rowsRaw.map(mapMetaMensual)
 
-  const arr: any = mapped
-  ;(arr as any).data = mapped // compatibilidad para la otra vista
-  return arr as MetaMensualRow[] & { data: MetaMensualRow[] }
+  const arr: MetaMensualRow[] & { data: MetaMensualRow[] } = mapped as MetaMensualRow[] & { data: MetaMensualRow[] }
+  arr.data = mapped // compatibilidad para la otra vista
+  return arr
 }
 
 /**
@@ -636,7 +647,7 @@ export async function upsertMetaMensual(payload: {
   valor_rtm_moto?: number
   valor_rtm_vehiculo?: number
 }) {
-  const raw = await apiFetch<any>('/comisiones/metas', {
+  const raw = await apiFetch<unknown>('/comisiones/metas', {
     method: 'POST',
     body: payload,
   })
@@ -658,7 +669,7 @@ export async function updateMetaMensual(
     valor_rtm_vehiculo?: number
   }>
 ) {
-  const raw = await apiFetch<any>(`/comisiones/metas/${id}`, {
+  const raw = await apiFetch<unknown>(`/comisiones/metas/${id}`, {
     method: 'PATCH',
     body: payload,
   })
@@ -670,7 +681,7 @@ export async function updateMetaMensual(
  * DELETE /api/comisiones/metas/:id
  */
 export async function deleteMetaMensual(id: number) {
-  await apiFetch<any>(`/comisiones/metas/${id}`, {
+  await apiFetch<unknown>(`/comisiones/metas/${id}`, {
     method: 'DELETE',
   })
 }

@@ -1,6 +1,6 @@
 // src/composables/contratos/useMaestrosRRHH.ts
 import { ref, computed } from 'vue'
-import { obtenerSedes, obtenerCargos, obtenerEntidadesSalud } from '@/services/UserService'
+import { obtenerSedes, obtenerCargos, obtenerEntidadesSalud } from '@/services/userService'
 
 type Dict = Record<string, unknown>
 function toArray<T>(data: unknown): T[] {

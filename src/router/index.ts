@@ -30,6 +30,7 @@ import ComisionesList from '@/views/comercial/comisiones/ComisionesList.vue'
 import ComisionDetail from '@/views/comercial/comisiones/ComisionesDetail.vue'
 import ComisionesConfig from '@/views/comercial/comisiones/ComisionesConfig.vue'
 
+
 const routes = [
   { path: '/', redirect: '/login' },
 
@@ -213,14 +214,7 @@ const routes = [
     meta: { layout: 'MainLayout' },
   },
 
-  {
-    path: '/comercial/prospectos/:id(\\d+)',
-    name: 'comercial.prospectos.detail',
-    redirect: (to: { params: any }) => ({
-      name: 'ComercialProspectoDetalle',
-      params: to.params,
-    }),
-  },
+
 
   // Comisiones
   {

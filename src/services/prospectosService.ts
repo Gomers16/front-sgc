@@ -16,7 +16,7 @@ function buildUrl(path: string) {
   return `${RAW_BASE}${finalPath}`
 }
 
-function buildQuery(params?: Record<string, any>) {
+function buildQuery(params?: Record<string, unknown>) {
   if (!params) return ''
   const q = new URLSearchParams()
   Object.entries(params).forEach(([k, v]) => {
@@ -39,7 +39,7 @@ function getAuthHeader(): HeadersInit {
 
 async function apiFetch<T>(
   endpoint: string,
-  opts: { method?: HttpMethod; body?: any; query?: Record<string, any>; headers?: HeadersInit } = {},
+  opts: { method?: HttpMethod; body?: unknown; query?: Record<string, unknown>; headers?: HeadersInit } = {},
 ) {
   const url = `${buildUrl(endpoint)}${buildQuery(opts.query)}`
   const headers: HeadersInit = {
@@ -56,7 +56,10 @@ async function apiFetch<T>(
 
   if (!res.ok) {
     let msg = `HTTP ${res.status}`
-    try { msg = (await res.json())?.message || msg } catch {}
+    try {
+      const errorData = await res.json() as Record<string, unknown>
+      msg = (errorData?.message as string) || msg
+    } catch {}
     throw new Error(msg)
   }
 
@@ -184,31 +187,35 @@ export function formatDateTime(d?: string | null) {
 /* ============================
    Normalizadores
 ============================ */
-function mapAsignacion(raw: any): Asignacion {
+function mapAsignacion(raw: unknown): Asignacion {
+  const r = raw as Record<string, unknown>
+  const asesorObj = r?.asesor as Record<string, unknown> | undefined
+
   return {
-    id: Number(raw?.id),
-    prospecto_id: Number(raw?.prospecto_id ?? raw?.prospectoId),
+    id: Number(r?.id),
+    prospecto_id: Number(r?.prospecto_id ?? r?.prospectoId),
     asesor: {
-      id: Number(raw?.asesor?.id ?? raw?.asesor_id ?? raw?.asesorId),
-      nombre: String(raw?.asesor?.nombre ?? raw?.asesor_nombre ?? '—'),
-      tipo: String(raw?.asesor?.tipo ?? raw?.asesor_tipo ?? ''),
+      id: Number(asesorObj?.id ?? r?.asesor_id ?? r?.asesorId),
+      nombre: String(asesorObj?.nombre ?? r?.asesor_nombre ?? '—'),
+      tipo: String(asesorObj?.tipo ?? r?.asesor_tipo ?? ''),
     },
-    asignado_por: raw?.asignado_por ?? raw?.asignadoPor ?? null,
+    asignado_por: (r?.asignado_por ?? r?.asignadoPor ?? null) as string | number | null,
     fecha_asignacion:
-      raw?.fecha_asignacion ??
-      raw?.fechaAsignacion ??
-      raw?.created_at ??
-      raw?.createdAt ??
-      null,
-    fecha_fin: raw?.fecha_fin ?? raw?.fechaFin ?? null,
-    motivo_fin: raw?.motivo_fin ?? raw?.motivoFin ?? null,
-    activo: Boolean(raw?.activo ?? (raw?.fecha_fin == null)),
+      (r?.fecha_asignacion ??
+      r?.fechaAsignacion ??
+      r?.created_at ??
+      r?.createdAt ??
+      null) as string | null,
+    fecha_fin: (r?.fecha_fin ?? r?.fechaFin ?? null) as string | null,
+    motivo_fin: (r?.motivo_fin ?? r?.motivoFin ?? null) as string | null,
+    activo: Boolean(r?.activo ?? (r?.fecha_fin == null)),
   }
 }
 
 /** Unifica snake_case y camelCase. Si vienen 'asignaciones', deriva asignacion_activa. */
-function unifyProspecto<T extends Record<string, any>>(p: T): ProspectoDetail {
-  const out: any = { ...p }
+function unifyProspecto(p: unknown): ProspectoDetail {
+  const pObj = p as Record<string, unknown>
+  const out: Record<string, unknown> = { ...pObj }
 
   // alias básicos
   out.cedula = out.cedula ?? null  // 👈 NUEVO
@@ -234,22 +241,23 @@ function unifyProspecto<T extends Record<string, any>>(p: T): ProspectoDetail {
 
   // asignaciones → activa + historial
   if (!out.asignacion_activa && Array.isArray(out.asignaciones)) {
-    const hist = out.asignaciones.map(mapAsignacion)
+    const hist = (out.asignaciones as unknown[]).map(mapAsignacion)
     out.historial_asignaciones = hist
-    out.asignacion_activa = hist.find((a) => a.activo && !a.fecha_fin) ?? null
+    out.asignacion_activa = hist.find((a: Asignacion) => a.activo && !a.fecha_fin) ?? null
   }
 
-  return out as ProspectoDetail
+  return out as unknown as ProspectoDetail
 }
 
-function normalizeListShape<T = any>(r: any, fallback: ListParams): ListResponse<T> {
-  const rawData: any[] = Array.isArray(r) ? r : (r?.data ?? r?.items ?? r?.rows ?? [])
+function normalizeListShape<T = unknown>(r: unknown, fallback: ListParams): ListResponse<T> {
+  const rObj = r as Record<string, unknown>
+  const rawData: unknown[] = Array.isArray(r) ? r : (rObj?.data ?? rObj?.items ?? rObj?.rows ?? []) as unknown[]
   const data = rawData.map(unifyProspecto)
   const total = Array.isArray(r)
     ? data.length
-    : Number(r?.total ?? r?.meta?.total ?? r?.totalItems ?? r?.count ?? data.length) || 0
-  const page = Number(r?.page ?? r?.meta?.current_page ?? fallback.page ?? 1)
-  const perPage = Number(r?.perPage ?? r?.meta?.per_page ?? fallback.perPage ?? 10)
+    : Number(rObj?.total ?? (rObj?.meta as Record<string, unknown>)?.total ?? rObj?.totalItems ?? rObj?.count ?? data.length) || 0
+  const page = Number(rObj?.page ?? (rObj?.meta as Record<string, unknown>)?.current_page ?? fallback.page ?? 1)
+  const perPage = Number(rObj?.perPage ?? (rObj?.meta as Record<string, unknown>)?.per_page ?? fallback.perPage ?? 10)
   return { data: data as unknown as T[], total, page, perPage }
 }
 
@@ -270,7 +278,7 @@ function normalizeListShape<T = any>(r: any, fallback: ListParams): ListResponse
 export async function listProspectos(params: ListParams) {
   // 🔄 NUEVO: Verificar dateos vencidos ANTES de cargar lista
   try {
-    await apiFetch<any>('/captacion-dateos/verificar-vencidos', { method: 'POST' })
+    await apiFetch<unknown>('/captacion-dateos/verificar-vencidos', { method: 'POST' })
   } catch (e) {
     console.warn('⚠️ No se pudo verificar dateos vencidos:', e)
     // No bloqueamos la carga de prospectos si falla la verificación
@@ -282,7 +290,7 @@ export async function listProspectos(params: ListParams) {
       ? undefined
       : (params.vigente === true || params.vigente === 1)
 
-  const query: Record<string, any> = {
+  const query: Record<string, unknown> = {
     placa: params.placa || undefined,
     telefono: params.telefono || undefined,
     nombre: params.nombre || undefined,
@@ -302,26 +310,26 @@ export async function listProspectos(params: ListParams) {
     order: params.order,
   }
 
-  const r = await apiFetch<any>('/prospectos', { query })
+  const r = await apiFetch<unknown>('/prospectos', { query })
   return normalizeListShape<ProspectoDetail>(r, params)
 }
 
 export async function getProspecto(id: number) {
-  const r = await apiFetch<any>('/prospectos/' + id)
-  return unifyProspecto(r)
+  const r = await apiFetch<unknown>('/prospectos/' + id)
+  return unifyProspecto(r as Record<string, unknown>)
 }
 
 // Alias por compatibilidad
 export const getProspectoById = getProspecto
 
 export async function createProspecto(payload: Partial<Prospecto>) {
-  const r = await apiFetch<any>('/prospectos', { method: 'POST', body: payload })
-  return unifyProspecto(r)
+  const r = await apiFetch<unknown>('/prospectos', { method: 'POST', body: payload })
+  return unifyProspecto(r as Record<string, unknown>)
 }
 
 export async function patchProspecto(id: number, payload: Partial<Prospecto>) {
-  const r = await apiFetch<any>('/prospectos/' + id, { method: 'PATCH', body: payload })
-  return unifyProspecto(r)
+  const r = await apiFetch<unknown>('/prospectos/' + id, { method: 'PATCH', body: payload })
+  return unifyProspecto(r as Record<string, unknown>)
 }
 
 export async function asignarAsesor(prospectoId: number, payload: { asesor_id: number }) {

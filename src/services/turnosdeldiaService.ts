@@ -21,7 +21,7 @@ export type CanalAtrib = 'FACHADA' | 'ASESOR' | 'TELE' | 'REDES'
 export type ServicioCodigo = 'RTM' | 'PREV' | 'PERI' | 'SOAT'
 
 /* ====== Mapas ====== */
-const MEDIO_MAP: Record<MedioEnteroFront, MedioEnteroFinalDB> = {
+export const MEDIO_MAP: Record<MedioEnteroFront, MedioEnteroFinalDB> = {
   redes_sociales: 'Redes Sociales',
   call_center: 'Call Center',
   fachada: 'Fachada',
@@ -267,11 +267,11 @@ class TurnosDelDiaService {
     })
   }
 
-  public static fetchTurnoById(id: number) {
-    return get<any>(`${this.BASE}/${id}`, {
-      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-    })
-  }
+ public static fetchTurnoById(id: number) {
+  return get<Turno>(`${this.BASE}/${id}`, {
+    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+  })
+}
 
   /** Crear turno (POST /api/turnos-rtm) */
   public static async createTurno(payload: CreateTurnoPayload) {
@@ -321,12 +321,11 @@ class TurnosDelDiaService {
   }
 
   /* ===== Actualizaciones ===== */
-  public static updateTurno(id: number, turnoData: UpdateTurnoPayload | any) {
-    return put<Turno, typeof turnoData>(`${this.BASE}/${id}`, turnoData, {
-      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-    })
-  }
-
+ public static updateTurno(id: number, turnoData: UpdateTurnoPayload) {
+  return put<Turno, UpdateTurnoPayload>(`${this.BASE}/${id}`, turnoData, {
+    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+  })
+}
   public static registrarSalida(id: number, usuarioId: number) {
     return put<Turno, { usuarioId: number }>(
       `${this.BASE}/${id}/salida`,
