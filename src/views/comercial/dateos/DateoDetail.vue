@@ -97,43 +97,43 @@
               </v-col>
             </v-row>
 
-            <!-- Turno (solo visual) -->
-            <v-divider class="my-3" />
-            <div class="text-caption text-sm-subtitle-2 mb-2 font-weight-600">Turno vinculado</div>
+           <!-- Turno (solo visual) -->
+<v-divider class="my-3" />
+<div class="text-caption text-sm-subtitle-2 mb-2 font-weight-600">Turno vinculado</div>
 
-            <div v-if="dateo?.turnoInfo" class="d-flex align-center flex-wrap" style="gap:6px">
-              <v-chip size="x-small" color="primary" variant="tonal" class="font-weight-600">
-                {{ (dateo?.turnoInfo?.fecha && formatDateOnly(dateo.turnoInfo.fecha)) || '—' }}
-              </v-chip>
-              <v-chip size="x-small" color="indigo" variant="tonal" class="font-weight-600">
-                G: {{ dateo?.turnoInfo?.numeroGlobal ?? '—' }}
-              </v-chip>
-              <v-chip size="x-small" color="deep-purple" variant="tonal" class="font-weight-600">
-                S: {{ dateo?.turnoInfo?.numeroServicio ?? '—' }}
-              </v-chip>
+<div v-if="dateo?.turnoInfo" class="d-flex align-center flex-wrap" style="gap:6px">
+  <v-chip size="x-small" color="primary" variant="tonal" class="font-weight-600">
+    {{ (dateo?.turnoInfo?.fecha && formatDateOnly(dateo.turnoInfo.fecha)) || '—' }}
+  </v-chip>
+  <v-chip size="x-small" color="indigo" variant="tonal" class="font-weight-600">
+    Nº Global: {{ dateo?.turnoInfo?.numeroGlobal ?? '—' }}
+  </v-chip>
+  <v-chip size="x-small" color="deep-purple" variant="tonal" class="font-weight-600">
+    Nº Servicio: {{ dateo?.turnoInfo?.numeroServicio ?? '—' }}
+  </v-chip>
 
-              <v-chip
-                v-if="dateo?.turnoInfo?.servicioCodigo"
-                size="x-small"
-                variant="tonal"
-                class="font-weight-600"
-              >
-                {{ dateo?.turnoInfo?.servicioCodigo }}
-              </v-chip>
+  <v-chip
+    v-if="dateo?.turnoInfo?.servicioCodigo"
+    size="x-small"
+    variant="tonal"
+    class="font-weight-600"
+  >
+    {{ dateo?.turnoInfo?.servicioCodigo }}
+  </v-chip>
 
-              <v-chip
-                size="x-small"
-                :color="chipColorEstadoTurno(dateo?.turnoInfo?.estado || dateo?.resultado)"
-                variant="elevated"
-                prepend-icon="mdi-progress-clock"
-                class="font-weight-600"
-              >
-                {{ textoEstadoTurno(dateo?.turnoInfo?.estado || dateo?.resultado) }}
-              </v-chip>
-            </div>
-            <div v-else class="text-caption text-sm-body-2 text-medium-emphasis">
-              — Sin turno vinculado —
-            </div>
+  <v-chip
+    size="x-small"
+    :color="chipColorEstadoTurno(dateo?.turnoInfo?.estado || dateo?.resultado)"
+    variant="elevated"
+    prepend-icon="mdi-progress-clock"
+    class="font-weight-600"
+  >
+    {{ textoEstadoTurno(dateo?.turnoInfo?.estado || dateo?.resultado) }}
+  </v-chip>
+</div>
+<div v-else class="text-caption text-sm-body-2 text-medium-emphasis">
+  — Sin turno vinculado —
+</div>
           </v-card-text>
 
           <!-- Acciones de la ficha -->
@@ -408,6 +408,19 @@ type FormShape = {
   imagen_origen_id?: string | number | null
 }
 
+type UpdateDateoPayload = {
+  resultado: ResultadoDateo
+  observacion: string | null
+  placa: string
+  telefono: string | null
+  canal: 'ASESOR' | 'TELE' | 'FACHADA' | 'REDES'
+  imagen_url?: string
+  imagen_mime?: string | null
+  imagen_tamano_bytes?: number | null
+  imagen_hash?: string | null
+  imagen_origen_id?: string | number | null
+}
+
 const form = ref<FormShape>({
   resultado: 'PENDIENTE',
   observacion: '',
@@ -423,8 +436,8 @@ const snackbar = ref<{ visible: boolean; msg: string; color: 'error' | 'success'
 
 /* ===== Validaciones ===== */
 const rules = {
-  required: (v: any) => !!v || 'Este campo es requerido',
-  placaLength: (v: any) => {
+  required: (v: string | number | null | undefined) => !!v || 'Este campo es requerido',
+  placaLength: (v: string | number | null | undefined) => {
     if (!v) return 'La placa es requerida'
     const trimmed = v.toString().trim()
     return trimmed.length === 6 || 'La placa debe tener exactamente 6 caracteres'
@@ -559,9 +572,8 @@ async function load() {
 
     editando.value = false
   } catch (e) {
-    const message =
-      (e as { response?: { data?: { message?: string } } }).response?.data?.message ||
-      'No se pudo cargar el dateo'
+    const error = e as { response?: { data?: { message?: string } } }
+    const message = error.response?.data?.message || 'No se pudo cargar el dateo'
     snackbar.value = { visible: true, msg: message, color: 'error' }
   } finally {
     loading.value = false
@@ -608,7 +620,7 @@ async function guardar() {
     }
 
     // 🔥 PASO 2: Preparar payload con TODOS los campos (incluida imagen)
-    const payload: any = {
+    const payload: UpdateDateoPayload = {
       resultado: form.value.resultado,
       observacion: form.value.observacion || null,
       placa: form.value.placa.trim().toUpperCase(),
@@ -648,8 +660,8 @@ async function guardar() {
 
   } catch (e) {
     console.error('❌ Error guardando:', e)
-    const message =
-      (e as { response?: { data?: { message?: string } } }).response?.data?.message ||
+    const error = e as { response?: { data?: { message?: string } } }
+    const message = error.response?.data?.message ||
       (e instanceof Error ? e.message : 'No se pudo guardar')
     snackbar.value = { visible: true, msg: message, color: 'error' }
   } finally {
@@ -670,9 +682,8 @@ async function doEliminar() {
     await deleteDateo(id)
     router.push({ name: 'ComercialDateos' })
   } catch (e) {
-    const message =
-      (e as { response?: { data?: { message?: string } } }).response?.data?.message ||
-      'No se pudo eliminar'
+    const error = e as { response?: { data?: { message?: string } } }
+    const message = error.response?.data?.message || 'No se pudo eliminar'
     snackbar.value = { visible: true, msg: message, color: 'error' }
   } finally {
     dlgEliminar.value.loading = false

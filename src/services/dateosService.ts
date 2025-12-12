@@ -2,7 +2,7 @@
 import { get, post, put, del } from '@/services/http'
 
 export type CanalCaptacion = 'FACHADA' | 'ASESOR' | 'TELE' | 'REDES'
-export type ResultadoDateo = 'PENDIENTE' | 'EN_PROCESO' | 'EXITOSO' | 'NO_EXITOSO'
+export type ResultadoDateo = 'PENDIENTE' | 'EN_PROCESO' | 'EXITOSO' | 'NO_EXITOSO' | 'RE_DATEAR'
 export type OrigenDateo = 'UI' | 'WHATSAPP' | 'IMPORT'
 
 export interface AgenteLight {
@@ -11,7 +11,7 @@ export interface AgenteLight {
   tipo: 'INTERNO' | 'EXTERNO' | string
 }
 
-export interface ConvenioLight { // ✅
+export interface ConvenioLight {
   id: number
   nombre: string
 }
@@ -25,6 +25,16 @@ export interface DateoImagenMeta {
   imagen_origen_id?: string | number | null
 }
 
+/** Información del turno vinculado al dateo */
+export interface TurnoInfo {
+  id?: number
+  fecha?: string
+  numeroGlobal?: number
+  numeroServicio?: number
+  servicioCodigo?: string
+  estado?: string
+}
+
 export interface Dateo extends DateoImagenMeta {
   id: number
   canal: CanalCaptacion
@@ -33,7 +43,7 @@ export interface Dateo extends DateoImagenMeta {
   agente?: AgenteLight | null
   agente_id?: number | null
   convenio_id?: number | null
-  convenio?: ConvenioLight | null // ✅
+  convenio?: ConvenioLight | null
   placa?: string | null
   telefono?: string | null
   observacion?: string | null
@@ -42,6 +52,7 @@ export interface Dateo extends DateoImagenMeta {
   consumido_at?: string | null
   updated_at?: string
   origen?: OrigenDateo
+  turnoInfo?: TurnoInfo | null
 }
 
 export interface ListResponse<T> { data: T[]; total: number; page: number; perPage: number }
@@ -52,7 +63,7 @@ export interface ListParams {
   placa?: string
   telefono?: string
   canal?: CanalCaptacion | ''
-  convenioId?: number // ✅
+  convenioId?: number
   agenteId?: number
   resultado?: ResultadoDateo | ''
   desde?: string
@@ -92,7 +103,7 @@ export async function listDateos(params: ListParams) {
   const r = await get<BackendListEnvelope<Dateo>>('/api/captacion-dateos', {
     params: {
       ...params,
-      convenio_id: params.convenioId, // ✅ backend espera convenio_id
+      convenio_id: params.convenioId,
     },
   })
 
@@ -156,7 +167,7 @@ export async function listAgentesCaptacion() {
   }
 }
 
-/** ✅ Catálogo ligero de convenios para selects */
+/** Catálogo ligero de convenios para selects */
 export async function listConveniosLight() {
   try {
     const r = await get<{ data: ConvenioLight[] }>(`/api/convenios`, {
@@ -170,7 +181,7 @@ export async function listConveniosLight() {
   }
 }
 
-/** Utilidad “auto desde convenio” (si lo usas en otro flujo) */
+/** Utilidad "auto desde convenio" (si lo usas en otro flujo) */
 export function crearDateoAutoPorConvenio(payload: { placa?: string; telefono?: string; convenioId: number }) {
   return post<unknown, typeof payload>('/api/captacion-dateos/auto-convenio', payload)
 }

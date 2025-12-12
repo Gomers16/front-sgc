@@ -542,7 +542,7 @@ const totalFacturaDisplay = ref('')
 const hora12 = ref('')
 function to12h(hhmmss: string) {
   if (!hhmmss) return ''
-  let [hh='00', mm='00', ss='00'] = hhmmss.split(':')
+  const [hh='00', mm='00', ss='00'] = hhmmss.split(':')
   let h = Number(hh)
   const ampm = h >= 12 ? 'PM' : 'AM'
   h = h % 12; if (h === 0) h = 12
@@ -739,7 +739,7 @@ function normalizeFecha(s: string): string {
 function normalizeHora(h: string): string {
   const t = h.replace(/\./g, ':').trim()
   const ampm = /(AM|PM)$/i.test(t)
-  let [hh, mm = '00', ss = '00'] = t.replace(/\s?(AM|PM)$/i, '').split(':')
+  const [hh, mm = '00', ss = '00'] = t.replace(/\s?(AM|PM)$/i, '').split(':')
   let H = Number(hh)
   if (Number.isNaN(H)) return ''
   if (ampm) {

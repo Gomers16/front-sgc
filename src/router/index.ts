@@ -129,13 +129,7 @@ const routes = [
   },
 
   // COMERCIAL
-  {
-    path: '/comercial/buscar',
-    name: 'ComercialBuscar',
-    component: () => import('@/views/comercial/BuscarView.vue'),
-    meta: { layout: 'MainLayout' },
-  },
-
+  
   // Asesores + convenios
   {
     path: '/comercial/asesores',

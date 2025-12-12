@@ -34,14 +34,14 @@
             style="min-width: 200px"
           />
           <v-text-field
-  v-model="filters.cedula"
-  label="Cédula"
-  variant="outlined"
-  density="comfortable"
-  hide-details
-  clearable
-  style="min-width: 140px"
-/>
+            v-model="filters.cedula"
+            label="Cédula"
+            variant="outlined"
+            density="comfortable"
+            hide-details
+            clearable
+            style="min-width: 140px"
+          />
 
           <v-autocomplete
             v-model="filters.convenioId"
@@ -186,8 +186,6 @@
               color="error"
               @click="openRetirar(item.id)"
             />
-            <!-- 🔁 Datear: solo cuando la RTM está vencida -->
-
           </div>
         </template>
       </v-data-table-server>
@@ -291,7 +289,7 @@ const filters = ref({
   cedula: '',
   convenioId: null as number | null,
   asesorId: null as number | null,
-  vigente: '' as '' | 0 | 1 | boolean, // compat
+  vigente: '' as '' | 0 | 1 | boolean,
   desde: '',
   hasta: '',
 })
@@ -309,14 +307,14 @@ const headers = [
   { title: 'RTM', key: 'tecno', sortable: false },
   { title: 'Preventiva', key: 'preventiva', sortable: false },
   { title: 'Peritaje', key: 'peritaje', sortable: false },
-  { title: 'Acciones', key: 'acciones', sortable: false, align: 'end' },
-]
+  { title: 'Acciones', key: 'acciones', sortable: false, align: 'end' as const },
+] as const
 
 const rows = ref<Prospecto[]>([])
 const totalItems = ref(0)
 const page = ref(1)
 const itemsPerPage = ref(10)
-const sortBy = ref<any>([{ key: 'id', order: 'desc' }])
+const sortBy = ref<{ key: string; order: 'asc' | 'desc' }[]>([{ key: 'id', order: 'desc' }])
 const loading = ref(false)
 const dateandoId = ref<number | null>(null)
 
@@ -421,7 +419,13 @@ function normalizeRow(p: Record<string, unknown>) {
 /* ============================
    CRUD
 ============================ */
-function onUpdateOptions(opts: { page?: number; itemsPerPage?: number; sortBy?: any }) {
+interface UpdateOptions {
+  page?: number
+  itemsPerPage?: number
+  sortBy?: { key: string; order: 'asc' | 'desc' }[]
+}
+
+function onUpdateOptions(opts: UpdateOptions) {
   if (opts?.page !== undefined) page.value = opts.page
   if (opts?.itemsPerPage !== undefined) itemsPerPage.value = opts.itemsPerPage
   if (opts?.sortBy !== undefined) sortBy.value = opts.sortBy
@@ -434,7 +438,7 @@ async function loadItems() {
     const sort =
       Array.isArray(sortBy.value) && sortBy.value[0]
         ? sortBy.value[0]
-        : { key: 'id', order: 'desc' }
+        : { key: 'id', order: 'desc' as const }
 
     const res = await listProspectos({
       page: page.value,
@@ -499,21 +503,6 @@ const dlgDatear = ref({
   nombre: '' as string,
   loading: false,
 })
-
-function puedeDatear(item: Prospecto) {
-  // RTM vencida → tecno_vigente === false
-  return item.tecno_vigente === false
-}
-
-function onDatear(item: Prospecto) {
-  if (!item.id) return
-  dlgDatear.value = {
-    visible: true,
-    id: item.id,
-    nombre: item.nombre || '',
-    loading: false,
-  }
-}
 
 async function confirmDatear() {
   const id = dlgDatear.value.id

@@ -47,11 +47,8 @@
               <v-list-item>
                 <v-list-item-title class="font-weight-bold">Creado por:</v-list-item-title>
                 <v-list-item-subtitle>
-                  <template v-if="prospecto.creador">
-                    {{ prospecto.creador.nombre }}
-                    <span v-if="prospecto.creador.fuente" class="text-caption text-medium-emphasis">
-                      · {{ prospecto.creador.fuente }}
-                    </span>
+                  <template v-if="prospecto.asignacion_activa?.asesor">
+                    {{ prospecto.asignacion_activa.asesor.nombre }}
                   </template>
                   <template v-else>—</template>
                 </v-list-item-subtitle>
@@ -81,7 +78,7 @@
             <v-card variant="outlined" class="pa-4 rounded-lg">
               <div class="text-h6 mb-2">👥 Propietario del prospecto</div>
               <div>
-                <strong>{{ prospecto.creador?.nombre || '—' }}</strong>
+                <strong>{{ prospecto.asignacion_activa?.asesor?.nombre || '—' }}</strong>
                 <span v-if="prospecto.asignacion_activa?.fecha_asignacion" class="text-caption text-medium-emphasis">
                   · asignado el {{ formatDate(prospecto.asignacion_activa?.fecha_asignacion) }}
                 </span>
@@ -126,7 +123,7 @@
                 Vencimiento: {{ soat.vencimiento || formatDate(prospecto.soat_vencimiento) || '—' }}
               </div>
               <div class="text-caption">
-                Días restantes: <strong>{{ soat.dias_restantes ?? prospecto.dias_soat_restantes ?? '—' }}</strong>
+                Días restantes: <strong>{{ soat.dias_restantes ?? prospecto.diasSoatRestantes ?? '—' }}</strong>
               </div>
             </v-card>
           </v-col>
@@ -141,7 +138,7 @@
                 Vencimiento: {{ rtm.vencimiento || formatDate(prospecto.tecno_vencimiento) || '—' }}
               </div>
               <div class="text-caption">
-                Días restantes: <strong>{{ rtm.dias_restantes ?? prospecto.dias_tecno_restantes ?? '—' }}</strong>
+                Días restantes: <strong>{{ rtm.dias_restantes ?? prospecto.diasTecnoRestantes ?? '—' }}</strong>
               </div>
             </v-card>
           </v-col>
@@ -151,8 +148,8 @@
           <v-col cols="12" md="6">
             <v-card outlined class="pa-4">
               <div class="text-h6 mb-2">🧯 Preventiva</div>
-              <v-chip :color="chipColor(preventiva.estado)" variant="flat" size="small">
-                {{ chipText(preventiva.estado) }}
+              <v-chip :color="chipColor(preventiva.estado as EstadoVigencia)" variant="flat" size="small">
+                {{ chipText(preventiva.estado as EstadoVigencia) }}
               </v-chip>
               <div class="mt-2 text-caption">
                 Vencimiento: {{ preventiva.vencimiento || '—' }}
@@ -216,7 +213,7 @@
 <script setup lang="ts">
 import { onMounted, ref, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { getProspectoById, formatDate, type ProspectoDetail } from '@/services/prospectosService'
+import { getProspectoById, formatDate, type ProspectoDetail, type EstadoVigencia } from '@/services/prospectosService'
 
 const route = useRoute()
 const router = useRouter()
@@ -230,8 +227,8 @@ const badge = {
   vencido:   { text: 'Vencido',  color: 'error' },
   sin_datos: { text: 'Sin datos', color: 'grey-darken-1' },
 } as const
-const chipColor = (e: keyof typeof badge) => badge[e]?.color || 'grey-darken-1'
-const chipText  = (e: keyof typeof badge) => badge[e]?.text  || '—'
+const chipColor = (e: EstadoVigencia) => badge[e]?.color || 'grey-darken-1'
+const chipText  = (e: EstadoVigencia) => badge[e]?.text  || '—'
 
 function prettyTipo(t?: string | null) {
   if (!t) return ''
@@ -249,27 +246,39 @@ function prettyTipo(t?: string | null) {
 const soat = computed(() => {
   const rv = prospecto.value?.resumenVigencias?.soat
   if (rv) return rv
-  const estado: 'vigente'|'vencido'|'sin_datos' =
+  const estado: EstadoVigencia =
     prospecto.value?.soat_vigente == null ? 'sin_datos' : (prospecto.value?.soat_vigente ? 'vigente' : 'vencido')
-  return { estado, vencimiento: prospecto.value?.soat_vencimiento ?? null, dias_restantes: prospecto.value?.dias_soat_restantes ?? null }
+  return { estado, vencimiento: prospecto.value?.soat_vencimiento ?? null, dias_restantes: prospecto.value?.diasSoatRestantes ?? null }
 })
 const rtm = computed(() => {
   const rv = prospecto.value?.resumenVigencias?.rtm
   if (rv) return rv
-  const estado: 'vigente'|'vencido'|'sin_datos' =
+  const estado: EstadoVigencia =
     prospecto.value?.tecno_vigente == null ? 'sin_datos' : (prospecto.value?.tecno_vigente ? 'vigente' : 'vencido')
-  return { estado, vencimiento: prospecto.value?.tecno_vencimiento ?? null, dias_restantes: prospecto.value?.dias_tecno_restantes ?? null }
+  return { estado, vencimiento: prospecto.value?.tecno_vencimiento ?? null, dias_restantes: prospecto.value?.diasTecnoRestantes ?? null }
 })
 const preventiva = computed(() =>
-  prospecto.value?.resumenVigencias?.preventiva ?? { estado: 'sin_datos', vencimiento: null, dias_restantes: null }
+  prospecto.value?.resumenVigencias?.preventiva ?? { estado: 'sin_datos' as const, vencimiento: null, dias_restantes: null }
 )
 const peritaje = computed(() =>
-  prospecto.value?.resumenVigencias?.peritaje ?? { estado: 'sin_datos', fecha: null }
+  prospecto.value?.resumenVigencias?.peritaje ?? { estado: 'sin_datos' as const, fecha: null }
 )
 
 /* Convenio chip (oculta SIN-COD) */
-const convenioNombre = computed<string | null>(() => (prospecto.value as any)?.convenio?.nombre ?? (prospecto.value as any)?.convenioNombre ?? null)
-const convenioCodigo = computed<string | null>(() => (prospecto.value as any)?.convenio?.codigo ?? (prospecto.value as any)?.convenioCodigo ?? null)
+interface ConvenioData {
+  convenio?: { nombre?: string; codigo?: string } | null
+  convenioNombre?: string | null
+  convenioCodigo?: string | null
+}
+
+const convenioNombre = computed<string | null>(() => {
+  const p = prospecto.value as ConvenioData | null
+  return p?.convenio?.nombre ?? p?.convenioNombre ?? null
+})
+const convenioCodigo = computed<string | null>(() => {
+  const p = prospecto.value as ConvenioData | null
+  return p?.convenio?.codigo ?? p?.convenioCodigo ?? null
+})
 const convenioChip = computed<string>(() => {
   const n = convenioNombre.value || ''
   const c = (convenioCodigo.value || '').toUpperCase()
@@ -289,30 +298,24 @@ async function fetchProspecto() {
   }
 }
 
-// 🔥 SOLUCIÓN: Función goBack corregida
 function goBack() {
-  // Detectar si venimos de la ficha comercial
   const q = route.query.fromFicha ?? route.query.fromAsesor
   const fromFicha = q ? String(q) : null
 
   if (fromFicha) {
-    // Regresar a la ficha comercial del asesor
     router.push({
-      name: 'FichaComercialAsesor',  // 👈 Nombre correcto de la ruta
+      name: 'FichaComercialAsesor',
       params: { id: String(fromFicha) }
     }).catch(() => {})
     return
   }
 
-  // Si no viene de ficha, ir a la lista general
   router.push({ name: 'ComercialProspectos' }).catch(() => {})
 }
 
-// 🔥 SOLUCIÓN: Función irEditar corregida
 function irEditar() {
   const id = Number(route.params.id)
 
-  // Preservar el query parameter fromFicha
   const q = route.query.fromFicha ?? route.query.fromAsesor
   const fromFicha = q ? String(q) : null
 

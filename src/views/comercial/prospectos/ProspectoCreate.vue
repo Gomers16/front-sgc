@@ -365,7 +365,7 @@ function volver(): void {
         return
       }
     }
-  } catch (e) {
+  } catch {
     // silent
   }
 
