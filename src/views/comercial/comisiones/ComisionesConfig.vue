@@ -641,7 +641,7 @@ const headers = [
   { title: 'Comisión placa', key: 'valor_placa', sortable: true },
   { title: 'Comisión dateo', key: 'valor_dateo', sortable: true },
   { title: 'Actualizado', key: 'fecha_calculo', sortable: true },
-  { title: 'Acciones', key: 'acciones', sortable: false, align: 'end' },
+  { title: 'Acciones', key: 'acciones', sortable: false, align: 'end' as const },
 ]
 
 /* Tabla metas mensuales */
@@ -653,7 +653,7 @@ const metaHeaders = [
   { title: 'RTM vehículo', key: 'valor_rtm_vehiculo', sortable: false },
   { title: '% extra', key: 'porcentaje_extra', sortable: true },
   { title: 'Actualizado', key: 'fecha_actualizacion', sortable: true },
-  { title: 'Acciones', key: 'acciones', sortable: false, align: 'end' },
+  { title: 'Acciones', key: 'acciones', sortable: false, align: 'end' as const },
 ]
 
 const metaTipoVehiculoItems = [

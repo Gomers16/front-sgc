@@ -190,7 +190,6 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
-import { useRouter } from 'vue-router'
 import {
   listConvenios,
   getConvenio,
@@ -225,7 +224,6 @@ type AsesorActivoLite = {
   activo?: boolean
 }
 
-const router = useRouter()
 
 /* Filtros */
 const filters = ref<{ texto: string; activo: '' | 0 | 1 | boolean }>({
@@ -244,13 +242,13 @@ const headers = [
   { title: 'Estado', key: 'activo', sortable: true },
   { title: 'Contacto', key: 'contacto', sortable: false }, // 👈 antes 'Vigencia'
   { title: 'Asesor activo', key: 'asesor', sortable: false },
-  { title: 'Acciones', key: 'acciones', sortable: false, align: 'end' },
+  { title: 'Acciones', key: 'acciones', sortable: false, align: 'end' as const },
 ]
 const rows = ref<ConvenioLite[]>([])
 const totalItems = ref(0)
 const page = ref(1)
 const itemsPerPage = ref(10)
-const sortBy = ref<any>([{ key: 'id', order: 'desc' }])
+const sortBy = ref<Array<{ key: string; order: 'asc' | 'desc' }>>([{ key: 'id', order: 'desc' }])
 const loading = ref(false)
 
 /* Asesor activo cache por convenioId */
@@ -270,16 +268,6 @@ async function loadAsesores() {
 }
 
 /* Helpers UI */
-function fmtDate(s?: string | null) {
-  if (!s) return '—'
-  const d = new Date(s)
-  if (isNaN(d.getTime())) return s
-  try {
-    return d.toLocaleDateString()
-  } catch {
-    return s
-  }
-}
 
 /* Data */
 async function loadItems() {
@@ -288,7 +276,7 @@ async function loadItems() {
     const sort =
       Array.isArray(sortBy.value) && sortBy.value[0]
         ? sortBy.value[0]
-        : { key: 'id', order: 'desc' }
+        : { key: 'id', order: 'desc' as const }
     const res = await listConvenios({
       page: page.value,
       perPage: itemsPerPage.value,

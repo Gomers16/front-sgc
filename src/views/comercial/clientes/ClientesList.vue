@@ -72,6 +72,32 @@ import { ClientesService } from '@/services/clientes_service'
 const router = useRouter()
 
 /* =========================
+   Interfaces
+========================= */
+interface Cliente {
+  id: number
+  nombre: string
+  docTipo?: string
+  docNumero?: string
+  telefono: string
+  email?: string
+}
+
+interface DataTableOptions {
+  page?: number
+  itemsPerPage?: number
+  sortBy?: Array<{ key: string; order: 'asc' | 'desc' }>
+}
+
+interface PaginatedResponse {
+  data: Cliente[]
+  meta?: {
+    total: number
+  }
+  total?: number
+}
+
+/* =========================
    Tabla
 ========================= */
 const headers = [
@@ -79,14 +105,14 @@ const headers = [
   { title: 'Documento', key: 'documento', sortable: false },
   { title: 'Teléfono', key: 'telefono', sortable: true },
   { title: 'Email', key: 'email', sortable: false },
-  { title: 'Acciones', key: 'acciones', sortable: false, align: 'end' },
+  { title: 'Acciones', key: 'acciones', sortable: false, align: 'end' as const },
 ]
 
-const rows = ref<any[]>([])
+const rows = ref<Cliente[]>([])
 const totalItems = ref(0)
 const page = ref(1)
 const itemsPerPage = ref(10)
-const sortBy = ref<any>([{ key: 'id', order: 'asc' }])
+const sortBy = ref<Array<{ key: string; order: 'asc' | 'desc' }>>([{ key: 'id', order: 'asc' }])
 const loading = ref(false)
 
 /* =========================
@@ -94,7 +120,7 @@ const loading = ref(false)
 ========================= */
 const q = ref('')
 
-function onUpdateOptions(opts: { page?: number; itemsPerPage?: number; sortBy?: any }) {
+function onUpdateOptions(opts: DataTableOptions) {
   if (opts?.page !== undefined) page.value = opts.page
   if (opts?.itemsPerPage !== undefined) itemsPerPage.value = opts.itemsPerPage
   if (opts?.sortBy !== undefined) sortBy.value = opts.sortBy
@@ -108,14 +134,11 @@ async function loadItems() {
       page: page.value,
       perPage: itemsPerPage.value,
       q: q.value || undefined,
-    })
+    }) as PaginatedResponse
 
     // Adonis paginate → { data, meta }
-    const data = (res as any)?.data ?? []
-    const total =
-      (res as any)?.meta?.total ??
-      (res as any)?.total ??
-      (Array.isArray(data) ? data.length : 0)
+    const data = res?.data ?? []
+    const total = res?.meta?.total ?? res?.total ?? (Array.isArray(data) ? data.length : 0)
 
     rows.value = data
     totalItems.value = total

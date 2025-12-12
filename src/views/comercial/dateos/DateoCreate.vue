@@ -324,10 +324,29 @@ import { useRouter, useRoute } from 'vue-router'
 import { createDateo } from '@/services/dateosService'
 import { listAgentesCaptacion, listConveniosAsignados } from '@/services/conveniosService'
 import { uploadImage, type UploadImageResponse } from '@/services/uploadsService'
-import { listConveniosLight } from '@/services/dateosService' // 👈 AGREGAR ESTA LÍNEA
+import { listConveniosLight } from '@/services/dateosService'
 
 const router = useRouter()
 const route = useRoute()
+
+interface FormRef {
+  validate: () => Promise<{ valid: boolean }>
+}
+
+interface CreateDateoPayload {
+  canal: 'FACHADA' | 'ASESOR' | 'TELE' | 'REDES'
+  origen: 'UI'
+  agente_id: number | null
+  convenio_id: number | null
+  placa: string | null
+  telefono: string | null
+  observacion: string | null
+  imagen_url?: string | null
+  imagen_mime?: string | null
+  imagen_tamano_bytes?: number | null
+  imagen_hash?: string | null
+  imagen_origen_id?: string | number | null
+}
 
 /* ===== Contexto desde ficha ===== */
 const fromAsesor = ref<number | null>(null)
@@ -337,7 +356,7 @@ const agenteBloqueado = ref(false)
 const convenioBloqueado = ref(false)
 
 /* ===== Estado del formulario ===== */
-const formRef = ref<any>(null)
+const formRef = ref<FormRef | null>(null)
 const loading = ref(false)
 const uploading = ref(false)
 const showConfirmDialog = ref(false)
@@ -481,8 +500,8 @@ onBeforeUnmount(() => {
 
 /* ===== Reglas ===== */
 const rules = {
-  required: (v: any) => !!v || 'Este campo es requerido',
-  placaLength: (v: any) => {
+  required: (v: unknown) => !!v || 'Este campo es requerido',
+  placaLength: (v: unknown) => {
     if (!v) return 'La placa es requerida'
     const trimmed = v.toString().trim()
     return trimmed.length === 6 || 'La placa debe tener exactamente 6 caracteres'
@@ -545,7 +564,7 @@ function autoSeleccionarConvenioAsesorConvenio() {
 /* ===== Watchers ===== */
 watch(
   () => form.value.tipo_asesor,
-  (nuevo) => {
+  () => {
     if (fromAsesor.value && tipoAsesorBloqueado.value && agenteBloqueado.value) {
       return
     }
@@ -660,9 +679,9 @@ async function handleSubmit() {
     }
 
     // 🔥 PASO 2: Preparar payload con todos los campos (incluida imagen)
-    const payload: any = {
+    const payload: CreateDateoPayload = {
       canal: form.value.canal,
-      origen: 'UI' as const,
+      origen: 'UI',
       agente_id: form.value.agente_id,
       convenio_id: form.value.convenio_id,
       placa: form.value.placa ? form.value.placa.toUpperCase().trim() : null,
@@ -685,9 +704,10 @@ async function handleSubmit() {
 
     console.log('✅ Dateo creado exitosamente')
     showSuccessDialog.value = true
-  } catch (error: any) {
+  } catch (error) {
     console.error('❌ Error creando dateo:', error)
-    const msg = error?.response?.data?.message || error?.message || 'Error al crear el dateo'
+    const errorObj = error as { response?: { data?: { message?: string } }; message?: string }
+    const msg = errorObj?.response?.data?.message || errorObj?.message || 'Error al crear el dateo'
     snackbar.value = { show: true, color: 'error', text: msg }
   } finally {
     loading.value = false
@@ -746,17 +766,14 @@ function inicializarDesdeFicha() {
 /* ===== Cargar catálogos ===== */
 async function loadCatalogos() {
   try {
-    // ✅ Cargar agentes
     const agentesData = await listAgentesCaptacion()
     agentes.value = agentesData
 
-    // ✅ Usar el servicio correcto para convenios (en lugar de fetch manual)
     try {
       const conveniosData = await listConveniosLight()
       conveniosAll.value = conveniosData || []
     } catch (error) {
       console.error('Error cargando convenios:', error)
-      // Si falla, intentar cargar de forma alternativa o dejar vacío
       conveniosAll.value = []
     }
 

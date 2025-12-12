@@ -92,41 +92,43 @@
 
         <template #item.convenios="{ item }">
           <v-chip
+            v-if="unwrap(item)"
             size="small"
             variant="tonal"
             class="cursor-pointer"
-            @click="openVerConvenios(unwrap(item))"
+            @click="openVerConvenios(unwrap(item)!)"
           >
-            {{ conveniosCount[unwrap(item)?.id] ?? '—' }}
+            {{ conveniosCount[unwrap(item)!.id] ?? '—' }}
           </v-chip>
         </template>
 
         <template #item.prospectos="{ item }">
           <v-chip
+            v-if="unwrap(item)"
             size="small"
             variant="tonal"
             class="cursor-pointer"
-            @click="openVerProspectos(unwrap(item))"
+            @click="openVerProspectos(unwrap(item)!)"
           >
-            {{ prospectosCount[unwrap(item)?.id] ?? '—' }}
+            {{ prospectosCount[unwrap(item)!.id] ?? '—' }}
           </v-chip>
         </template>
 
         <template #item.acciones="{ item }">
-          <div class="d-flex gap-1">
+          <div v-if="unwrap(item)" class="d-flex gap-1">
             <v-btn
               size="small"
               variant="text"
               icon="mdi-eye"
               :title="'Ver convenios'"
-              @click="openVerConvenios(unwrap(item))"
+              @click="openVerConvenios(unwrap(item)!)"
             />
             <v-btn
               size="small"
               variant="text"
               icon="mdi-account-eye"
               :title="'Ver prospectos'"
-              @click="openVerProspectos(unwrap(item))"
+              @click="openVerProspectos(unwrap(item)!)"
             />
             <v-divider vertical class="mx-1" />
             <v-btn
@@ -134,7 +136,7 @@
               variant="text"
               icon="mdi-account-plus"
               :title="'Asignar convenio'"
-              @click="openAsignar(unwrap(item))"
+              @click="openAsignar(unwrap(item)!)"
             />
             <v-btn
               size="small"
@@ -142,7 +144,7 @@
               icon="mdi-account-remove"
               color="error"
               :title="'Retirar convenio'"
-              @click="openRetirar(unwrap(item))"
+              @click="openRetirar(unwrap(item)!)"
             />
           </div>
         </template>
@@ -307,17 +309,62 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import asesoresApi, { type Agente } from '@/services/asesoresService'
-const { listAsesores, listConveniosDelAsesor } = asesoresApi as any
 import { listConvenios, asignarAsesorConvenio, retirarAsesorConvenio } from '@/services/conveniosService'
 import { get } from '@/services/http'
+
 const API = '/api'
 
-type ConvenioLite = { id: number; nombre: string; vigencia_desde?: string | null; vigencia_hasta?: string | null }
-type ProspectoLite = {
-  id: number; nombre?: string | null; placa?: string | null; telefono?: string | null;
-  observaciones?: string | null; soatVigente?: boolean | null; soatVencimiento?: string | null;
-  tecnoVigente?: boolean | null; tecnoVencimiento?: string | null; created_at?: string
+// Tipado explícito de las funciones del servicio
+interface AsesoresService {
+  listAsesores: (params: ListAsesoresParams) => Promise<ListAsesoresResponse>
+  listConveniosDelAsesor: (asesorId: number) => Promise<ConvenioLite[]>
 }
+
+interface ListAsesoresParams {
+  page: number
+  perPage: number
+  q?: string
+  tipo?: string
+  activo?: boolean | 0 | 1
+  sortBy?: string
+  order?: 'asc' | 'desc'
+}
+
+interface ListAsesoresResponse {
+  data: Agente[]
+  total: number
+}
+
+const { listAsesores, listConveniosDelAsesor } = asesoresApi as unknown as AsesoresService
+
+type ConvenioLite = {
+  id: number
+  nombre: string
+  vigencia_desde?: string | null
+  vigencia_hasta?: string | null
+}
+
+type ProspectoLite = {
+  id: number
+  nombre?: string | null
+  placa?: string | null
+  telefono?: string | null
+  observaciones?: string | null
+  soatVigente?: boolean | null
+  soatVencimiento?: string | null
+  tecnoVigente?: boolean | null
+  tecnoVencimiento?: string | null
+  created_at?: string
+}
+
+type ItemWrapper = {
+  raw: Agente
+}
+
+interface APIProspectosResponse {
+  data?: ProspectoLite[]
+}
+
 
 /* ===== Helpers ===== */
 function humanTipo(t?: string | null) {
@@ -327,20 +374,28 @@ function humanTipo(t?: string | null) {
   if (v === 'ASESOR_TELEMERCADEO') return 'Asesor telemercadeo'
   return t || '—'
 }
+
 /** Compatibilidad item/raw */
-function unwrap(rowOrWrapper: any) {
-  return rowOrWrapper && typeof rowOrWrapper === 'object' && 'raw' in rowOrWrapper
-    ? rowOrWrapper.raw
-    : rowOrWrapper
+function unwrap(rowOrWrapper: Agente | ItemWrapper): Agente | undefined {
+  if (!rowOrWrapper) return undefined
+  if (typeof rowOrWrapper === 'object' && 'raw' in rowOrWrapper) {
+    return rowOrWrapper.raw
+  }
+  return rowOrWrapper as Agente
 }
 
-const filters = ref<{ q: string; tipo: string | ''; activo: '' | 0 | 1 | boolean }>({ q: '', tipo: '', activo: '' })
+const filters = ref<{ q: string; tipo: string | ''; activo: '' | 0 | 1 | boolean }>({
+  q: '',
+  tipo: '',
+  activo: '',
+})
 
 const tipoItems = [
   { title: 'Asesor comercial', value: 'ASESOR_COMERCIAL' },
   { title: 'Asesor convenio', value: 'ASESOR_CONVENIO' },
   { title: 'Asesor telemercadeo', value: 'ASESOR_TELEMERCADEO' },
 ]
+
 const estadoItems = [
   { title: 'Activos', value: 1 },
   { title: 'Inactivos', value: 0 },
@@ -353,38 +408,70 @@ const headers = [
   { title: 'Estado', key: 'activo', sortable: true },
   { title: 'Convenios', key: 'convenios', sortable: false },
   { title: 'Prospectos', key: 'prospectos', sortable: false },
-  { title: 'Acciones', key: 'acciones', sortable: false, align: 'end' },
+  { title: 'Acciones', key: 'acciones', sortable: false, align: 'end' as const },
 ]
 
 const rows = ref<Agente[]>([])
 const totalItems = ref(0)
 const page = ref(1)
 const itemsPerPage = ref(10)
-const sortBy = ref<any>([{ key: 'id', order: 'asc' }])
+const sortBy = ref<Array<{ key: string; order: 'asc' | 'desc' }>>([{ key: 'id', order: 'asc' }])
 const loading = ref(false)
 const globalError = ref<string | null>(null)
 
 const conveniosCount = ref<Record<number, number>>({})
 const prospectosCount = ref<Record<number, number>>({})
 
-const dlgVer = ref({ visible: false, asesor: null as Agente | null, convenios: [] as ConvenioLite[], loading: false, error: null as string | null })
-const dlgPros = ref({ visible: false, asesor: null as Agente | null, items: [] as ProspectoLite[], loading: false, error: null as string | null })
-const dlgAsignar = ref({ visible: false, asesor: null as Agente | null, convenioId: null as number | null, loading: false, error: null as string | null })
+const dlgVer = ref({
+  visible: false,
+  asesor: null as Agente | null,
+  convenios: [] as ConvenioLite[],
+  loading: false,
+  error: null as string | null,
+})
+
+const dlgPros = ref({
+  visible: false,
+  asesor: null as Agente | null,
+  items: [] as ProspectoLite[],
+  loading: false,
+  error: null as string | null,
+})
+
+const dlgAsignar = ref({
+  visible: false,
+  asesor: null as Agente | null,
+  convenioId: null as number | null,
+  loading: false,
+  error: null as string | null,
+})
+
 const conveniosOpciones = ref<ConvenioLite[]>([])
 const conveniosOpcionesLoading = ref(false)
-const dlgRetirar = ref({ visible: false, asesor: null as Agente | null, convenioId: null as number | null, motivo: '', convenios: [] as ConvenioLite[], loading: false, error: null as string | null })
+
+const dlgRetirar = ref({
+  visible: false,
+  asesor: null as Agente | null,
+  convenioId: null as number | null,
+  motivo: '',
+  convenios: [] as ConvenioLite[],
+  loading: false,
+  error: null as string | null,
+})
 
 /* ===== util de UI ===== */
 function vigenciaText(c: ConvenioLite) {
   const f = (s?: string | null) => (!s ? '—' : new Date(s).toLocaleDateString())
   return `${f(c.vigencia_desde)} – ${f(c.vigencia_hasta)}`
 }
+
 function fmtDate(d?: string | Date | null) {
   if (!d) return '—'
   if (typeof d === 'string' && /^\d{2}\/\d{2}\/\d{4}$/.test(d)) return d
   const dt = d instanceof Date ? d : new Date(d)
   return isNaN(dt.getTime()) ? '—' : dt.toLocaleDateString()
 }
+
 function desdeSegunVenc(venc?: string | null) {
   if (!venc) return null
   const d = new Date(venc)
@@ -392,6 +479,7 @@ function desdeSegunVenc(venc?: string | null) {
   d.setFullYear(d.getFullYear() - 1)
   return d
 }
+
 function rangoVigencia(venc?: string | null) {
   if (!venc) return '—'
   const desde = desdeSegunVenc(venc)
@@ -403,69 +491,93 @@ async function loadItems() {
   loading.value = true
   globalError.value = null
   try {
-    const sort = Array.isArray(sortBy.value) && sortBy.value[0] ? sortBy.value[0] : { key: 'id', order: 'asc' }
+    const sort = Array.isArray(sortBy.value) && sortBy.value[0] ? sortBy.value[0] : { key: 'id', order: 'asc' as const }
     const res = await listAsesores({
       page: page.value,
       perPage: itemsPerPage.value,
       q: filters.value.q || undefined,
-      tipo: (filters.value.tipo as any) || undefined,
+      tipo: (filters.value.tipo as string) || undefined,
       activo: filters.value.activo === '' ? undefined : filters.value.activo,
       sortBy: sort.key,
       order: sort.order,
-    } as any)
+    })
     rows.value = res.data
     totalItems.value = Number(res.total || 0)
     await Promise.all([cargarConteoConvenios(), cargarConteoProspectos()])
-  } catch (e: any) {
+  } catch (e) {
     rows.value = []
     totalItems.value = 0
-    globalError.value = e?.message || 'No fue posible cargar los asesores'
+    const error = e as Error
+    globalError.value = error?.message || 'No fue posible cargar los asesores'
   } finally {
     loading.value = false
   }
 }
-function reload() { page.value = 1; loadItems() }
-function resetFilters() { filters.value = { q: '', tipo: '', activo: '' }; reload() }
+
+function reload() {
+  page.value = 1
+  loadItems()
+}
+
+function resetFilters() {
+  filters.value = { q: '', tipo: '', activo: '' }
+  reload()
+}
 
 async function cargarConteoConvenios() {
   const map: Record<number, number> = {}
-  await Promise.all(rows.value.map(async (a) => {
-    try {
-      const lista = await listConveniosDelAsesor(a.id)
-      map[a.id] = Array.isArray(lista) ? lista.length : 0
-    } catch {
-      map[a.id] = 0
-    }
-  }))
+  await Promise.all(
+    rows.value.map(async (a) => {
+      try {
+        const lista = await listConveniosDelAsesor(a.id)
+        map[a.id] = Array.isArray(lista) ? lista.length : 0
+      } catch {
+        map[a.id] = 0
+      }
+    }),
+  )
   conveniosCount.value = map
 }
 
 async function fetchProspectosDelAsesor(asesorId: number): Promise<ProspectoLite[]> {
   try {
-    const r = await get<any>(`${API}/agentes-captacion/${asesorId}/prospectos`, { params: { vigente: 1 } })
-    const arr = r?.data ?? r
+    const r = await get<APIProspectosResponse>(
+      `${API}/agentes-captacion/${asesorId}/prospectos`,
+      { params: { vigente: 1 } },
+    )
+    const arr = r?.data ?? (r as unknown as ProspectoLite[])
     if (Array.isArray(arr)) return arr
   } catch {}
+
   try {
-    const r2 = await get<any>(`${API}/asesores/${asesorId}/prospectos`, { params: { vigente: 1 } })
-    const arr2 = r2?.data ?? r2
+    const r2 = await get<APIProspectosResponse>(
+      `${API}/asesores/${asesorId}/prospectos`,
+      { params: { vigente: 1 } },
+    )
+    const arr2 = r2?.data ?? (r2 as unknown as ProspectoLite[])
     if (Array.isArray(arr2)) return arr2
   } catch {}
-  const r3 = await get<any>(`${API}/prospectos`, { params: { creadoPor: asesorId, perPage: 500 } })
-  const arr3 = r3?.data ?? r3
+
+  const r3 = await get<APIProspectosResponse>(
+    `${API}/prospectos`,
+    { params: { creadoPor: asesorId, perPage: 500 } },
+  )
+  const arr3 = r3?.data ?? (r3 as unknown as ProspectoLite[])
   return Array.isArray(arr3) ? arr3 : []
 }
 
 async function cargarConteoProspectos() {
   const map: Record<number, number> = {}
-  await Promise.all(rows.value.map(async (a) => {
-    try {
-      const lista = await fetchProspectosDelAsesor(a.id)
-      map[a.id] = Array.isArray(lista) ? lista.length : 0
-    } catch {
-      map[a.id] = 0
-    }
-  }))
+  await Promise.all(
+    rows.value.map(async (a) => {
+      try {
+        const lista = await fetchProspectosDelAsesor(a.id)
+        map[a.id] = Array.isArray(lista) ? lista.length : 0
+      } catch {
+        map[a.id] = 0
+      }
+    }),
+  )
   prospectosCount.value = map
 }
 
@@ -473,31 +585,44 @@ async function cargarConteoProspectos() {
 function openVerConvenios(asesor: Agente) {
   dlgVer.value = { visible: true, asesor, convenios: [], loading: true, error: null }
   listConveniosDelAsesor(asesor.id)
-    .then((list: any[]) => (dlgVer.value.convenios = list as any))
-    .catch((e: any) => (dlgVer.value.error = e?.message || 'No fue posible cargar los convenios'))
+    .then((list: ConvenioLite[]) => (dlgVer.value.convenios = list))
+    .catch((e: unknown) => {
+      const error = e as Error
+      dlgVer.value.error = error?.message || 'No fue posible cargar los convenios'
+    })
     .finally(() => (dlgVer.value.loading = false))
 }
+
 function openVerProspectos(asesor: Agente) {
   dlgPros.value = { visible: true, asesor, items: [], loading: true, error: null }
   fetchProspectosDelAsesor(asesor.id)
-    .then((list) => (dlgPros.value.items = list as any))
-    .catch((e: any) => (dlgPros.value.error = e?.message || 'No fue posible cargar los prospectos'))
+    .then((list) => (dlgPros.value.items = list))
+    .catch((e: unknown) => {
+      const error = e as Error
+      dlgPros.value.error = error?.message || 'No fue posible cargar los prospectos'
+    })
     .finally(() => (dlgPros.value.loading = false))
 }
+
 function openAsignar(asesor: Agente) {
   dlgAsignar.value = { visible: true, asesor, convenioId: null, loading: false, error: null }
   conveniosOpcionesLoading.value = true
-  Promise.all([listConveniosDelAsesor(asesor.id), listConvenios({ perPage: 500, activo: 1 })])
+  Promise.all([
+    listConveniosDelAsesor(asesor.id),
+    listConvenios({ perPage: 500, activo: 1 }),
+  ])
     .then(([asignados, catalogo]) => {
-      const ya = new Set((asignados as any[]).map((c) => c.id))
-      conveniosOpciones.value = (catalogo.data as any[]).filter((c) => !ya.has(c.id))
+      const ya = new Set((asignados as ConvenioLite[]).map((c) => c.id))
+      conveniosOpciones.value = (catalogo.data as ConvenioLite[]).filter((c) => !ya.has(c.id))
     })
-    .catch((e: any) => {
-      dlgAsignar.value.error = e?.message || 'No fue posible cargar convenios'
+    .catch((e: unknown) => {
+      const error = e as Error
+      dlgAsignar.value.error = error?.message || 'No fue posible cargar convenios'
       conveniosOpciones.value = []
     })
     .finally(() => (conveniosOpcionesLoading.value = false))
 }
+
 async function confirmAsignar() {
   if (!dlgAsignar.value.asesor || !dlgAsignar.value.convenioId) return
   dlgAsignar.value.loading = true
@@ -505,52 +630,80 @@ async function confirmAsignar() {
   try {
     await asignarAsesorConvenio(dlgAsignar.value.convenioId, { asesor_id: dlgAsignar.value.asesor.id })
     dlgAsignar.value.visible = false
-    if (dlgVer.value.visible && dlgVer.value.asesor?.id === dlgAsignar.value.asesor.id) openVerConvenios(dlgAsignar.value.asesor)
+    if (dlgVer.value.visible && dlgVer.value.asesor?.id === dlgAsignar.value.asesor.id) {
+      openVerConvenios(dlgAsignar.value.asesor)
+    }
     await Promise.all([cargarConteoConvenios(), cargarConteoProspectos()])
-  } catch (e: any) {
-    dlgAsignar.value.error = e?.message || 'No fue posible asignar el convenio'
+  } catch (e) {
+    const error = e as Error
+    dlgAsignar.value.error = error?.message || 'No fue posible asignar el convenio'
   } finally {
     dlgAsignar.value.loading = false
   }
 }
+
 function openRetirar(asesor: Agente) {
-  dlgRetirar.value = { visible: true, asesor, convenioId: null, motivo: '', convenios: [], loading: false, error: null }
+  dlgRetirar.value = {
+    visible: true,
+    asesor,
+    convenioId: null,
+    motivo: '',
+    convenios: [],
+    loading: false,
+    error: null,
+  }
   listConveniosDelAsesor(asesor.id)
-    .then((list) => (dlgRetirar.value.convenios = list as any))
-    .catch((e: any) => {
-      dlgRetirar.value.error = e?.message || 'No fue posible cargar convenios'
+    .then((list) => (dlgRetirar.value.convenios = list))
+    .catch((e: unknown) => {
+      const error = e as Error
+      dlgRetirar.value.error = error?.message || 'No fue posible cargar convenios'
       dlgRetirar.value.convenios = []
     })
 }
+
 async function confirmRetirar() {
   if (!dlgRetirar.value.asesor || !dlgRetirar.value.convenioId) return
   dlgRetirar.value.loading = true
   dlgRetirar.value.error = null
   try {
-    await retirarAsesorConvenio(dlgRetirar.value.convenioId, { motivo: dlgRetirar.value.motivo || undefined })
+    await retirarAsesorConvenio(dlgRetirar.value.convenioId, {
+      motivo: dlgRetirar.value.motivo || undefined,
+    })
     dlgRetirar.value.visible = false
-    if (dlgVer.value.visible && dlgVer.value.asesor?.id === dlgRetirar.value.asesor.id) openVerConvenios(dlgRetirar.value.asesor)
+    if (dlgVer.value.visible && dlgVer.value.asesor?.id === dlgRetirar.value.asesor.id) {
+      openVerConvenios(dlgRetirar.value.asesor)
+    }
     await Promise.all([cargarConteoConvenios(), cargarConteoProspectos()])
-  } catch (e: any) {
-    dlgRetirar.value.error = e?.message || 'No fue posible retirar el convenio'
+  } catch (e) {
+    const error = e as Error
+    dlgRetirar.value.error = error?.message || 'No fue posible retirar el convenio'
   } finally {
     dlgRetirar.value.loading = false
   }
 }
+
 async function retirarConvenio(convenioId: number) {
   if (!dlgVer.value.asesor) return
   try {
     await retirarAsesorConvenio(convenioId, { motivo: 'Retiro manual' })
     openVerConvenios(dlgVer.value.asesor)
     await Promise.all([cargarConteoConvenios(), cargarConteoProspectos()])
-  } catch {}
+  } catch {
+    // Error silencioso
+  }
 }
 
 loadItems()
 </script>
 
 <style scoped>
-.gap-1{ gap:4px; }
-.gap-2{ gap:8px; }
-.cursor-pointer{ cursor:pointer; }
+.gap-1 {
+  gap: 4px;
+}
+.gap-2 {
+  gap: 8px;
+}
+.cursor-pointer {
+  cursor: pointer;
+}
 </style>

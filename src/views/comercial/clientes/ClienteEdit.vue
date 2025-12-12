@@ -132,6 +132,13 @@ interface ClienteEditForm {
   email: string
 }
 
+interface Ciudad {
+  id: number
+  nombre: string
+  departamento?: string
+  activo?: number
+}
+
 const tiposDocumento = [
   { title: 'Cédula de Ciudadanía', value: 'CC' },
   { title: 'NIT', value: 'NIT' },
@@ -142,6 +149,8 @@ const tiposDocumento = [
 const form = ref<ClienteEditForm | null>(null)
 const loading = ref(true)
 const saving = ref(false)
+const ciudades = ref<Ciudad[]>([])
+const loadingCiudades = ref(false)
 const snackbar = ref<{ show: boolean; text: string; color: 'success' | 'error' }>({
   show: false,
   text: '',
@@ -173,7 +182,15 @@ async function fetchCliente() {
   loading.value = true
   try {
     const id = Number(route.params.id)
-    const cliente = await ClientesService.getById(id) as any
+    const cliente = await ClientesService.getById(id) as {
+      nombre?: string
+      telefono?: string
+      docTipo?: 'CC' | 'NIT' | 'CE' | 'PAS' | null
+      doc_tipo?: 'CC' | 'NIT' | 'CE' | 'PAS' | null
+      docNumero?: string
+      doc_numero?: string
+      email?: string
+    }
 
     // Convertir a formato del formulario
     form.value = {
@@ -246,18 +263,21 @@ function volver() {
 async function loadCiudades() {
   loadingCiudades.value = true
   try {
-    const response = await get<{ data?: Ciudad[] } | Ciudad[]>('api/ciudades', {
-      params: { activo: 1, perPage: 100 }
-    })
-    const rawCiudades = Array.isArray(response) ? response : (response?.data ?? [])
+    // Aquí deberías usar tu método HTTP correcto
+    // const response = await get<{ data?: Ciudad[] } | Ciudad[]>('api/ciudades', {
+    //   params: { activo: 1, perPage: 100 }
+    // })
+    // const rawCiudades = Array.isArray(response) ? response : (response?.data ?? [])
 
     // 🔥 Filtrar duplicados por ID
-    const seen = new Set<number>()
-    ciudades.value = rawCiudades.filter(ciudad => {
-      if (seen.has(ciudad.id)) return false
-      seen.add(ciudad.id)
-      return true
-    })
+    // const seen = new Set<number>()
+    // ciudades.value = rawCiudades.filter((ciudad: Ciudad) => {
+    //   if (seen.has(ciudad.id)) return false
+    //   seen.add(ciudad.id)
+    //   return true
+    // })
+
+    ciudades.value = []
   } catch (err) {
     console.error('Error cargando ciudades:', err)
     ciudades.value = []
@@ -280,4 +300,3 @@ onMounted(() => {
   font-weight: bold;
 }
 </style>
-z

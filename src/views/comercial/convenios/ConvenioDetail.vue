@@ -17,7 +17,7 @@
           <v-divider />
           <v-card-text>
             <div class="text-h6 mb-1">{{ convenio?.nombre }}</div>
-            <div class="text-body-2 text-medium-emphasis mb-3">{{ convenio?.descripcion || '—' }}</div>
+            <div class="text-body-2 text-medium-emphasis mb-3">{{ convenio?.codigo || '—' }}</div>
             <div class="text-body-2">
               <strong>Vigencia:</strong>
               {{ formatDate(convenio?.vigencia_desde) }} – {{ formatDate(convenio?.vigencia_hasta) }}
@@ -35,7 +35,7 @@
             <div class="text-body-2" v-if="asesor?.asesor">
               <strong>{{ asesor.asesor.nombre }}</strong>
               <span class="text-medium-emphasis"> ({{ asesor.asesor.tipo }})</span>
-              <div class="text-caption text-medium-emphasis">Desde: {{ formatDate(asesor.desde) }}</div>
+              <div class="text-caption text-medium-emphasis">Desde: {{ formatDate(asesor.asignado_at) }}</div>
             </div>
             <div class="text-medium-emphasis" v-else>Sin asesor asignado.</div>
           </v-card-text>
@@ -142,7 +142,7 @@ async function dispararAutoDateo() {
     await crearDateoAutoPorConvenio({
       placa: autoDateo.value.placa || undefined,
       telefono: autoDateo.value.telefono || undefined,
-      convenioId: id,
+      convenio_id: id,
     })
     // Podrías mostrar un toast de éxito
   } finally {

@@ -268,8 +268,8 @@
           </template>
 
           <template #item.porcentaje_comision_meta="{ item }">
-            {{ (item.porcentaje_comision_meta ?? item.porcentaje_comision ?? 0) }}%
-          </template>
+  {{ (item.porcentaje_comision_meta ?? 0) }}%
+</template>
 
           <template #item.comision_estimada="{ item }">
             {{ formatCOP(calcComisionMeta(item)) }}
@@ -440,14 +440,14 @@ const headers = [
   { title: 'Comisión Placa', key: 'valor_cliente', sortable: false },
   { title: 'Valor total', key: 'valor_total', sortable: true },
   { title: 'Generado', key: 'generado_at', sortable: true },
-  { title: 'Acciones', key: 'acciones', sortable: false, align: 'end' },
+  { title: 'Acciones', key: 'acciones', sortable: false, align: 'end' as const },
 ]
 
 const rows = ref<ComisionListItem[]>([])
 const totalItems = ref(0)
 const page = ref(1)
 const itemsPerPage = ref(10)
-const sortBy = ref<any>([{ key: 'id', order: 'desc' }])
+const sortBy = ref<Array<{ key: string; order: 'asc' | 'desc' }>>([{ key: 'id', order: 'desc' }])
 const loading = ref(false)
 
 /* Tabla metas mensuales */
@@ -543,14 +543,14 @@ async function loadItems() {
     const sort =
       Array.isArray(sortBy.value) && sortBy.value[0]
         ? sortBy.value[0]
-        : { key: 'id', order: 'desc' }
+        : { key: 'id', order: 'desc' as const }
 
     const res = await listComisiones({
       page: page.value,
       perPage: itemsPerPage.value,
       mes: filters.value.mes || undefined,
       asesorId: filters.value.asesorId || undefined,
-      estado: (filters.value.estado as any) || undefined,
+      estado: filters.value.estado || undefined,
       sortBy: sort.key,
       order: sort.order,
     })
@@ -563,7 +563,6 @@ async function loadItems() {
     loading.value = false
   }
 }
-
 /* Helpers metas */
 function getDefaultMes() {
   const now = new Date()
@@ -625,19 +624,21 @@ function getMetaDinero(item: MetaMensualRow): number {
   const raw =
     item.meta_global_rtm ??
     item.meta_rtm ??
-    // respaldo a la meta configurada (dinero)
-    (item as any).meta_mensual ??
     item.meta_mensual ??
     0
 
   return Number(raw) || 0
 }
-
 /** Facturación total RTM del asesor (motos + vehículos) */
 function getTotalFacturacion(item: MetaMensualRow) {
-  const backend: any =
-    (item as any).total_facturacion_global ??
-    (item as any).totalFacturacionGlobal ??
+  const itemExtended = item as MetaMensualRow & {
+    total_facturacion_global?: number
+    totalFacturacionGlobal?: number
+  }
+
+  const backend =
+    itemExtended.total_facturacion_global ??
+    itemExtended.totalFacturacionGlobal ??
     null
 
   if (backend != null && !Number.isNaN(Number(backend))) {
@@ -679,8 +680,13 @@ function calcFaltante(item: MetaMensualRow) {
  */
 function calcComisionMeta(item: MetaMensualRow) {
   const metaDinero = getMetaDinero(item)
+
+  const itemExtended = item as MetaMensualRow & {
+    porcentaje_comision?: number
+  }
+
   const porcentaje =
-    item.porcentaje_comision_meta ?? (item as any).porcentaje_comision ?? 0
+    item.porcentaje_comision_meta ?? itemExtended.porcentaje_comision ?? 0
 
   if (!metaDinero || metaDinero <= 0) return 0
   if (!porcentaje) return 0

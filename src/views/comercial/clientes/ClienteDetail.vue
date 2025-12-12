@@ -1,6 +1,6 @@
 <template>
   <v-container class="py-6">
-    <<v-sheet class="sticky-header d-flex align-center gap-2 px-2 py-2">
+    <v-sheet class="sticky-header d-flex align-center gap-2 px-2 py-2">
       <v-btn color="primary" variant="flat" size="large" prepend-icon="mdi-arrow-left"
              class="rounded-lg font-weight-bold" @click="goBack">
         Volver al listado
@@ -139,8 +139,8 @@
                         <th class="text-left">Marca</th>
                         <th class="text-left">Línea</th>
                         <th class="text-left">Modelo</th>
-                        <th class="text-left">Color</th>        <!-- 🟢 nuevo -->
-                        <th class="text-left">Matrícula</th>    <!-- 🟢 nuevo -->
+                        <th class="text-left">Color</th>
+                        <th class="text-left">Matrícula</th>
                         <th class="text-left">Clase</th>
                       </tr>
                     </thead>
@@ -151,8 +151,8 @@
                         <td>{{ v.marca ?? '—' }}</td>
                         <td>{{ v.linea ?? '—' }}</td>
                         <td>{{ v.modelo ?? '—' }}</td>
-                        <td>{{ v.color ?? '—' }}</td>          <!-- 🟢 nuevo -->
-                        <td>{{ v.matricula ?? '—' }}</td>      <!-- 🟢 nuevo -->
+                        <td>{{ getVehiculoProp(v, 'color') }}</td>
+                        <td>{{ getVehiculoProp(v, 'matricula') }}</td>
                         <td>{{ v.clase?.nombre ?? '—' }}</td>
                       </tr>
                       <tr v-if="!detalle.vehiculos?.length">
@@ -181,23 +181,57 @@ import { ref, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ClientesService, type ClienteDetalle, type ClienteHistorialItem } from '@/services/clientes_service'
 
+type UltimaVisitaPorVehiculo = {
+  vehiculoId: number
+  placa: string
+  fecha: string | null
+  servicioNombre: string | null
+  estado: string | null
+  sedeNombre: string | null
+}
+
+type VisitaReciente = {
+  id: number
+  fecha: string
+  placa: string
+  estado: string
+  servicioNombre: string | null
+  sedeNombre: string | null
+}
+
+type ClienteDetalleExtendido = ClienteDetalle & {
+  ultimas_por_vehiculo?: UltimaVisitaPorVehiculo[]
+  visitas_recientes?: VisitaReciente[]
+  metricas?: Stats
+  kpis?: Stats
+}
+
+type Stats = {
+  vehiculos_count?: number
+  visitas_count?: number
+  ultima_visita_at?: string | null
+  dias_desde_ultima_visita?: number | null
+}
+
+type VehiculoExtendido = ClienteDetalle['vehiculos'][number] & {
+  color?: string | null
+  matricula?: string | null
+}
+
 const route = useRoute()
 const router = useRouter()
 const id = Number(route.params.id)
 
 const loading = ref(true)
 const errorMsg = ref<string | null>(null)
-const detalle = ref<ClienteDetalle & {
-  ultimas_por_vehiculo?: Array<{ vehiculoId:number; placa:string; fecha:string|null; servicioNombre:string|null; estado:string|null; sedeNombre:string|null }>
-  visitas_recientes?: Array<{ id:number; fecha:string; placa:string; estado:string; servicioNombre:string|null; sedeNombre:string|null }>
-} | null>(null)
-
+const detalle = ref<ClienteDetalleExtendido | null>(null)
 const visitas = ref<ClienteHistorialItem[]>([])
 
 function goBack() {
   if (window.history.length > 1) router.back()
   else router.push({ name: 'ClientesList' })
 }
+
 function irEditar() {
   router.push({ name: 'ClienteEditar', params: { id } }).catch(() => {})
 }
@@ -208,13 +242,24 @@ function formatDate(v?: string | null): string {
   const iso = String(v).length <= 10 ? `${v}T00:00:00` : String(v)
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return '—'
-  return new Intl.DateTimeFormat('es-CO', { day:'2-digit', month:'2-digit', year:'numeric', timeZone:'America/Bogota' }).format(d)
+  return new Intl.DateTimeFormat('es-CO', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    timeZone: 'America/Bogota',
+  }).format(d)
+}
+
+/** Helper para acceder a propiedades extendidas del vehículo */
+function getVehiculoProp(vehiculo: ClienteDetalle['vehiculos'][number], prop: 'color' | 'matricula'): string {
+  const vehiculoExt = vehiculo as VehiculoExtendido
+  return vehiculoExt[prop] ?? '—'
 }
 
 /** métrica: usa metricas o kpis */
-const stats = computed(() => {
-  const anyDet: any = detalle.value || {}
-  return anyDet.metricas ?? anyDet.kpis ?? null
+const stats = computed<Stats | null>(() => {
+  if (!detalle.value) return null
+  return detalle.value.metricas ?? detalle.value.kpis ?? null
 })
 
 async function load() {
@@ -225,10 +270,12 @@ async function load() {
       ClientesService.detalle(id),
       ClientesService.historial(id, { page: 1, perPage: 5 }),
     ])
-    detalle.value = det
+    detalle.value = det as ClienteDetalleExtendido
+
     // Si el backend ya trae visitas_recientes, úsala; si no, usa historial (compatibilidad)
-    if ((det as any).visitas_recientes?.length) {
-      visitas.value = (det as any).visitas_recientes as any
+    const detalleExt = det as ClienteDetalleExtendido
+    if (detalleExt.visitas_recientes?.length) {
+      visitas.value = detalleExt.visitas_recientes as ClienteHistorialItem[]
     } else {
       visitas.value = hist.data
     }
@@ -243,8 +290,24 @@ onMounted(load)
 </script>
 
 <style scoped>
-.text-medium-emphasis { opacity: .7; }
-.sticky-header { position: sticky; top: 0; z-index: 5; background: rgba(255,255,255,0.9); backdrop-filter: blur(4px); border-radius: 12px; }
-.fab-back { position: fixed; left: 16px; bottom: 16px; z-index: 10; }
-.gap-2 { gap: 8px; }
+.text-medium-emphasis {
+  opacity: 0.7;
+}
+.sticky-header {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(4px);
+  border-radius: 12px;
+}
+.fab-back {
+  position: fixed;
+  left: 16px;
+  bottom: 16px;
+  z-index: 10;
+}
+.gap-2 {
+  gap: 8px;
+}
 </style>
