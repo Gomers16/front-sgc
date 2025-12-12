@@ -53,14 +53,46 @@ export interface ConvenioSimple {
   nombre: string
 }
 
+export interface AsignarAsesorPayload {
+  asesor_id: number
+  asesorId: number
+  agente_captacion_id: number
+  agenteCaptacionId: number
+}
+
+export interface RetirarAsesorPayload {
+  motivo?: string
+}
+
+export interface CrearDateoAutoInput {
+  convenio_id: number
+  placa?: string | null
+  telefono?: string | null
+  origen?: 'UI' | 'IMPORT' | 'WHATSAPP'
+  canal?: 'FACHADA' | 'ASESOR' | 'TELE' | 'REDES'
+  agente_id?: number | null
+  observacion?: string | null
+}
+
+export interface CrearDateoPayload {
+  canal: 'FACHADA' | 'ASESOR' | 'TELE' | 'REDES'
+  origen: 'UI' | 'IMPORT' | 'WHATSAPP'
+  agente_id: number | null
+  placa: string | null
+  telefono: string | null
+  observacion: string | null
+  detectado_por_convenio: number
+}
+
 /* ===== Helpers ===== */
-function normalizeListShape<T = any>(r: any, fallback: ListParams): ListResponse<T> {
-  const data: T[] = Array.isArray(r) ? r : (r?.data ?? r?.items ?? r?.rows ?? [])
+function normalizeListShape<T = unknown>(r: unknown, fallback: ListParams): ListResponse<T> {
+  const rObj = r as Record<string, unknown>
+  const data: T[] = Array.isArray(r) ? r : (rObj?.data ?? rObj?.items ?? rObj?.rows ?? []) as T[]
   const total = Array.isArray(r)
     ? data.length
-    : Number(r?.total ?? r?.meta?.total ?? r?.totalItems ?? r?.count ?? data.length) || 0
-  const page = Number(r?.page ?? r?.meta?.current_page ?? fallback.page ?? 1)
-  const perPage = Number(r?.perPage ?? r?.meta?.per_page ?? fallback.perPage ?? 10)
+    : Number(rObj?.total ?? (rObj?.meta as Record<string, unknown>)?.total ?? rObj?.totalItems ?? rObj?.count ?? data.length) || 0
+  const page = Number(rObj?.page ?? (rObj?.meta as Record<string, unknown>)?.current_page ?? fallback.page ?? 1)
+  const perPage = Number(rObj?.perPage ?? (rObj?.meta as Record<string, unknown>)?.per_page ?? fallback.perPage ?? 10)
   return { data, total, page, perPage }
 }
 
@@ -86,15 +118,15 @@ export async function listConvenios(params: ListParams = {}) {
 
   const vigenteParam = params.activo === undefined ? undefined : params.activo ? 'true' : 'false';
 
-  const r = await get<any>(`${API}/convenios`, {
+  const r = await get<unknown>(`${API}/convenios`, {
     params: {
-      q: params.texto || undefined, // tu controlador usa 'q'
-      activo: activoParam,          // tu controlador espera 'activo'
+      q: params.texto || undefined,
+      activo: activoParam,
       page: params.page,
       perPage: params.perPage,
       sortBy: params.sortBy,
       order: params.order,
-      vigente: vigenteParam  // Pasamos el parámetro vigente correctamente
+      vigente: vigenteParam
     },
   })
   return normalizeListShape<Convenio>(r, params)
@@ -108,7 +140,7 @@ export async function getConvenio(id: number) {
 export async function listAgentesCaptacion() {
   try {
     const r = await get<{ data?: AgenteLight[] } | AgenteLight[]>(`${API}/agentes-captacion`, {
-      params: { activo: 1, perPage: 200 }, // tu backend usa 'activo'
+      params: { activo: 1, perPage: 200 },
     })
     return Array.isArray(r) ? r : (r?.data ?? [])
   } catch {
@@ -118,25 +150,21 @@ export async function listAgentesCaptacion() {
 
 /* ===== Asesor activo del convenio ===== */
 export async function getAsesorActivo(convenioId: number): Promise<AsesorActivoResp> {
-  const r = await get<any>(`${API}/convenios/${convenioId}/asesor-activo`)
+  const r = await get<unknown>(`${API}/convenios/${convenioId}/asesor-activo`)
+  const rObj = r as Record<string, unknown>
   return {
-    convenio_id: r?.convenio_id ?? r?.convenioId ?? convenioId,
-    activo: r?.activo ?? Boolean(r?.asesor),
-    asesor: r?.asesor ?? null,
-    asignado_at: r?.asignado_at ?? r?.desde ?? null,           // el controller devuelve 'desde'
-    asignacion_id: r?.asignacion_id ?? r?.asignacionId ?? null // si viene en la respuesta
+    convenio_id: (rObj?.convenio_id ?? rObj?.convenioId ?? convenioId) as number,
+    activo: (rObj?.activo ?? Boolean(rObj?.asesor)) as boolean,
+    asesor: (rObj?.asesor ?? null) as { id: number; nombre: string; tipo?: string } | null,
+    asignado_at: (rObj?.asignado_at ?? rObj?.desde ?? null) as string | null,
+    asignacion_id: (rObj?.asignacion_id ?? rObj?.asignacionId ?? null) as number | null
   }
 }
 
-/* ===== Vincular / desvincular asesor activo =====
-   -> Coinciden con tus rutas:
-      POST /api/convenios/:id/asignar
-      POST /api/convenios/:id/retirar
-*/
+/* ===== Vincular / desvincular asesor activo ===== */
 export async function asignarAsesorConvenio(convenioId: number, payload: { asesor_id: number }) {
-  return post<any, any>(`${API}/convenios/${convenioId}/asignar`, {
+  return post<unknown, AsignarAsesorPayload>(`${API}/convenios/${convenioId}/asignar`, {
     asesor_id: payload.asesor_id,
-    // alias por compatibilidad; tu controller acepta 'asesor_id'
     asesorId: payload.asesor_id,
     agente_captacion_id: payload.asesor_id,
     agenteCaptacionId: payload.asesor_id,
@@ -144,49 +172,35 @@ export async function asignarAsesorConvenio(convenioId: number, payload: { aseso
 }
 
 export async function retirarAsesorConvenio(convenioId: number, payload?: { motivo?: string }) {
-  return post<any, any>(`${API}/convenios/${convenioId}/retirar`, {
+  return post<unknown, RetirarAsesorPayload>(`${API}/convenios/${convenioId}/retirar`, {
     motivo: payload?.motivo,
   })
 }
 
-/* ===== Crear dateo auto por convenio =====
-   -> Usa tu endpoint general de dateos: POST /api/captacion-dateos
-   -> Bandera detectado_por_convenio para que backend lo vincule
-*/
-export interface CrearDateoAutoInput {
-  convenio_id: number
-  placa?: string | null
-  telefono?: string | null
-  origen?: 'UI' | 'IMPORT' | 'WHATSAPP'
-  canal?: 'FACHADA' | 'ASESOR' | 'TELE' | 'REDES'
-  agente_id?: number | null
-  observacion?: string | null
-}
-
+/* ===== Crear dateo auto por convenio ===== */
 export async function crearDateoAutoPorConvenio(body: CrearDateoAutoInput) {
-  const payload = {
+  const payload: CrearDateoPayload = {
     canal: body.canal ?? 'ASESOR',
     origen: body.origen ?? 'UI',
     agente_id: body.agente_id ?? null,
     placa: body.placa ?? null,
     telefono: body.telefono ?? null,
     observacion: body.observacion ?? null,
-    detectado_por_convenio: body.convenio_id, // 👈 clave que tu backend debe leer
+    detectado_por_convenio: body.convenio_id,
   }
-  return post(`${API}/captacion-dateos`, payload)
+  return post<unknown, CrearDateoPayload>(`${API}/captacion-dateos`, payload)
 }
 
-/* ===== Convenios asignados a un asesor comercial =====
-   GET /api/convenios/asignados?asesor_id=:id
-*/
+/* ===== Convenios asignados a un asesor comercial ===== */
 export async function listConveniosAsignados(asesorId: number): Promise<ConvenioSimple[]> {
   if (!asesorId) return []
 
-  const r = await get<any>(`${API}/convenios/asignados`, {
+  const r = await get<unknown>(`${API}/convenios/asignados`, {
     params: { asesor_id: asesorId },
   })
 
   if (Array.isArray(r)) return r as ConvenioSimple[]
-  if (Array.isArray(r?.data)) return r.data as ConvenioSimple[]
+  const rObj = r as Record<string, unknown>
+  if (Array.isArray(rObj?.data)) return rObj.data as ConvenioSimple[]
   return []
 }
