@@ -554,6 +554,104 @@ type AsesorTipo = 'ASESOR_INTERNO' | 'ASESOR_EXTERNO'
 interface ServicioDTO { id: number; codigo: string; nombre: string }
 interface ServicioItem { title: string; value: number }
 
+interface ClaseVehiculoDTO {
+  codigo?: string
+  nombre?: string
+}
+
+interface VehiculoDTO {
+  id?: number
+  placa?: string
+  marca?: string
+  linea?: string
+  modelo?: number
+  clase?: ClaseVehiculoDTO | null
+  clienteId?: number | null
+}
+
+interface ClienteDTO {
+  id?: number
+  nombre?: string
+  telefono?: string
+  email?: string
+}
+
+interface AgenteDTO {
+  id?: number
+  nombre?: string
+  tipo?: string
+}
+
+interface ConvenioDTO {
+  id?: number
+  nombre?: string
+  codigo?: string | null
+}
+
+interface DateoDTO {
+  id?: number
+  canal?: string
+  agente?: AgenteDTO | null
+  placa?: string | null
+  telefono?: string | null
+  origen?: string | null
+  observacion?: string | null
+  imagen_url?: string | null
+  imagenUrl?: string | null
+  created_at?: string
+  createdAt?: string
+  consumido_turno_id?: number | null
+  consumido_at?: string | null
+  convenio?: ConvenioDTO | null
+}
+
+interface UsuarioDTO {
+  id?: number
+  nombres?: string
+  apellidos?: string
+}
+
+interface SedeDTO {
+  id?: number
+  nombre?: string
+}
+
+interface ServicioEnTurno {
+  id?: number
+  codigoServicio?: string
+  nombre?: string
+}
+
+interface TurnoRawDTO {
+  id?: number
+  turnoNumero?: number
+  turnoNumeroServicio?: number
+  turno_numero_servicio?: number
+  fecha?: string
+  horaIngreso?: string
+  horaSalida?: string | null
+  tiempoServicio?: string | null
+  placa?: string
+  tipoVehiculo?: TipoVehiculoFrontend | null
+  medioEntero?: string | null
+  observaciones?: string
+  estado?: 'activo' | 'inactivo' | 'cancelado' | 'finalizado'
+  servicioId?: number | null
+  servicioCodigo?: string | null
+  canalAtribucion?: string | null
+  vehiculo?: VehiculoDTO | null
+  cliente?: ClienteDTO | null
+  captacionDateo?: DateoDTO | null
+  agenteCaptacion?: AgenteDTO | null
+  usuario?: UsuarioDTO | null
+  sede?: SedeDTO | null
+  servicio?: ServicioEnTurno | null
+}
+
+interface UserObject {
+  id?: number
+}
+
 const route = useRoute()
 const router = useRouter()
 const authStore = authSetStore()
@@ -564,8 +662,11 @@ const tmpUsuarioId = ref<number>(1)
 
 /** Usuario a enviar siempre a backend (crear, actualizar, cancelar, etc.) */
 const usuarioIdForActions = computed<number>(() => {
-  if (!DEV_NO_AUTH && authStore.user && typeof (authStore.user as any).id === 'number') {
-    return (authStore.user as any).id
+  if (!DEV_NO_AUTH && authStore.user) {
+    const user = authStore.user as UserObject
+    if (typeof user.id === 'number') {
+      return user.id
+    }
   }
   const tmp = Number(tmpUsuarioId.value)
   return Number.isFinite(tmp) && tmp > 0 ? tmp : 1
@@ -580,8 +681,8 @@ interface EditForm {
   horaSalida: string | null
   tiempoServicio: string | null
   placa: string
-  tipoVehiculo: TipoVehiculoFrontend | ''
-  medioEntero: MedioEntero | ''
+  tipoVehiculo: TipoVehiculoFrontend | null
+  medioEntero: MedioEntero | null
   observaciones: string
   estado: 'activo' | 'inactivo' | 'cancelado' | 'finalizado'
   servicioId: number | null
@@ -599,8 +700,8 @@ const form = ref<EditForm>({
   horaSalida: null,
   tiempoServicio: null,
   placa: '',
-  tipoVehiculo: '',
-  medioEntero: '',
+  tipoVehiculo: null,
+  medioEntero: null,
   observaciones: '',
   estado: 'activo',
   servicioId: null,
@@ -629,10 +730,10 @@ const serviciosLoading = ref(false)
 const serviciosMapById = ref<Record<number, ServicioDTO>>({})
 
 /** Relacionados leídos del turno */
-const vehiculo = ref<any | null>(null)
-const cliente  = ref<any | null>(null)
-const dateo    = ref<any | null>(null)
-const agente   = ref<any | null>(null) // agenteCaptacion del turno o del dateo
+const vehiculo = ref<VehiculoDTO | null>(null)
+const cliente  = ref<ClienteDTO | null>(null)
+const dateo    = ref<DateoDTO | null>(null)
+const agente   = ref<AgenteDTO | null>(null) // agenteCaptacion del turno o del dateo
 
 /** UI State */
 const snackbar = ref({ show: false, message: '', color: '', timeout: 4000 })
@@ -647,7 +748,7 @@ const showSnackbar = (message: string, color = 'info', timeout = 4000) => {
 }
 
 /** raw turno para metadatos */
-const originalRaw = ref<any | null>(null)
+const originalRaw = ref<TurnoRawDTO | null>(null)
 
 /** Pretty / helpers */
 const fechaBonita = computed(() => {
@@ -740,7 +841,7 @@ const dateoAgenteNombre = computed(() => {
   return dateo.value?.agente?.nombre || agente.value?.nombre || ''
 })
 
-function formatConvenioChip(c?: any | null): string {
+function formatConvenioChip(c?: ConvenioDTO | null): string {
   if (!c) return ''
   const codeRaw = c.codigo ?? ''
   const code = typeof codeRaw === 'string' ? codeRaw.toUpperCase() : String(codeRaw).toUpperCase()
@@ -763,7 +864,7 @@ function canalToMedio(canal: string | null | undefined): MedioEntero {
   return 'fachada'
 }
 
-function medioToCanal(medio: MedioEntero): 'FACHADA'|'TELE'|'REDES'|'ASESOR' {
+function medioToCanal(medio: MedioEntero | null): 'FACHADA'|'TELE'|'REDES'|'ASESOR' {
   if (medio === 'redes_sociales') return 'REDES'
   if (medio === 'call_center')    return 'TELE'
   if (medio === 'asesor')         return 'ASESOR'
@@ -799,7 +900,7 @@ async function fetchTurno() {
       return
     }
 
-    const data: any = await TurnosDelDiaService.fetchTurnoById(id)
+    const data = await TurnosDelDiaService.fetchTurnoById(id) as TurnoRawDTO
     originalRaw.value = data
 
     vehiculo.value = data?.vehiculo ?? null
@@ -815,7 +916,7 @@ async function fetchTurno() {
     form.value.horaSalida     = data?.horaSalida ?? null
     form.value.tiempoServicio = data?.tiempoServicio ?? null
     form.value.placa          = data?.placa ?? ''
-    form.value.tipoVehiculo   = data?.tipoVehiculo ?? ''
+    form.value.tipoVehiculo   = data?.tipoVehiculo ?? null
     form.value.observaciones  = data?.observaciones ?? ''
     form.value.estado         = data?.estado ?? 'activo'
     form.value.servicioId     = data?.servicio?.id ?? data?.servicioId ?? null
@@ -868,6 +969,17 @@ async function save() {
     return
   }
 
+  // Validación adicional
+  if (!form.value.tipoVehiculo) {
+    showSnackbar('El tipo de vehículo es requerido', 'warning')
+    return
+  }
+
+  if (!form.value.medioEntero) {
+    showSnackbar('El campo "¿Cómo nos conoció?" es requerido', 'warning')
+    return
+  }
+
   isSaving.value = true
   try {
     const id = Number(route.params.id)
@@ -875,33 +987,29 @@ async function save() {
 
     const canal = medioToCanal(form.value.medioEntero)
 
-    const payload: any = {
+
+    const payload = {
       placa: form.value.placa,
       tipoVehiculo: form.value.tipoVehiculo,
       observaciones: form.value.observaciones,
       horaIngreso: form.value.horaIngreso,
-      horaSalida: form.value.horaSalida,
-      tiempoServicio: form.value.tiempoServicio,
+      horaSalida: form.value.horaSalida ?? undefined,
+      tiempoServicio: form.value.tiempoServicio ?? undefined,
       estado: form.value.estado,
-      servicioId: form.value.servicioId,
+      servicioId: form.value.servicioId ?? undefined,
       canal,
       medioEntero: form.value.medioEntero,
       usuarioId: usuarioIdForActions.value,
-    }
-
-    if (form.value.medioEntero === 'asesor') {
-      payload.asesorComercial = form.value.asesorNombre
-      payload.asesorTipo = form.value.asesorTipo
-    } else {
-      payload.asesorComercial = null
-      payload.asesorTipo = null
+      asesorComercial: form.value.medioEntero === 'asesor' ? (form.value.asesorNombre ?? undefined) : undefined,
+      asesorTipo: form.value.medioEntero === 'asesor' ? (form.value.asesorTipo ?? undefined) : undefined,
     }
 
     await TurnosDelDiaService.updateTurno(id, payload)
     showSnackbar('✅ Turno actualizado correctamente', 'success')
-  } catch (e: any) {
+  } catch (e) {
+    const error = e as Error
     console.error(e)
-    showSnackbar(e?.message || 'Error al guardar el turno', 'error')
+    showSnackbar(error?.message || 'Error al guardar el turno', 'error')
   } finally {
     isSaving.value = false
   }
@@ -929,9 +1037,10 @@ async function cancelTurno() {
     if (originalRaw.value) originalRaw.value.estado = 'cancelado'
 
     showSnackbar('🚫 Turno cancelado correctamente', 'warning')
-  } catch (e: any) {
+  } catch (e) {
+    const error = e as Error
     console.error(e)
-    showSnackbar(e?.message || 'Error al cancelar el turno', 'error')
+    showSnackbar(error?.message || 'Error al cancelar el turno', 'error')
   } finally {
     isCancelling.value = false
   }
