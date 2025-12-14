@@ -116,7 +116,7 @@
                 hide-details
                 prepend-inner-icon="mdi-wrench-cog"
                 class="servicio-fit"
-                :rules="[v => !!v || 'El servicio es requerido']"
+                :rules="[(v: any) => !!v || 'El servicio es requerido']"
               />
             </v-col>
 
@@ -152,7 +152,7 @@
                 :density="$vuetify.display.xs ? 'compact' : 'comfortable'"
                 prepend-inner-icon="mdi-car-info"
                 @input="onPlacaInput"
-                :rules="[v => !!v || 'La placa es requerida']"
+                :rules="[(v: any) => !!v || 'La placa es requerida']"
               />
             </v-col>
 
@@ -166,7 +166,7 @@
                 required
                 :density="$vuetify.display.xs ? 'compact' : 'comfortable'"
                 prepend-inner-icon="mdi-car-multiple"
-                :rules="[v => !!v || 'El tipo de vehículo es requerido']"
+                :rules="[(v: any) => !!v || 'El tipo de vehículo es requerido']"
               />
             </v-col>
 
@@ -180,7 +180,7 @@
                 required
                 :density="$vuetify.display.xs ? 'compact' : 'comfortable'"
                 prepend-inner-icon="mdi-account-question"
-                :rules="[v => !!v || 'Este campo es requerido']"
+                :rules="[(v: any) => !!v || 'Este campo es requerido']"
               />
             </v-col>
 
@@ -193,7 +193,7 @@
                   variant="outlined"
                   :density="$vuetify.display.xs ? 'compact' : 'comfortable'"
                   prepend-inner-icon="mdi-account-tie"
-                  :rules="[v => !!v || 'El nombre del asesor es requerido']"
+                  :rules="[(v: any) => !!v || 'El nombre del asesor es requerido']"
                 />
               </v-col>
             </template>

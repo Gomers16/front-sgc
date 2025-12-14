@@ -2,6 +2,7 @@
 import {
   createRouter,
   createWebHistory,
+  type RouteRecordRaw,
   type RouteLocationAsPathGeneric,
   type RouteLocationAsRelativeGeneric,
   type RouteLocationNormalizedLoadedGeneric,
@@ -18,7 +19,6 @@ import TurnosDelDia from '@/views/rtm/TurnosDelDia.vue'
 import TurnoRtmEdit from '@/views/rtm/EditarTurno.vue'
 import EstadoDeTurnos from '@/views/rtm/EstadoDeTurnos.vue'
 import ContadorConvenios from '@/views/rtm/ContadorConvenios.vue'
-import Vistadesarrollo from '@/views/Vistadesarrollo.vue'
 import UsuariosView from '@/views/usuarios/UsuariosView.vue'
 import ContratosView from '@/views/gestion-documental/ContratosView.vue'
 import UserProfileView from '@/views/usuarios/UserProfileView.vue'
@@ -30,8 +30,7 @@ import ComisionesList from '@/views/comercial/comisiones/ComisionesList.vue'
 import ComisionDetail from '@/views/comercial/comisiones/ComisionesDetail.vue'
 import ComisionesConfig from '@/views/comercial/comisiones/ComisionesConfig.vue'
 
-
-const routes = [
+const routes: RouteRecordRaw[] = [
   { path: '/', redirect: '/login' },
 
   { path: '/login', name: 'Login', component: LoginView, meta: { layout: 'AuthLayout' } },
@@ -70,13 +69,7 @@ const routes = [
     component: ContadorConvenios,
     meta: { layout: 'MainLayout' },
   },
-  {
-    path: '/rtm/proximamente',
-    name: 'Proximamente',
-    component: Vistadesarrollo,
-    meta: { layout: 'MainLayout' },
-  },
-
+  
   // ✅ Certificación RTM (pantallazo FLUR)
   {
     path: '/rtm/certificacion/:id',
@@ -195,11 +188,11 @@ const routes = [
     meta: { layout: 'MainLayout' },
   },
   {
-  path: '/comercial/prospectos/:id/editar',
-  name: 'ComercialProspectoEditar',
-  component: () => import('@/views/comercial/prospectos/ProspectoEdit.vue'),
-  meta: { requiresAuth: true }
-},
+    path: '/comercial/prospectos/:id/editar',
+    name: 'ComercialProspectoEditar',
+    component: () => import('@/views/comercial/prospectos/ProspectoEdit.vue'),
+    meta: { layout: 'MainLayout' },
+  },
   {
     path: '/comercial/prospectos/:id(\\d+)',
     name: 'ComercialProspectoDetalle',
@@ -208,8 +201,6 @@ const routes = [
     meta: { layout: 'MainLayout' },
   },
 
-
-
   // Comisiones
   {
     path: '/comercial/comisiones',
@@ -217,7 +208,6 @@ const routes = [
     component: ComisionesList,
     meta: { layout: 'MainLayout' },
   },
-  // ⚙️ Configuración de comisiones (nueva vista)
   {
     path: '/comercial/comisiones/config',
     name: 'ComercialComisionesConfig',
@@ -263,20 +253,25 @@ const router = createRouter({
 /** Limpieza de params extra en navegaciones por name (opcional pero inofensivo) */
 type NamedLocation = { name: string | symbol }
 type ParamLocation = { params?: RouteParamsRaw }
+
 function isObject(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null
 }
+
 function hasName(v: unknown): v is NamedLocation {
   return isObject(v) && 'name' in v
 }
+
 function hasParams(v: unknown): v is ParamLocation {
   return isObject(v) && 'params' in v
 }
+
 function toRouteParam(v: unknown): RouteParamValueRaw | (string | number)[] {
   if (Array.isArray(v)) return v.map((x) => (typeof x === 'string' || typeof x === 'number' ? x : String(x)))
   if (typeof v === 'string' || typeof v === 'number') return v
   return String(v ?? '')
 }
+
 function cleanParamsForRoute(to: RouteLocationRaw): RouteLocationRaw {
   if (typeof to === 'string') return to
   if (!isObject(to) || !hasName(to)) return to
@@ -294,6 +289,7 @@ function cleanParamsForRoute(to: RouteLocationRaw): RouteLocationRaw {
   }
   return changed ? { ...to, params: cleanParams } : to
 }
+
 const originalResolve = router.resolve.bind(router)
 ;(router as { resolve: typeof router.resolve }).resolve = (
   rawTo: string | RouteLocationAsRelativeGeneric | RouteLocationAsPathGeneric,
