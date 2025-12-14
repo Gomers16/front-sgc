@@ -417,8 +417,7 @@
               </template>
             </v-data-table>
           </v-window-item>
-
-          <!-- Dateos -->
+<!-- Dateos -->
           <v-window-item value="dateos">
             <div class="d-flex flex-column flex-sm-row justify-space-between align-start align-sm-center mb-3 gap-2">
               <div class="text-caption text-sm-body-2 text-medium-emphasis">
@@ -700,7 +699,7 @@
             </template>
 
             <template #item.porcentaje_comision_meta="{ item }">
-              {{ (item.porcentaje_comision_meta ?? item.porcentaje_comision ?? 0) }}%
+              {{ (item.porcentaje_comision_meta ?? 0) }}%
             </template>
 
             <template #item.comision_estimada="{ item }">
@@ -823,13 +822,11 @@
     </v-dialog>
   </v-container>
 </template>
-
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useDisplay } from 'vuetify'
 import { get } from '@/services/http'
-// ✅ Imports necesarios
 import { getMiFicha, getAsesorById } from '@/services/asesoresService'
 import { useAuthStore } from '@/stores/AuthStore'
 import { listDateos, type Dateo, formatDateTime } from '@/services/dateosService'
@@ -866,46 +863,67 @@ type Convenio = {
   vigencia_hasta?: string | null
 }
 
+type ComisionConExtras = ComisionListItem & {
+  convenio?: { id: number; nombre: string } | null
+  asesor?: { id: number; nombre?: string } | null
+  valor_unitario?: number
+  valor_cliente?: number
+  estado?: string
+  generado_at?: string
+}
+
+type DateoConExtras = Dateo & {
+  exitoso?: boolean
+  consumido_exitoso?: boolean
+  convenio?: { id: number; nombre: string } | null
+  created_at_fmt?: string
+}
+
+type ProspectoConExtras = ProspectoDetail & {
+  asignacion_activa?: {
+    fecha_asignacion?: string | null
+  } | null
+}
+
+interface HistorialPago {
+  id: number
+  fecha: string
+  placa: string
+  convenio: string
+  monto: number
+  dateoId: number
+}
+
 // 🔥 Vuetify display helper
 const { mdAndUp, smAndUp, xs } = useDisplay()
 
-// 🔥 CORRECCIÓN 1: Obtener asesorId dinámicamente según contexto
+// 🔥 Router y auth
 const router = useRouter()
 const route = useRoute()
 const authStore = useAuthStore()
 const API = '/api'
 
 const asesorId = computed(() => {
-  // 1️⃣ Si hay ID en la ruta → usarlo (gerencia/admin viendo ficha de otro)
   if (route.params.id) return Number(route.params.id)
-
-  // 2️⃣ Si no, usar el del usuario autenticado (comercial viendo su propia ficha)
   return authStore.currentAgenteId || 0
 })
 
-// 🔥 CORRECCIÓN 2: Permisos para crear dateos/prospectos
 const puedeCrearDateo = computed(() => {
-  // SUPER_ADMIN puede crear en cualquier ficha
   if (authStore.isSuperAdmin) return true
-
-  // COMERCIAL solo puede crear en su propia ficha
   return authStore.isComercial && asesorId.value === authStore.currentAgenteId
 })
 
 const puedeCrearProspecto = computed(() => {
-  // SUPER_ADMIN puede crear en cualquier ficha
   if (authStore.isSuperAdmin) return true
-
-  // COMERCIAL solo puede crear en su propia ficha
   return authStore.isComercial && asesorId.value === authStore.currentAgenteId
 })
 
 /* ===== Estado principal ===== */
 const asesor = ref<Asesor | null>(null)
-const prospectos = ref<ProspectoDetail[]>([])
+const prospectos = ref<ProspectoConExtras[]>([])
 const convenios = ref<Convenio[]>([])
-const dateos = ref<Dateo[]>([])
-const comisiones = ref<ComisionListItem[]>([])
+const dateos = ref<DateoConExtras[]>([])
+const comisiones = ref<ComisionConExtras[]>([])
 const pagos = ref<{ id: number; valor: number; fecha?: string }[]>([])
 
 const loading = ref(false)
@@ -918,6 +936,7 @@ const filtros = ref<{ desde: string; hasta: string }>({ desde: '', hasta: '' })
 function toInputDate(d: Date) {
   return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10)
 }
+
 function setUltimosNDias(n: number) {
   const hoy = new Date()
   const desde = new Date()
@@ -925,9 +944,7 @@ function setUltimosNDias(n: number) {
   filtros.value.desde = toInputDate(desde)
   filtros.value.hasta = toInputDate(hoy)
 }
-function setUltimos30() {
-  setUltimosNDias(30)
-}
+
 function setEsteMes() {
   const hoy = new Date()
   const desde = new Date(hoy.getFullYear(), hoy.getMonth(), 1)
@@ -935,11 +952,13 @@ function setEsteMes() {
   filtros.value.desde = toInputDate(desde)
   filtros.value.hasta = toInputDate(hasta)
 }
+
 function resetRango() {
-  setEsteMes() // ✅ Cambio: por defecto "Este mes" (reseteo automático)
+  setEsteMes()
   reload()
 }
-setEsteMes() // ✅ Cambio: inicializa con "Este mes"
+
+setEsteMes()
 
 const rangoLegible = computed(() => {
   const f = (s: string) => new Date(s + 'T00:00:00').toLocaleDateString()
@@ -959,10 +978,8 @@ const headersProspectos = [
   { title: 'Acciones', key: 'acciones', sortable: false, align: 'end' as const },
 ] as const
 
-// 📱 Headers responsive para prospectos (ocultar columnas en móvil)
 const headersProspectosResponsive = computed(() => {
   if (xs.value) {
-    // Móvil pequeño: solo esenciales
     return [
       { title: 'Placa', key: 'placa', sortable: true },
       { title: 'Nombre', key: 'nombre', sortable: true },
@@ -972,7 +989,6 @@ const headersProspectosResponsive = computed(() => {
   }
 
   if (smAndUp.value && !mdAndUp.value) {
-    // Tablet: más columnas
     return [
       { title: 'ID', key: 'id', sortable: true },
       { title: 'Nombre', key: 'nombre', sortable: true },
@@ -983,7 +999,6 @@ const headersProspectosResponsive = computed(() => {
     ]
   }
 
-  // Desktop: todas
   return headersProspectos
 })
 
@@ -993,7 +1008,6 @@ const headersConvenios = [
   { title: 'Vigencia', key: 'vigencia' },
 ] as const
 
-/* ✨ Encabezados de dateos: con columna Estado Pago RESPONSIVE */
 const headersDateos = computed(() => {
   const tituloComision = esAsesorConvenio.value ? 'Comisión convenio' : 'Comisión asesor'
   return [
@@ -1010,12 +1024,10 @@ const headersDateos = computed(() => {
   ] as const
 })
 
-// 📱 Headers responsive para dateos
 const headersDateosResponsive = computed(() => {
   const tituloComision = esAsesorConvenio.value ? 'Comisión' : 'Comisión'
 
   if (xs.value) {
-    // Móvil pequeño: ultra compacto
     return [
       { title: 'Foto', key: 'imagen_url' },
       { title: 'Placa', key: 'placa' },
@@ -1025,7 +1037,6 @@ const headersDateosResponsive = computed(() => {
   }
 
   if (smAndUp.value && !mdAndUp.value) {
-    // Tablet: más info
     return [
       { title: 'ID', key: 'id' },
       { title: 'Foto', key: 'imagen_url' },
@@ -1037,11 +1048,9 @@ const headersDateosResponsive = computed(() => {
     ]
   }
 
-  // Desktop: todas
   return headersDateos.value
 })
 
-/* ===== Headers metas (dialogo) ===== */
 const headersMetas = [
   { title: 'Asesor', key: 'asesor' },
   { title: 'RTM Motos', key: 'rtm_motos' },
@@ -1053,7 +1062,6 @@ const headersMetas = [
   { title: '% Comisión Meta', key: 'porcentaje_comision_meta' },
   { title: 'Comisión estimada', key: 'comision_estimada' },
 ]
-
 /* ===== Helpers UI/negocio ===== */
 function humanTipo(t?: string | null) {
   const v = String(t || '').toUpperCase()
@@ -1062,38 +1070,36 @@ function humanTipo(t?: string | null) {
   if (v === 'ASESOR_TELEMERCADEO') return 'Asesor telemercadeo'
   return t || '—'
 }
+
 function docFull(a?: Asesor | null) {
   if (!a) return '—'
-  const tipo = a.doc_tipo || (a as any).tipo_documento || (a as any).tipoDoc || ''
-  const num =
-    a.doc_numero ||
-    (a as any).numero_documento ||
-    (a as any).numDocumento ||
-    a.documento ||
-    (a as any).cedula ||
-    ''
+  const tipo = a.doc_tipo || ''
+  const num = a.doc_numero || a.documento || ''
   if (tipo || num) return `${tipo} ${num}`.trim()
   return '—'
 }
+
 function vigenciaText(c: Convenio) {
-  const f = (s?: string | null) => (!s ? '—' : new Date(s as string).toLocaleDateString())
+  const f = (s?: string | null) => (!s ? '—' : new Date(s).toLocaleDateString())
   return `${f(c.vigencia_desde)} – ${f(c.vigencia_hasta)}`
 }
-function normalizeCreatedAt(obj: any) {
-  return (
-    obj?.created_at ||
-    obj?.createdAt ||
-    obj?.fecha ||
-    obj?.fecha_creacion ||
-    obj?.creado ||
-    obj?.created ||
-    null
-  )
+
+function normalizeCreatedAt(obj: DateoConExtras | ProspectoConExtras): string | null {
+  if ('created_at' in obj && obj.created_at) return obj.created_at
+  if ('createdAt' in obj && (obj as unknown as Record<string, unknown>).createdAt) {
+    return String((obj as unknown as Record<string, unknown>).createdAt)
+  }
+  if ('asignacion_activa' in obj && obj.asignacion_activa?.fecha_asignacion) {
+    return obj.asignacion_activa.fecha_asignacion
+  }
+  return null
 }
+
 function fmtDate(d?: string) {
   if (!d) return '—'
   return formatDateTime(d)
 }
+
 function money(n?: number | null) {
   return new Intl.NumberFormat('es-CO', {
     style: 'currency',
@@ -1101,7 +1107,8 @@ function money(n?: number | null) {
     maximumFractionDigits: 0,
   }).format(n || 0)
 }
-function isExitoso(d: any) {
+
+function isExitoso(d: DateoConExtras) {
   const r = String(d.resultado || '').toUpperCase()
   return (
     !!d.exitoso ||
@@ -1110,22 +1117,22 @@ function isExitoso(d: any) {
   )
 }
 
-/* Prospectos: helpers de vigencias */
 function docColor(v?: boolean | null) {
   if (v === true) return 'success'
   if (v === false) return 'error'
   return 'grey-darken-1'
 }
+
 function docText(v?: boolean | null) {
   if (v === true) return 'Vigente'
   if (v === false) return 'Vencido'
   return 'Sin datos'
 }
+
 function formatFechaDoc(d?: string | null) {
   return formatFechaDocBase(d || undefined)
 }
 
-/* Texto/Color chips dateos */
 function chipColorResultado(r?: string) {
   if (r === 'EXITOSO') return 'success'
   if (r === 'NO_EXITOSO') return 'error'
@@ -1133,6 +1140,7 @@ function chipColorResultado(r?: string) {
   if (r === 'RE_DATEAR') return 'orange'
   return 'warning'
 }
+
 function textoResultado(r?: string) {
   if (r === 'EXITOSO') return 'Exitoso'
   if (r === 'NO_EXITOSO') return 'No exitoso'
@@ -1140,6 +1148,7 @@ function textoResultado(r?: string) {
   if (r === 'RE_DATEAR') return 'Re-datear'
   return 'Pendiente'
 }
+
 function chipColorEstadoTurno(e?: string) {
   const v = String(e || '').toLowerCase()
   if (v.includes('proceso')) return 'info'
@@ -1147,6 +1156,7 @@ function chipColorEstadoTurno(e?: string) {
   if (v.includes('cancel')) return 'error'
   return 'warning'
 }
+
 function textoEstadoTurno(e?: string) {
   const v = String(e || '').toUpperCase()
   if (v === 'EN_PROCESO') return 'En proceso'
@@ -1155,6 +1165,7 @@ function textoEstadoTurno(e?: string) {
   if (v === 'ACTIVO') return 'Activo'
   return 'Pendiente'
 }
+
 function formatDateOnly(iso: string) {
   const p = iso.split('T')[0] || iso
   const [y, m, d] = p.split('-')
@@ -1163,36 +1174,34 @@ function formatDateOnly(iso: string) {
 
 /* ===== Visor de imagen ===== */
 const viewer = ref<{ visible: boolean; url: string | null }>({ visible: false, url: null })
+
 function openViewer(url: string) {
   viewer.value = { visible: true, url }
 }
 
-/* ===== 🆕 Guardar el convenio del asesor (para asesores convenio) ===== */
+/* ===== Guardar el convenio del asesor (para asesores convenio) ===== */
 const convenioDelAsesor = ref<{ id: number; nombre: string } | null>(null)
 
 /* ===== Mapear comisiones a dateo ===== */
 const comisionesPorDateo = computed(() => {
-  const map = new Map<number, ComisionListItem[]>()
+  const map = new Map<number, ComisionConExtras[]>()
   for (const c of comisiones.value) {
-    const dateoId =
-      (c as any).dateo_id ?? (c as any).captacionDateoId ?? (c as any).captacion_dateo_id ?? null
+    const dateoId = (c as Record<string, unknown>).dateo_id ?? 
+                    (c as Record<string, unknown>).captacionDateoId ?? 
+                    (c as Record<string, unknown>).captacion_dateo_id ?? null
     if (!dateoId) continue
     const key = Number(dateoId)
-    if (!map.has(key)) map.set(key, [] as ComisionListItem[])
+    if (!map.has(key)) map.set(key, [])
     map.get(key)!.push(c)
   }
   return map
 })
 
-/**
- * 🎯 Comisión dinámica según rol del asesor - VERSIÓN FINAL CORREGIDA
- */
 function getComisionPorRolParaDateo(dateoId: number): number {
   const arr = comisionesPorDateo.value.get(Number(dateoId)) || []
 
-  // 🟢 ASESOR CONVENIO
   if (esAsesorConvenio.value) {
-    return arr.reduce((sum, c: any) => {
+    return arr.reduce((sum, c) => {
       const montoAsesor = Number(c.valor_unitario || 0)
       const montoConvenio = Number(c.valor_cliente || 0)
 
@@ -1217,8 +1226,7 @@ function getComisionPorRolParaDateo(dateoId: number): number {
     }, 0)
   }
 
-  // 🟠 ASESOR COMERCIAL / TELEMERCADEO
-  return arr.reduce((sum, c: any) => {
+  return arr.reduce((sum, c) => {
     const montoAsesor = Number(c.valor_unitario || 0)
     const montoConvenio = Number(c.valor_cliente || 0)
 
@@ -1232,14 +1240,11 @@ function getComisionPorRolParaDateo(dateoId: number): number {
   }, 0)
 }
 
-/**
- * 💰 NUEVO: Obtener estado de comisión más relevante para un dateo
- */
 function getEstadoComisionParaDateo(dateoId: number): string | null {
   const arr = comisionesPorDateo.value.get(Number(dateoId)) || []
   if (!arr.length) return null
 
-  const comisionesRelevantes = arr.filter((c: any) => {
+  const comisionesRelevantes = arr.filter((c) => {
     if (esAsesorConvenio.value) {
       const esConvenioDelAsesor =
         c.convenio &&
@@ -1256,20 +1261,17 @@ function getEstadoComisionParaDateo(dateoId: number): string | null {
 
   if (!comisionesRelevantes.length) return null
 
-  const prioridad = { PAGADA: 4, APROBADA: 3, PENDIENTE: 2, ANULADA: 1 }
+  const prioridad: Record<string, number> = { PAGADA: 4, APROBADA: 3, PENDIENTE: 2, ANULADA: 1 }
 
-  const estadoMasRelevante = comisionesRelevantes.reduce((mejor: any, actual: any) => {
-    const prioActual = prioridad[actual.estado as keyof typeof prioridad] || 0
-    const prioMejor = mejor ? prioridad[mejor.estado as keyof typeof prioridad] || 0 : 0
+  const estadoMasRelevante = comisionesRelevantes.reduce((mejor: ComisionConExtras | null, actual) => {
+    const prioActual = prioridad[actual.estado || ''] || 0
+    const prioMejor = mejor ? prioridad[mejor.estado || ''] || 0 : 0
     return prioActual > prioMejor ? actual : mejor
   }, null)
 
   return estadoMasRelevante?.estado || null
 }
 
-/**
- * 🎨 Funciones de UI para chips de estado de comisión
- */
 function getEstadoComisionColor(estado: string | null): string {
   if (estado === 'PAGADA') return 'success'
   if (estado === 'APROBADA') return 'info'
@@ -1294,10 +1296,7 @@ function getEstadoComisionIcon(estado: string | null): string {
   return 'mdi-help-circle-outline'
 }
 
-/**
- * 💰 Calcular comisiones por estado
- */
-function calcularComisionesPorEstado(dateosExitosos: any[]) {
+function calcularComisionesPorEstado(dateosExitosos: DateoConExtras[]) {
   let totalGenerado = 0
   let comisionesPendientes = 0
   let comisionesAprobadas = 0
@@ -1307,7 +1306,7 @@ function calcularComisionesPorEstado(dateosExitosos: any[]) {
     const dateoId = Number(dateo.id)
     const arr = comisionesPorDateo.value.get(dateoId) || []
 
-    const comisionesRelevantes = arr.filter((c: any) => {
+    const comisionesRelevantes = arr.filter((c) => {
       if (esAsesorConvenio.value) {
         const esConvenioDelAsesor =
           c.convenio &&
@@ -1353,8 +1352,8 @@ const verTodosProspectos = ref(false)
 const prospectosEnRango = computed(() => {
   const desde = new Date(filtros.value.desde + 'T00:00:00')
   const hasta = new Date(filtros.value.hasta + 'T23:59:59')
-  return prospectos.value.filter((p: any) => {
-    const created = p.created_at || p.createdAt || p.asignacion_activa?.fecha_asignacion || null
+  return prospectos.value.filter((p) => {
+    const created = normalizeCreatedAt(p)
     if (!created) return true
     const t = new Date(created)
     return t >= desde && t <= hasta
@@ -1375,13 +1374,13 @@ const verTodosDateos = ref(false)
 const dateosFiltrados = computed(() => {
   const desde = new Date(filtros.value.desde + 'T00:00:00')
   const hasta = new Date(filtros.value.hasta + 'T23:59:59')
-  return dateos.value.filter((d: any) => {
+  return dateos.value.filter((d) => {
     const tRaw = normalizeCreatedAt(d)
     const t = tRaw ? new Date(tRaw) : null
     const enRango = t ? t >= desde && t <= hasta : true
     const pasaRango = verTodosDateos.value ? true : enRango
     const pasaExito = filtrosDateo.value.soloExitosos ? isExitoso(d) : true
-    d.created_at = tRaw || d.created_at
+    if (tRaw) d.created_at = tRaw
     return pasaRango && pasaExito
   })
 })
@@ -1391,7 +1390,7 @@ const totalExitosos = computed(() => dateosFiltrados.value.filter((d) => isExito
 const totalComisionAsesor = computed(() =>
   dateosFiltrados.value
     .filter((d) => isExitoso(d))
-    .reduce((acc: number, d: any) => acc + getComisionPorRolParaDateo(d.id), 0),
+    .reduce((acc, d) => acc + getComisionPorRolParaDateo(d.id), 0),
 )
 
 /* ===== KPIs ===== */
@@ -1411,15 +1410,16 @@ const saldoEstimado = computed(() => kpi.value.montoGenerado - kpi.value.comisio
 function normalizeTipoAgente(t?: string | null) {
   return (t ?? '').toString().toUpperCase().trim()
 }
+
 const esAsesorComercial = computed(() => {
   const t = normalizeTipoAgente(asesor.value?.tipo)
   return t.includes('COMERCIAL')
 })
+
 const esAsesorConvenio = computed(() => {
   const t = normalizeTipoAgente(asesor.value?.tipo)
   return t.includes('CONVENIO')
 })
-
 /* ===== METAS mensuales RTM (solo comerciales) ===== */
 function getCurrentMes() {
   const now = new Date()
@@ -1456,20 +1456,13 @@ const historialPagos = computed(() => {
   const desde = new Date(historialFiltros.value.desde + 'T00:00:00')
   const hasta = new Date(historialFiltros.value.hasta + 'T23:59:59')
 
-  const pagos: Array<{
-    id: number
-    fecha: string
-    placa: string
-    convenio: string
-    monto: number
-    dateoId: number
-  }> = []
+  const pagos: HistorialPago[] = []
 
   for (const dateo of dateos.value.filter((d) => isExitoso(d))) {
-    const dateoId = Number((dateo as any).id)
+    const dateoId = Number(dateo.id)
     const arr = comisionesPorDateo.value.get(dateoId) || []
 
-    const comisionesRelevantes = arr.filter((c: any) => {
+    const comisionesRelevantes = arr.filter((c) => {
       if (c.estado !== 'PAGADA') return false
 
       if (esAsesorConvenio.value) {
@@ -1485,7 +1478,7 @@ const historialPagos = computed(() => {
     })
 
     for (const c of comisionesRelevantes) {
-      const fechaPago = c.generado_at || (dateo as any).created_at || ''
+      const fechaPago = c.generado_at || dateo.created_at || ''
       const fechaPagoDate = fechaPago ? new Date(fechaPago) : null
 
       if (fechaPagoDate && (fechaPagoDate < desde || fechaPagoDate > hasta)) {
@@ -1495,8 +1488,8 @@ const historialPagos = computed(() => {
       pagos.push({
         id: c.id,
         fecha: fechaPago,
-        placa: (dateo as any).placa || '—',
-        convenio: (dateo as any).convenio?.nombre || 'Sin convenio',
+        placa: dateo.placa || '—',
+        convenio: dateo.convenio?.nombre || 'Sin convenio',
         monto: getComisionPorRolParaDateo(dateoId),
         dateoId: dateoId,
       })
@@ -1530,26 +1523,35 @@ function aplicarFiltroHistorial() {
 function calcTotalRtm(item: MetaMensualRow) {
   return (item.rtm_motos || 0) + (item.rtm_vehiculos || 0)
 }
+
 function getMetaDinero(item: MetaMensualRow): number {
+  const itemExtended = item as Record<string, unknown>
   const raw =
-    item.meta_global_rtm ?? item.meta_rtm ?? (item as any).meta_mensual ?? item.meta_mensual ?? 0
+    item.meta_global_rtm ?? 
+    item.meta_rtm ?? 
+    itemExtended.meta_mensual ?? 
+    item.meta_mensual ?? 
+    0
   return Number(raw) || 0
 }
+
 function getTotalFacturacion(item: MetaMensualRow) {
-  const backend: any =
-    (item as any).total_facturacion_global ?? (item as any).totalFacturacionGlobal ?? null
+  const itemExtended = item as Record<string, unknown>
+  const backend = itemExtended.total_facturacion_global ?? itemExtended.totalFacturacionGlobal ?? null
   if (backend != null && !Number.isNaN(Number(backend))) return Number(backend)
 
   const totalRtmMotos = item.rtm_motos ?? item.total_rtm_motos ?? 0
   const totalRtmVehiculos = item.rtm_vehiculos ?? item.total_rtm_vehiculos ?? 0
   return totalRtmMotos * valorRtmMoto.value + totalRtmVehiculos * valorRtmVehiculo.value
 }
+
 function calcAvance(item: MetaMensualRow) {
   const meta = getMetaDinero(item)
   if (!meta || meta <= 0) return 0
   const total = getTotalFacturacion(item)
   return (total / meta) * 100
 }
+
 function calcFaltante(item: MetaMensualRow) {
   const meta = getMetaDinero(item)
   if (!meta || meta <= 0) return 0
@@ -1557,9 +1559,10 @@ function calcFaltante(item: MetaMensualRow) {
   const diff = meta - total
   return diff > 0 ? diff : 0
 }
+
 function calcComisionMeta(item: MetaMensualRow) {
   const meta = getMetaDinero(item)
-  const pct = item.porcentaje_comision_meta ?? (item as any).porcentaje_comision ?? 0
+  const pct = item.porcentaje_comision_meta ?? 0
   if (!meta || meta <= 0 || !pct) return 0
   const total = getTotalFacturacion(item)
   if (total < meta) return 0
@@ -1601,25 +1604,25 @@ async function loadMetasAsesor() {
 }
 
 /* ===== API helpers ===== */
-function normalizeAsesor(raw: any): Asesor | null {
+function normalizeAsesor(raw: Record<string, unknown>): Asesor | null {
   if (!raw) return null
   const nombre =
-    raw.nombre ||
+    (raw.nombre as string) ||
     [raw.nombres, raw.apellidos].filter(Boolean).join(' ') ||
-    raw.fullname ||
-    raw.displayName ||
+    (raw.fullname as string) ||
+    (raw.displayName as string) ||
     '—'
-  const email = raw.email || raw.correo || raw.email_personal || raw?.user?.email || null
-  const telefono = raw.telefono || raw.celular || raw.cel || raw.phone || null
+  const email = (raw.email || raw.correo || raw.email_personal || (raw.user as Record<string, unknown>)?.email || null) as string | null
+  const telefono = (raw.telefono || raw.celular || raw.cel || raw.phone || null) as string | null
 
-  const doc_tipo = raw.doc_tipo || raw.tipo_documento || raw.tipoDoc || null
+  const doc_tipo = (raw.doc_tipo || raw.tipo_documento || raw.tipoDoc || null) as string | null
   const doc_numero =
-    raw.doc_numero ||
+    (raw.doc_numero ||
     raw.numero_documento ||
     raw.numDocumento ||
     raw.documento ||
     raw.cedula ||
-    null
+    null) as string | null
 
   const activo =
     typeof raw.activo !== 'undefined'
@@ -1631,14 +1634,14 @@ function normalizeAsesor(raw: any): Asesor | null {
   return {
     id: Number(raw.id),
     nombre,
-    tipo: raw.tipo || raw.rol || raw.cargo || null,
+    tipo: (raw.tipo || raw.rol || raw.cargo || null) as string | null,
     email,
-    correo: raw.correo || null,
+    correo: (raw.correo || null) as string | null,
     telefono,
     doc_tipo,
     doc_numero,
-    documento: raw.documento || null,
-    activo: (activo as any) ?? true,
+    documento: (raw.documento || null) as string | null,
+    activo: activo ?? true,
   }
 }
 
@@ -1646,10 +1649,10 @@ async function fetchAsesor(id: number) {
   try {
     if (authStore.isComercial && id === authStore.currentAgenteId) {
       const r = await getMiFicha()
-      if (r) return normalizeAsesor(r)
+      if (r) return normalizeAsesor(r as unknown as Record<string, unknown>)
     } else {
       const r = await getAsesorById(id)
-      if (r) return normalizeAsesor(r)
+      if (r) return normalizeAsesor(r as unknown as Record<string, unknown>)
     }
   } catch (e) {
     console.error('Error al cargar asesor:', e)
@@ -1668,7 +1671,7 @@ function computeVigenteFromDate(flag: unknown, venc: unknown): boolean | null {
   return d.getTime() >= today.getTime()
 }
 
-function normalizeProspecto(p: Record<string, unknown>) {
+function normalizeProspecto(p: Record<string, unknown>): ProspectoConExtras {
   const soat_venc = (p.soat_vencimiento ?? p.soatVencimiento ?? null) as string | null
   const tecno_venc = (p.tecno_vencimiento ?? p.tecnoVencimiento ?? null) as string | null
   const soat_flag = computeVigenteFromDate(p.soat_vigente ?? p.soatVigente, soat_venc)
@@ -1684,10 +1687,11 @@ function normalizeProspecto(p: Record<string, unknown>) {
   const peri_fecha =
     (p.peritaje_ultima_fecha ?? p.peritajeUltimaFecha ?? null) as string | null
 
-  const created = (p.created_at ?? p.createdAt ?? (p as any).asignacion_activa?.fecha_asignacion ?? null) as string | null
+  const asignacionActiva = (p.asignacion_activa ?? null) as ProspectoConExtras['asignacion_activa']
+  const created = (p.created_at ?? p.createdAt ?? asignacionActiva?.fecha_asignacion ?? null) as string | null
 
   return {
-    ...p,
+    ...(p as unknown as ProspectoDetail),
     soat_vigente: soat_flag,
     tecno_vigente: tecno_flag,
     soat_vencimiento: soat_venc,
@@ -1697,6 +1701,7 @@ function normalizeProspecto(p: Record<string, unknown>) {
     peritaje_ultima_fecha: peri_fecha,
     created_at: created,
     updated_at: (p.updated_at ?? p.updatedAt ?? null) as string | null,
+    asignacion_activa: asignacionActiva,
   }
 }
 
@@ -1708,13 +1713,13 @@ async function fetchProspectos(id: number) {
     sortBy: 'updated_at',
     order: 'desc',
   })
-  return res.data.map((p) => normalizeProspecto(p as unknown as Record<string, unknown>)) as ProspectoDetail[]
+  return res.data.map((p) => normalizeProspecto(p as unknown as Record<string, unknown>))
 }
 
 async function fetchConvenios(id: number) {
   try {
-    const r = await get<any>(`${API}/agentes-captacion/${id}/convenios`)
-    const arr = r?.data ?? r
+    const r = await get<{ data?: Convenio[] } | Convenio[]>(`${API}/agentes-captacion/${id}/convenios`)
+    const arr = (r && 'data' in r) ? r.data : r
     if (Array.isArray(arr)) return arr
   } catch (e) {
     console.error('Error al cargar convenios del asesor', e)
@@ -1727,7 +1732,7 @@ async function fetchDateosUnionAsesorYConvenio(opts: {
   convenios: Convenio[]
 }) {
   const a = opts.asesor
-  if (!a) return [] as Dateo[]
+  if (!a) return [] as DateoConExtras[]
 
   const fetchByAgente = () =>
     listDateos({
@@ -1737,7 +1742,7 @@ async function fetchDateosUnionAsesorYConvenio(opts: {
       agenteId: a.id,
       sortBy: 'id',
       order: 'desc',
-    }).then((r) => (r.data as Dateo[]) || [])
+    }).then((r) => (r.data as DateoConExtras[]) || [])
 
   const fetchByConvenio = (convenioId: number) =>
     listDateos({
@@ -1747,7 +1752,7 @@ async function fetchDateosUnionAsesorYConvenio(opts: {
       convenioId,
       sortBy: 'id',
       order: 'desc',
-    }).then((r) => (r.data as Dateo[]) || [])
+    }).then((r) => (r.data as DateoConExtras[]) || [])
 
   const esConvenioLocal = normalizeTipoAgente(a.tipo).includes('CONVENIO')
 
@@ -1755,73 +1760,74 @@ async function fetchDateosUnionAsesorYConvenio(opts: {
     return await fetchByAgente()
   }
 
-  const calls: Promise<Dateo[]>[] = []
+  const calls: Promise<DateoConExtras[]>[] = []
 
   calls.push(fetchByAgente())
 
   try {
-    const resConvenio = await get<any>(
+    const resConvenio = await get<{ id?: number; nombre?: string }>(
       `${API}/convenios/buscar-por-nombre?nombre=${encodeURIComponent(a.nombre)}`
     )
 
     if (resConvenio && resConvenio.id) {
       calls.push(fetchByConvenio(Number(resConvenio.id)))
     }
-  } catch (e: any) {
-    if (e?.response?.status !== 404) {
+  } catch (e: unknown) {
+    const error = e as { response?: { status?: number } }
+    if (error?.response?.status !== 404) {
       console.error('❌ Error buscando convenio por nombre:', e)
     }
   }
 
   const results = await Promise.all(calls)
 
-  const map = new Map<number, Dateo>()
+  const map = new Map<number, DateoConExtras>()
   for (const arr of results) {
     if (!Array.isArray(arr)) continue
     for (const it of arr) {
-      map.set((it as any).id, it)
+      map.set(it.id, it)
     }
   }
 
-  return Array.from(map.values()).sort((a: any, b: any) => Number(b.id) - Number(a.id))
+  return Array.from(map.values()).sort((a, b) => Number(b.id) - Number(a.id))
 }
-
 async function fetchComisiones(id: number) {
   const esConvenioLocal =
     asesor.value && normalizeTipoAgente(asesor.value.tipo).includes('CONVENIO')
 
   if (!esConvenioLocal) {
     const res = await listComisiones({ asesorId: id, perPage: 500 })
-    return res.data as ComisionListItem[]
+    return res.data as ComisionConExtras[]
   }
 
   const porAsesor = await listComisiones({ asesorId: id, perPage: 500 }).then(
-    (r) => r.data as ComisionListItem[],
+    (r) => r.data as ComisionConExtras[],
   )
 
-  let porConvenio: ComisionListItem[] = []
+  let porConvenio: ComisionConExtras[] = []
 
   try {
-    const resConvenio = await get<any>(
+    const resConvenio = await get<{ id?: number; nombre?: string }>(
       `${API}/convenios/buscar-por-nombre?nombre=${encodeURIComponent(asesor.value!.nombre)}`,
     )
 
     if (resConvenio && resConvenio.id) {
-      convenioDelAsesor.value = { id: resConvenio.id, nombre: resConvenio.nombre }
+      convenioDelAsesor.value = { id: resConvenio.id, nombre: resConvenio.nombre || '' }
 
       const resComisiones = await listComisiones({
         convenioId: Number(resConvenio.id),
         perPage: 500,
       })
-      porConvenio = resComisiones.data as ComisionListItem[]
+      porConvenio = resComisiones.data as ComisionConExtras[]
     }
-  } catch (e: any) {
-    if (e?.response?.status !== 404) {
+  } catch (e: unknown) {
+    const error = e as { response?: { status?: number } }
+    if (error?.response?.status !== 404) {
       console.error('❌ Error buscando comisiones por convenio:', e)
     }
   }
 
-  const map = new Map<number, ComisionListItem>()
+  const map = new Map<number, ComisionConExtras>()
   for (const c of [...porAsesor, ...porConvenio]) {
     if (!c || c.id == null) continue
     map.set(Number(c.id), c)
@@ -1830,7 +1836,7 @@ async function fetchComisiones(id: number) {
   return Array.from(map.values())
 }
 
-async function fetchPagos(_id: number) {
+async function fetchPagos() {
   return []
 }
 
@@ -1854,10 +1860,10 @@ async function loadAll() {
     dateos.value = Array.isArray(d) ? d : []
 
     const [p, pg, cm] = await Promise.all([
-      fetchProspectos(asesorId.value),
-      fetchPagos(asesorId.value),
-      fetchComisiones(asesorId.value)
-    ])
+  fetchProspectos(asesorId.value),
+  fetchPagos(),  // ← SIN parámetro
+  fetchComisiones(asesorId.value)
+])
     prospectos.value = Array.isArray(p) ? p : []
     pagos.value = Array.isArray(pg) ? pg : []
     comisiones.value = Array.isArray(cm) ? cm : []
@@ -1871,7 +1877,7 @@ async function loadAll() {
     const desde = new Date(filtros.value.desde + 'T00:00:00')
     const hasta = new Date(filtros.value.hasta + 'T23:59:59')
 
-    const dateosEnRango = dateos.value.filter((x: any) => {
+    const dateosEnRango = dateos.value.filter((x) => {
       const tRaw = normalizeCreatedAt(x)
       const t = tRaw ? new Date(tRaw) : null
       return t ? t >= desde && t <= hasta : true
@@ -1890,8 +1896,9 @@ async function loadAll() {
       comisionesPagadas: comisionesPorEstado.comisionesPagadas,
       pagosRegistrados: comisionesPorEstado.comisionesPagadas,
     }
-  } catch (e: any) {
-    globalError.value = e?.message || 'No fue posible cargar la ficha comercial'
+  } catch (e: unknown) {
+    const error = e as { message?: string }
+    globalError.value = error?.message || 'No fue posible cargar la ficha comercial'
   } finally {
     loading.value = false
   }
@@ -1916,7 +1923,7 @@ watch(
 
       const desdeD = new Date(desde + 'T00:00:00')
       const hastaD = new Date(hasta + 'T23:59:59')
-      const dEnRango = dateos.value.filter((x: any) => {
+      const dEnRango = dateos.value.filter((x) => {
         const tRaw = normalizeCreatedAt(x)
         const t = tRaw ? new Date(tRaw) : null
         return t ? t >= desdeD && t <= hastaD : true
@@ -2000,9 +2007,9 @@ function exportCsv(soloExitosos: boolean) {
     ? dateosFiltrados.value.filter((d) => isExitoso(d))
     : dateosFiltrados.value
 
-  const sortedRows = [...baseRows].sort((a: any, b: any) => Number(b.id) - Number(a.id))
+  const sortedRows = [...baseRows].sort((a, b) => Number(b.id) - Number(a.id))
 
-  const rows = sortedRows.map((d: any) => ({
+  const rows = sortedRows.map((d) => ({
     id: d.id || '',
     placa: (d.placa || '').toUpperCase(),
     telefono: d.telefono || '',
@@ -2040,7 +2047,7 @@ function exportCsv(soloExitosos: boolean) {
   const BOM = '\uFEFF'
   const csv = BOM + [
     headersDisplay.join(delimiter),
-    ...rows.map((r) => headersKeys.map((h) => csvEscape((r as any)[h])).join(delimiter)),
+    ...rows.map((r) => headersKeys.map((h) => csvEscape(r[h as keyof typeof r])).join(delimiter)),
   ].join('\r\n')
 
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
@@ -2065,7 +2072,6 @@ function csvEscape(val: unknown) {
   return cleaned
 }
 </script>
-
 <style scoped>
 /* Datos del asesor: horizontal compacto */
 .data-item {
@@ -2175,7 +2181,6 @@ function csvEscape(val: unknown) {
   opacity: 0.7;
   margin-top: 2px;
 }
-
 :deep(th[data-key='soat']),
 :deep(td[data-key='soat']),
 :deep(th[data-key='tecno']),

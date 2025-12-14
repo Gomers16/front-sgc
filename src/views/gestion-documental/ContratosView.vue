@@ -10,9 +10,9 @@
       :razon-social="razonSocialSeleccionada"
       :usuario="usuarioSeleccionado"
       :tipo-contrato="tipoContratoSeleccionado"
-      @update:razonSocial="(v)=> razonSocialSeleccionada = v"
-      @update:usuario="(v)=> usuarioSeleccionado = v"
-      @update:tipoContrato="(v)=> tipoContratoSeleccionado = v"
+      @update:razonSocial="(v: number | null)=> razonSocialSeleccionada = v"
+      @update:usuario="(v: number | null)=> usuarioSeleccionado = v"
+      @update:tipoContrato="(v: TipoContrato | null)=> tipoContratoSeleccionado = v || 'prestacion'"
       :razones-sociales="razonesSociales"
       :usuarios="usuarios"
       :tipos-contrato-select-items="tiposContratoSelectItems"
@@ -116,7 +116,7 @@
   :is-editing="isEditing"
   :modal-paso="modalPaso"
   :max-upload-mb="MAX_UPLOAD_MB"
-  @abrirModalPaso="(p)=> abrirModalPaso(p)"
+  @abrirModalPaso="(p: Paso)=> abrirModalPaso(p)"
   @cerrarModalPaso="cerrarModalPaso"
   @completarPasoConfirmado="completarPasoConfirmado"
   @onFilePasoChange="onFilePasoChange"
@@ -186,7 +186,10 @@
       :to-absolute-api-url="toAbsoluteApiUrl"
       @editar="editarContrato"
       @toggleEstado="toggleEstadoContrato"
+      
+      
     />
+    
 
     <!-- Dialogo Certificado -->
     <DialogoCertificado
@@ -198,8 +201,8 @@
       :file-name="getArchivoNombre(certDialog.meta) || null"
       :file="certDialog.file"
       :max-upload-mb="MAX_UPLOAD_MB"
-      @update:open="(v)=> certDialog.open = v"
-      @update:file="(f)=> certDialog.file = f"
+      @update:open="(v: boolean)=> certDialog.open = v"
+      @update:file="(f: File | null)=> certDialog.file = f"
       @subir="subirCertificadoSeleccionado"
       @eliminar="eliminarCertificadoSeleccionado"
       @descargar="descargarCertificadoSeleccionado"
@@ -214,8 +217,8 @@
       :file-name="recNombreActual"
       :file="recDialog.file"
       :max-upload-mb="MAX_UPLOAD_MB"
-      @update:open="(v)=> recDialog.open = v"
-      @update:file="(f)=> recDialog.file = f"
+      @update:open="(v: boolean)=> recDialog.open = v"
+      @update:file="(f: File | null)=> recDialog.file = f"
       @subir="subirRecomendacionSeleccionada"
       @eliminar="eliminarRecomendacionSeleccionada"
       @descargar="descargarRecomendacionSeleccionada"
@@ -258,6 +261,8 @@
 
 
 <script setup lang="ts">
+
+
 import FiltrosContratos from '@/components/contratos/FiltrosContratos.vue'
 import AnexoContrato from '@/components/contratos/AnexoContrato.vue'
 import DialogoRecomendacion from '@/components/contratos/DialogoRecomendacion.vue'
@@ -265,7 +270,6 @@ import DialogoCertificado from '@/components/contratos/DialogoCertificado.vue'
 import PasosContrato from '@/components/contratos/PasosContrato.vue'
 import HistorialContratos from '@/components/contratos/HistorialContratos.vue'
 import FormularioContrato from '@/components/contratos/FormularioContrato.vue'
-
 /* Composables */
 import { useContratosFilters } from '@/composables/contratos/useContratosFilters'
 const {
@@ -287,7 +291,6 @@ const { showAlertDialog, alertDialogTitle, alertDialogMessage, showAlert, snackb
 import { useContratoTermOptions } from '@/composables/contratos/useContratoTermOptions'
 const { terminosContratoOptions, terminoContratoRules } = useContratoTermOptions(tipoContratoSeleccionado)
 
-
 import { toAbsoluteApiUrl } from '@/composables/contratos/useUrlApi'
 
 import { useMaestrosRRHH } from '@/composables/contratos/useMaestrosRRHH'
@@ -298,17 +301,9 @@ const {
   cargarMaestros,
 } = useMaestrosRRHH()
 
-
-
-
-
-
-
-
 /* Vue + VeeValidate */
 import { ref, computed, watch, onMounted, nextTick } from 'vue'
 import { useForm, useField } from 'vee-validate'
-
 
 /* Contratos (incluye afiliaciones POR CONTRATO) */
 import {
@@ -325,6 +320,12 @@ import {
   subirRecomendacionMedica,
   obtenerRecomendacionMedicaMeta,
   eliminarRecomendacionMedica,
+  type Contrato,
+  type ContratoCreatePayload,
+  type ContratoUpdatePayload,
+  type TipoContrato,
+  
+  
 } from '@/services/contratoService'
 
 /* PASOS (solo listar/actualizar/crear) */
@@ -357,8 +358,6 @@ const MAX_MONEY = 2_000_000_000
 
 const isSaving = ref(false)
 
-/* URL ABSOLUTA HACIA LA API */
-
 function extOf(name?: string) {
   if (!name) return ''
   const p = name.split('.')
@@ -387,6 +386,7 @@ function sanitizeMoney(v: unknown): MoneyInput {
 
 /* ======= Tipos ======= */
 type AfiliacionTipo = 'eps' | 'arl' | 'afp' | 'afc' | 'ccf'
+
 interface Paso {
   id?: number
   nombre: string
@@ -400,6 +400,12 @@ interface Paso {
   orden?: number
 }
 
+interface SalarioPayload {
+  salarioBasico?: number
+  bonoSalarial?: number
+  auxilioTransporte?: number
+  auxilioNoSalarial?: number
+}
 
 /** Payload mínimo esperado por crearContrato (ajusta a tu backend si hace falta) */
 interface CrearContratoPayload {
@@ -409,7 +415,7 @@ interface CrearContratoPayload {
   sedeId: number | null
   cargoId: number | null
   funcionesCargo: string | null
-  fechaInicio: string | null
+  fechaInicio: string
   fechaTerminacion: string | null
   tipoContrato: 'prestacion' | 'temporal' | 'laboral' | 'aprendizaje'
   terminoContrato: 'fijo' | 'obra_o_labor_determinada' | 'indefinido' | null
@@ -426,8 +432,15 @@ interface CrearContratoPayload {
   auxilioTransporte: number
   auxilioNoSalarial: number
 }
-/** Respuesta mínima de crearContrato */
-interface CrearContratoResponse extends ContratoRow { id: number; salarios?: ContratoRow['salarios'] }
+
+interface SalarioPayload {
+  salarioBasico?: number
+  bonoSalarial?: number
+  auxilioTransporte?: number
+  auxilioNoSalarial?: number
+}
+
+
 /** Payload para anexarContrato */
 interface AnexarContratoPayload {
   contratoId: number
@@ -436,7 +449,6 @@ interface AnexarContratoPayload {
   tieneRecomendacionesMedicas?: boolean
   archivoRecomendacionMedica?: File
 }
-
 /* ======= Estado base ======= */
 
 const loadingPasos = ref(false)
@@ -596,8 +608,6 @@ const salarioTotalCalculado = computed(() => {
 const centrosCostoOptions = ref<string[]>([
   'ADMINISTRACIÓN','TALENTO HUMANO','CONTABILIDAD','OPERACIÓN','SERVICIO AL CLIENTE','DIRECCIÓN','COMERCIAL',
 ])
-
-
 /* ======= Pasos ======= */
 const basePasosPrestacion: Paso[] = [
   { nombre: 'Inicio Contrato', completado: false, fase: 'inicio', orden: 1 },
@@ -650,13 +660,20 @@ function construirBasePasos(): Paso[] {
   }))
 }
 
+// Reemplazar el computed pasosContrato por este:
 const pasosContrato = computed<Paso[]>(() => {
   void pasosVersion.value
   if (isEditing.value && pasosBackend.value) return pasosBackend.value
-  if (!pasosLocal.value) pasosLocal.value = construirBasePasos()
-  return pasosLocal.value
+  // ✅ No modificar state dentro del computed
+  return pasosLocal.value || construirBasePasos()
 })
 
+// ✅ NUEVO: Agregar este watcher JUSTO DESPUÉS del computed
+watch(pasosContrato, (newVal) => {
+  if (!isEditing.value && !pasosLocal.value) {
+    pasosLocal.value = newVal
+  }
+}, { immediate: true })
 function filenameFromUrl(u?: string | null) {
   if (!u) return undefined
   try { return decodeURIComponent(u.split('/').pop() || '') || undefined } catch { return (u.split('/').pop() || undefined) }
@@ -814,7 +831,6 @@ async function descargarCertificadoSeleccionado() {
   const url = toAbsoluteApiUrl(String(urlRaw))
   window.open(url, '_blank', 'noopener')
 }
-
 /* ======= Recomendación: modal de archivo ======= */
 const recDialog = ref({ open:false, file:null as File | null, loading:false })
 function openRecDialog(ev?: MouseEvent) {
@@ -916,14 +932,17 @@ async function confirmarEliminarRecMedica() {
 }
 
 /* ======= Carga de datos ======= */
-const contratosUsuario = ref<ContratoRow[]>([])
+
+const contratosUsuario = ref<Contrato[]>([])
+
+
 const loadingContratos = ref(false)
 async function cargarHistorialContratos() {
   if (!usuarioSeleccionado.value) { contratosUsuario.value = []; return }
   loadingContratos.value = true
   try {
     const raw = await obtenerContratosPorUsuario(Number(usuarioSeleccionado.value))
-    contratosUsuario.value = toArray<ContratoRow>(raw)
+    contratosUsuario.value = toArray<Contrato>(raw)
   } catch { contratosUsuario.value = [] }
   finally { loadingContratos.value = false }
 }
@@ -978,7 +997,6 @@ async function handleConfirmacion() {
 
   await submitForm()
 }
-
 async function crearYAnexarContrato(formData: Record<string, unknown>) {
   if (isSaving.value) return
   isSaving.value = true
@@ -996,20 +1014,20 @@ async function crearYAnexarContrato(formData: Record<string, unknown>) {
       const valor = terminoContrato.value
       if (tipo === 'temporal') return 'obra_o_labor_determinada' as const
       if (tipo === 'aprendizaje') return 'fijo' as const
-      return (valor || null) as CrearContratoPayload['terminoContrato']
+      return valor
     })()
 
     const fechaTerminacionNormalizada =
       isFechaTerminacionRequired.value ? (formData['fechaTerminacion'] as string | null) || null : null
 
-    const payloadContrato: CrearContratoPayload = {
+    const payloadContrato: ContratoCreatePayload = {
       usuarioId: Number(usuarioSeleccionado.value),
       razonSocialId: Number(razonSocialSeleccionada.value),
       identificacion: String(identificacion.value || '').trim(),
       sedeId: sedeId.value ? Number(sedeId.value) : null,
       cargoId: cargoId.value ? Number(cargoId.value) : null,
       funcionesCargo: String(funcionesCargo.value || '').trim() || null,
-      fechaInicio: (formData['fechaInicio'] as string) || null,
+      fechaInicio: (formData['fechaInicio'] as string) || '',
       fechaTerminacion: fechaTerminacionNormalizada,
       tipoContrato: tipoContratoSeleccionado.value,
       terminoContrato: terminoNormalizado,
@@ -1027,11 +1045,13 @@ async function crearYAnexarContrato(formData: Record<string, unknown>) {
       auxilioNoSalarial: Number(auxilioNoSalarial.value) || 0,
     }
 
-    const nuevoContrato = await crearContrato(payloadContrato) as CrearContratoResponse
+    // ✅ SOLUCIÓN: No hacer cast, usar el tipo que devuelve
+    const nuevoContrato = await crearContrato(payloadContrato)
     const nc = nuevoContrato
 
     // Salario (si backend no lo devuelve ya persistido)
-    const salarioViene = Array.isArray(nc.salarios) && nc.salarios.length > 0
+    const salarios = nc.salarios as SalarioPayload[] | undefined
+    const salarioViene = Array.isArray(salarios) && salarios.length > 0
     if (!salarioViene) {
       await crearContratoSalario({
         contratoId: Number(nc.id),
@@ -1054,8 +1074,7 @@ async function crearYAnexarContrato(formData: Record<string, unknown>) {
           archivoRecomendacionMedica: archivoRecomendacionMedica.value || undefined,
         }
         await anexarContrato(anexarPayload)
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      } catch (e) {
+      } catch {
         contratoPendienteAnexoId.value = Number(nc.id)
         notify('El contrato se creó, pero falló el anexado del PDF. Puedes reintentar.', 'warning')
         await cargarHistorialContratos()
@@ -1100,7 +1119,7 @@ async function crearYAnexarContrato(formData: Record<string, unknown>) {
           return crearPasoContrato(Number(nc.id), fd)
         })
         await Promise.all(creates)
-      } catch {}
+      } catch {/* no-op */}
     }
     notify('Contrato creado y archivos anexados.', 'success')
     await resetParaSiguienteEnMismaRazon()
@@ -1140,22 +1159,26 @@ async function reanexarArchivoContrato() {
     isSaving.value = false
   }
 }
-
 /* ======= Edición ======= */
 const contratoEditArchivoUrl = ref<string | null>(null)
 const contratoEditNombreArchivo = ref<string>('')
 const contratoEditTieneArchivo = computed(() => !!contratoEditArchivoUrl.value)
 
-async function editarContrato(c: ContratoRow) {
+async function editarContrato(c: Contrato) {
   isEditing.value = true
   contratoEditId.value = c.id
-  let src: Partial<ContratoRow & Dict> = c
-  try { src = await obtenerContratoPorId(c.id) as Partial<ContratoRow & Dict> } catch {}
+  let src: Partial<Contrato & Dict> = c as Partial<Contrato & Dict>
+  try { src = await obtenerContratoPorId(c.id) as Partial<Contrato & Dict> } catch {/* no-op */}
 
-  tipoContratoSeleccionado.value = (src['tipoContrato'] as ContratoRow['tipoContrato']) ?? c.tipoContrato
+  tipoContratoSeleccionado.value = (src['tipoContrato'] as Contrato['tipoContrato']) ?? c.tipoContrato
   identificacion.value = (src['identificacion'] as string) ?? ''
-  sedeId.value = (src['sede'] as SedeLite | undefined)?.id ?? (src['sedeId'] as number | null) ?? null
-  cargoId.value = (src['cargo'] as CargoLite | undefined)?.id ?? (src['cargoId'] as number | null) ?? null
+  
+  const sedeData = src['sede'] as { id?: number } | undefined
+  sedeId.value = sedeData?.id ?? (src['sedeId'] as number | null) ?? null
+  
+  const cargoData = src['cargo'] as { id?: number } | undefined
+  cargoId.value = cargoData?.id ?? (src['cargoId'] as number | null) ?? null
+  
   funcionesCargo.value = (src['funcionesCargo'] as string) ?? ''
   fechaInicio.value = (String(src['fechaInicio'] || '')).slice(0,10)
   fechaTerminacion.value = src['fechaTerminacion'] ? String(src['fechaTerminacion']).slice(0,10) : ''
@@ -1168,7 +1191,7 @@ async function editarContrato(c: ContratoRow) {
   afcId.value = (src['afcId'] as number | null) ?? null
   ccfId.value = (src['ccfId'] as number | null) ?? null
 
-  const salarios = (Array.isArray(src['salarios']) ? src['salarios'] as Array<{ salarioBasico?:number; bonoSalarial?:number; auxilioTransporte?:number; auxilioNoSalarial?:number }> : [])
+  const salarios = (Array.isArray(src['salarios']) ? src['salarios'] as SalarioPayload[] : [])
   const sb = (src['salarioBasico'] as number | undefined) ?? salarios[0]?.salarioBasico
   const bs = (src['bonoSalarial'] as number | undefined) ?? salarios[0]?.bonoSalarial
   const at = (src['auxilioTransporte'] as number | undefined) ?? salarios[0]?.auxilioTransporte
@@ -1198,7 +1221,7 @@ async function editarContrato(c: ContratoRow) {
       }
     }
     syncTieneRecFlagFromMeta(src['tieneRecomendacionesMedicas'])
-  } catch {}
+  } catch {/* no-op */}
   recUiTick.value++
 
   await Promise.all(['eps','arl','afp','afc','ccf'].map(async (t) =>{
@@ -1208,7 +1231,7 @@ async function editarContrato(c: ContratoRow) {
     } catch { setCertState(t as AfiliacionTipo, false, null) }
   }))
 
-  try { await cargarPasosDesdeBackend(Number(c.id)) } catch {}
+  try { await cargarPasosDesdeBackend(Number(c.id)) } catch {/* no-op */}
 
   archivoContrato.value = null
   fileInputRenderKey.value++
@@ -1259,17 +1282,21 @@ async function guardarCambiosContrato() {
     const fechaTerminacionNormalizada =
       isFechaTerminacionRequired.value ? (fechaTerminacion.value || null) : null
 
-    const payload: Partial<CrearContratoPayload> = {
+    const payload: ContratoUpdatePayload = {
       tipoContrato: tipoContratoSeleccionado.value,
       terminoContrato: terminoNormalizado,
       identificacion: String(identificacion.value || '').trim(),
       sedeId: sedeId.value ? Number(sedeId.value) : null,
       cargoId: cargoId.value ? Number(cargoId.value) : null,
       funcionesCargo: String(funcionesCargo.value || '').trim() || null,
-      fechaInicio: fechaInicio.value || null,
+      fechaInicio: fechaInicio.value || '',
       fechaTerminacion: fechaTerminacionNormalizada,
       centroCosto: String(centroCosto.value || '').trim() || null,
-      epsId: epsId.value ?? null, arlId: arlId.value ?? null, afpId: afpId.value ?? null, afcId: afcId.value ?? null, ccfId: ccfId.value ?? null,
+      epsId: epsId.value ?? null, 
+      arlId: arlId.value ?? null, 
+      afpId: afpId.value ?? null, 
+      afcId: afcId.value ?? null, 
+      ccfId: ccfId.value ?? null,
       tieneRecomendacionesMedicas: !!tieneRecomendacionesMedicas.value,
       salarioBasico: salarioBasico.value !== '' ? Number(salarioBasico.value) : undefined,
       bonoSalarial: bonoSalarial.value !== '' ? Number(bonoSalarial.value) : undefined,
@@ -1291,7 +1318,7 @@ async function guardarCambiosContrato() {
       await subirRecomendacionMedica(Number(contratoEditId.value), archivoRecomendacionMedica.value)
     }
 
-    const refreshed = await obtenerContratoPorId(Number(contratoEditId.value)) as Dict
+    const refreshed = await obtenerContratoPorId(Number(contratoEditId.value)) as Contrato
     contratoEditArchivoUrl.value = (refreshed['rutaArchivoContratoFisico'] as string | null) || contratoEditArchivoUrl.value
     contratoEditNombreArchivo.value = (contratoEditArchivoUrl.value?.split('/')?.pop() || contratoEditNombreArchivo.value || 'Contrato actual')
 
@@ -1320,7 +1347,6 @@ function cancelarEdicion() {
   contratoEditId.value = null
   limpiarFormulario()
 }
-
 /* ======= Modal de pasos ======= */
 const modalPaso = ref<{
   mostrar: boolean
@@ -1455,7 +1481,7 @@ function onFileChange(value: unknown) {
 }
 
 /* ======= Cambiar estado contrato ======= */
-async function toggleEstadoContrato(c: ContratoRow) {
+async function toggleEstadoContrato(c: Contrato) {
   const nuevo = c.estado === 'activo' ? 'inactivo' : 'activo'
   try {
     await cambiarEstadoContrato(c.id, nuevo)
@@ -1575,7 +1601,7 @@ watch(tipoContratoSeleccionado, (nuevo) => {
     return
   }
   const allowed = terminosContratoOptions.value.map(o => o.value)
-  if (!allowed.includes(terminoContrato.value as any)) terminoContrato.value = null
+  if (!allowed.includes(terminoContrato.value as 'fijo' | 'obra_o_labor_determinada' | 'indefinido')) terminoContrato.value = null
 })
 
 /* ⬅️ ⬅️ NUEVO: si cambia tipo o término y NO estoy editando, regenero los pasos base */
@@ -1587,8 +1613,6 @@ watch([tipoContratoSeleccionado, terminoContrato], () => {
 onMounted(() => {
   cargarRazonesSociales()
   cargarMaestros()
-
-
 })
 
 /* Exponer helper al template */
@@ -1632,7 +1656,7 @@ defineExpose({ toAbsoluteApiUrl })
   margin-left: 8px;
 }
 
-/* ====== Íconos de “clip” y estados en selects ====== */
+/* ====== Íconos de "clip" y estados en selects ====== */
 .append-icons { display: flex; align-items: center; gap: 6px; }
 .append-icons .v-icon,
 .append-icons .v-btn { margin-left: 2px; }
@@ -1645,7 +1669,7 @@ defineExpose({ toAbsoluteApiUrl })
   pointer-events: none;
 }
 
-/* ====== FIX: Quitar el “recuadro azul” que sobresale en el focus ====== */
+/* ====== FIX: Quitar el "recuadro azul" que sobresale en el focus ====== */
 :deep(.v-btn:focus-visible),
 :deep(.v-field__input:focus-visible) {
   outline: none !important;

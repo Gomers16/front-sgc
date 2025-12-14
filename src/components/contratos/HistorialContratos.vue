@@ -104,30 +104,17 @@
 </template>
 
 <script setup lang="ts">
-type SedeLite = { id: number; nombre: string } | null | undefined
-type CargoLite = { id: number; nombre: string } | null | undefined
-
-type ContratoRow = {
-  id: number
-  tipoContrato: string
-  terminoContrato: string | null
-  estado: 'activo' | 'inactivo'
-  fechaInicio: string
-  fechaTerminacion: string | null
-  sede?: SedeLite
-  cargo?: CargoLite
-  rutaArchivoContratoFisico?: string | null
-}
+import { type Contrato } from '@/services/contratoService'
 
 const props = defineProps<{
-  contratos: ContratoRow[]
+  contratos: Contrato[]
   loading: boolean
   toAbsoluteApiUrl: (path?: string) => string
 }>()
 
 const emit = defineEmits<{
-  (e: 'editar', c: ContratoRow): void
-  (e: 'toggleEstado', c: ContratoRow): void
+  (e: 'editar', c: Contrato): void
+  (e: 'toggleEstado', c: Contrato): void
 }>()
 
 function toAbsolute(path?: string | null) {
