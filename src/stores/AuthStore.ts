@@ -4,7 +4,7 @@ import router from '@/router'
 import AuthService from '@/services/AuthService'
 import { defineStore } from 'pinia'
 
-/** Usuario según tu backend (+ agenteId opcional) */
+/** Usuario COMPLETO del sistema (viene de /me) */
 export interface User {
   id: number
   agenteId?: number | null
@@ -37,6 +37,29 @@ export interface User {
   }
 }
 
+/** Usuario REDUCIDO que devuelve el LOGIN */
+interface UserAuth {
+  id: number
+  agenteId?: number | null
+  nombres: string
+  apellidos: string
+  correo: string
+  rol: {
+    id: number
+    nombre: string
+  }
+  profilePictureUrl?: string
+}
+
+/** Respuesta del login */
+interface LoginResponse {
+  token?: string
+  user?: UserAuth
+  errors?: {
+    message: string
+  }[]
+}
+
 /** Para logs de errores de red sin romper tipos */
 interface NetworkError extends Error {
   response?: { data?: { message?: string } }
@@ -63,19 +86,14 @@ export const useAuthStore = defineStore('auth', {
     currentUserId: (s) => s.user?.id || null,
     currentAgenteId: (s) => s.user?.agenteId ?? null,
 
-    // Getters de roles
     userRole: (s) => s.user?.rol?.nombre || null,
 
-    hasRole: (s) => (role: string) => {
-      return s.user?.rol?.nombre === role
-    },
+    hasRole: (s) => (role: string) =>
+      s.user?.rol?.nombre === role,
 
-    hasAnyRole: (s) => (roles: string[]) => {
-      const userRole = s.user?.rol?.nombre
-      return userRole ? roles.includes(userRole) : false
-    },
+    hasAnyRole: (s) => (roles: string[]) =>
+      s.user?.rol?.nombre ? roles.includes(s.user.rol.nombre) : false,
 
-    // Helpers específicos por rol
     isSuperAdmin: (s) => s.user?.rol?.nombre === 'SUPER_ADMIN',
     isGerencia: (s) => s.user?.rol?.nombre === 'GERENCIA',
     isComercial: (s) => s.user?.rol?.nombre === 'COMERCIAL',
@@ -85,164 +103,101 @@ export const useAuthStore = defineStore('auth', {
   },
 
   actions: {
-    /** Inicia sesión y guarda token + user */
+    /** LOGIN: solo autentica, NO hidrata usuario completo */
     async login(userData: { email: string; password: string }): Promise<boolean> {
       const auth = new AuthService()
-      let loginResponse: any
+      let loginResponse: LoginResponse
 
       try {
         loginResponse = await auth.login(userData.email, userData.password)
       } catch (err: unknown) {
-        const message = err instanceof Error ? err.message : 'Error desconocido en autenticación'
-        console.error('AuthStore.login: error en AuthService.login:', message)
+        const message =
+          err instanceof Error ? err.message : 'Error desconocido en autenticación'
+        console.error('AuthStore.login:', message)
         return false
       }
 
       if (loginResponse?.errors?.[0]) {
-        console.error('AuthStore.login: backend error:', loginResponse.errors[0].message)
+        console.error('AuthStore.login:', loginResponse.errors[0].message)
         return false
       }
 
-      const tokenValue: string | undefined = loginResponse?.token
-      const userFromBackend: User | undefined = loginResponse?.user
-
-      if (!tokenValue || !userFromBackend) {
-        console.error('AuthStore.login: respuesta inválida (token o user faltante):', loginResponse)
+      if (!loginResponse.token) {
+        console.error('AuthStore.login: token faltante')
         return false
       }
 
-      this.token = tokenValue
-      this.user = userFromBackend
+      this.token = loginResponse.token
+      sessionStorage.setItem('token', loginResponse.token)
 
-      sessionStorage.setItem('token', tokenValue)
-      sessionStorage.setItem('user', JSON.stringify(userFromBackend))
-
-      console.log('✅ Login exitoso. Rol:', userFromBackend.rol.nombre)
-
-      // 🔥 REDIRECCIÓN POR ROL
-      const rol = userFromBackend.rol.nombre
-
-      switch (rol) {
-        case 'COMERCIAL':
-          // ✅ CORREGIDO: Usar agenteId en lugar de userId
-          const asesorId = userFromBackend.agenteId || userFromBackend.id
-          router.push({
-            name: 'FichaComercialAsesor',
-            params: { id: asesorId }
-          })
-          break
-
-        case 'TALENTO_HUMANO':
-          router.push({ name: 'Contratos' })
-          break
-
-        case 'CONTABILIDAD':
-          router.push({ name: 'FacturacionHistorico' })
-          break
-
-        default:
-          // SUPER_ADMIN, GERENCIA, OPERATIVO_TURNOS van al dashboard
-          router.push('/dashboard')
-      }
+      // 🚀 Dejar que /me cargue el usuario completo
+      await this.checkAuth()
 
       return true
     },
 
-    /** Cierra sesión limpiando estado y sessionStorage */
+    /** LOGOUT */
     async logout() {
       this.user = null
       this.token = null
       sessionStorage.removeItem('user')
       sessionStorage.removeItem('token')
-      console.log('AuthStore: Sesión cerrada.')
       router.push('/login')
     },
 
-    /** Rehidrata sesión si hay token: pide /api/auth/me */
+    /** Carga REAL del usuario desde /me */
     async checkAuth() {
-      if (this.token && !this.user) {
-        try {
-          const authService = new AuthService()
-          const response = await authService.me()
+      if (!this.token) return
 
-          if (response?.user) {
-            this.user = response.user as User
-            sessionStorage.setItem('user', JSON.stringify(response.user))
-            console.log('✅ checkAuth: Usuario cargado desde API.')
+      try {
+        const authService = new AuthService()
+        const response = await authService.me()
 
-            const currentPath = router.currentRoute.value.path
-            const rol = this.user.rol.nombre
-
-            if (currentPath === '/login' || currentPath === '/register') {
-              switch (rol) {
-                case 'COMERCIAL':
-                  // ✅ CORREGIDO: Usar agenteId en lugar de userId
-                  const asesorId = this.user.agenteId || this.user.id
-                  router.push({
-                    name: 'FichaComercialAsesor',
-                    params: { id: asesorId }
-                  })
-                  break
-                case 'TALENTO_HUMANO':
-                  router.push({ name: 'Contratos' })
-                  break
-                case 'CONTABILIDAD':
-                  router.push({ name: 'FacturacionHistorico' })
-                  break
-                default:
-                  router.push('/dashboard')
-              }
-            }
-          } else {
-            console.error('checkAuth: /me sin usuario o token inválido.')
-            this.logout()
-          }
-        } catch (error: unknown) {
-          if (error instanceof Error) {
-            const net = error as NetworkError
-            console.error(
-              'checkAuth: Error al verificar autenticación:',
-              net.response?.data?.message || net.message
-            )
-          } else {
-            console.error('checkAuth: Error desconocido:', error)
-          }
+        if (!response?.user) {
           this.logout()
+          return
         }
-      } else if (this.token && this.user) {
-        console.log('checkAuth: Usuario ya cargado y token presente.')
+
+        this.user = response.user as User
+        sessionStorage.setItem('user', JSON.stringify(this.user))
 
         const currentPath = router.currentRoute.value.path
         const rol = this.user.rol.nombre
 
         if (currentPath === '/login' || currentPath === '/register') {
           switch (rol) {
-            case 'COMERCIAL':
-              // ✅ CORREGIDO: Usar agenteId en lugar de userId
+            case 'COMERCIAL': {
               const asesorId = this.user.agenteId || this.user.id
               router.push({
                 name: 'FichaComercialAsesor',
-                params: { id: asesorId }
+                params: { id: asesorId },
               })
               break
+            }
+
             case 'TALENTO_HUMANO':
               router.push({ name: 'Contratos' })
               break
+
             case 'CONTABILIDAD':
               router.push({ name: 'FacturacionHistorico' })
               break
+
             default:
               router.push('/dashboard')
           }
         }
-      } else {
-        console.log('checkAuth: No hay token en sessionStorage.')
+      } catch (error: unknown) {
+        const net = error as NetworkError
+        console.error(
+          'checkAuth:',
+          net.response?.data?.message || net.message
+        )
+        this.logout()
       }
     },
   },
 })
 
-/**
- * Compatibilidad hacia atrás
- */
+/** Compatibilidad hacia atrás */
 export { useAuthStore as authSetStore }

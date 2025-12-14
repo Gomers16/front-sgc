@@ -125,46 +125,38 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
-
-const props = defineProps<{
-  // estado global relevante
+/* Props */
+defineProps<{
   isEditing: boolean
   isSaving: boolean
   usuarioSeleccionado: number | null
 
-  // archivo en memoria
   archivoContrato: File | null
 
-  // render keys
   fileBlockKey: number
   fileInputRenderKey: number
 
-  // info contrato edit
   contratoEditTieneArchivo: boolean
   contratoEditArchivoUrl: string | null
   contratoEditNombreArchivo: string
 
-  // reintentos
   contratoPendienteAnexoId: number | null
 
- // límites
   maxUploadMb: number
 
-  // helper url
   toAbsoluteApiUrl: (path?: string) => string
 
-  // ✅ NUEVO
   esAsesorConvenio?: boolean
 }>()
+
+/* Emits */
 const emit = defineEmits<{
   (e:'update:archivoContrato', v: File | File[] | null): void
   (e:'crearYAnexar'): void
   (e:'reanexar'): void
 }>()
-
-const fileInputRef = ref<{ reset?: () => void } | null>(null)
 </script>
+
 
 <style scoped>
 /* nada extra por ahora */
