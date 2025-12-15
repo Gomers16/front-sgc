@@ -899,7 +899,7 @@
               accept="image/*"
               variant="outlined"
               :clearable="true"
-              :rules="[v => ((Array.isArray(v) ? v.length : !!v) || 'Debe seleccionar una imagen.')]"
+              :rules="[v => (Array.isArray(v) ? v.length > 0 : !!v) || 'Debe seleccionar una imagen.']"
               :loading="isLoadingAction"
             />
           </v-card-text>
@@ -1269,7 +1269,7 @@
     </v-card>
   </v-container>
 </template>
-
+/* eslint-disable @typescript-eslint/no-explicit-any */
 <script setup lang="ts">
 import { ref, onMounted, computed, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
@@ -1281,7 +1281,7 @@ import {
   actualizarUsuario,
   type User,
   type Contrato as BaseContrato
-} from '@/services/userService'
+} from '@/services/UserService'
 
 import {
   actualizarContrato,
@@ -1309,8 +1309,7 @@ import {
 
 import {
   actualizarPasoContrato,
-  fetchPasosInicio,
-  type ContratoPaso
+  fetchPasosInicio
 } from '@/services/contratosPasosService'
 
 import type { ContratoHistorialEstado } from '@/services/contratoHistorialEstadosService'
@@ -1322,16 +1321,58 @@ interface ContratoCambio {
   id: number; contratoId: number; usuarioId: number | null; usuario?: CambioUsuario | null
   campo: string; oldValue: any; newValue: any; createdAt: string
 }
-type ContratoEventoExt = ContratoEvento & { usuario?: CambioUsuario | null }
-type ContratoPasoExt = ContratoPaso & { usuario?: CambioUsuario | null }
-type TimelineItemEstado = (ContratoHistorialEstado & { usuario?: CambioUsuario | null }) & { kind: 'estado' }
+
+// Tipo literal para eventos
+type TipoEvento = 'Incapacidad' | 'Suspension' | 'Licencia' | 'Permiso' | 'Vacaciones' | 'Cesantias' | 'Disciplinario' | 'Terminacion'
+
+// Interfaz extendida para eventos (compatible con el tipo base)
+interface ContratoEventoExt {
+  id: number
+  contratoId: number
+  tipo: TipoEvento
+  subtipo?: string
+  fechaInicio: string
+  fechaFin?: string
+  descripcion?: string
+  documentoUrl?: string
+  createdAt: string  // ← SIN signo de interrogación
+  updatedAt: string  // ← SIN signo de interrogación
+  usuarioId?: number
+  usuario?: CambioUsuario | null
+}
+
+// Interfaz extendida para pasos (compatible con el tipo base)
+interface ContratoPasoExt {
+  id: number
+  contratoId: number
+  fase: 'inicio' | 'desarrollo' | 'fin'
+  nombrePaso: string
+  fecha?: string
+  archivoUrl?: string
+  observacion?: string
+  orden: number
+  completado: boolean
+  createdAt: string
+  updatedAt: string
+  usuarioId?: number
+  usuario?: CambioUsuario | null
+}
+
+type TimelineItemEstado = (ContratoHistorialEstado & { 
+  usuario?: CambioUsuario | null 
+  fechaInicioContrato?: string | null
+  motivo?: string | null
+}) & { kind: 'estado' }
+
 type TimelineItemCambio = ContratoCambio & { kind: 'cambio' }
 type TimelineItem = TimelineItemEstado | TimelineItemCambio
 
 interface Contrato extends BaseContrato {
   identificacion?: string
+  razonSocial?: Rel | null
   cargo?: Rel | null
   sede?: Rel | null
+  centroCosto?: string | null
   eps?: Rel | null
   arl?: Rel | null
   afp?: Rel | null
@@ -1346,11 +1387,15 @@ interface Contrato extends BaseContrato {
   cambios?: ContratoCambio[]
   timeline?: TimelineItem[]
   fechaFinalizacion?: string | null
-  motivoFinalizacion?: string | null
+  motivoFinalizacion?: string
   tieneRecomendacionesMedicas?: boolean
   rutaArchivoRecomendacionMedica?: string | null
 }
-interface UserProfile extends User { contratos?: Contrato[] }
+
+interface UserProfile extends User { 
+  contratos?: Contrato[] 
+}
+
 interface UserEditForm {
   nombres: string; apellidos: string; celularPersonal?: string; celularCorporativo?: string; direccion?: string; recomendaciones?: boolean
 }
@@ -1445,13 +1490,13 @@ const eventForm = ref<any>(null)
 
 /** 🔁 Tipos de evento (UI label → value en minúsculas para backend) */
 const tiposEvento = [
-  { label: 'Incapacidad',  value: 'incapacidad' },
-  { label: 'Suspensión',   value: 'suspension' },
-  { label: 'Licencia',     value: 'licencia' },
-  { label: 'Permiso',      value: 'permiso' },
-  { label: 'Vacaciones',   value: 'vacaciones' },
-  { label: 'Cesantías',    value: 'cesantias' },
-  { label: 'Disciplinario',value: 'disciplinario' },
+  { label: 'Incapacidad',  value: 'Incapacidad' },
+  { label: 'Suspensión',   value: 'Suspension' },
+  { label: 'Licencia',     value: 'Licencia' },
+  { label: 'Permiso',      value: 'Permiso' },
+  { label: 'Vacaciones',   value: 'Vacaciones' },
+  { label: 'Cesantías',    value: 'Cesantias' },
+  { label: 'Disciplinario',value: 'Disciplinario' },
 ]
 
 const showAlertDialog = ref(false)
@@ -1460,14 +1505,14 @@ const alertDialogMessage = ref('')
 const showConfirmDialog = ref(false)
 const confirmDialogTitle = ref('')
 const confirmDialogMessage = ref('')
-const confirmDialogCallback = ref((confirmed:boolean)=>{})
+const confirmDialogCallback = ref((_confirmed: boolean) => {})
 
 const showEventDetailsDialog = ref(false)
 const selectedEvent = ref<ContratoEventoExt | null>(null)
 
 const finalizationDate = ref<string | null>(null)
 const finalizationReason = ref<string | null>(null)
-const finalizationForm = ref<any>(null)
+
 
 /* Editar paso */
 const showEditPasoDialog = ref(false)
@@ -1593,7 +1638,6 @@ const certTieneArchivo = computed(()=> {
 })
 
 // Helper: id de usuario actual (solo para actualizar perfil/foto)
-const currentUserId = () => Number(user.value?.id ?? NaN) || null
 
 /* ======== SNACKBAR (cabecera azul + cuerpo blanco) ======== */
 const snack = ref<{open:boolean; title:string; text:string; timeout:number}>({
@@ -1618,7 +1662,10 @@ const showConfirm = (title:string, message:string):Promise<boolean> => {
     }
   })
 }
-const getEstadoNombre = (e:'activo'|'inactivo') => e === 'activo' ? 'Activo' : 'Inactivo'
+const getEstadoNombre = (e: string) => {
+  const estado = String(e || '').toLowerCase()
+  return estado === 'activo' ? 'Activo' : 'Inactivo'
+}
 const fullName = (u?:{nombres?:string; apellidos?:string|null}|null) => u ? [u.nombres,u.apellidos].filter(Boolean).join(' ') : '—'
 
 /* ======= Render limpio en HISTORIAL ======= */
@@ -2015,11 +2062,18 @@ const submitNewEvent = async () => {
   if (fileToUpload) payload.append('documento', fileToUpload)
   if (actorId.value != null) payload.append('actorId', String(actorId.value))
   try {
-    const created = await crearEventoDeContrato(contratoIdForNewEvent.value, payload) as ContratoEventoExt
-    showAlert('Éxito','Evento creado correctamente.')
-    closeAddEventDialog()
-    const target = user.value?.contratos?.find(c=>c.id===contratoIdForNewEvent.value)
-    if (target) { target.eventos = target.eventos || []; target.eventos.push(created) }
+    const created = await crearEventoDeContrato(contratoIdForNewEvent.value, payload) as any
+const evento: ContratoEventoExt = {
+  ...created,
+  id: created.id || Date.now(), // ← Asegurar que siempre tenga id
+}
+showAlert('Éxito','Evento creado correctamente.')
+closeAddEventDialog()
+const target = user.value?.contratos?.find(c=>c.id===contratoIdForNewEvent.value)
+if (target) { 
+  target.eventos = target.eventos || []
+  target.eventos.push(evento)  // ← Usar el evento con id garantizado
+}
   } catch (err:any) {
     console.error('Error al crear el evento:', err)
     showAlert('Error', `Error al crear el evento: ${err.message || 'error desconocido'}.`)
@@ -2188,18 +2242,6 @@ async function uploadProfilePhoto(){
 }
 
 /* Editar usuario */
-function openEditUserDialog(){
-  if (!user.value) return
-  editedUser.value = {
-    nombres: user.value.nombres,
-    apellidos: user.value.apellidos,
-    celularPersonal: user.value.celularPersonal,
-    celularCorporativo: user.value.celularCorporativo,
-    direccion: user.value.direccion,
-    recomendaciones: !!user.value.recomendaciones,
-  }
-  showEditUserDialog.value = true
-}
 function closeEditUserDialog(){
   showEditUserDialog.value = false
   editedUser.value = {}

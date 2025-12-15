@@ -5,7 +5,9 @@
     max-width="640px"
   >
     <v-card>
-      <v-card-title class="text-h6">Recomendación Médica — Archivo</v-card-title>
+      <v-card-title class="text-h6">
+        Recomendación Médica — Archivo
+      </v-card-title>
 
       <v-card-text>
         <v-alert v-if="loading" type="info" variant="tonal" class="mb-3">
@@ -15,13 +17,15 @@
         <div v-else>
           <v-alert v-if="hasFile" type="success" variant="tonal" class="mb-3">
             <div class="d-flex flex-wrap align-center ga-2">
-              <div><strong>Actual:</strong> {{ fileName || 'Archivo cargado' }}</div>
+              <div>
+                <strong>Actual:</strong> {{ fileName || 'Archivo cargado' }}
+              </div>
             </div>
           </v-alert>
 
           <v-file-input
             :model-value="file"
-            @update:model-value="(v)=>emit('update:file', normalizeFile(v))"
+            @update:model-value="(v) => emit('update:file', normalizeFile(v))"
             label="Seleccionar archivo (PDF/DOC/DOCX)"
             accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
             variant="outlined"
@@ -32,8 +36,10 @@
           />
 
           <div v-if="!hasFile && file" class="text-caption text-medium-emphasis mb-1">
-            Archivo seleccionado: <strong>{{ file.name }}</strong> — listo para <em>Subir</em>.
+            Archivo seleccionado:
+            <strong>{{ file.name }}</strong> — listo para <em>Subir</em>.
           </div>
+
           <div class="text-caption text-medium-emphasis">
             Permitidos: PDF, DOC, DOCX (máx {{ maxUploadMb }} MB)
           </div>
@@ -42,9 +48,34 @@
 
       <v-card-actions>
         <v-spacer />
-        <v-btn variant="text" color="grey-darken-1" @click="emit('update:open', false)">Cerrar</v-btn>
-        <v-btn v-if="hasFile" variant="tonal" prepend-icon="mdi-download" @click="emit('descargar')">Descargar</v-btn>
-        <v-btn v-if="hasFile" variant="tonal" color="error" prepend-icon="mdi-delete" @click="emit('eliminar')">Eliminar</v-btn>
+
+        <v-btn
+          variant="text"
+          color="grey-darken-1"
+          @click="emit('update:open', false)"
+        >
+          Cerrar
+        </v-btn>
+
+        <v-btn
+          v-if="hasFile"
+          variant="tonal"
+          prepend-icon="mdi-download"
+          @click="emit('descargar')"
+        >
+          Descargar
+        </v-btn>
+
+        <v-btn
+          v-if="hasFile"
+          variant="tonal"
+          color="error"
+          prepend-icon="mdi-delete"
+          @click="emit('eliminar')"
+        >
+          Eliminar
+        </v-btn>
+
         <v-btn
           color="primary"
           variant="flat"
@@ -62,28 +93,27 @@
 <script setup lang="ts">
 import { isRef } from 'vue'
 
-const props = defineProps<{
+defineProps<{
   open: boolean
   loading: boolean
-  hasFile: boolean         // == recTieneArchivo
-  fileName: string | null  // == recNombreActual
+  hasFile: boolean
+  fileName: string | null
   file: File | null
   maxUploadMb: number
 }>()
 
 const emit = defineEmits<{
-  (e:'update:open', v:boolean): void
-  (e:'update:file', v: File | null): void
-  (e:'subir'): void
-  (e:'eliminar'): void
-  (e:'descargar'): void
+  (e: 'update:open', v: boolean): void
+  (e: 'update:file', v: File | null): void
+  (e: 'subir'): void
+  (e: 'eliminar'): void
+  (e: 'descargar'): void
 }>()
 
 function normalizeFile(v: unknown): File | null {
   if (!v) return null
   if (v instanceof File) return v
   if (Array.isArray(v)) return (v[0] as File) ?? null
-  // v-model de Vuetify puede ser ref<File | null>
   if (isRef(v) && v.value instanceof File) return v.value
   return null
 }

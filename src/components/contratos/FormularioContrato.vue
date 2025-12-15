@@ -451,28 +451,28 @@
 
 <script setup lang="ts">
 /* Models (v-model:* desde el padre) */
-const identificacion             = defineModel<string>('identificacion')
-const terminoContrato            = defineModel<'fijo'|'obra_o_labor_determinada'|'indefinido'|null>('terminoContrato')
-const sedeId                     = defineModel<number|null>('sedeId')
-const cargoId                    = defineModel<number|null>('cargoId')
-const salarioBasico              = defineModel<number | ''>('salarioBasico')
-const bonoSalarial               = defineModel<number | ''>('bonoSalarial')
-const auxilioTransporte          = defineModel<number | ''>('auxilioTransporte')
-const auxilioNoSalarial          = defineModel<number | ''>('auxilioNoSalarial')
-const fechaInicio                = defineModel<string>('fechaInicio')
-const fechaTerminacion           = defineModel<string>('fechaTerminacion')
-const centroCosto                = defineModel<string>('centroCosto')
-const funcionesCargo             = defineModel<string>('funcionesCargo')
-const epsId                      = defineModel<number|null>('epsId')
-const arlId                      = defineModel<number|null>('arlId')
-const afpId                      = defineModel<number|null>('afpId')
-const afcId                      = defineModel<number|null>('afcId')
-const ccfId                      = defineModel<number|null>('ccfId')
-const tieneRecomendacionesMedicas= defineModel<boolean>('tieneRecomendacionesMedicas')
+const identificacion              = defineModel<string>('identificacion')
+const terminoContrato             = defineModel<'fijo'|'obra_o_labor_determinada'|'indefinido'|null>('terminoContrato')
+const sedeId                      = defineModel<number|null>('sedeId')
+const cargoId                     = defineModel<number|null>('cargoId')
+const salarioBasico               = defineModel<number | ''>('salarioBasico')
+const bonoSalarial                = defineModel<number | ''>('bonoSalarial')
+const auxilioTransporte           = defineModel<number | ''>('auxilioTransporte')
+const auxilioNoSalarial           = defineModel<number | ''>('auxilioNoSalarial')
+const fechaInicio                 = defineModel<string>('fechaInicio')
+const fechaTerminacion            = defineModel<string>('fechaTerminacion')
+const centroCosto                 = defineModel<string>('centroCosto')
+const funcionesCargo              = defineModel<string>('funcionesCargo')
+const epsId                       = defineModel<number|null>('epsId')
+const arlId                       = defineModel<number|null>('arlId')
+const afpId                       = defineModel<number|null>('afpId')
+const afcId                       = defineModel<number|null>('afcId')
+const ccfId                       = defineModel<number|null>('ccfId')
+const tieneRecomendacionesMedicas = defineModel<boolean>('tieneRecomendacionesMedicas')
 
-/* Props de solo lectura y helpers */
-const props = defineProps<{
-terminosContratoOptions: ReadonlyArray<{ text: string; value: string }>
+/* Props (SOLO DEFINICIÓN DE TIPOS) */
+defineProps<{
+  terminosContratoOptions: ReadonlyArray<{ text: string; value: string }>
   sedes: Array<{ id:number; nombre:string }>
   cargos: Array<{ id:number; nombre:string }>
   filteredEps: Array<{ id:number; nombre:string }>
@@ -496,16 +496,29 @@ terminosContratoOptions: ReadonlyArray<{ text: string; value: string }>
   certStatusKey?: (t:'eps'|'arl'|'afp'|'afc'|'ccf') => string
   esAsesorConvenio?: boolean
   errors?: Partial<Record<
-    'identificacion'|'terminoContrato'|'sedeId'|'cargoId'|'fechaInicio'|'fechaTerminacion'|'funcionesCargo'|'epsId'|'arlId'|'afpId'|'ccfId'|'salarioBasico',
+    | 'identificacion'
+    | 'terminoContrato'
+    | 'sedeId'
+    | 'cargoId'
+    | 'fechaInicio'
+    | 'fechaTerminacion'
+    | 'funcionesCargo'
+    | 'epsId'
+    | 'arlId'
+    | 'afpId'
+    | 'ccfId'
+    | 'salarioBasico',
     string | string[]
   >>
 }>()
 
+/* Emits */
 const emit = defineEmits<{
   (e:'openCert', t:'eps'|'arl'|'afp'|'afc'|'ccf', ev?: MouseEvent): void
   (e:'openRec'): void
 }>()
 </script>
+
 
 <style scoped>
 .form { display:flex; flex-direction:column; gap:16px; }

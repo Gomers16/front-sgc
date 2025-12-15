@@ -479,7 +479,6 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { useDisplay } from 'vuetify'
 import { DateTime } from 'luxon'
 import TurnosDelDiaService from '@/services/turnosdeldiaService'
 import { authSetStore } from '@/stores/AuthStore'
@@ -524,6 +523,10 @@ interface ServicioEnTurno {
   id: number
   codigoServicio: string
   nombreServicio: string
+}
+
+interface TurnoConSnakeCase {
+  turno_numero_servicio?: number | null
 }
 
 interface Turno {
@@ -572,7 +575,6 @@ interface Etapa {
 
 /* ===== Estado ===== */
 const router = useRouter()
-const { xs, smAndUp, mdAndUp } = useDisplay()
 
 const turnos = ref<Turno[]>([])
 const isLoading = ref(true)
@@ -625,7 +627,6 @@ const conteoPorEstado = computed(() => {
 })
 
 /* ===== Stats por servicio y tipo vehiculo ===== */
-/* ===== Stats por servicio y tipo vehiculo ===== */
 const servicioStats = computed(() => {
   const base: Record<string, { total: number; porTipo: Record<TipoVehiculoStatsKey, number> }> = {}
 
@@ -652,7 +653,6 @@ const servicioStats = computed(() => {
   return base
 })
 
-
 /* ===== Confirm dialog ===== */
 const confirmDialog = ref({
   show: false,
@@ -676,7 +676,8 @@ const displayTurnoNumero = (turno: Turno) => {
 }
 
 const displayTurnoServicio = (turno: Turno) => {
-  const n = turno.turnoNumeroServicio ?? (turno as any).turno_numero_servicio ?? null
+  const turnoConSnake = turno as Turno & TurnoConSnakeCase
+  const n = turno.turnoNumeroServicio ?? turnoConSnake.turno_numero_servicio ?? null
   if (
     turno.estado === 'cancelado' ||
     turno.estado === 'inactivo' ||
@@ -879,7 +880,7 @@ const statsData = ref({
 })
 
 const initTipoVehiculoStats = () => {
-  const base: Record<TipoVehiculoStatsKey, number> = {} as any
+  const base: Record<TipoVehiculoStatsKey, number> = {} as Record<TipoVehiculoStatsKey, number>
   TIPO_VEHICULO_KEYS.forEach((k) => (base[k] = 0))
   statsData.value.tipoVehiculo = base
 }

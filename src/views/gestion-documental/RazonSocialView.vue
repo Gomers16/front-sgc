@@ -324,7 +324,7 @@
                           <template v-if="item.kind === 'estado'">
                             <div class="d-flex justify-space-between align-center mb-1">
                               <span class="font-weight-bold text-subtitle-1">
-                                Cambio de Estado: {{ getEstadoNombre(item.oldEstado) }} → {{ getEstadoNombre(item.newEstado) }}
+                                Cambio de Estado: {{ item.oldEstado ? getEstadoNombre(item.oldEstado) : 'N/A' }} → {{ item.newEstado ? getEstadoNombre(item.newEstado) : 'N/A' }}
                               </span>
                               <span class="text-caption text-grey-darken-1">{{ formatDate(item.fechaCambio) }}</span>
                             </div>
@@ -350,7 +350,7 @@
                           <template v-else>
                             <div class="d-flex justify-space-between align-center mb-1">
                               <span class="font-weight-bold text-subtitle-1 d-flex align-center">
-                                {{ labelCampo(item.campo) }}
+                                {{ item.campo ? labelCampo(item.campo) : 'Campo desconocido' }}
                               </span>
                               <span class="text-caption text-grey-darken-1">{{ formatDate(item.createdAt) }}</span>
                             </div>
@@ -358,11 +358,11 @@
                             <div class="text-body-2 text-grey-darken-2">
                               <div class="mb-1">
                                 <strong>De:</strong>
-                                <span>{{ renderValor(item.campo, item.oldValue, selectedContrato) }}</span>
+                                <span>{{ item.campo ? renderValor(item.campo, item.oldValue ?? null) : 'N/A' }}</span>
                               </div>
                               <div>
                                 <strong>A:</strong>
-                                <span>{{ renderValor(item.campo, item.newValue, selectedContrato) }}</span>
+                                <span>{{ item.campo ? renderValor(item.campo, item.newValue ?? null) : 'N/A' }}</span>
                               </div>
                             </div>
                           </template>
@@ -404,35 +404,110 @@ import { useRoute, useRouter } from 'vue-router';
 import { fetchUsuariosPorRazonSocial } from '@/services/razonSocialService';
 import { useContratoStore } from '@/stores/contrato';
 
-/* ========= Tipos mínimos ========= */
+/* ========= Tipos ========= */
 interface ContratoPaso {
-  id: number; contratoId: number; fase: string; nombrePaso: string;
-  fecha?: string; archivoUrl?: string; observacion?: string;
-  orden: number; completado: boolean; createdAt: string; updatedAt: string;
+  id: number;
+  contratoId: number;
+  fase: string;
+  nombrePaso: string;
+  fecha?: string;
+  archivoUrl?: string;
+  observacion?: string;
+  orden: number;
+  completado: boolean;
+  createdAt: string;
+  updatedAt: string;
 }
+
 interface ContratoEvento {
-  id: number; contratoId: number; tipo: string; subtipo?: string;
-  fechaInicio: string; fechaFin?: string; descripcion?: string;
-  documentoUrl?: string; createdAt: string; updatedAt: string;
+  id: number;
+  contratoId: number;
+  tipo: string;
+  subtipo?: string;
+  fechaInicio: string;
+  fechaFin?: string;
+  descripcion?: string;
+  documentoUrl?: string;
+  createdAt: string;
+  updatedAt: string;
 }
+
 interface HistEstado {
-  id: number; oldEstado: 'activo'|'inactivo'; newEstado: 'activo'|'inactivo';
-  fechaCambio: string; motivo?: string; fechaInicioContrato?: string; usuario?: any;
+  id: number;
+  oldEstado: 'activo' | 'inactivo';
+  newEstado: 'activo' | 'inactivo';
+  fechaCambio: string;
+  motivo?: string;
+  fechaInicioContrato?: string;
+  usuario?: Usuario;
 }
+
 interface CambioContrato {
-  id: number; contratoId: number; campo: string; oldValue: any; newValue: any; createdAt: string; usuario?: any;
+  id: number;
+  contratoId: number;
+  campo: string;
+  oldValue: string | number | boolean | null;
+  newValue: string | number | boolean | null;
+  createdAt: string;
+  usuario?: Usuario;
 }
+
+interface TimelineItem {
+  kind: 'estado' | 'cambio';
+  id: number;
+  oldEstado?: 'activo' | 'inactivo';
+  newEstado?: 'activo' | 'inactivo';
+  fechaCambio?: string;
+  motivo?: string;
+  fechaInicioContrato?: string;
+  campo?: string;
+  oldValue?: string | number | boolean | null;
+  newValue?: string | number | boolean | null;
+  createdAt?: string;
+}
+
+interface Cargo {
+  nombre: string;
+}
+
 interface Contrato {
-  id: number; tipoContrato: 'prestacion'|'temporal'|'laboral'|string; estado: string;
-  fechaInicio: string; fechaFin?: string; motivoFinalizacion?: string;
-  nombreArchivoContratoFisico?: string; rutaArchivoContratoFisico?: string;
-  usuarioId: number; pasos?: ContratoPaso[]; eventos?: ContratoEvento[];
-  historialEstados?: HistEstado[]; cambios?: CambioContrato[]; cargo?: { nombre: string };
+  id: number;
+  tipoContrato: 'prestacion' | 'temporal' | 'laboral' | string;
+  estado: string;
+  fechaInicio: string;
+  fechaFin?: string;
+  motivoFinalizacion?: string;
+  nombreArchivoContratoFisico?: string;
+  rutaArchivoContratoFisico?: string;
+  usuarioId: number;
+  pasos?: ContratoPaso[];
+  eventos?: ContratoEvento[];
+  historialEstados?: HistEstado[];
+  cambios?: CambioContrato[];
+  cargo?: Cargo;
 }
-interface UsuarioConContratos {
-  id: number; nombres: string; apellidos: string; correo: string;
-  cargo?: { nombre: string }; rol?: { nombre: string }; contratos?: Contrato[];
+
+interface Rol {
+  nombre: string;
+}
+
+interface Usuario {
+  id: number;
+  nombres: string;
+  apellidos: string;
+  correo: string;
+}
+
+interface UsuarioConContratos extends Usuario {
+  cargo?: Cargo;
+  rol?: Rol;
+  contratos?: Contrato[];
   nombreCompleto: string;
+}
+
+interface NamedRelation {
+  id?: number | string;
+  nombre?: string;
 }
 
 /* ========= Estado & Router ========= */
@@ -448,7 +523,6 @@ const usuarios = ref<UsuarioConContratos[]>([]);
 const mostrarModalPerfil = ref(false);
 const usuarioIdParaPerfil = ref<number | null>(null);
 
-/* 👉 Booleano simple para abrir/cerrar el diálogo (más robusto) */
 const showContratosDialog = ref(false);
 
 const modalContratosUsuario = ref<{
@@ -479,24 +553,30 @@ const headers = [
 
 /* ========= Computados ========= */
 const contratosDelUsuarioSeleccionado = computed<Contrato[]>(() => {
-  if (modalContratosUsuario.value.usuarioId) {
-    const list = contratoStore
-      .getContratosByUsuarioId(modalContratosUsuario.value.usuarioId)
-      .slice()
-      .sort((a, b) => new Date(b.fechaInicio).getTime() - new Date(a.fechaInicio).getTime());
-    if (!modalContratosUsuario.value.selectedId && list.length) {
-      modalContratosUsuario.value.selectedId = list[0].id;
-    }
-    return list as Contrato[];
+  if (!modalContratosUsuario.value.usuarioId) {
+    return [];
   }
-  return [];
+  
+  const list = contratoStore
+    .getContratosByUsuarioId(modalContratosUsuario.value.usuarioId)
+    .slice()
+    .sort((a, b) => new Date(b.fechaInicio).getTime() - new Date(a.fechaInicio).getTime());
+  
+  return list as Contrato[];
+});
+
+// Watcher para auto-seleccionar el primer contrato
+watch(contratosDelUsuarioSeleccionado, (newList) => {
+  if (!modalContratosUsuario.value.selectedId && newList.length > 0) {
+    modalContratosUsuario.value.selectedId = newList[0].id;
+  }
 });
 
 const selectedContrato = computed<Contrato | null>(() =>
   contratosDelUsuarioSeleccionado.value.find(c => c.id === modalContratosUsuario.value.selectedId) || null
 );
 
-const selectedTimeline = computed<any[]>(() =>
+const selectedTimeline = computed<TimelineItem[]>(() =>
   selectedContrato.value ? buildTimeline(selectedContrato.value) : []
 );
 
@@ -505,7 +585,7 @@ async function cargarUsuarios() {
   loading.value = true;
   try {
     const data = await fetchUsuariosPorRazonSocial(razonSocialId.value);
-    usuarios.value = data.map((u: any) => ({
+    usuarios.value = data.map((u) => ({
       ...u,
       nombreCompleto: `${u.nombres} ${u.apellidos}`,
     })) as UsuarioConContratos[];
@@ -522,6 +602,7 @@ function confirmarVerPerfil(usuarioId: number) {
   usuarioIdParaPerfil.value = usuarioId;
   mostrarModalPerfil.value = true;
 }
+
 function verPerfilConfirmado() {
   if (usuarioIdParaPerfil.value !== null) {
     router.push({ name: 'UserProfile', params: { id: usuarioIdParaPerfil.value.toString() } });
@@ -537,13 +618,10 @@ async function abrirModalContratos(usuarioId: number, nombreUsuario: string) {
   modalContratosUsuario.value.tab = 'inicio';
   modalContratosUsuario.value.selectedId = null;
 
-  /* Abrimos el diálogo primero (aunque falle la carga) */
   showContratosDialog.value = true;
 
   try {
     await contratoStore.fetchContratosPorUsuario(usuarioId);
-    const list = contratoStore.getContratosByUsuarioId(usuarioId) as Contrato[];
-    if (list?.length) modalContratosUsuario.value.selectedId = list[0].id;
   } catch (error) {
     console.error('Error al cargar contratos para el usuario:', error);
   }
@@ -557,12 +635,26 @@ function irAContratoEnPerfilDesdeModal() {
   // Mapeo modal → perfil
   let tab: 'detalles' | 'eventos' | 'fin' | 'historial' = 'eventos';
   let subtab: 'inicio' | 'desarrollo' | undefined = 'inicio';
+  
   switch (modalContratosUsuario.value.tab) {
-    case 'inicio': tab = 'eventos'; subtab = 'inicio'; break;
-    case 'desarrollo': tab = 'eventos'; subtab = 'desarrollo'; break;
-    case 'fin': tab = 'fin'; subtab = undefined; break;
-    case 'historial': tab = 'historial'; subtab = undefined; break;
+    case 'inicio':
+      tab = 'eventos';
+      subtab = 'inicio';
+      break;
+    case 'desarrollo':
+      tab = 'eventos';
+      subtab = 'desarrollo';
+      break;
+    case 'fin':
+      tab = 'fin';
+      subtab = undefined;
+      break;
+    case 'historial':
+      tab = 'historial';
+      subtab = undefined;
+      break;
   }
+  
   const query: Record<string, string> = { contratoId: String(c.id), tab };
   if (subtab) query.subtab = subtab;
 
@@ -572,10 +664,12 @@ function irAContratoEnPerfilDesdeModal() {
 
 /* ========= Descargas / URLs ========= */
 const API_BASE = 'http://localhost:3333';
+
 const absoluteUrl = (pathOrUrl?: string | null): string => {
   if (!pathOrUrl) return '';
   return /^https?:\/\//i.test(pathOrUrl) ? pathOrUrl : `${API_BASE}${pathOrUrl}`;
 };
+
 const guessFileName = (pathOrUrl?: string | null, fallback = 'archivo'): string => {
   const url = absoluteUrl(pathOrUrl || '');
   try {
@@ -586,6 +680,7 @@ const guessFileName = (pathOrUrl?: string | null, fallback = 'archivo'): string 
     return (parts[parts.length - 1] || fallback);
   }
 };
+
 async function downloadFile(pathOrUrl?: string | null, suggestedName?: string) {
   try {
     const url = absoluteUrl(pathOrUrl || '');
@@ -609,36 +704,68 @@ async function downloadFile(pathOrUrl?: string | null, suggestedName?: string) {
 
 /* ========= Timeline / Render helpers ========= */
 const CAMPO_LABELS: Record<string, string> = {
-  razonSocialId: 'Empresa', sedeId: 'Sede', cargoId: 'Cargo', funcionesCargo: 'Funciones',
-  tipoContrato: 'Tipo de Contrato', terminoContrato: 'Término',
-  fechaInicio: 'Fecha de Inicio', fechaFin: 'Fecha de Finalización', fechaTerminacion: 'Fecha de Finalización',
-  periodoPrueba: 'Periodo de Prueba', horarioTrabajo: 'Horario de Trabajo', centroCosto: 'Centro de Costo',
-  epsId: 'EPS', arlId: 'ARL', afpId: 'AFP', afcId: 'AFC', ccfId: 'CCF',
-  estado: 'Estado', motivoFinalizacion: 'Motivo de Finalización',
+  razonSocialId: 'Empresa',
+  sedeId: 'Sede',
+  cargoId: 'Cargo',
+  funcionesCargo: 'Funciones',
+  tipoContrato: 'Tipo de Contrato',
+  terminoContrato: 'Término',
+  fechaInicio: 'Fecha de Inicio',
+  fechaFin: 'Fecha de Finalización',
+  fechaTerminacion: 'Fecha de Finalización',
+  periodoPrueba: 'Periodo de Prueba',
+  horarioTrabajo: 'Horario de Trabajo',
+  centroCosto: 'Centro de Costo',
+  epsId: 'EPS',
+  arlId: 'ARL',
+  afpId: 'AFP',
+  afcId: 'AFC',
+  ccfId: 'CCF',
+  estado: 'Estado',
+  motivoFinalizacion: 'Motivo de Finalización',
   tieneRecomendacionesMedicas: 'Recomendaciones médicas',
-  salarioBasico: 'Salario básico', bonoSalarial: 'Bono salarial',
-  auxilioTransporte: 'Auxilio transporte', auxilioNoSalarial: 'Auxilio no salarial', creacion: 'Creación',
+  salarioBasico: 'Salario básico',
+  bonoSalarial: 'Bono salarial',
+  auxilioTransporte: 'Auxilio transporte',
+  auxilioNoSalarial: 'Auxilio no salarial',
+  creacion: 'Creación',
 };
-const labelCampo = (campo: string) => CAMPO_LABELS[campo] || campo;
 
-const formatDate = (d: any) => {
+const labelCampo = (campo: string): string => CAMPO_LABELS[campo] || campo;
+
+const formatDate = (d: string | Date | null | undefined): string => {
+  if (!d) return '—';
   const dt = typeof d === 'string' ? new Date(d) : d;
-  return dt && !isNaN(dt.getTime?.() || NaN) ? dt.toLocaleDateString('es-CO') : '—';
+  return dt && !isNaN(dt.getTime()) ? dt.toLocaleDateString('es-CO') : '—';
 };
-const parseMaybeJson = (v: any) => {
+
+const parseMaybeJson = (v: string | number | boolean | null): string | number | boolean | object | null => {
   if (v === null || v === undefined) return v;
-  if (typeof v === 'string') { try { return JSON.parse(v); } catch { return v; } }
+  if (typeof v === 'string') {
+    try {
+      return JSON.parse(v);
+    } catch {
+      return v;
+    }
+  }
   return v;
 };
-const isNamedRel = (val: any): val is { id?: number|string; nombre?: string } =>
+
+const isNamedRel = (val: unknown): val is NamedRelation =>
   !!val && typeof val === 'object' && ('nombre' in val || 'id' in val);
-const toNumberLoose = (v: any): number | null => {
+
+const toNumberLoose = (v: unknown): number | null => {
   if (v === null || v === undefined || v === '') return null;
   if (typeof v === 'number') return Number.isFinite(v) ? v : null;
-  if (typeof v === 'string') { const s = v.replace(/\./g,'').replace(/,/g,'.').trim(); const n = Number(s); return Number.isFinite(n) ? n : null; }
+  if (typeof v === 'string') {
+    const s = v.replace(/\./g, '').replace(/,/g, '.').trim();
+    const n = Number(s);
+    return Number.isFinite(n) ? n : null;
+  }
   return null;
 };
-const toBoolLoose = (v: any): boolean | null => {
+
+const toBoolLoose = (v: unknown): boolean | null => {
   if (v === null || v === undefined || v === '') return null;
   if (typeof v === 'boolean') return v;
   if (typeof v === 'string') {
@@ -648,65 +775,104 @@ const toBoolLoose = (v: any): boolean | null => {
   }
   return null;
 };
-const equalForField = (campo: string, a: any, b: any): boolean => {
-  const va = parseMaybeJson(a); const vb = parseMaybeJson(b);
-  if (campo === 'tieneRecomendacionesMedicas') { const ba = toBoolLoose(va); const bb = toBoolLoose(vb); return ba === bb; }
-  if (['salarioBasico','bonoSalarial','auxilioTransporte','auxilioNoSalarial'].includes(campo)) {
-    const na = toNumberLoose(va); const nb = toNumberLoose(vb); return na === nb;
+
+const equalForField = (campo: string, a: unknown, b: unknown): boolean => {
+  const va = parseMaybeJson(a as string | number | boolean | null);
+  const vb = parseMaybeJson(b as string | number | boolean | null);
+  
+  if (campo === 'tieneRecomendacionesMedicas') {
+    const ba = toBoolLoose(va);
+    const bb = toBoolLoose(vb);
+    return ba === bb;
   }
+  
+  if (['salarioBasico', 'bonoSalarial', 'auxilioTransporte', 'auxilioNoSalarial'].includes(campo)) {
+    const na = toNumberLoose(va);
+    const nb = toNumberLoose(vb);
+    return na === nb;
+  }
+  
   if (campo.endsWith('Id')) {
     const idA = isNamedRel(va) ? Number(va.id) : Number(va);
     const idB = isNamedRel(vb) ? Number(vb.id) : Number(vb);
     if (!Number.isNaN(idA) && !Number.isNaN(idB)) return idA === idB;
     return JSON.stringify(va) === JSON.stringify(vb);
   }
+  
   return (va ?? null) === (vb ?? null);
 };
-const renderValor = (campo: string, raw: any) => {
+
+const renderValor = (campo: string, raw: string | number | boolean | null): string => {
   const v = parseMaybeJson(raw);
+  
   if (v === null || v === undefined || v === '') return 'N/A';
-  if (campo.endsWith('Id') && isNamedRel(v)) return v.nombre ?? `#${v.id ?? ''}`;
-  if (campo.startsWith('fecha')) return formatDate(v);
-  if (campo === 'estado') return v === 'activo' ? 'Activo' : (v === 'inactivo' ? 'Inactivo' : String(v));
+  
+  if (campo.endsWith('Id') && isNamedRel(v)) {
+    return v.nombre ?? `#${v.id ?? ''}`;
+  }
+  
+  if (campo.startsWith('fecha')) return formatDate(v as string);
+  
+  if (campo === 'estado') {
+    return v === 'activo' ? 'Activo' : (v === 'inactivo' ? 'Inactivo' : String(v));
+  }
+  
   if (typeof v === 'boolean') return v ? 'Sí' : 'No';
   if (typeof v === 'number') return new Intl.NumberFormat('es-CO').format(v);
   if (typeof v === 'object') return JSON.stringify(v);
+  
   return String(v);
 };
 
-/* Une historialEstados + cambios, y ordena desc */
-function buildTimeline(c: Contrato): any[] {
-  const items: any[] = [];
-  (c.historialEstados || []).forEach((h: any) => items.push({ ...h, kind: 'estado' }));
+function buildTimeline(c: Contrato): TimelineItem[] {
+  const items: TimelineItem[] = [];
+  
+  (c.historialEstados || []).forEach((h: HistEstado) => 
+    items.push({ ...h, kind: 'estado' })
+  );
+  
   (c.cambios || [])
-    .filter((chg: any) => !equalForField(chg.campo, chg.oldValue, chg.newValue))
-    .forEach((chg: any) => items.push({
-      ...chg,
-      oldValue: parseMaybeJson(chg.oldValue),
-      newValue: parseMaybeJson(chg.newValue),
-      kind: 'cambio'
-    }));
+    .filter((chg: CambioContrato) => !equalForField(chg.campo, chg.oldValue, chg.newValue))
+    .forEach((chg: CambioContrato) => 
+      items.push({
+        ...chg,
+        oldValue: parseMaybeJson(chg.oldValue) as string | number | boolean | null,
+        newValue: parseMaybeJson(chg.newValue) as string | number | boolean | null,
+        kind: 'cambio'
+      })
+    );
+  
   return items.sort((a, b) => {
-    const da = new Date(a.kind === 'estado' ? a.fechaCambio : a.createdAt).getTime();
-    const db = new Date(b.kind === 'estado' ? b.fechaCambio : b.createdAt).getTime();
+    const da = new Date(a.kind === 'estado' ? (a.fechaCambio || '') : (a.createdAt || '')).getTime();
+    const db = new Date(b.kind === 'estado' ? (b.fechaCambio || '') : (b.createdAt || '')).getTime();
     return db - da;
   });
 }
-const getEstadoNombre = (estado: 'activo'|'inactivo') => estado === 'activo' ? 'Activo' : 'Inactivo';
 
-/* ========= Utils ========= */
+const getEstadoNombre = (estado: 'activo' | 'inactivo'): string => 
+  estado === 'activo' ? 'Activo' : 'Inactivo';
+
 function cargosDelUsuario(user: UsuarioConContratos): string[] {
   const contratos = user.contratos || [];
-  if (!contratos.length) return user.cargo?.nombre ? [user.cargo.nombre] : [];
-  const cargosContratos = contratos.map(c => c.cargo?.nombre).filter((n): n is string => !!n && n.trim() !== '');
-  return cargosContratos.length ? [...new Set(cargosContratos)] : (user.cargo?.nombre ? [user.cargo.nombre] : []);
+  
+  if (!contratos.length) {
+    return user.cargo?.nombre ? [user.cargo.nombre] : [];
+  }
+  
+  const cargosContratos = contratos
+    .map(c => c.cargo?.nombre)
+    .filter((n): n is string => !!n && n.trim() !== '');
+  
+  return cargosContratos.length 
+    ? [...new Set(cargosContratos)] 
+    : (user.cargo?.nombre ? [user.cargo.nombre] : []);
 }
 
-/* ========= Lifecycle ========= */
 onMounted(() => {
   razonSocialNombre.value = mapNombres[razonSocialId.value] || 'Razón Social';
   if (razonSocialId.value) cargarUsuarios();
 });
+
 watch(
   () => route.params.id,
   (newId) => {
@@ -718,8 +884,20 @@ watch(
 </script>
 
 <style scoped>
-.text-success { color: green; font-weight: bold; }
-.text-grey { color: gray; }
-.bg-green-lighten-5 { background-color: #e8f5e9; }
-.bg-grey-lighten-4 { background-color: #f5f5f5; }
+.text-success {
+  color: green;
+  font-weight: bold;
+}
+
+.text-grey {
+  color: gray;
+}
+
+.bg-green-lighten-5 {
+  background-color: #e8f5e9;
+}
+
+.bg-grey-lighten-4 {
+  background-color: #f5f5f5;
+}
 </style>

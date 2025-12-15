@@ -653,13 +653,15 @@ const fetchTurnosForReport = async () => {
     if (startDate.value) filters.fechaInicio = startDate.value
     if (endDate.value)   filters.fechaFin   = endDate.value
 
-    const raw = await TurnosDelDiaService.fetchTurnos(filters as Record<string, string | number | boolean>) as any[]
+    const raw = await TurnosDelDiaService.fetchTurnos(filters as Record<string, string | number | boolean>) as unknown[]
 
-    const data: Turno[] = (raw || []).map((t: any) => ({
-      ...t,
-      turnoNumeroServicio: t.turnoNumeroServicio ?? t.turno_numero_servicio ?? null,
-    }))
-
+   const data: Turno[] = (raw || []).map((t: unknown) => {
+  const turno = t as Turno & { turno_numero_servicio?: number | null }
+  return {
+    ...turno,
+    turnoNumeroServicio: turno.turnoNumeroServicio ?? turno.turno_numero_servicio ?? null,
+  }
+})
     turnos.value = data
     calculateReportData()
     showSnackbar('Turnos cargados para el reporte.', 'success')
@@ -750,13 +752,15 @@ const showDetailsModal = (type: 'medioEntero' | 'servicio', value?: string) => {
 const exportReportToExcel = async () => {
   isExporting.value = true
   try {
-    const filters: ExportFiltersMultiple = {}
-    if (startDate.value) filters.fechaInicio = startDate.value
-    if (endDate.value)   filters.fechaFin   = endDate.value
-
-    if (!filters.fechaInicio || !filters.fechaFin) {
+    if (!startDate.value || !endDate.value) {
       showSnackbar('Selecciona un rango de fechas para exportar.', 'warning')
+      isExporting.value = false
       return
+    }
+
+    const filters: ExportFiltersMultiple = {
+      fechaInicio: startDate.value,
+      fechaFin: endDate.value,
     }
 
     const { data, filename } = await TurnosDelDiaService.exportTurnosExcel(filters)

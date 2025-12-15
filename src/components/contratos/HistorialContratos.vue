@@ -37,17 +37,26 @@
         <tbody>
           <tr v-for="(c, i) in contratos" :key="c.id">
             <td>{{ i + 1 }}</td>
+
             <td class="text-capitalize">{{ c.tipoContrato }}</td>
-            <td class="text-capitalize">{{ (c.terminoContrato || '—').replaceAll('_',' ') }}</td>
+
+            <td class="text-capitalize">
+              {{ (c.terminoContrato || '—').replace(/_/g, ' ') }}
+            </td>
 
             <td>
-              <v-chip :color="c.estado === 'activo' ? 'success' : 'grey'" size="small" variant="flat">
+              <v-chip
+                :color="c.estado === 'activo' ? 'success' : 'grey'"
+                size="small"
+                variant="flat"
+              >
                 {{ c.estado }}
               </v-chip>
             </td>
 
-            <td>{{ (c.fechaInicio || '').slice(0,10) }}</td>
-            <td>{{ c.fechaTerminacion ? String(c.fechaTerminacion).slice(0,10) : '—' }}</td>
+            <td>{{ (c.fechaInicio || '').slice(0, 10) }}</td>
+            <td>{{ c.fechaTerminacion ? c.fechaTerminacion.slice(0, 10) : '—' }}</td>
+
             <td>{{ c.sede?.nombre || '—' }}</td>
             <td>{{ c.cargo?.nombre || '—' }}</td>
 
@@ -73,7 +82,9 @@
                 variant="tonal"
                 prepend-icon="mdi-pencil"
                 @click="emit('editar', c)"
-              >Editar</v-btn>
+              >
+                Editar
+              </v-btn>
 
               <v-btn
                 size="x-small"
@@ -81,7 +92,9 @@
                 variant="tonal"
                 :prepend-icon="c.estado === 'activo' ? 'mdi-cancel' : 'mdi-check-circle'"
                 @click="emit('toggleEstado', c)"
-              >{{ c.estado === 'activo' ? 'Inactivar' : 'Activar' }}</v-btn>
+              >
+                {{ c.estado === 'activo' ? 'Inactivar' : 'Activar' }}
+              </v-btn>
             </td>
           </tr>
         </tbody>
@@ -91,30 +104,17 @@
 </template>
 
 <script setup lang="ts">
-type SedeLite = { id:number; nombre:string } | null | undefined
-type CargoLite = { id:number; nombre:string } | null | undefined
-
-type ContratoRow = {
-  id: number
-  tipoContrato: string
-  terminoContrato: string | null
-  estado: 'activo' | 'inactivo'
-  fechaInicio: string
-  fechaTerminacion: string | null
-  sede?: SedeLite
-  cargo?: CargoLite
-  rutaArchivoContratoFisico?: string | null
-}
+import { type Contrato } from '@/services/contratoService'
 
 const props = defineProps<{
-  contratos: ContratoRow[]
+  contratos: Contrato[]
   loading: boolean
   toAbsoluteApiUrl: (path?: string) => string
 }>()
 
 const emit = defineEmits<{
-  (e:'editar', c:ContratoRow): void
-  (e:'toggleEstado', c:ContratoRow): void
+  (e: 'editar', c: Contrato): void
+  (e: 'toggleEstado', c: Contrato): void
 }>()
 
 function toAbsolute(path?: string | null) {
@@ -123,6 +123,11 @@ function toAbsolute(path?: string | null) {
 </script>
 
 <style scoped>
-.v-table th, .v-table td { vertical-align: middle; }
-.text-capitalize { text-transform: capitalize; }
+.v-table th,
+.v-table td {
+  vertical-align: middle;
+}
+.text-capitalize {
+  text-transform: capitalize;
+}
 </style>

@@ -321,25 +321,91 @@ import {
   eliminarUsuario,
   obtenerRoles,
   obtenerRazonesSociales,
-} from '../../services/userService'
-import ConfirmDialog from '../../components/UI/ConfirmarDialogo.vue'
+} from '@/services/UserService'
+import ConfirmDialog from '@/components/UI/ConfirmarDialogo.vue'
+
+/* =========================
+ * TIPOS
+ * ========================= */
+interface Rol {
+  id: number;
+  nombre: string;
+}
+
+interface RazonSocial {
+  id: number;
+  nombre: string;
+}
+
+interface Usuario {
+  id: number;
+  nombres: string;
+  apellidos: string;
+  correo: string;
+  celularPersonal?: string;
+  celularCorporativo?: string;
+  direccion?: string;
+  rolId: number;
+  razonSocialId: number;
+  estado: 'activo' | 'inactivo';
+  rol?: Rol;
+  razonSocial?: RazonSocial;
+}
+
+interface UsuarioConConsecutivo extends Usuario {
+  consecutivo: number;
+}
+
+interface UsuarioFormData {
+  nombres: string;
+  apellidos: string;
+  correo: string;
+  password?: string;
+  celularPersonal?: string;
+  celularCorporativo?: string;
+  direccion?: string;
+  rolId: number;
+  razonSocialId: number;
+  estado: 'activo' | 'inactivo';
+}
+
+interface ApiResponse<T> {
+  data?: T;
+}
+
+interface ErrorResponse {
+  response?: {
+    status?: number;
+    data?: {
+      message?: string;
+      errors?: Array<{ field: string; message: string }>;
+    };
+  };
+  message?: string;
+}
 
 /* =========================
  * VALIDACIÓN
  * ========================= */
-const required = (value: any) => (value !== null && value !== undefined && value !== '') || 'Este campo es obligatorio.'
-const minLength = (value: string, length: number) => (value && value.length >= length) || `Debe tener al menos ${length} caracteres.`
-const isEmail = (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) || 'Debe ser un correo electrónico válido.'
-const optionalNumber = (value: any) => {
+const required = (value: string | number | null | undefined) => 
+  (value !== null && value !== undefined && value !== '') || 'Este campo es obligatorio.'
+
+const minLength = (value: string, length: number) => 
+  (value && value.length >= length) || `Debe tener al menos ${length} caracteres.`
+
+const isEmail = (value: string) => 
+  /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) || 'Debe ser un correo electrónico válido.'
+
+const optionalNumber = (value: string | null | undefined) => {
   if (value === null || value === undefined || value === '') return true
   return !isNaN(Number(value)) || 'Debe ser un número válido.'
 }
 
 /* Helper: normaliza arreglos */
-function toArray<T = any>(v: unknown): T[] {
+function toArray<T>(v: unknown): T[] {
   if (Array.isArray(v)) return v as T[]
-  const d = (v as any)?.data
-  if (Array.isArray(d)) return d as T[]
+  const response = v as ApiResponse<T[]>
+  if (response?.data && Array.isArray(response.data)) return response.data
   return []
 }
 
@@ -347,7 +413,7 @@ function toArray<T = any>(v: unknown): T[] {
  * UI LOCKS (anti-cola)
  * ========================= */
 const isProcessing = ref(false)
-const inFlight = ref<{ [k: string]: boolean }>({
+const inFlight = ref<Record<string, boolean>>({
   create: false,
   update: false,
   delete: false,
@@ -367,9 +433,18 @@ const userToConfirmEditId = ref<number | null>(null)
  * ========================= */
 const { handleSubmit, resetForm, setValues } = useForm()
 
-const { value: nombres, errorMessage: nombresError } = useField('nombres', [required, (val: string) => minLength(val, 2)])
-const { value: apellidos, errorMessage: apellidosError } = useField('apellidos', [required, (val: string) => minLength(val, 2)])
+const { value: nombres, errorMessage: nombresError } = useField('nombres', [
+  required, 
+  (val: string) => minLength(val, 2)
+])
+
+const { value: apellidos, errorMessage: apellidosError } = useField('apellidos', [
+  required, 
+  (val: string) => minLength(val, 2)
+])
+
 const { value: correo, errorMessage: correoError } = useField('correo', [required, isEmail])
+
 const { value: password, errorMessage: passwordError } = useField('password', (value: string) => {
   if (!isEditing.value) {
     if (!value) return 'La contraseña es obligatoria.'
@@ -380,19 +455,35 @@ const { value: password, errorMessage: passwordError } = useField('password', (v
   return true
 })
 
-const { value: rolId, errorMessage: rolIdError } = useField<number | null>('rolId', [required], { initialValue: null })
-const { value: razonSocialId, errorMessage: razonSocialIdError } = useField<number | null>('razonSocialId', [required], { initialValue: null })
-const { value: estado, errorMessage: estadoError } = useField('estado', [required], { initialValue: 'activo' })
+const { value: rolId, errorMessage: rolIdError } = useField<number | null>('rolId', [required], { 
+  initialValue: null 
+})
 
-const { value: celularPersonal, errorMessage: celularPersonalError } = useField<string | null>('celularPersonal', [optionalNumber], { initialValue: '' })
-const { value: celularCorporativo, errorMessage: celularCorporativoError } = useField<string | null>('celularCorporativo', [optionalNumber], { initialValue: '' })
-const { value: direccion, errorMessage: direccionError } = useField('direccion', undefined, { initialValue: '' })
+const { value: razonSocialId, errorMessage: razonSocialIdError } = useField<number | null>('razonSocialId', [required], { 
+  initialValue: null 
+})
+
+const { value: estado, errorMessage: estadoError } = useField('estado', [required], { 
+  initialValue: 'activo' 
+})
+
+const { value: celularPersonal, errorMessage: celularPersonalError } = useField<string | null>('celularPersonal', [optionalNumber], { 
+  initialValue: '' 
+})
+
+const { value: celularCorporativo, errorMessage: celularCorporativoError } = useField<string | null>('celularCorporativo', [optionalNumber], { 
+  initialValue: '' 
+})
+
+const { value: direccion, errorMessage: direccionError } = useField('direccion', undefined, { 
+  initialValue: '' 
+})
 
 /* =========================
  * SELECTS
  * ========================= */
-const roles = ref<any[]>([])
-const razonesSociales = ref<any[]>([])
+const roles = ref<Rol[]>([])
+const razonesSociales = ref<RazonSocial[]>([])
 
 /* =========================
  * FEEDBACK
@@ -409,12 +500,11 @@ const userToDeleteId = ref<number | null>(null)
 /* =========================
  * TABLA
  * ========================= */
-const usuarios = ref<any[]>([])
+const usuarios = ref<Usuario[]>([])
 const search = ref('')
 const sortBy = ref<Array<{ key: string; order: 'asc' | 'desc' }>>([{ key: 'id', order: 'asc' }])
 const statusFilter = ref('Todos')
 
-/* ← CAMBIO: encabezados con "Consecutivo" */
 const headers = [
   { title: 'Consecutivo', key: 'consecutivo', sortable: false },
   { title: 'Nombres', key: 'nombres', sortable: true },
@@ -435,29 +525,31 @@ const headers = [
 async function fetchRoles() {
   try {
     const resp = await obtenerRoles()
-    roles.value = toArray(resp)
+    roles.value = toArray<Rol>(resp)
   } catch (error: unknown) {
     console.error('Error al obtener los roles:', error)
     roles.value = []
-    showSnackbar(`Error al cargar los roles: ${error instanceof Error ? error.message : String(error)}`, 'error')
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    showSnackbar(`Error al cargar los roles: ${errorMessage}`, 'error')
   }
 }
 
 async function fetchRazonesSociales() {
   try {
     const resp = await obtenerRazonesSociales()
-    razonesSociales.value = toArray(resp)
+    razonesSociales.value = toArray<RazonSocial>(resp)
   } catch (error: unknown) {
     console.error('Error al obtener las razones sociales:', error)
     razonesSociales.value = []
-    showSnackbar(`Error al cargar las empresas: ${error instanceof Error ? error.message : String(error)}`, 'error')
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    showSnackbar(`Error al cargar las empresas: ${errorMessage}`, 'error')
   }
 }
 
 async function cargarUsuarios() {
   try {
     const resp = await obtenerUsuarios()
-    usuarios.value = toArray(resp)
+    usuarios.value = toArray<Usuario>(resp)
   } catch (err) {
     usuarios.value = []
     showSnackbar('Error al cargar usuarios. Consulta la consola para más detalles.', 'error')
@@ -468,7 +560,7 @@ async function cargarUsuarios() {
 /* =========================
  * ACCIONES
  * ========================= */
-function promptEditUser(user: any) {
+function promptEditUser(user: Usuario) {
   if (isProcessing.value) return
   userToConfirmEditId.value = user.id
   confirmDialogTitle.value = 'Confirmar Edición'
@@ -479,7 +571,7 @@ function promptEditUser(user: any) {
   showConfirmDialog.value = true
 }
 
-function executeEditUser(user: any) {
+function executeEditUser(user: Usuario) {
   isEditing.value = true
   editingUserId.value = user.id
   setValues({
@@ -526,7 +618,6 @@ async function handleConfirmAction() {
   if (isProcessing.value) return
   snackbar.value.show = false
 
-  // cierra el diálogo primero para evitar doble confirmación
   showConfirmDialog.value = false
 
   try {
@@ -541,23 +632,20 @@ async function handleConfirmAction() {
       if (inFlight.value.create) return
       inFlight.value.create = true
 
-      const userData: any = {
-        nombres: nombres.value,
-        apellidos: apellidos.value,
-        correo: correo.value,
-        celularPersonal: celularPersonal.value,
-        celularCorporativo: celularCorporativo.value,
-        direccion: direccion.value,
-        rolId: rolId.value,
-        razonSocialId: razonSocialId.value,
-        estado: estado.value,
+      const userData: UsuarioFormData = {
+        nombres: nombres.value as string,
+        apellidos: apellidos.value as string,
+        correo: correo.value as string,
+        celularPersonal: celularPersonal.value || undefined,
+        celularCorporativo: celularCorporativo.value || undefined,
+        direccion: direccion.value || undefined,
+        rolId: rolId.value as number,
+        razonSocialId: razonSocialId.value as number,
+        estado: estado.value as 'activo' | 'inactivo',
       }
       if (password.value) userData.password = password.value
 
-      // Si tu service soporta headers, puedes activar idempotencia:
-      // await crearUsuario(userData, { headers: { 'X-Idempotency-Key': makeIdemKey() } })
       await crearUsuario(userData)
-
       showSnackbar('Usuario creado exitosamente.', 'success')
       await cargarUsuarios()
       resetFormAndState()
@@ -566,16 +654,16 @@ async function handleConfirmAction() {
       if (inFlight.value.update) return
       inFlight.value.update = true
 
-      const userData: any = {
-        nombres: nombres.value,
-        apellidos: apellidos.value,
-        correo: correo.value,
-        celularPersonal: celularPersonal.value,
-        celularCorporativo: celularCorporativo.value,
-        direccion: direccion.value,
-        rolId: rolId.value,
-        razonSocialId: razonSocialId.value,
-        estado: estado.value,
+      const userData: Partial<UsuarioFormData> = {
+        nombres: nombres.value as string,
+        apellidos: apellidos.value as string,
+        correo: correo.value as string,
+        celularPersonal: celularPersonal.value || undefined,
+        celularCorporativo: celularCorporativo.value || undefined,
+        direccion: direccion.value || undefined,
+        rolId: rolId.value as number,
+        razonSocialId: razonSocialId.value as number,
+        estado: estado.value as 'activo' | 'inactivo',
       }
       if (password.value) userData.password = password.value
 
@@ -606,18 +694,19 @@ async function handleConfirmAction() {
         resetFormAndState()
       }
     }
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('ERROR en handleConfirmAction:', err)
-    const status = err?.response?.status
-    const data = err?.response?.data
+    const error = err as ErrorResponse
+    const status = error?.response?.status
+    const data = error?.response?.data
 
     if (status === 409) {
       showSnackbar('Ese correo ya está registrado. No se creó ningún usuario.', 'error')
     } else if (status === 422 && data?.errors) {
-      const backendErrors = data.errors.map((e: any) => `${e.field}: ${e.message}`).join(', ')
+      const backendErrors = data.errors.map((e) => `${e.field}: ${e.message}`).join(', ')
       showSnackbar(`Error de validación: ${backendErrors}`, 'error')
     } else {
-      const msg = data?.message || err?.message || 'Error desconocido al procesar la operación.'
+      const msg = data?.message || error?.message || 'Error desconocido al procesar la operación.'
       showSnackbar(msg, 'error')
     }
   } finally {
@@ -711,21 +800,9 @@ const filteredUsers = computed(() => {
   return items
 })
 
-/* ← NUEVO: agrega campo consecutivo según posición actual */
-const numberedUsers = computed(() =>
+const numberedUsers = computed((): UsuarioConConsecutivo[] =>
   filteredUsers.value.map((u, idx) => ({ ...u, consecutivo: idx + 1 }))
 )
-
-function handleDeleteUser(id: number) {
-  if (isProcessing.value) return
-  userToDeleteId.value = id
-  confirmDialogTitle.value = 'Confirmar Eliminación'
-  confirmDialogMessage.value = '¿Estás seguro de que quieres eliminar a este usuario? Esta acción es irreversible.'
-  confirmDialogConfirmText.value = 'Eliminar'
-  confirmDialogConfirmColor.value = 'error'
-  currentAction.value = 'delete'
-  showConfirmDialog.value = true
-}
 
 function handleCancelAction() {
   userToDeleteId.value = null
@@ -734,12 +811,6 @@ function handleCancelAction() {
   currentAction.value = ''
   showConfirmDialog.value = false
 }
-
-/* Si tu service soporta headers para idempotencia:
-function makeIdemKey() {
-  return (crypto as any)?.randomUUID?.() || `${Date.now()}-${Math.random()}`
-}
-*/
 </script>
 
 <style scoped>

@@ -71,7 +71,7 @@
 <script setup lang="ts">
 import { isRef } from 'vue'
 
-const props = defineProps<{
+defineProps<{
   open: boolean
   loading: boolean
   tipo: string | null

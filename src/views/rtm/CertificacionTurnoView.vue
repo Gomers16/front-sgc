@@ -493,7 +493,7 @@ const chipEstadoColor = computed(() => {
 })
 
 const nombreFuncionario = computed(() => {
-  const t: any = turno.value
+  const t = turno.value
   const f = t?.funcionario || t?.usuario
   return f ? `${f.nombres} ${f.apellidos}` : '—'
 })
@@ -615,11 +615,12 @@ async function confirmarYGuardar() {
     dialogConfirm.value = false
 
     router.push('/rtm/turnos-dia')
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('Error al guardar certificación:', err)
+    const error = err as Error
     snack.text =
       '❌ No se pudo registrar la certificación. ' +
-      (err?.message || 'Intenta nuevamente.')
+      (error?.message || 'Intenta nuevamente.')
     snack.show = true
   } finally {
     saving.value = false

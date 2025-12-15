@@ -16,13 +16,12 @@
             Rápidos:
           </span>
           <v-chip
-            class="mr-2 mb-2"
-            :size="$vuetify.display.xs ? 'small' : 'default'"
-            color="grey"
-            variant="outlined"
-            @click="setServicioFiltro(null)"
-            :variant="servicioFiltroId ? 'outlined' : 'flat'"
-          >
+  class="mr-2 mb-2"
+  :size="$vuetify.display.xs ? 'small' : 'default'"
+  color="grey"
+  @click="setServicioFiltro(null)"
+  :variant="servicioFiltroId ? 'outlined' : 'flat'"
+>
             Todos
           </v-chip>
           <v-chip
@@ -610,7 +609,7 @@ import { useRouter } from 'vue-router'
 import { useDisplay } from 'vuetify'
 import { DateTime } from 'luxon'
 import TurnosDelDiaService from '@/services/turnosdeldiaService'
-import repGeneralService, { RepGeneralImportResponse } from '@/services/repGeneralService'
+import repGeneralService, { type RepGeneralImportResponse } from '@/services/repGeneralService'
 
 interface ServicioEnTurno {
   id: number
@@ -925,11 +924,17 @@ const formatTime = (timeString: string | null): string => {
   return time.isValid ? time.toFormat('hh:mm a') : timeString
 }
 
+interface ServicioDTO {
+  id: number
+  codigo: string
+  nombre: string
+}
+
 const loadServicios = async () => {
   serviciosLoading.value = true
   try {
     const data = await TurnosDelDiaService.getServicios()
-    serviciosItems.value = (data || []).map((s: any) => ({
+    serviciosItems.value = (data || []).map((s: ServicioDTO) => ({
       title: `${s.codigo} — ${s.nombre}`,
       value: s.id,
     }))

@@ -141,14 +141,19 @@ const handlerLogin = async () => {
 
     showMessage('Inicio de sesión exitoso', 'success')
     // Aquí puedes redirigir: router.push('/dashboard')
-  } catch (error: any) {
-    const errorMsg = error?.response?.data?.message
-      || 'Credenciales incorrectas o error de conexión'
-    showMessage(errorMsg, 'error')
-    console.error('Login error:', error)
-  } finally {
-    isLoading.value = false
+ } catch (error: unknown) {
+  let errorMsg = 'Credenciales incorrectas o error de conexión'
+
+  if (error instanceof Error) {
+    const err = error as { response?: { data?: { message?: string } } }
+    errorMsg = err.response?.data?.message || error.message || errorMsg
   }
+
+  showMessage(errorMsg, 'error')
+  console.error('Login error:', error)
+} finally {
+  isLoading.value = false
+}
 }
 </script>
 

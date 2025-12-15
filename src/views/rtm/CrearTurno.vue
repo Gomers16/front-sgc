@@ -45,7 +45,7 @@
               variant="outlined"
               :density="$vuetify.display.xs ? 'compact' : 'comfortable'"
               prepend-inner-icon="mdi-car-search"
-              @input="(e) => { onPlacaInput(e); }"
+              @input="onPlacaInput"
               @keydown.enter="doSearch(true)"
               :disabled="buscando"
               hint="Ej: ABC123"
@@ -116,7 +116,7 @@
                 hide-details
                 prepend-inner-icon="mdi-wrench-cog"
                 class="servicio-fit"
-                :rules="[v => !!v || 'El servicio es requerido']"
+                :rules="[(v: any) => !!v || 'El servicio es requerido']"
               />
             </v-col>
 
@@ -152,7 +152,7 @@
                 :density="$vuetify.display.xs ? 'compact' : 'comfortable'"
                 prepend-inner-icon="mdi-car-info"
                 @input="onPlacaInput"
-                :rules="[v => !!v || 'La placa es requerida']"
+                :rules="[(v: any) => !!v || 'La placa es requerida']"
               />
             </v-col>
 
@@ -166,7 +166,7 @@
                 required
                 :density="$vuetify.display.xs ? 'compact' : 'comfortable'"
                 prepend-inner-icon="mdi-car-multiple"
-                :rules="[v => !!v || 'El tipo de vehículo es requerido']"
+                :rules="[(v: any) => !!v || 'El tipo de vehículo es requerido']"
               />
             </v-col>
 
@@ -180,7 +180,7 @@
                 required
                 :density="$vuetify.display.xs ? 'compact' : 'comfortable'"
                 prepend-inner-icon="mdi-account-question"
-                :rules="[v => !!v || 'Este campo es requerido']"
+                :rules="[(v: any) => !!v || 'Este campo es requerido']"
               />
             </v-col>
 
@@ -193,7 +193,7 @@
                   variant="outlined"
                   :density="$vuetify.display.xs ? 'compact' : 'comfortable'"
                   prepend-inner-icon="mdi-account-tie"
-                  :rules="[v => !!v || 'El nombre del asesor es requerido']"
+                  :rules="[(v: any) => !!v || 'El nombre del asesor es requerido']"
                 />
               </v-col>
             </template>
@@ -650,6 +650,15 @@ interface UltimaVisitaDTO {
   marca?: string | null; linea?: string | null; modelo?: number | null;
 }
 
+interface VehiculosDynamicField {
+  vehiculos?: VehiculoDTO[] | null
+  vehiculosCliente?: VehiculoDTO[] | null
+}
+
+interface ClienteConVehiculos {
+  vehiculos?: VehiculoDTO[] | null
+}
+
 interface BusquedaResp {
   vehiculo: VehiculoDTO | null
   cliente: ClienteDTO | null
@@ -701,8 +710,8 @@ interface TurnoForm {
   fecha: string
   horaIngreso: string
   placa: string
-  tipoVehiculo: TipoVehiculoFrontend | ''
-  medioEntero: MedioEntero | ''
+  tipoVehiculo: TipoVehiculoFrontend | null
+  medioEntero: MedioEntero | null
   observaciones: string
   usuarioId: number
   servicioId: number | null
@@ -716,8 +725,8 @@ const form = ref<TurnoForm>({
   fecha: '',
   horaIngreso: '',
   placa: '',
-  tipoVehiculo: '',
-  medioEntero: '',
+  tipoVehiculo: null,
+  medioEntero: null,
   observaciones: '',
   usuarioId: 0,
   servicioId: null,
@@ -820,8 +829,8 @@ function onPlacaInput(e: Event) {
   if (target) form.value.placa = target.value.toUpperCase().replace(/\s|-/g, '')
 }
 
-function mapClaseToTipo(clase?: { codigo?: string; nombre?: string } | null): TipoVehiculoFrontend | '' {
-  if (!clase) return ''
+function mapClaseToTipo(clase?: { codigo?: string; nombre?: string } | null): TipoVehiculoFrontend | null {
+  if (!clase) return null
   const code = String(clase.codigo || '').toUpperCase()
   const name = String(clase.nombre || '').toUpperCase()
   if (code.includes('MOTO') || name.includes('MOTO')) return 'Motocicleta'
@@ -829,7 +838,7 @@ function mapClaseToTipo(clase?: { codigo?: string; nombre?: string } | null): Ti
   if (code.includes('LIV_PUBLICO') || name.includes('PÚBLIC') || name.includes('PUBLIC')) return 'Liviano Público'
   if (code.includes('LIV_PART') || name.includes('PARTIC')) return 'Liviano Particular'
   if (name.includes('LIVIANO')) return 'Liviano Particular'
-  return ''
+  return null
 }
 
 function mapCanalToMedioEntero(canal: CanalAtrib): MedioEntero {
@@ -838,7 +847,7 @@ function mapCanalToMedioEntero(canal: CanalAtrib): MedioEntero {
   if (canal === 'REDES')   return 'redes_sociales'
   return 'asesor'
 }
-function mapMedioEnteroToCanal(medio: MedioEntero): CanalAtrib {
+function mapMedioEnteroToCanal(medio: MedioEntero | null): CanalAtrib {
   switch (medio) {
     case 'redes_sociales': return 'REDES'
     case 'call_center':    return 'TELE'
@@ -909,17 +918,20 @@ async function doSearch(force: boolean = false) {
       vehPreferido = {
         placa: placaUV,
         clase: uv?.clase ?? null,
-        marca: (uv as any)?.marca ?? undefined,
-        linea: (uv as any)?.linea ?? undefined,
-        modelo: typeof (uv as any)?.modelo === 'number' ? (uv as any)?.modelo : undefined,
+        marca: uv?.marca ?? undefined,
+        linea: uv?.linea ?? undefined,
+        modelo: typeof uv?.modelo === 'number' ? uv?.modelo : undefined,
       }
     }
     if (!vehPreferido && resp?.vehiculo?.placa) vehPreferido = resp.vehiculo
     if (!vehPreferido) {
+      const respConVehiculos = resp as BusquedaResp & VehiculosDynamicField
+      const clienteConVehiculos = resp?.cliente as (ClienteDTO & ClienteConVehiculos) | null
+      
       const candidatos: Array<VehiculoDTO[] | undefined | null> = [
-        resp?.vehiculos,
-        resp?.vehiculosCliente,
-        (resp as any)?.cliente?.vehiculos,
+        respConVehiculos?.vehiculos,
+        respConVehiculos?.vehiculosCliente,
+        clienteConVehiculos?.vehiculos,
       ]
       for (const arr of candidatos) {
         if (Array.isArray(arr) && arr.length) {
@@ -937,7 +949,7 @@ async function doSearch(force: boolean = false) {
     if (tipoDetectado) form.value.tipoVehiculo = tipoDetectado
 
     if (busqueda.value && vehPreferido) {
-      busqueda.value = { ...(busqueda.value as any), vehiculo: vehPreferido } as BusquedaResp
+      busqueda.value = { ...busqueda.value, vehiculo: vehPreferido }
     }
 
     clienteNombre.value   = resp?.cliente?.nombre   ?? ''
@@ -971,7 +983,7 @@ async function doSearch(force: boolean = false) {
 function resetBusqueda() {
   telefonoBusqueda.value = ''
   busqueda.value = null
-  form.value.medioEntero = ''
+  form.value.medioEntero = null
   form.value.asesorNombre = null
   lastSearched.value = { placa: '', tel: '' }
 }
@@ -1018,8 +1030,8 @@ async function resetFormFields() {
     fecha: now.toISODate() || '',
     horaIngreso: now.toFormat('HH:mm'),
     placa: '',
-    tipoVehiculo: '',
-    medioEntero: '',
+    tipoVehiculo: null,
+    medioEntero: null,
     observaciones: '',
     usuarioId: form.value.usuarioId,
     servicioId: keepServicioId,
@@ -1135,32 +1147,30 @@ async function submitForm() {
 
     const canal: CanalAtrib = form.value._captacionCanal ?? mapMedioEnteroToCanal(form.value.medioEntero)
 
-    const payload: Record<string, unknown> = {
+    // Payload base con campos requeridos
+    const payload = {
       placa: form.value.placa,
-      tipoVehiculo: form.value.tipoVehiculo,
+      tipoVehiculo: form.value.tipoVehiculo as TipoVehiculoFrontend,
       observaciones: form.value.observaciones,
       fecha: form.value.fecha,
       horaIngreso: form.value.horaIngreso,
       usuarioId: form.value.usuarioId,
       servicioId: form.value.servicioId,
       canal,
+      // Campos opcionales
+      ...(form.value._dateoId && { dateoId: form.value._dateoId }),
+      ...(form.value._captacionAgenteId && { agenteCaptacionId: form.value._captacionAgenteId }),
+      ...(!busquedaCliente.value?.telefono && clienteTelefono.value && { 
+        clienteTelefono: clienteTelefono.value.replace(/\D/g, '') 
+      }),
+      ...(!busquedaCliente.value?.nombre && clienteNombre.value && { 
+        clienteNombre: clienteNombre.value 
+      }),
+      ...(!busquedaCliente.value?.email && clienteEmail.value && { 
+        clienteEmail: clienteEmail.value 
+      }),
+      ...(convenioDetectado.value?.id && { convenioId: convenioDetectado.value.id }),
     }
-
-    if (form.value._dateoId) (payload as any).dateoId = form.value._dateoId
-    if (form.value._captacionAgenteId) (payload as any).agenteCaptacionId = form.value._captacionAgenteId
-
-    if (!busquedaCliente.value?.telefono && clienteTelefono.value) {
-      (payload as any).clienteTelefono = clienteTelefono.value.replace(/\D/g, '')
-    }
-    if (!busquedaCliente.value?.nombre && clienteNombre.value) {
-      (payload as any).clienteNombre = clienteNombre.value
-    }
-    if (!busquedaCliente.value?.email && clienteEmail.value) {
-      (payload as any).clienteEmail = clienteEmail.value
-    }
-
-    const convenio = convenioDetectado.value
-    if (convenio?.id) (payload as any).convenioId = convenio.id
 
     await TurnosDelDiaService.createTurno(payload)
     showSnackbar('✅ Turno creado exitosamente', 'success')
