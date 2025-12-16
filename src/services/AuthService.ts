@@ -3,8 +3,8 @@
 import { get, post } from './http'
 
 export interface LoginResponse {
-  type: string           // ✅ 'bearer'
-  token: string          // ✅ Token directo, no anidado
+  type: string           // 'bearer'
+  token: string          // Token directo
   user: {
     id: number
     agenteId?: number | null
@@ -41,7 +41,7 @@ export default class AuthService {
   async login(correo: string, password: string): Promise<LoginResponse> {
     try {
       return await post<LoginResponse, { correo: string; password: string }>(
-        '/api/login',
+        '/api/login',  // ✅ CAMBIADO: ahora incluye /api
         { correo, password },
         { credentials: 'omit' }
       )
@@ -65,11 +65,9 @@ export default class AuthService {
     }
 
     try {
-      return await get<MeResponse>('/api/auth/me', {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      })
+      // ⚠️ NO se envían headers manuales
+      // http.ts ya adjunta Authorization automáticamente
+       return await get<MeResponse>('/api/auth/me')  // ✅ Correcto
     } catch (error) {
       console.error('Error en AuthService.me():', error)
       throw error

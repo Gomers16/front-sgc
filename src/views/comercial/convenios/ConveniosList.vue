@@ -261,7 +261,8 @@ const asesoresLoading = ref(false)
 async function loadAsesores() {
   asesoresLoading.value = true
   try {
-    asesoresItems.value = await listAgentesCaptacion()
+    // ✅ NUEVO: Solo carga asesores comerciales
+    asesoresItems.value = await listAgentesCaptacion('ASESOR_COMERCIAL')
   } finally {
     asesoresLoading.value = false
   }

@@ -137,10 +137,14 @@ export async function getConvenio(id: number) {
 }
 
 /* ===== Catálogo de Agentes (opc. para UI) ===== */
-export async function listAgentesCaptacion() {
+export async function listAgentesCaptacion(tipo?: string) {
   try {
     const r = await get<{ data?: AgenteLight[] } | AgenteLight[]>(`${API}/agentes-captacion`, {
-      params: { activo: 1, perPage: 200 },
+      params: {
+        activo: 1,
+        perPage: 200,
+        tipo: tipo || undefined  // ✅ NUEVO: Filtrar por tipo
+      },
     })
     return Array.isArray(r) ? r : (r?.data ?? [])
   } catch {
