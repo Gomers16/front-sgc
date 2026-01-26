@@ -97,46 +97,46 @@
 
         <!-- Datos + KPIs -->
         <v-row class="mb-6">
-          <!-- Datos del asesor: COMPACTOS HORIZONTALES -->
-          <v-col cols="12">
-            <v-card variant="outlined" rounded="lg">
-              <v-card-text class="py-3">
-                <div class="d-flex flex-wrap align-center" style="gap: 16px">
-                  <template v-if="asesor && !loading">
-                    <div class="data-item">
-                      <span class="data-label">Nombre:</span>
-                      <span class="data-value">{{ asesor.nombre ?? '—' }}</span>
-                    </div>
-                    <div class="data-item">
-                      <span class="data-label">Tipo:</span>
-                      <span class="data-value">{{ humanTipo(asesor?.tipo) }}</span>
-                    </div>
-                    <div class="data-item" v-if="$vuetify.display.smAndUp">
-                      <span class="data-label">Teléfono:</span>
-                      <span class="data-value">{{ asesor.telefono ?? '—' }}</span>
-                    </div>
-                    <div class="data-item" v-if="$vuetify.display.mdAndUp">
-                      <span class="data-label">Correo:</span>
-                      <span class="data-value">{{ asesor.email || asesor.correo || '—' }}</span>
-                    </div>
-                    <div class="data-item" v-if="$vuetify.display.mdAndUp">
-                      <span class="data-label">Documento:</span>
-                      <span class="data-value">{{ docFull(asesor) }}</span>
-                    </div>
-                    <div class="data-item">
-                      <span class="data-label">Estado:</span>
-                      <v-chip size="x-small" :color="asesor?.activo ? 'success' : 'error'" variant="flat">
-                        {{ asesor?.activo ? 'Activo' : 'Inactivo' }}
-                      </v-chip>
-                    </div>
-                  </template>
-                  <template v-else>
-                    <v-skeleton-loader type="text@3" />
-                  </template>
-                </div>
-              </v-card-text>
-            </v-card>
-          </v-col>
+        <!-- Datos del asesor: COMPACTOS HORIZONTALES -->
+<v-col cols="12">
+  <v-card variant="outlined" rounded="lg">
+    <v-card-text class="py-3">
+      <div class="d-flex flex-wrap align-center" style="gap: 16px">
+        <template v-if="asesor && !loading">
+          <div class="data-item">
+            <span class="data-label">Nombre:</span>
+            <span class="data-value">{{ asesor.nombre ?? '—' }}</span>
+          </div>
+          <div class="data-item">
+            <span class="data-label">Tipo:</span>
+            <span class="data-value">{{ humanTipo(asesor?.tipo) }}</span>
+          </div>
+          <div class="data-item">
+            <span class="data-label">Teléfono:</span>
+            <span class="data-value">{{ asesor.telefono ?? '—' }}</span>
+          </div>
+          <div class="data-item">
+            <span class="data-label">Correo:</span>
+            <span class="data-value">{{ asesor.email || asesor.correo || '—' }}</span>
+          </div>
+          <div class="data-item">
+            <span class="data-label">Documento:</span>
+            <span class="data-value">{{ docFull(asesor) }}</span>
+          </div>
+          <div class="data-item">
+            <span class="data-label">Estado:</span>
+            <v-chip size="x-small" :color="asesor?.activo ? 'success' : 'error'" variant="flat">
+              {{ asesor?.activo ? 'Activo' : 'Inactivo' }}
+            </v-chip>
+          </div>
+        </template>
+        <template v-else>
+          <v-skeleton-loader type="text@3" />
+        </template>
+      </div>
+    </v-card-text>
+  </v-card>
+</v-col>
 
           <!-- KPIs Grid 4x2 - Responsive: 2 columnas en móvil, 4 en tablet+ -->
           <v-col cols="6" md="3">
@@ -852,6 +852,8 @@ type Asesor = {
   telefono?: string | null
   doc_tipo?: string | null
   doc_numero?: string | null
+  docTipo?: string | null      // ← AGREGAR (camelCase del servicio)
+  docNumero?: string | null    // ← AGREGAR (camelCase del servicio)
   documento?: string | null
   activo?: boolean | 0 | 1
 }
@@ -910,11 +912,13 @@ const asesorId = computed(() => {
 
 const puedeCrearDateo = computed(() => {
   if (authStore.isSuperAdmin) return true
+  if (authStore.isGerencia) return false  // 🔒 Bloquear a gerencia
   return authStore.isComercial && asesorId.value === authStore.currentAgenteId
 })
 
 const puedeCrearProspecto = computed(() => {
   if (authStore.isSuperAdmin) return true
+  if (authStore.isGerencia) return false  // 🔒 Bloquear a gerencia
   return authStore.isComercial && asesorId.value === authStore.currentAgenteId
 })
 
@@ -1073,8 +1077,11 @@ function humanTipo(t?: string | null) {
 
 function docFull(a?: Asesor | null) {
   if (!a) return '—'
-  const tipo = a.doc_tipo || ''
-  const num = a.doc_numero || a.documento || ''
+
+  // ✅ Busca en AMBOS formatos: snake_case Y camelCase
+  const tipo = a.doc_tipo || a.docTipo || ''
+  const num = a.doc_numero || a.docNumero || a.documento || ''
+
   if (tipo || num) return `${tipo} ${num}`.trim()
   return '—'
 }
@@ -1186,8 +1193,8 @@ const convenioDelAsesor = ref<{ id: number; nombre: string } | null>(null)
 const comisionesPorDateo = computed(() => {
   const map = new Map<number, ComisionConExtras[]>()
   for (const c of comisiones.value) {
-    const dateoId = (c as Record<string, unknown>).dateo_id ?? 
-                    (c as Record<string, unknown>).captacionDateoId ?? 
+    const dateoId = (c as Record<string, unknown>).dateo_id ??
+                    (c as Record<string, unknown>).captacionDateoId ??
                     (c as Record<string, unknown>).captacion_dateo_id ?? null
     if (!dateoId) continue
     const key = Number(dateoId)
@@ -1527,10 +1534,10 @@ function calcTotalRtm(item: MetaMensualRow) {
 function getMetaDinero(item: MetaMensualRow): number {
   const itemExtended = item as Record<string, unknown>
   const raw =
-    item.meta_global_rtm ?? 
-    item.meta_rtm ?? 
-    itemExtended.meta_mensual ?? 
-    item.meta_mensual ?? 
+    item.meta_global_rtm ??
+    item.meta_rtm ??
+    itemExtended.meta_mensual ??
+    item.meta_mensual ??
     0
   return Number(raw) || 0
 }
@@ -1606,23 +1613,45 @@ async function loadMetasAsesor() {
 /* ===== API helpers ===== */
 function normalizeAsesor(raw: Record<string, unknown>): Asesor | null {
   if (!raw) return null
+
   const nombre =
     (raw.nombre as string) ||
     [raw.nombres, raw.apellidos].filter(Boolean).join(' ') ||
     (raw.fullname as string) ||
     (raw.displayName as string) ||
     '—'
-  const email = (raw.email || raw.correo || raw.email_personal || (raw.user as Record<string, unknown>)?.email || null) as string | null
+
+  // ✅ Buscar email en múltiples variaciones (incluyendo camelCase)
+  const email = (
+    raw.email ||
+    raw.correo ||
+    raw.emailPersonal ||
+    raw.email_personal ||
+    (raw.user as Record<string, unknown>)?.email ||
+    null
+  ) as string | null
+
   const telefono = (raw.telefono || raw.celular || raw.cel || raw.phone || null) as string | null
 
-  const doc_tipo = (raw.doc_tipo || raw.tipo_documento || raw.tipoDoc || null) as string | null
-  const doc_numero =
-    (raw.doc_numero ||
+  // ✅ Buscar doc_tipo en múltiples variaciones (incluyendo camelCase)
+  const doc_tipo = (
+    raw.doc_tipo ||
+    raw.docTipo ||           // ← NUEVO: camelCase
+    raw.tipo_documento ||
+    raw.tipoDoc ||
+    null
+  ) as string | null
+
+  // ✅ Buscar doc_numero en múltiples variaciones (incluyendo camelCase)
+  const doc_numero = (
+    raw.doc_numero ||
+    raw.docNumero ||         // ← NUEVO: camelCase
     raw.numero_documento ||
     raw.numDocumento ||
     raw.documento ||
     raw.cedula ||
-    null) as string | null
+    null
+  ) as string | null
 
   const activo =
     typeof raw.activo !== 'undefined'

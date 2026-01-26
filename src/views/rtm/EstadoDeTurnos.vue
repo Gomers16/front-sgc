@@ -16,12 +16,12 @@
             Rápidos:
           </span>
           <v-chip
-  class="mr-2 mb-2"
-  :size="$vuetify.display.xs ? 'small' : 'default'"
-  color="grey"
-  @click="setServicioFiltro(null)"
-  :variant="servicioFiltroId ? 'outlined' : 'flat'"
->
+            class="mr-2 mb-2"
+            :size="$vuetify.display.xs ? 'small' : 'default'"
+            color="grey"
+            @click="setServicioFiltro(null)"
+            :variant="servicioFiltroId ? 'outlined' : 'flat'"
+          >
             Todos
           </v-chip>
           <v-chip
@@ -73,7 +73,6 @@
         </v-col>
 
         <v-col cols="12" class="d-flex flex-wrap justify-end align-center">
-          <!-- Botones con texto abreviado en móvil -->
           <v-btn
             color="primary"
             variant="elevated"
@@ -196,6 +195,30 @@
             </span>
           </template>
 
+          <!-- 👇 NUEVO: Hora salida -->
+          <template #item.horaSalida="{ item }">
+            <span class="nowrap col-hora text-caption text-sm-body-2">
+              <span v-if="item.horaSalida" class="text-success font-weight-bold">
+                {{ formatTime(item.horaSalida) }}
+              </span>
+              <span v-else class="text-grey">—</span>
+            </span>
+          </template>
+
+          <!-- 👇 NUEVO: Tiempo de servicio -->
+          <template #item.tiempoServicio="{ item }">
+            <v-chip
+              v-if="item.tiempoServicio"
+              :size="$vuetify.display.xs ? 'x-small' : 'small'"
+              color="blue-grey-lighten-1"
+              variant="outlined"
+              prepend-icon="mdi-clock-outline"
+            >
+              {{ item.tiempoServicio }}
+            </v-chip>
+            <span v-else class="text-caption text-grey">—</span>
+          </template>
+
           <!-- Placa -->
           <template #item.placa="{ item }">
             <span class="font-weight-bold text-caption text-sm-body-2">
@@ -214,7 +237,7 @@
             </v-chip>
           </template>
 
-          <!-- Servicio (solo código: PERI / SOAT / RTM / PREV) -->
+          <!-- Servicio -->
           <template #item.servicio="{ item }">
             <v-chip
               :size="$vuetify.display.xs ? 'x-small' : 'small'"
@@ -237,7 +260,7 @@
             </v-chip>
           </template>
 
-          <!-- Visita: abre modal de historial -->
+          <!-- Visita -->
           <template #item.visitaVehiculoTexto="{ item }">
             <v-chip
               :size="$vuetify.display.xs ? 'x-small' : 'small'"
@@ -281,145 +304,303 @@
         </v-data-table>
       </div>
     </v-card>
-
-    <!-- Detalle de turno -->
+<!-- 👇 MODAL DETALLE CON TABS -->
     <v-dialog
       v-model="detailsDialog"
-      :max-width="$vuetify.display.xs ? '100%' : '800'"
+      :max-width="$vuetify.display.xs ? '100%' : '900'"
       :fullscreen="$vuetify.display.xs"
+      scrollable
     >
-      <v-card>
-        <v-card-title class="text-subtitle-1 text-sm-h6 font-weight-bold pa-3 pa-sm-4">
-          Detalle del turno #{{ selectedTurno?.turnoNumero ?? '—' }}
+      <v-card v-if="selectedTurno">
+        <v-card-title class="text-subtitle-1 text-sm-h6 font-weight-bold pa-3 pa-sm-4 d-flex align-center">
+          <v-icon class="mr-2" color="primary">mdi-card-text</v-icon>
+          Turno #{{ selectedTurno.turnoNumero }}
+          <v-spacer />
+          <v-btn
+            icon
+            variant="text"
+            :size="$vuetify.display.xs ? 'small' : 'default'"
+            @click="detailsDialog = false"
+          >
+            <v-icon>mdi-close</v-icon>
+          </v-btn>
         </v-card-title>
 
-        <v-card-text v-if="selectedTurno" class="pa-3 pa-sm-4">
-          <v-row>
-            <v-col cols="12" md="6">
-              <h4 class="text-body-2 text-sm-subtitle-1 font-weight-bold mb-2">
-                Datos generales
-              </h4>
-              <p class="text-caption text-sm-body-2">
-                <strong>Fecha:</strong> {{ formatDate(selectedTurno.fecha) }}
-              </p>
-              <p class="text-caption text-sm-body-2">
-                <strong>Hora ingreso:</strong>
-                {{ formatTime(selectedTurno.horaIngreso) }}
-              </p>
-              <p class="text-caption text-sm-body-2">
-                <strong>Hora salida:</strong> {{ selectedTurno.horaSalida || '—' }}
-              </p>
-              <p class="text-caption text-sm-body-2">
-                <strong>Tiempo servicio:</strong>
-                {{ selectedTurno.tiempoServicio || '—' }}
-              </p>
-              <p class="text-caption text-sm-body-2">
-                <strong>Estado:</strong>
-                {{ getTurnoStatusText(selectedTurno.estado) }}
-              </p>
-            </v-col>
+        <v-divider />
 
-            <v-col cols="12" md="6">
-              <h4 class="text-body-2 text-sm-subtitle-1 font-weight-bold mb-2">
-                Vehículo y servicio
-              </h4>
-              <p class="text-caption text-sm-body-2">
-                <strong>Placa:</strong> {{ selectedTurno.placa }}
-              </p>
-              <p class="text-caption text-sm-body-2">
-                <strong>Color:</strong> {{ getVehiculoColor(selectedTurno) }}
-              </p>
-              <p class="text-caption text-sm-body-2">
-                <strong>Tarjeta de propiedad:</strong>
-                {{ getVehiculoMatricula(selectedTurno) }}
-              </p>
-              <p class="text-caption text-sm-body-2">
-                <strong>Tipo vehículo:</strong> {{ selectedTurno.tipoVehiculo || '—' }}
-              </p>
-              <p class="text-caption text-sm-body-2">
-                <strong>Servicio:</strong>
-                {{ getServicioCodigo(selectedTurno) || '—' }}
-              </p>
-            </v-col>
-          </v-row>
+        <!-- 👇 TABS -->
+        <v-tabs v-model="currentTab" bg-color="grey-lighten-4" grow>
+          <v-tab value="detalles">
+            <v-icon start>mdi-text-box-outline</v-icon>
+            Detalles
+          </v-tab>
+          <v-tab value="tarjeta">
+            <v-icon start>mdi-card-account-details-outline</v-icon>
+            Tarjeta Visual
+          </v-tab>
+        </v-tabs>
 
-          <v-divider class="my-3" />
+        <v-window v-model="currentTab">
+          <!-- TAB 1: DETALLES -->
+          <v-window-item value="detalles">
+            <v-card-text class="pa-3 pa-sm-4">
+              <v-row>
+                <v-col cols="12" md="6">
+                  <h4 class="text-body-2 text-sm-subtitle-1 font-weight-bold mb-2">
+                    📅 Datos generales
+                  </h4>
+                  <p class="text-caption text-sm-body-2">
+                    <strong>Fecha:</strong> {{ formatDate(selectedTurno.fecha) }}
+                  </p>
+                  <p class="text-caption text-sm-body-2">
+                    <strong>Hora ingreso:</strong>
+                    {{ formatTime(selectedTurno.horaIngreso) }}
+                  </p>
+                  <p class="text-caption text-sm-body-2">
+                    <strong>Hora salida:</strong>
+                    <span :class="selectedTurno.horaSalida ? 'font-weight-bold text-success' : 'text-grey'">
+                      {{ selectedTurno.horaSalida ? formatTime(selectedTurno.horaSalida) : 'Pendiente' }}
+                    </span>
+                  </p>
+                  <p class="text-caption text-sm-body-2">
+                    <strong>Tiempo servicio:</strong>
+                    <v-chip
+                      v-if="selectedTurno.tiempoServicio"
+                      color="blue-grey"
+                      size="x-small"
+                      variant="tonal"
+                      prepend-icon="mdi-timer-outline"
+                      class="ml-1"
+                    >
+                      {{ selectedTurno.tiempoServicio }}
+                    </v-chip>
+                    <span v-else class="text-grey">—</span>
+                  </p>
+                  <p class="text-caption text-sm-body-2">
+                    <strong>Estado:</strong>
+                    <v-chip
+                      :color="getTurnoStatusColor(selectedTurno.estado)"
+                      size="x-small"
+                      class="ml-1"
+                    >
+                      {{ getTurnoStatusText(selectedTurno.estado) }}
+                    </v-chip>
+                  </p>
+                </v-col>
 
-          <v-row>
-            <v-col cols="12" md="6">
-              <h4 class="text-body-2 text-sm-subtitle-1 font-weight-bold mb-2">
-                Cliente (propietario)
-              </h4>
-              <p class="text-caption text-sm-body-2">
-                <strong>Nombre:</strong> {{ getClienteNombre(selectedTurno) }}
-              </p>
-              <p class="text-caption text-sm-body-2">
-                <strong>Teléfono:</strong> {{ getClienteTelefono(selectedTurno) }}
-              </p>
+                <v-col cols="12" md="6">
+                  <h4 class="text-body-2 text-sm-subtitle-1 font-weight-bold mb-2">
+                    🚗 Vehículo y servicio
+                  </h4>
+                  <p class="text-caption text-sm-body-2">
+                    <strong>Placa:</strong> {{ selectedTurno.placa }}
+                  </p>
+                  <p class="text-caption text-sm-body-2">
+                    <strong>Color:</strong> {{ getVehiculoColor(selectedTurno) }}
+                  </p>
+                  <p class="text-caption text-sm-body-2">
+                    <strong>Tarjeta de propiedad:</strong>
+                    {{ getVehiculoMatricula(selectedTurno) }}
+                  </p>
+                  <p class="text-caption text-sm-body-2">
+                    <strong>Tipo vehículo:</strong> {{ selectedTurno.tipoVehiculo || '—' }}
+                  </p>
+                  <p class="text-caption text-sm-body-2">
+                    <strong>Servicio:</strong>
+                    {{ getServicioCodigo(selectedTurno) || '—' }}
+                  </p>
+                </v-col>
+              </v-row>
 
-              <h4 class="text-body-2 text-sm-subtitle-1 font-weight-bold mb-2 mt-4">
-                Conductor
-              </h4>
-              <p class="text-caption text-sm-body-2">
-                <strong>Nombre:</strong> {{ getConductorNombre(selectedTurno) }}
-              </p>
-              <p class="text-caption text-sm-body-2">
-                <strong>Teléfono:</strong> {{ getConductorTelefono(selectedTurno) }}
-              </p>
-            </v-col>
+              <v-divider class="my-3" />
 
-            <v-col cols="12" md="6">
-              <h4 class="text-body-2 text-sm-subtitle-1 font-weight-bold mb-2">
-                Captación
-              </h4>
-              <p class="text-caption text-sm-body-2">
-                <strong>Canal:</strong>
-                {{ prettifyCanal(selectedTurno.canalAtribucion) }}
-              </p>
-              <p class="text-caption text-sm-body-2">
-                <strong>Agente:</strong>
-                <span v-if="selectedTurno.agenteCaptacion?.id">
-                  {{ selectedTurno.agenteCaptacion.nombre }}
-                  ({{ prettifyAgenteTipo(selectedTurno.agenteCaptacion.tipo) }})
-                </span>
-                <span v-else>—</span>
-              </p>
-            </v-col>
-          </v-row>
+              <v-row>
+                <v-col cols="12" md="6">
+                  <h4 class="text-body-2 text-sm-subtitle-1 font-weight-bold mb-2">
+                    👤 Cliente (propietario)
+                  </h4>
+                  <p class="text-caption text-sm-body-2">
+                    <strong>Nombre:</strong> {{ getClienteNombre(selectedTurno) }}
+                  </p>
+                  <p class="text-caption text-sm-body-2">
+                    <strong>Teléfono:</strong> {{ getClienteTelefono(selectedTurno) }}
+                  </p>
 
-          <v-divider class="my-3" />
+                  <h4 class="text-body-2 text-sm-subtitle-1 font-weight-bold mb-2 mt-4">
+                    🚕 Conductor
+                  </h4>
+                  <p class="text-caption text-sm-body-2">
+                    <strong>Nombre:</strong> {{ getConductorNombre(selectedTurno) }}
+                  </p>
+                  <p class="text-caption text-sm-body-2">
+                    <strong>Teléfono:</strong> {{ getConductorTelefono(selectedTurno) }}
+                  </p>
+                </v-col>
 
-          <v-row>
-            <v-col cols="12" md="6">
-              <h4 class="text-body-2 text-sm-subtitle-1 font-weight-bold mb-2">
-                Historial de visitas
-              </h4>
-              <p class="text-caption text-sm-body-2">
-                <strong>Visita:</strong>
-                {{ selectedTurno.visitaVehiculoTexto || '—' }}
-              </p>
-            </v-col>
+                <v-col cols="12" md="6">
+                  <h4 class="text-body-2 text-sm-subtitle-1 font-weight-bold mb-2">
+                    📢 Captación
+                  </h4>
+                  <p class="text-caption text-sm-body-2">
+                    <strong>Canal:</strong>
+                    {{ prettifyCanal(selectedTurno.canalAtribucion) }}
+                  </p>
+                  <p class="text-caption text-sm-body-2">
+                    <strong>Agente:</strong>
+                    <span v-if="selectedTurno.agenteCaptacion?.id">
+                      {{ selectedTurno.agenteCaptacion.nombre }}
+                      ({{ prettifyAgenteTipo(selectedTurno.agenteCaptacion.tipo) }})
+                    </span>
+                    <span v-else>—</span>
+                  </p>
+                </v-col>
+              </v-row>
 
-            <v-col cols="12" md="6">
-              <h4 class="text-body-2 text-sm-subtitle-1 font-weight-bold mb-2">
-                Operación
-              </h4>
-              <p class="text-caption text-sm-body-2">
-                <strong>Usuario:</strong> {{ getUsuarioNombre(selectedTurno) }}
-              </p>
-              <p class="text-caption text-sm-body-2">
-                <strong>Sede:</strong> {{ selectedTurno.sede?.nombre ?? '—' }}
-              </p>
+              <v-divider class="my-3" />
 
-              <h4 class="text-body-2 text-sm-subtitle-1 font-weight-bold mb-2 mt-4">
-                Observaciones
-              </h4>
-              <p class="text-caption text-sm-body-2">
-                {{ selectedTurno.observaciones || '—' }}
-              </p>
-            </v-col>
-          </v-row>
-        </v-card-text>
+              <v-row>
+                <v-col cols="12" md="6">
+                  <h4 class="text-body-2 text-sm-subtitle-1 font-weight-bold mb-2">
+                    🔄 Historial de visitas
+                  </h4>
+                  <p class="text-caption text-sm-body-2">
+                    <strong>Visita:</strong>
+                    {{ selectedTurno.visitaVehiculoTexto || '—' }}
+                  </p>
+                </v-col>
+
+                <v-col cols="12" md="6">
+                  <h4 class="text-body-2 text-sm-subtitle-1 font-weight-bold mb-2">
+                    ⚙️ Operación
+                  </h4>
+                  <p class="text-caption text-sm-body-2">
+                    <strong>Usuario:</strong> {{ getUsuarioNombre(selectedTurno) }}
+                  </p>
+                  <p class="text-caption text-sm-body-2">
+                    <strong>Sede:</strong> {{ selectedTurno.sede?.nombre ?? '—' }}
+                  </p>
+
+                  <h4 class="text-body-2 text-sm-subtitle-1 font-weight-bold mb-2 mt-4">
+                    📝 Observaciones
+                  </h4>
+                  <p class="text-caption text-sm-body-2">
+                    {{ selectedTurno.observaciones || '—' }}
+                  </p>
+                </v-col>
+              </v-row>
+            </v-card-text>
+          </v-window-item>
+
+          <!-- TAB 2: TARJETA VISUAL -->
+          <v-window-item value="tarjeta">
+            <v-card-text class="pa-3 pa-sm-5">
+              <!-- Tarjeta estilo "Turnos del Día" -->
+              <v-card
+                class="turno-card-historico pa-3 pa-sm-4 rounded-lg elevation-4"
+                :color="cardColor(selectedTurno.estado)"
+                :class="`estado-${selectedTurno.estado}`"
+              >
+                <v-card-title class="text-subtitle-1 text-sm-h6 font-weight-bold pb-1 text-on-primary-text">
+                  🔢 Turno: {{ displayTurnoNumero(selectedTurno) }}
+                </v-card-title>
+
+                <div class="text-caption text-sm-subtitle-2 mb-2 font-weight-medium text-on-primary-text">
+                  {{ getServicioCodigo(selectedTurno) }}:
+                  <span class="font-weight-bold">
+                    {{ displayTurnoServicio(selectedTurno) }}
+                  </span>
+                </div>
+
+                <v-card-text class="pa-2 pa-sm-3">
+                  <!-- Chip de estado -->
+                  <v-chip
+                    class="mb-2 mb-sm-3"
+                    :size="$vuetify.display.xs ? 'x-small' : 'small'"
+                    :color="estadoChipColor(selectedTurno.estado)"
+                    variant="elevated"
+                    label
+                  >
+                    {{ estadoChipLabel(selectedTurno.estado) }}
+                  </v-chip>
+
+                  <p class="text-caption text-sm-subtitle-1 text-on-primary-text mb-1">
+                    📅 Fecha: <span class="font-weight-medium">{{ formatDate(selectedTurno.fecha) }}</span>
+                  </p>
+                  <p class="text-caption text-sm-subtitle-1 text-on-primary-text mb-1">
+                    🛠 Servicio: <span class="font-weight-medium">{{ getServicioCodigo(selectedTurno) }}</span>
+                  </p>
+                  <p class="text-caption text-sm-subtitle-1 text-on-primary-text mb-1">
+                    🚗 Tipo Vehículo: <span class="font-weight-medium">{{ selectedTurno.tipoVehiculo || 'Desconocido' }}</span>
+                  </p>
+                  <p class="text-caption text-sm-subtitle-1 text-on-primary-text mb-1">
+                    🚗 Placa: <span class="font-weight-medium">{{ selectedTurno.placa }}</span>
+                  </p>
+                  <p class="text-caption text-sm-subtitle-1 text-on-primary-text mb-2">
+                    ⏰ Ingreso: <span class="font-weight-medium">{{ formatTime(selectedTurno.horaIngreso) }}</span>
+                  </p>
+
+                  <p class="text-caption text-sm-subtitle-1 mt-2 mt-sm-3 font-weight-bold text-on-primary-text">
+                    📌 Etapas:
+                  </p>
+
+                  <v-list density="compact" class="py-0 bg-transparent">
+                    <v-list-item
+                      v-for="(etapa, i) in getEtapas(selectedTurno)"
+                      :key="etapa.key || i"
+                      class="py-0 px-0"
+                      :min-height="$vuetify.display.xs ? 32 : 40"
+                    >
+                      <template #prepend>
+                        <v-icon
+                          :size="$vuetify.display.xs ? 18 : 20"
+                          :color="iconColor(etapa, selectedTurno)"
+                          :class="{
+                            'etapa-icon-completed-finalizado':
+                              etapa.completed && selectedTurno.estado === 'finalizado',
+                          }"
+                        >
+                          {{ etapa.completed ? 'mdi-check-circle' : 'mdi-circle-outline' }}
+                        </v-icon>
+                      </template>
+
+                      <div class="etapa-row">
+                        <div class="etapa-label">
+                          <span
+                            :class="{
+                              'text-decoration-line-through text-on-primary-text-faded':
+                                etapa.completed && etapa.name !== 'Puerta',
+                            }"
+                            class="text-caption text-sm-body-2 text-on-primary-text"
+                          >
+                            {{ etapa.name }}
+                          </span>
+                        </div>
+
+                        <span
+                          v-if="etapa.time"
+                          class="text-on-primary-text-faded etapa-time"
+                          :class="$vuetify.display.xs ? 'text-caption' : ''"
+                        >
+                          {{ formatTime(etapa.time) }}
+                        </span>
+                      </div>
+
+                      <div
+                        v-if="etapa.funcionario && etapa.completed"
+                        class="etapa-funcionario text-caption text-on-primary-text-faded mt-1"
+                      >
+                        <v-icon size="x-small" class="mr-1">mdi-account</v-icon>
+                        {{ etapa.funcionario }}
+                      </div>
+                    </v-list-item>
+                  </v-list>
+                </v-card-text>
+              </v-card>
+            </v-card-text>
+          </v-window-item>
+        </v-window>
+
+        <v-divider />
 
         <v-card-actions class="pa-3 pa-sm-4">
           <v-spacer />
@@ -430,20 +611,12 @@
           >
             Cerrar
           </v-btn>
-          <v-btn
-            color="primary"
-            variant="elevated"
-            :size="$vuetify.display.xs ? 'small' : 'default'"
-            @click="goToEditSelected"
-          >
-            <span v-if="$vuetify.display.xs">Editar</span>
-            <span v-else>Ir a edición</span>
-          </v-btn>
+
         </v-card-actions>
       </v-card>
     </v-dialog>
 
-    <!-- MODAL HISTORIAL DE VISITAS (por placa) -->
+    <!-- MODAL HISTORIAL DE VISITAS -->
     <v-dialog
       v-model="visitasDialog"
       :max-width="$vuetify.display.xs ? '100%' : '700'"
@@ -602,7 +775,6 @@
     </v-snackbar>
   </v-container>
 </template>
-
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
@@ -705,8 +877,26 @@ interface Turno {
   visitaVehiculoUltimasFechas?: string[]
   visitasVehiculoDetalle?: HistVisit[]
 
+  // 👇 Para la tarjeta visual de etapas
+  tieneFacturacion?: boolean | null
+  horaFacturacion?: string | null
+  facturacionFuncionario?: {
+    id: number
+    nombres: string
+    apellidos: string
+  } | null
+  certificacionFuncionario?: {
+    id: number
+    nombres: string
+    apellidos: string
+  } | null
+
   createdAt: string
   updatedAt: string
+}
+
+interface TurnoConSnakeCase {
+  turno_numero_servicio?: number | null
 }
 
 interface FetchTurnosFilters {
@@ -716,6 +906,14 @@ interface FetchTurnosFilters {
   fechaInicio?: string
   fechaFin?: string
   servicioId?: number
+}
+
+interface Etapa {
+  key: string
+  name: string
+  completed: boolean
+  time: string | null
+  funcionario?: string | null
 }
 
 const router = useRouter()
@@ -741,6 +939,7 @@ const snackbar = ref({
 
 const detailsDialog = ref(false)
 const selectedTurno = ref<Turno | null>(null)
+const currentTab = ref('detalles') // 👈 Control de tabs
 
 const visitasDialog = ref(false)
 const visitasTurnoActualId = ref<number | null>(null)
@@ -752,9 +951,8 @@ const importFile = ref<File | File[] | null>(null)
 const importLoading = ref(false)
 const importResult = ref<RepGeneralImportResponse | null>(null)
 
-// HEADERS RESPONSIVE
+// 👇 HEADERS RESPONSIVE ACTUALIZADOS
 const headersResponsive = computed(() => {
-  // Móvil (xs): Solo columnas esenciales
   if (xs.value) {
     return [
       { title: '#', key: 'turnoNumero', align: 'center' as const },
@@ -765,25 +963,26 @@ const headersResponsive = computed(() => {
     ]
   }
 
-  // Tablet (sm): Columnas intermedias
   if (smAndUp.value && !mdAndUp.value) {
     return [
       { title: 'Turno #', key: 'turnoNumero', align: 'center' as const },
       { title: 'Fecha', key: 'fecha' },
       { title: 'Placa', key: 'placa' },
-      { title: 'Tipo', key: 'tipoVehiculo' },
+      { title: 'H. Ingreso', key: 'horaIngreso' },
+      { title: 'H. Salida', key: 'horaSalida' },
       { title: 'Servicio', key: 'servicio' },
       { title: 'Estado', key: 'estado' },
       { title: 'Acciones', key: 'actions', sortable: false, align: 'center' as const },
     ]
   }
 
-  // Desktop (md+): Todas las columnas
   return [
     { title: 'Turno #', key: 'turnoNumero', align: 'center' as const },
     { title: 'Svc #', key: 'turnoNumeroServicio', align: 'center' as const },
     { title: 'Fecha', key: 'fecha' },
     { title: 'Hora Ingreso', key: 'horaIngreso' },
+    { title: 'Hora Salida', key: 'horaSalida' },
+    { title: 'Tiempo Servicio', key: 'tiempoServicio' },
     { title: 'Placa', key: 'placa' },
     { title: 'Tipo Vehículo', key: 'tipoVehiculo' },
     { title: 'Servicio', key: 'servicio' },
@@ -810,23 +1009,137 @@ const showSnackbar = (message: string, color = 'info', timeout = 4000) => {
   snackbar.value = { show: true, message, color, timeout }
 }
 
+// 👇 FUNCIONES PARA LA TARJETA VISUAL
+const displayTurnoNumero = (turno: Turno) => {
+  if (
+    turno.estado === 'cancelado' ||
+    turno.estado === 'inactivo' ||
+    !turno.turnoNumero ||
+    turno.turnoNumero <= 0
+  ) {
+    return '—'
+  }
+  return turno.turnoNumero
+}
+
+const displayTurnoServicio = (turno: Turno) => {
+  const turnoConSnake = turno as Turno & TurnoConSnakeCase
+  const n = turno.turnoNumeroServicio ?? turnoConSnake.turno_numero_servicio ?? null
+  if (
+    turno.estado === 'cancelado' ||
+    turno.estado === 'inactivo' ||
+    !n ||
+    n <= 0
+  ) {
+    return '—'
+  }
+  return n
+}
+
+const cardColor = (estado: Turno['estado']) => {
+  if (estado === 'finalizado') return 'green-darken-1'
+  if (estado === 'cancelado') return 'red-darken-1'
+  if (estado === 'inactivo') return 'grey-darken-2'
+  return 'blue-darken-1'
+}
+
+const estadoChipLabel = (estado: Turno['estado']) => {
+  if (estado === 'finalizado') return 'Finalizado'
+  if (estado === 'cancelado') return 'Cancelado'
+  if (estado === 'inactivo') return 'Inactivo'
+  return 'En proceso'
+}
+
+const estadoChipColor = (estado: Turno['estado']) => {
+  if (estado === 'finalizado') return 'light-green-accent-3'
+  if (estado === 'cancelado') return 'red-accent-2'
+  if (estado === 'inactivo') return 'grey'
+  return 'amber'
+}
+
+const iconColor = (etapa: Etapa, turno: Turno) => {
+  if (!etapa.completed) {
+    return 'on-primary-text-light'
+  }
+  if (turno.estado === 'finalizado') {
+    return 'white'
+  }
+  return 'success'
+}
+
+const getEtapas = (turno: Turno): Etapa[] => {
+  const esSOAT = getServicioCodigo(turno).toUpperCase() === 'SOAT'
+
+  const etapas: Etapa[] = [
+    {
+      key: `puerta-${turno.id}`,
+      name: 'Puerta',
+      completed: !!turno.horaIngreso,
+      time: turno.horaIngreso,
+      funcionario: turno.usuario
+        ? `${turno.usuario.nombres} ${turno.usuario.apellidos}`
+        : null,
+    },
+    {
+      key: `facturacion-${turno.id}`,
+      name: 'Facturación',
+      completed: !!turno.tieneFacturacion,
+      time: turno.horaFacturacion ?? null,
+      funcionario: turno.facturacionFuncionario
+        ? `${turno.facturacionFuncionario.nombres} ${turno.facturacionFuncionario.apellidos}`
+        : null,
+    },
+  ]
+
+  if (!esSOAT) {
+    etapas.push({
+      key: `certificacion-${turno.id}`,
+      name: 'Certificación',
+      completed: !!turno.horaSalida,
+      time: turno.horaSalida,
+      funcionario: turno.certificacionFuncionario
+        ? `${turno.certificacionFuncionario.nombres} ${turno.certificacionFuncionario.apellidos}`
+        : null,
+    })
+  }
+
+  if (turno.estado === 'cancelado' || turno.estado === 'inactivo') {
+    etapas.forEach((etapa) => {
+      etapa.completed = false
+      etapa.funcionario = null
+    })
+  }
+
+  return etapas
+}
+
 const getTurnoStatusText = (estado: EstadoTurno): string => {
   switch (estado) {
-    case 'activo': return 'Activo'
-    case 'inactivo': return 'Inactivo'
-    case 'cancelado': return 'Cancelado'
-    case 'finalizado': return 'Finalizado'
-    default: return 'Desconocido'
+    case 'activo':
+      return 'Activo'
+    case 'inactivo':
+      return 'Inactivo'
+    case 'cancelado':
+      return 'Cancelado'
+    case 'finalizado':
+      return 'Finalizado'
+    default:
+      return 'Desconocido'
   }
 }
 
 const getTurnoStatusColor = (estado: EstadoTurno): string => {
   switch (estado) {
-    case 'activo': return 'success'
-    case 'inactivo': return 'grey'
-    case 'cancelado': return 'error'
-    case 'finalizado': return 'info'
-    default: return 'grey-lighten-1'
+    case 'activo':
+      return 'success'
+    case 'inactivo':
+      return 'grey'
+    case 'cancelado':
+      return 'error'
+    case 'finalizado':
+      return 'info'
+    default:
+      return 'grey-lighten-1'
   }
 }
 
@@ -838,23 +1151,33 @@ const getServicioCodigo = (t: Turno): string => {
 
 const prettifyCanal = (canal?: CanalAtrib): string => {
   switch ((canal || '').toUpperCase()) {
-    case 'FACHADA': return 'Fachada'
-    case 'ASESOR': return 'Asesor Comercial'
-    case 'TELE': return 'Call Center'
-    case 'REDES': return 'Redes Sociales'
-    default: return canal || '—'
+    case 'FACHADA':
+      return 'Fachada'
+    case 'ASESOR':
+      return 'Asesor Comercial'
+    case 'TELE':
+      return 'Call Center'
+    case 'REDES':
+      return 'Redes Sociales'
+    default:
+      return canal || '—'
   }
 }
 
 const prettifyAgenteTipo = (tipo?: string): string => {
   const t = (tipo || '').toUpperCase()
   switch (t) {
-    case 'ASESOR_INTERNO': return 'Asesor Interno'
-    case 'ASESOR_EXTERNO': return 'Asesor Externo'
+    case 'ASESOR_INTERNO':
+      return 'Asesor Interno'
+    case 'ASESOR_EXTERNO':
+      return 'Asesor Externo'
     case 'ASESOR_COMERCIAL':
-    case 'ASESOR_CONVENIO': return 'Asesor Comercial'
-    case 'TELEMERCADEO': return 'Telemercadeo'
-    default: return tipo || '—'
+    case 'ASESOR_CONVENIO':
+      return 'Asesor Comercial'
+    case 'TELEMERCADEO':
+      return 'Telemercadeo'
+    default:
+      return tipo || '—'
   }
 }
 
@@ -870,11 +1193,9 @@ const getClienteNombre = (t: Turno): string => {
 const getClienteTelefono = (t: Turno): string =>
   t.cliente?.telefono || t.cliente?.celular || '—'
 
-const getVehiculoColor = (t: Turno): string =>
-  t.vehiculo?.color || '—'
+const getVehiculoColor = (t: Turno): string => t.vehiculo?.color || '—'
 
-const getVehiculoMatricula = (t: Turno): string =>
-  t.vehiculo?.matricula || '—'
+const getVehiculoMatricula = (t: Turno): string => t.vehiculo?.matricula || '—'
 
 const getConductorNombre = (t: Turno): string => {
   const c = t.conductor
@@ -882,8 +1203,7 @@ const getConductorNombre = (t: Turno): string => {
   return c.nombre || '—'
 }
 
-const getConductorTelefono = (t: Turno): string =>
-  t.conductor?.telefono || '—'
+const getConductorTelefono = (t: Turno): string => t.conductor?.telefono || '—'
 
 const getUsuarioNombre = (t: Turno): string => {
   const u = t.usuario
@@ -899,9 +1219,7 @@ const getCaptacionLabel = (t: Turno): string => {
   if (canal === 'ASESOR') {
     const tipo = prettifyAgenteTipo(t.agenteCaptacion?.tipo)
     if (t.agenteCaptacion?.nombre) {
-      return `Asesor — ${t.agenteCaptacion.nombre}${
-        tipo && tipo !== '—' ? ` (${tipo})` : ''
-      }`
+      return `Asesor — ${t.agenteCaptacion.nombre}${tipo && tipo !== '—' ? ` (${tipo})` : ''}`
     }
     return 'Asesor'
   }
@@ -975,13 +1293,17 @@ const fetchTurnosFromApi = async (fechaInicioParam?: string, fechaFinParam?: str
       filters.servicioId = servicioFiltroId.value
     }
 
-    const data = await TurnosDelDiaService.fetchTurnos(
+    const data = (await TurnosDelDiaService.fetchTurnos(
       filters as Record<string, string | number | boolean>
-    ) as Turno[]
+    )) as Turno[]
 
     turnos.value = data.map((turno) => {
       const normalized = { ...turno }
-      if (normalized.fecha && typeof normalized.fecha === 'string' && normalized.fecha.includes('T')) {
+      if (
+        normalized.fecha &&
+        typeof normalized.fecha === 'string' &&
+        normalized.fecha.includes('T')
+      ) {
         normalized.fecha = normalized.fecha.split('T')[0]
       }
       return normalized
@@ -1013,13 +1335,10 @@ const clearFilters = () => {
 
 const openDetails = (t: Turno) => {
   selectedTurno.value = t
+  currentTab.value = 'detalles' // 👈 Siempre abre en tab de detalles
   detailsDialog.value = true
 }
 
-const goToEditSelected = () => {
-  if (!selectedTurno.value) return
-  router.push(`/rtm/editar-turno/${selectedTurno.value.id}`)
-}
 
 const openVisitasModal = (t: Turno) => {
   visitasTurnoActualId.value = t.id
@@ -1108,7 +1427,6 @@ onMounted(async () => {
   fetchTurnosFromApi()
 })
 </script>
-
 <style scoped>
 .title-full-bordered-container {
   padding: 0 !important;
@@ -1136,7 +1454,7 @@ onMounted(async () => {
 }
 
 .v-card {
-  box-shadow: 0 10px 20px rgba(0,0,0,0.15), 0 6px 6px rgba(0,0,0,0.1);
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.15), 0 6px 6px rgba(0, 0, 0, 0.1);
   border-radius: 16px;
   background: linear-gradient(145deg, #f0f2f5, #e0e2e5);
 }
@@ -1148,7 +1466,7 @@ onMounted(async () => {
 .bordered-button-secondary {
   border-radius: 8px;
   transition: all 0.3s ease;
-  box-shadow: 0 3px 5px rgba(0,0,0,0.1), 0 0 0 2px black !important;
+  box-shadow: 0 3px 5px rgba(0, 0, 0, 0.1), 0 0 0 2px black !important;
 }
 
 @media (min-width: 600px) {
@@ -1158,7 +1476,7 @@ onMounted(async () => {
   .bordered-button-grey,
   .bordered-button-secondary {
     border-radius: 10px;
-    box-shadow: 0 4px 6px rgba(0,0,0,0.1), 0 0 0 2px black !important;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1), 0 0 0 2px black !important;
   }
 }
 
@@ -1168,7 +1486,7 @@ onMounted(async () => {
 .bordered-button-grey:hover,
 .bordered-button-secondary:hover {
   transform: translateY(-2px);
-  box-shadow: 0 6px 12px rgba(0,0,0,0.2), 0 0 0 3px black !important;
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2), 0 0 0 3px black !important;
 }
 
 .turno-number-display {
@@ -1224,5 +1542,94 @@ onMounted(async () => {
 .row-actual {
   font-weight: 600;
   background-color: rgba(0, 0, 0, 0.04);
+}
+
+/* 👇 ESTILOS PARA LA TARJETA VISUAL */
+.turno-card-historico {
+  transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+  border-radius: 12px;
+  box-shadow: 0 8px 15px rgba(0, 0, 0, 0.2);
+}
+
+.estado-cancelado {
+  border: 3px solid #ef5350 !important;
+  background: linear-gradient(135deg, #e53935 0%, #c62828 100%) !important;
+}
+
+.estado-finalizado {
+  border: 3px solid #66bb6a !important;
+  background: linear-gradient(135deg, #43a047 0%, #2e7d32 100%) !important;
+}
+
+.estado-activo {
+  border: 3px solid #42a5f5 !important;
+  background: linear-gradient(135deg, #1e88e5 0%, #1565c0 100%) !important;
+}
+
+.estado-inactivo {
+  border: 3px solid #757575 !important;
+  background: linear-gradient(135deg, #616161 0%, #424242 100%) !important;
+}
+
+.text-on-primary-text {
+  color: rgb(var(--v-theme-on-primary-text)) !important;
+}
+.text-on-primary-text-faded {
+  color: rgb(var(--v-theme-on-primary-text-faded)) !important;
+}
+
+.etapa-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  gap: 4px;
+}
+
+.etapa-label {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+}
+
+.etapa-time {
+  text-align: right;
+  font-family: monospace;
+  font-size: 0.75rem;
+  min-width: 70px;
+  flex-shrink: 0;
+}
+
+@media (min-width: 600px) {
+  .etapa-time {
+    min-width: 78px;
+  }
+}
+
+.etapa-icon-completed-finalizado {
+  color: #ffffff !important;
+}
+
+.v-icon.on-primary-text-light {
+  color: rgb(var(--v-theme-on-primary-text-light)) !important;
+}
+
+.v-list.bg-transparent {
+  background-color: transparent !important;
+}
+
+.etapa-funcionario {
+  font-size: 0.7rem;
+  display: flex;
+  align-items: center;
+  padding-left: 28px;
+  font-style: italic;
+}
+
+@media (min-width: 600px) {
+  .etapa-funcionario {
+    font-size: 0.75rem;
+  }
 }
 </style>

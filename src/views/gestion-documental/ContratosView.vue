@@ -186,10 +186,10 @@
       :to-absolute-api-url="toAbsoluteApiUrl"
       @editar="editarContrato"
       @toggleEstado="toggleEstadoContrato"
-      
-      
+
+
     />
-    
+
 
     <!-- Dialogo Certificado -->
     <DialogoCertificado
@@ -324,8 +324,8 @@ import {
   type ContratoCreatePayload,
   type ContratoUpdatePayload,
   type TipoContrato,
-  
-  
+
+
 } from '@/services/contratoService'
 
 /* PASOS (solo listar/actualizar/crear) */
@@ -348,7 +348,7 @@ function toArray<T>(data: unknown): T[] {
 }
 
 /* ======= Constantes / utils ======= */
-const MAX_UPLOAD_MB = 10
+const MAX_UPLOAD_MB = 25  // 👈 CAMBIAR A 25
 const BYTES_MB = 1024 * 1024
 const ALLOWED_CONTRATO_MIME = ['application/pdf'] as const
 const ALLOWED_REC_EXT = ['pdf', 'doc', 'docx'] as const
@@ -1172,13 +1172,13 @@ async function editarContrato(c: Contrato) {
 
   tipoContratoSeleccionado.value = (src['tipoContrato'] as Contrato['tipoContrato']) ?? c.tipoContrato
   identificacion.value = (src['identificacion'] as string) ?? ''
-  
+
   const sedeData = src['sede'] as { id?: number } | undefined
   sedeId.value = sedeData?.id ?? (src['sedeId'] as number | null) ?? null
-  
+
   const cargoData = src['cargo'] as { id?: number } | undefined
   cargoId.value = cargoData?.id ?? (src['cargoId'] as number | null) ?? null
-  
+
   funcionesCargo.value = (src['funcionesCargo'] as string) ?? ''
   fechaInicio.value = (String(src['fechaInicio'] || '')).slice(0,10)
   fechaTerminacion.value = src['fechaTerminacion'] ? String(src['fechaTerminacion']).slice(0,10) : ''
@@ -1292,10 +1292,10 @@ async function guardarCambiosContrato() {
       fechaInicio: fechaInicio.value || '',
       fechaTerminacion: fechaTerminacionNormalizada,
       centroCosto: String(centroCosto.value || '').trim() || null,
-      epsId: epsId.value ?? null, 
-      arlId: arlId.value ?? null, 
-      afpId: afpId.value ?? null, 
-      afcId: afcId.value ?? null, 
+      epsId: epsId.value ?? null,
+      arlId: arlId.value ?? null,
+      afpId: afpId.value ?? null,
+      afcId: afcId.value ?? null,
       ccfId: ccfId.value ?? null,
       tieneRecomendacionesMedicas: !!tieneRecomendacionesMedicas.value,
       salarioBasico: salarioBasico.value !== '' ? Number(salarioBasico.value) : undefined,

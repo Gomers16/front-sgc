@@ -69,7 +69,7 @@ const routes: RouteRecordRaw[] = [
     component: ContadorConvenios,
     meta: { layout: 'MainLayout' },
   },
-  
+
   // ✅ Certificación RTM (pantallazo FLUR)
   {
     path: '/rtm/certificacion/:id',
@@ -122,7 +122,7 @@ const routes: RouteRecordRaw[] = [
   },
 
   // COMERCIAL
-  
+
   // Asesores + convenios
   {
     path: '/comercial/asesores',
@@ -220,6 +220,14 @@ const routes: RouteRecordRaw[] = [
     component: ComisionDetail,
     props: true,
     meta: { layout: 'MainLayout' },
+  },
+
+  // Descuentos
+  {
+    path: '/comercial/descuentos',
+    name: 'ComercialDescuentos',
+    component: () => import('@/views/comercial/descuentos/Descuentos.vue'),
+    meta: { layout: 'MainLayout', title: 'Gestión de Descuentos' },
   },
 
   // CLIENTES

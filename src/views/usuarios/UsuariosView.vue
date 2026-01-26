@@ -51,6 +51,65 @@
               />
             </v-col>
 
+          <v-col cols="12" md="6">
+              <v-text-field
+                label="Correo Personal"
+                v-model="correoPersonal"
+                :error-messages="correoPersonalError"
+                type="email"
+                outlined
+                clearable
+                density="comfortable"
+                hint="Correo personal de contacto (opcional)"
+                persistent-hint
+                :disabled="isProcessing"
+              />
+            </v-col>
+
+            <!-- ✅ NUEVOS CAMPOS -->
+            <v-col cols="12" md="6">
+              <v-select
+                label="Tipo de Sangre"
+                v-model="tipoSangre"
+                :items="tiposSangre"
+                outlined
+                clearable
+                density="comfortable"
+                prepend-inner-icon="mdi-water"
+                hint="Selecciona el tipo de sangre"
+                persistent-hint
+                :disabled="isProcessing"
+              />
+            </v-col>
+
+            <v-col cols="12" md="6">
+              <v-text-field
+                label="Contacto de Emergencia (Nombre)"
+                v-model="contactoEmergenciaNombre"
+                outlined
+                clearable
+                density="comfortable"
+                prepend-inner-icon="mdi-account-alert"
+                hint="Nombre completo del contacto"
+                persistent-hint
+                :disabled="isProcessing"
+              />
+            </v-col>
+
+            <v-col cols="12" md="6">
+              <v-text-field
+                label="Contacto de Emergencia (Teléfono)"
+                v-model="contactoEmergenciaTelefono"
+                outlined
+                clearable
+                density="comfortable"
+                prepend-inner-icon="mdi-phone-alert"
+                hint="Teléfono del contacto de emergencia"
+                persistent-hint
+                :disabled="isProcessing"
+              />
+            </v-col>
+
             <v-col cols="12" md="6">
               <v-text-field
                 label="Contraseña"
@@ -327,6 +386,10 @@ import ConfirmDialog from '@/components/UI/ConfirmarDialogo.vue'
 /* =========================
  * TIPOS
  * ========================= */
+
+ // ✅ Tipo para sangre
+type TipoSangre = 'A+' | 'A-' | 'B+' | 'B-' | 'AB+' | 'AB-' | 'O+' | 'O-'
+
 interface Rol {
   id: number;
   nombre: string;
@@ -342,11 +405,22 @@ interface Usuario {
   nombres: string;
   apellidos: string;
   correo: string;
+  correoPersonal?: string;
   celularPersonal?: string;
   celularCorporativo?: string;
   direccion?: string;
+  tipoSangre?: TipoSangre | null; // ✅ Tipo específico
+  contactoEmergenciaNombre?: string;
+  contactoEmergenciaTelefono?: string;
   rolId: number;
   razonSocialId: number;
+  sedeId?: number | null;
+  cargoId?: number | null;
+  epsId?: number | null;
+  arlId?: number | null;
+  afpId?: number | null;
+  afcId?: number | null;
+  ccfId?: number | null;
   estado: 'activo' | 'inactivo';
   rol?: Rol;
   razonSocial?: RazonSocial;
@@ -356,16 +430,28 @@ interface UsuarioConConsecutivo extends Usuario {
   consecutivo: number;
 }
 
+// ✅ CORREGIDO: sin null, solo undefined
 interface UsuarioFormData {
   nombres: string;
   apellidos: string;
   correo: string;
+  correoPersonal?: string;
   password?: string;
   celularPersonal?: string;
   celularCorporativo?: string;
   direccion?: string;
+  tipoSangre?: TipoSangre; // ✅ Tipo específico
+  contactoEmergenciaNombre?: string;
+  contactoEmergenciaTelefono?: string;
   rolId: number;
   razonSocialId: number;
+  sedeId?: number;
+  cargoId?: number;
+  epsId?: number;
+  arlId?: number;
+  afpId?: number;
+  afcId?: number;
+  ccfId?: number;
   estado: 'activo' | 'inactivo';
 }
 
@@ -385,21 +471,11 @@ interface ErrorResponse {
 }
 
 /* =========================
- * VALIDACIÓN
+ * HELPERS
  * ========================= */
-const required = (value: string | number | null | undefined) => 
-  (value !== null && value !== undefined && value !== '') || 'Este campo es obligatorio.'
-
-const minLength = (value: string, length: number) => 
-  (value && value.length >= length) || `Debe tener al menos ${length} caracteres.`
-
-const isEmail = (value: string) => 
-  /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) || 'Debe ser un correo electrónico válido.'
-
-const optionalNumber = (value: string | null | undefined) => {
-  if (value === null || value === undefined || value === '') return true
-  return !isNaN(Number(value)) || 'Debe ser un número válido.'
-}
+// ✅ Helper para convertir null a undefined
+const toUndefinedIfNull = <T>(value: T | null): T | undefined =>
+  value === null ? undefined : value
 
 /* Helper: normaliza arreglos */
 function toArray<T>(v: unknown): T[] {
@@ -407,6 +483,23 @@ function toArray<T>(v: unknown): T[] {
   const response = v as ApiResponse<T[]>
   if (response?.data && Array.isArray(response.data)) return response.data
   return []
+}
+
+/* =========================
+ * VALIDACIÓN
+ * ========================= */
+const required = (value: string | number | null | undefined) =>
+  (value !== null && value !== undefined && value !== '') || 'Este campo es obligatorio.'
+
+const minLength = (value: string, length: number) =>
+  (value && value.length >= length) || `Debe tener al menos ${length} caracteres.`
+
+const isEmail = (value: string) =>
+  /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) || 'Debe ser un correo electrónico válido.'
+
+const optionalNumber = (value: string | null | undefined) => {
+  if (value === null || value === undefined || value === '') return true
+  return !isNaN(Number(value)) || 'Debe ser un número válido.'
 }
 
 /* =========================
@@ -434,12 +527,12 @@ const userToConfirmEditId = ref<number | null>(null)
 const { handleSubmit, resetForm, setValues } = useForm()
 
 const { value: nombres, errorMessage: nombresError } = useField('nombres', [
-  required, 
+  required,
   (val: string) => minLength(val, 2)
 ])
 
 const { value: apellidos, errorMessage: apellidosError } = useField('apellidos', [
-  required, 
+  required,
   (val: string) => minLength(val, 2)
 ])
 
@@ -455,29 +548,68 @@ const { value: password, errorMessage: passwordError } = useField('password', (v
   return true
 })
 
-const { value: rolId, errorMessage: rolIdError } = useField<number | null>('rolId', [required], { 
-  initialValue: null 
+const { value: correoPersonal, errorMessage: correoPersonalError } = useField<string | null>(
+  'correoPersonal',
+  (value: string | null | undefined) => {
+    if (value && value.trim() !== '') {
+      return isEmail(value)
+    }
+    return true
+  },
+  { initialValue: '' }
+)
+
+// ✅ NUEVOS CAMPOS: Tipo de Sangre + Contacto de Emergencia
+const tiposSangre = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-']
+
+const { value: tipoSangre } = useField<TipoSangre | null>('tipoSangre', [], {
+  initialValue: null
 })
 
-const { value: razonSocialId, errorMessage: razonSocialIdError } = useField<number | null>('razonSocialId', [required], { 
-  initialValue: null 
+const { value: contactoEmergenciaNombre } = useField<string | null>(
+  'contactoEmergenciaNombre',
+  [],
+  { initialValue: '' }
+)
+
+const { value: contactoEmergenciaTelefono } = useField<string | null>(
+  'contactoEmergenciaTelefono',
+  [],
+  { initialValue: '' }
+)
+
+const { value: rolId, errorMessage: rolIdError } = useField<number | null>('rolId', [required], {
+  initialValue: null
 })
 
-const { value: estado, errorMessage: estadoError } = useField('estado', [required], { 
-  initialValue: 'activo' 
+const { value: razonSocialId, errorMessage: razonSocialIdError } = useField<number | null>('razonSocialId', [required], {
+  initialValue: null
 })
 
-const { value: celularPersonal, errorMessage: celularPersonalError } = useField<string | null>('celularPersonal', [optionalNumber], { 
-  initialValue: '' 
+const { value: estado, errorMessage: estadoError } = useField('estado', [required], {
+  initialValue: 'activo'
 })
 
-const { value: celularCorporativo, errorMessage: celularCorporativoError } = useField<string | null>('celularCorporativo', [optionalNumber], { 
-  initialValue: '' 
+const { value: celularPersonal, errorMessage: celularPersonalError } = useField<string | null>('celularPersonal', [optionalNumber], {
+  initialValue: ''
 })
 
-const { value: direccion, errorMessage: direccionError } = useField('direccion', undefined, { 
-  initialValue: '' 
+const { value: celularCorporativo, errorMessage: celularCorporativoError } = useField<string | null>('celularCorporativo', [optionalNumber], {
+  initialValue: ''
 })
+
+const { value: direccion, errorMessage: direccionError } = useField('direccion', undefined, {
+  initialValue: ''
+})
+
+// ✅ Campos ocultos que preservan valores del usuario
+const { value: sedeId } = useField<number | null>('sedeId', [], { initialValue: null })
+const { value: cargoId } = useField<number | null>('cargoId', [], { initialValue: null })
+const { value: epsId } = useField<number | null>('epsId', [], { initialValue: null })
+const { value: arlId } = useField<number | null>('arlId', [], { initialValue: null })
+const { value: afpId } = useField<number | null>('afpId', [], { initialValue: null })
+const { value: afcId } = useField<number | null>('afcId', [], { initialValue: null })
+const { value: ccfId } = useField<number | null>('ccfId', [], { initialValue: null })
 
 /* =========================
  * SELECTS
@@ -510,6 +642,8 @@ const headers = [
   { title: 'Nombres', key: 'nombres', sortable: true },
   { title: 'Apellidos', key: 'apellidos', sortable: true },
   { title: 'Correo', key: 'correo', sortable: true },
+  { title: 'Correo Personal', key: 'correoPersonal', sortable: true },
+  { title: 'Tipo Sangre', key: 'tipoSangre', sortable: true }, // ✅ NUEVO
   { title: 'Rol', key: 'rol.nombre', sortable: true },
   { title: 'Empresa', key: 'razonSocial.nombre', sortable: true },
   { title: 'Cel. Personal', key: 'celularPersonal', sortable: true },
@@ -578,11 +712,23 @@ function executeEditUser(user: Usuario) {
     nombres: user.nombres,
     apellidos: user.apellidos,
     correo: user.correo,
+    correoPersonal: user.correoPersonal,
     celularPersonal: user.celularPersonal,
     celularCorporativo: user.celularCorporativo,
     direccion: user.direccion,
+    // ✅ NUEVOS CAMPOS
+    tipoSangre: user.tipoSangre || null,
+    contactoEmergenciaNombre: user.contactoEmergenciaNombre || '',
+    contactoEmergenciaTelefono: user.contactoEmergenciaTelefono || '',
     rolId: user.rolId,
     razonSocialId: user.razonSocialId,
+    sedeId: user.sedeId || null,
+    cargoId: user.cargoId || null,
+    epsId: user.epsId || null,
+    arlId: user.arlId || null,
+    afpId: user.afpId || null,
+    afcId: user.afcId || null,
+    ccfId: user.ccfId || null,
     estado: user.estado,
   })
   password.value = ''
@@ -632,13 +778,18 @@ async function handleConfirmAction() {
       if (inFlight.value.create) return
       inFlight.value.create = true
 
-      const userData: UsuarioFormData = {
+    const userData: UsuarioFormData = {
         nombres: nombres.value as string,
         apellidos: apellidos.value as string,
         correo: correo.value as string,
+        correoPersonal: correoPersonal.value || undefined,
         celularPersonal: celularPersonal.value || undefined,
         celularCorporativo: celularCorporativo.value || undefined,
         direccion: direccion.value || undefined,
+        // ✅ NUEVOS CAMPOS
+        tipoSangre: tipoSangre.value || undefined,
+        contactoEmergenciaNombre: contactoEmergenciaNombre.value || undefined,
+        contactoEmergenciaTelefono: contactoEmergenciaTelefono.value || undefined,
         rolId: rolId.value as number,
         razonSocialId: razonSocialId.value as number,
         estado: estado.value as 'activo' | 'inactivo',
@@ -654,15 +805,28 @@ async function handleConfirmAction() {
       if (inFlight.value.update) return
       inFlight.value.update = true
 
+     // ✅ CORREGIDO: Payload con conversión null → undefined
       const userData: Partial<UsuarioFormData> = {
         nombres: nombres.value as string,
         apellidos: apellidos.value as string,
         correo: correo.value as string,
+        correoPersonal: correoPersonal.value || undefined,
         celularPersonal: celularPersonal.value || undefined,
         celularCorporativo: celularCorporativo.value || undefined,
         direccion: direccion.value || undefined,
+        // ✅ NUEVOS CAMPOS
+        tipoSangre: toUndefinedIfNull(tipoSangre.value),
+        contactoEmergenciaNombre: contactoEmergenciaNombre.value || undefined,
+        contactoEmergenciaTelefono: contactoEmergenciaTelefono.value || undefined,
         rolId: rolId.value as number,
         razonSocialId: razonSocialId.value as number,
+        sedeId: toUndefinedIfNull(sedeId.value),
+        cargoId: toUndefinedIfNull(cargoId.value),
+        epsId: toUndefinedIfNull(epsId.value),
+        arlId: toUndefinedIfNull(arlId.value),
+        afpId: toUndefinedIfNull(afpId.value),
+        afcId: toUndefinedIfNull(afcId.value),
+        ccfId: toUndefinedIfNull(ccfId.value),
         estado: estado.value as 'activo' | 'inactivo',
       }
       if (password.value) userData.password = password.value
@@ -736,17 +900,29 @@ function showSnackbar(message: string, color: string) {
 
 function resetFormAndState() {
   nextTick(() => window.scrollTo(0, 0))
-  resetForm({
+resetForm({
     values: {
       nombres: '',
       apellidos: '',
       correo: '',
+      correoPersonal: '',
       password: '',
       celularPersonal: '',
       celularCorporativo: '',
       direccion: '',
+      // ✅ NUEVOS CAMPOS
+      tipoSangre: null,
+      contactoEmergenciaNombre: '',
+      contactoEmergenciaTelefono: '',
       rolId: null,
       razonSocialId: null,
+      sedeId: null,
+      cargoId: null,
+      epsId: null,
+      arlId: null,
+      afpId: null,
+      afcId: null,
+      ccfId: null,
       estado: 'activo',
     },
   })

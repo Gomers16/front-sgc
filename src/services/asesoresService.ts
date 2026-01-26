@@ -14,6 +14,9 @@ export interface Agente {
   telefono?: string | null
   docTipo?: 'CC' | 'NIT' | null
   docNumero?: string | null
+  email?: string | null          // ← NUEVO
+  correo?: string | null         // ← NUEVO
+  correoPersonal?: string | null // ← NUEVO
   /** Bandera final calculada por el backend (true/false) */
   activo?: boolean
   created_at?: string | null
@@ -115,6 +118,23 @@ function mapAgente(raw: unknown): Agente {
     activoFinal = normalizeBool(rawObj?.is_active ?? rawObj?.isActive)
   }
 
+  // ✅ EXTRAER CORREO (prioridad: corporativo > personal)
+  const email = (
+    rawObj?.correo ||
+    rawObj?.email ||
+    rawObj?.correo_personal ||
+    rawObj?.correoPersonal ||
+    rawObj?.emailPersonal ||
+    null
+  ) as string | null
+
+  const correoPersonal = (
+    rawObj?.correo_personal ||
+    rawObj?.correoPersonal ||
+    rawObj?.emailPersonal ||
+    null
+  ) as string | null
+
   return {
     id: Number(rawObj?.id),
     nombre: String(rawObj?.nombre ?? ''),
@@ -122,6 +142,9 @@ function mapAgente(raw: unknown): Agente {
     telefono: (rawObj?.telefono as string | null) ?? null,
     docTipo: (rawObj?.docTipo ?? rawObj?.doc_tipo ?? null) as 'CC' | 'NIT' | null,
     docNumero: (rawObj?.docNumero ?? rawObj?.doc_numero ?? null) as string | null,
+    email,                    // ← NUEVO
+    correo: email,            // ← NUEVO
+    correoPersonal,           // ← NUEVO
     activo: activoFinal,
     created_at: typeof created === 'string' ? created : (created?.toString?.() ?? null),
     updated_at: typeof updated === 'string' ? updated : (updated?.toString?.() ?? null),

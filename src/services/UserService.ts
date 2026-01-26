@@ -1,4 +1,4 @@
-// src/services/usuariosService.ts
+// src/services/UserService.ts
 import { get, post, put, del, upload } from './http'
 
 /* =========================
@@ -8,7 +8,6 @@ export interface Rol { id: number; nombre: string }
 export interface RazonSocial { id: number; nombre: string }
 export interface Sede { id: number; nombre: string }
 export interface Cargo { id: number; nombre: string }
-
 
 export interface EntidadSalud {
   id: number
@@ -70,7 +69,6 @@ export interface Contrato {
   pasos?: ContratoPaso[]
 }
 
-/** Metadatos de un archivo de afiliación en usuario */
 export interface AfiliacionFileMeta {
   url: string
   nombreOriginal: string
@@ -78,7 +76,6 @@ export interface AfiliacionFileMeta {
   size: number
 }
 
-/** Respuesta GET /usuarios/:id/afiliacion/:tipo/archivo */
 export interface AfiliacionFileResponse {
   userId: number
   tipo: 'eps' | 'arl' | 'afp' | 'afc' | 'ccf'
@@ -93,6 +90,7 @@ export interface User {
   nombres: string
   apellidos: string
   correo: string
+  correoPersonal?: string
   celularPersonal?: string
   celularCorporativo?: string
   direccion?: string
@@ -100,6 +98,12 @@ export interface User {
   recomendaciones?: boolean
   fotoPerfil?: string
   estado: EstadoUsuario
+
+  // ✅ NUEVOS CAMPOS
+  tipoSangre?: 'A+' | 'A-' | 'B+' | 'B-' | 'AB+' | 'AB-' | 'O+' | 'O-' | null
+  contactoEmergenciaNombre?: string
+  contactoEmergenciaTelefono?: string
+
   rolId: number
   rol?: Rol
   razonSocialId: number
@@ -177,7 +181,6 @@ export function crearUsuario(userData: Partial<User>) {
   const email = String(userData.correo ?? '').trim().toLowerCase()
   const key = `create:${email || 'unknown'}`
 
-  // Si hay un create anterior para el mismo correo, cancélalo
   const prev = pendingCreates.get(key)
   if (prev) prev.abort()
 
@@ -191,7 +194,6 @@ export function crearUsuario(userData: Partial<User>) {
     headers: {
       'Content-Type': 'application/json',
       Accept: 'application/json',
-      // 💡 Opcional: si tu backend acepta claves de idempotencia:
       'X-Idempotency-Key': idemKey,
     },
     signal: ac.signal,
@@ -202,7 +204,6 @@ export function crearUsuario(userData: Partial<User>) {
 }
 
 export function actualizarUsuario(id: number, userData: Partial<User>) {
-  // Evita dobles PUT simultáneos del mismo usuario
   const prev = pendingUpdates.get(id)
   if (prev) prev.abort()
   const ac = new AbortController()
@@ -293,10 +294,7 @@ export function obtenerCargos() {
   })
 }
 
-/** Catálogo de entidades (para selects) */
-
 export function obtenerEntidadesSalud() {
-  // backend: /api/entidades-saluds  (incluye 'tipo')
   return get<EntidadSalud[]>('/api/entidades-saluds', {
     credentials: 'include',
     headers: { Accept: 'application/json' },
@@ -440,7 +438,6 @@ export async function eliminarArchivoAfiliacion(
   return resp?.message || 'Archivo eliminado.'
 }
 
-/** Helper de UI: ¿hay archivo para ese tipo? (tolerante con claves alternativas) */
 export function tieneArchivoAfiliacion(resp: AfiliacionFileResponse | null | undefined): boolean {
   const d = resp?.data
   return Boolean(resp?.tieneArchivo || d?.url || d?.nombreOriginal)
@@ -480,7 +477,7 @@ export async function eliminarArchivoRecomendacionMedica(userId: number): Promis
 }
 
 /* ==========================================================
-   (Opcional) Historial de estados/cambios de contrato
+   Historial de estados/cambios de contrato
 ========================================================== */
 export interface ContratoHistorialEstado {
   id: number

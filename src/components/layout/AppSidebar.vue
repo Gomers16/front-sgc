@@ -189,6 +189,15 @@
             link
           />
         </v-list-group>
+
+        <!-- Descuentos -->
+        <v-list-item
+          v-if="can.verComisiones()"
+          title="Descuentos"
+          prepend-icon="mdi-tag-multiple"
+          :to="{ name: 'ComercialDescuentos' }"
+          link
+        />
       </v-list-group>
 
       <!-- Gestión Documental -->

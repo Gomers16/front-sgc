@@ -486,7 +486,7 @@ const startDate = ref<string | undefined>(undefined)
 const endDate   = ref<string | undefined>(undefined)
 
 /** Servicios (dinámicos) */
-const serviciosOptions = ref<Array<{ codigo: ServicioCodigo | string; nombre: string; display: string }>>([])
+const serviciosOptions = ref<Array<{ id: number; codigo: ServicioCodigo | string; nombre: string; display: string }>>([])
 const selectedServicios = ref<ServicioCodigo[]>([])
 
 /** Medios (nueva taxonomía limpia) */
@@ -636,6 +636,7 @@ const loadServiciosOptions = async () => {
   try {
     const data = await TurnosDelDiaService.getServicios()
     serviciosOptions.value = (data || []).map(s => ({
+      id: s.id,        // ✅ NUEVA LÍNEA
       codigo: s.codigo,
       nombre: s.nombre,
       display: `${s.codigo} — ${s.nombre}`,
@@ -646,22 +647,51 @@ const loadServiciosOptions = async () => {
   }
 }
 
+/** Mapea medio de UI a canal de backend */
+const mapMedioToCanal = (medio: MedioEnteroFinalDB): 'FACHADA' | 'ASESOR' | 'TELE' | 'REDES' => {
+  switch (medio) {
+    case 'Fachada': return 'FACHADA'
+    case 'Redes Sociales': return 'REDES'
+    case 'Call Center': return 'TELE'
+    case 'Asesor Comercial': return 'ASESOR'
+    default: return 'FACHADA'
+  }
+}
+
 const fetchTurnosForReport = async () => {
   isLoading.value = true
   try {
-    const filters: { fechaInicio?: string; fechaFin?: string } = {}
+    const filters: Record<string, string> = {}
     if (startDate.value) filters.fechaInicio = startDate.value
     if (endDate.value)   filters.fechaFin   = endDate.value
 
-    const raw = await TurnosDelDiaService.fetchTurnos(filters as Record<string, string | number | boolean>) as unknown[]
+    // ✅ FILTRO DE SERVICIOS (múltiples)
+    if (selectedServicios.value.length > 0) {
+      const servicioIds = serviciosOptions.value
+        .filter(s => selectedServicios.value.includes(s.codigo as ServicioCodigo))
+        .map(s => s.id)
 
-   const data: Turno[] = (raw || []).map((t: unknown) => {
-  const turno = t as Turno & { turno_numero_servicio?: number | null }
-  return {
-    ...turno,
-    turnoNumeroServicio: turno.turnoNumeroServicio ?? turno.turno_numero_servicio ?? null,
-  }
-})
+      if (servicioIds.length > 0) {
+        filters.servicioId = servicioIds.join(',')
+      }
+    }
+
+    // ✅ FILTRO DE MEDIOS (múltiples, mapeados a canales)
+    if (selectedMedios.value.length > 0) {
+      const canales = selectedMedios.value.map(medio => mapMedioToCanal(medio))
+      filters.canalAtribucion = canales.join(',')
+    }
+
+    const raw = await TurnosDelDiaService.fetchTurnos(filters) as unknown[]
+
+    const data: Turno[] = (raw || []).map((t: unknown) => {
+      const turno = t as Turno & { turno_numero_servicio?: number | null }
+      return {
+        ...turno,
+        turnoNumeroServicio: turno.turnoNumeroServicio ?? turno.turno_numero_servicio ?? null,
+      }
+    })
+
     turnos.value = data
     calculateReportData()
     showSnackbar('Turnos cargados para el reporte.', 'success')

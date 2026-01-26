@@ -334,7 +334,7 @@
                     />
                   </v-col>
 
-                  <!-- PANEL DATEO (si hay dateo) -->
+                  <!-- 👇 PANEL DATEO (si hay dateo) - ACTUALIZADO -->
                   <v-col cols="12" v-if="busquedaDateo">
                     <v-card class="pa-2 pa-sm-4 rounded-lg dateo-card" variant="outlined">
                       <div class="d-flex align-center justify-space-between flex-wrap" style="gap:8px">
@@ -355,8 +355,19 @@
                             <div class="text-caption text-sm-body-2 text-medium-emphasis">
                               Registrado: {{ dateoFechaHora }}
                             </div>
-                            <div class="text-caption text-sm-body-2 text-medium-emphasis" v-if="busquedaDateo.observacion">
-                              {{ busquedaDateo.observacion }}
+
+                            <!-- 👇 NUEVO: Chip para ver observaciones -->
+                            <div class="mt-2" v-if="busquedaDateo.observacion">
+                              <v-chip
+                                color="amber-darken-2"
+                                variant="elevated"
+                                :size="$vuetify.display.xs ? 'x-small' : 'small'"
+                                prepend-icon="mdi-comment-text-outline"
+                                @click="mostrarObservacionesDateo = true"
+                                class="cursor-pointer"
+                              >
+                                <span class="text-caption">Ver observaciones del dateo</span>
+                              </v-chip>
                             </div>
 
                             <!-- Convenio del dateo (sin SIN-COD) -->
@@ -494,6 +505,105 @@
         </v-card-actions>
       </v-card>
     </v-dialog>
+
+    <!-- 👇 NUEVO: Modal para mostrar observaciones del dateo -->
+    <v-dialog
+      v-model="mostrarObservacionesDateo"
+      :max-width="$vuetify.display.xs ? '95%' : '600'"
+      :fullscreen="$vuetify.display.xs"
+    >
+      <v-card class="rounded-xl">
+        <v-card-title class="d-flex align-center justify-space-between pa-3 pa-sm-4 bg-amber-lighten-5">
+          <div class="d-flex align-center" style="gap:8px">
+            <v-icon color="amber-darken-2" :size="$vuetify.display.xs ? 20 : 24">
+              mdi-comment-text-multiple-outline
+            </v-icon>
+            <span class="text-subtitle-1 text-sm-h6 font-weight-bold">
+              Observaciones del Dateo
+            </span>
+          </div>
+          <v-btn
+            icon
+            variant="text"
+            :size="$vuetify.display.xs ? 'small' : 'default'"
+            @click="mostrarObservacionesDateo = false"
+          >
+            <v-icon>mdi-close</v-icon>
+          </v-btn>
+        </v-card-title>
+
+        <v-divider />
+
+        <v-card-text class="pa-3 pa-sm-5">
+          <!-- Información del dateo -->
+          <div class="mb-3 mb-sm-4">
+            <div class="d-flex flex-wrap mb-2" style="gap:6px">
+              <v-chip
+                color="primary"
+                variant="tonal"
+                :size="$vuetify.display.xs ? 'x-small' : 'small'"
+                prepend-icon="mdi-source-branch"
+              >
+                {{ busquedaDateo?.canal }}
+              </v-chip>
+              <v-chip
+                v-if="busquedaDateo?.agente"
+                color="indigo"
+                variant="tonal"
+                :size="$vuetify.display.xs ? 'x-small' : 'small'"
+                prepend-icon="mdi-account-tie"
+              >
+                {{ busquedaDateo?.agente?.nombre }}
+              </v-chip>
+              <v-chip
+                color="grey"
+                variant="tonal"
+                :size="$vuetify.display.xs ? 'x-small' : 'small'"
+                prepend-icon="mdi-calendar-clock"
+              >
+                {{ dateoFechaHora }}
+              </v-chip>
+            </div>
+          </div>
+
+          <!-- Observaciones -->
+          <v-card variant="tonal" class="pa-3 pa-sm-4 rounded-lg bg-amber-lighten-5">
+            <div class="text-caption text-sm-body-2 font-weight-medium text-amber-darken-3 mb-2">
+              📝 Observaciones registradas:
+            </div>
+            <div class="text-body-2 text-sm-body-1" style="white-space: pre-wrap;">
+              {{ busquedaDateo?.observacion || 'Sin observaciones' }}
+            </div>
+          </v-card>
+
+          <!-- Imagen si existe -->
+          <div v-if="busquedaDateo?.imagen_url" class="mt-3 mt-sm-4">
+            <div class="text-caption text-sm-body-2 font-weight-medium mb-2">
+              📸 Evidencia fotográfica:
+            </div>
+            <v-img
+              :src="busquedaDateo.imagen_url"
+              :max-height="$vuetify.display.xs ? 250 : 400"
+              class="rounded-lg"
+              cover
+            />
+          </div>
+        </v-card-text>
+
+        <v-divider />
+
+        <v-card-actions class="justify-end pa-3 pa-sm-4">
+          <v-btn
+            color="primary"
+            variant="elevated"
+            @click="mostrarObservacionesDateo = false"
+            :size="$vuetify.display.xs ? 'small' : 'default'"
+          >
+            Cerrar
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
   </v-container>
 </template>
 
@@ -587,6 +697,17 @@
 .dateo-card {
   border: 1px dashed rgba(16,24,40,0.12);
   background: linear-gradient(180deg, #ffffff 0%, #f9fbfe 100%);
+}
+
+/* 👇 NUEVO: Estilos para el chip clickeable */
+.cursor-pointer {
+  cursor: pointer;
+}
+
+.cursor-pointer:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
+  transition: all 0.2s ease;
 }
 
 /* util */
@@ -691,6 +812,9 @@ const busqueda = ref<BusquedaResp | null>(null)
 const abortCtrl = ref<AbortController | null>(null)
 
 const lastSearched = ref<{ placa: string, tel: string }>({ placa: '', tel: '' })
+
+// 👇 NUEVA VARIABLE para el modal de observaciones
+const mostrarObservacionesDateo = ref(false)
 
 const tipoVehiculoItems: ReadonlyArray<TipoVehiculoFrontend> = [
   'Liviano Particular',
@@ -927,7 +1051,7 @@ async function doSearch(force: boolean = false) {
     if (!vehPreferido) {
       const respConVehiculos = resp as BusquedaResp & VehiculosDynamicField
       const clienteConVehiculos = resp?.cliente as (ClienteDTO & ClienteConVehiculos) | null
-      
+
       const candidatos: Array<VehiculoDTO[] | undefined | null> = [
         respConVehiculos?.vehiculos,
         respConVehiculos?.vehiculosCliente,
@@ -1160,14 +1284,14 @@ async function submitForm() {
       // Campos opcionales
       ...(form.value._dateoId && { dateoId: form.value._dateoId }),
       ...(form.value._captacionAgenteId && { agenteCaptacionId: form.value._captacionAgenteId }),
-      ...(!busquedaCliente.value?.telefono && clienteTelefono.value && { 
-        clienteTelefono: clienteTelefono.value.replace(/\D/g, '') 
+      ...(!busquedaCliente.value?.telefono && clienteTelefono.value && {
+        clienteTelefono: clienteTelefono.value.replace(/\D/g, '')
       }),
-      ...(!busquedaCliente.value?.nombre && clienteNombre.value && { 
-        clienteNombre: clienteNombre.value 
+      ...(!busquedaCliente.value?.nombre && clienteNombre.value && {
+        clienteNombre: clienteNombre.value
       }),
-      ...(!busquedaCliente.value?.email && clienteEmail.value && { 
-        clienteEmail: clienteEmail.value 
+      ...(!busquedaCliente.value?.email && clienteEmail.value && {
+        clienteEmail: clienteEmail.value
       }),
       ...(convenioDetectado.value?.id && { convenioId: convenioDetectado.value.id }),
     }

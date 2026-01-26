@@ -80,6 +80,29 @@
                     <v-list-item-title class="font-weight-bold">Correo Electrónico:</v-list-item-title>
                     <v-list-item-subtitle>{{ user.correo }}</v-list-item-subtitle>
                   </v-list-item>
+                  <!-- ✅ NUEVO: Correo Personal -->
+<v-list-item prepend-icon="mdi-email-outline" class="mb-2">
+  <v-list-item-title class="font-weight-bold">Correo Personal:</v-list-item-title>
+  <v-list-item-subtitle>{{ user.correoPersonal || 'N/A' }}</v-list-item-subtitle>
+</v-list-item>
+
+                  <!-- ✅ TIPO DE SANGRE -->
+                  <v-list-item prepend-icon="mdi-water" class="mb-2">
+                    <v-list-item-title class="font-weight-bold">Tipo de Sangre:</v-list-item-title>
+                    <v-list-item-subtitle>
+                      <v-chip
+                        v-if="user.tipoSangre"
+                        color="red-lighten-1"
+                        label
+                        small
+                        class="font-weight-bold"
+                      >
+                        {{ user.tipoSangre }}
+                      </v-chip>
+                      <span v-else>N/A</span>
+                    </v-list-item-subtitle>
+                  </v-list-item>
+
                   <v-list-item prepend-icon="mdi-phone" class="mb-2">
                     <v-list-item-title class="font-weight-bold">Celular Personal:</v-list-item-title>
                     <v-list-item-subtitle>{{ user.celularPersonal || 'N/A' }}</v-list-item-subtitle>
@@ -370,6 +393,40 @@
                   </v-col>
                   <!-- /Recomendación Médica -->
                 </v-row>
+              </v-card>
+            </v-col>
+        <!-- ✅ NUEVA TARJETA: Contacto de Emergencia -->
+            <v-col cols="12" md="6">
+              <v-card class="elevation-4 rounded-lg mt-6 h-100">
+                <v-card-title class="text-h6 font-weight-bold text-white bg-red-darken-2 pa-4">
+                  <v-icon class="mr-1">mdi-alert-circle</v-icon>
+                  Contacto de Emergencia
+                </v-card-title>
+                <v-list dense class="pa-4">
+                  <v-list-item prepend-icon="mdi-account" class="mb-2">
+                    <v-list-item-title class="font-weight-bold">Nombre:</v-list-item-title>
+                    <v-list-item-subtitle>
+                      {{ user.contactoEmergenciaNombre || 'No registrado' }}
+                    </v-list-item-subtitle>
+                  </v-list-item>
+
+                  <v-list-item prepend-icon="mdi-phone" class="mb-2">
+                    <v-list-item-title class="font-weight-bold">Teléfono:</v-list-item-title>
+                    <v-list-item-subtitle>
+                      {{ user.contactoEmergenciaTelefono || 'No registrado' }}
+                    </v-list-item-subtitle>
+                  </v-list-item>
+
+                  <v-alert
+                    v-if="!user.contactoEmergenciaNombre && !user.contactoEmergenciaTelefono"
+                    type="warning"
+                    variant="tonal"
+                    density="compact"
+                    class="mt-3"
+                  >
+                    No hay contacto de emergencia registrado
+                  </v-alert>
+                </v-list>
               </v-card>
             </v-col>
           </v-row>
@@ -681,66 +738,110 @@
                       </v-window>
                     </v-window-item>
 
-                    <!-- Fin -->
-                    <v-window-item value="fin">
-                      <h4 class="text-h6 font-weight-bold mb-3 text-blue-grey-darken-2">
-                        Finalización del Contrato
-                      </h4>
+<!-- Fin -->
+<v-window-item value="fin">
+  <h4 class="text-h6 font-weight-bold mb-3 text-blue-grey-darken-2">
+    Finalización del Contrato
+  </h4>
 
-                      <div v-if="(contrato.estado || '').toLowerCase() === 'inactivo'">
-                        <v-alert type="info" variant="tonal" class="mb-4">
-                          Este contrato ha sido finalizado.
-                        </v-alert>
+  <!-- Contrato INACTIVO (ya finalizado) -->
+  <div v-if="(contrato.estado || '').toLowerCase() === 'inactivo'">
+    <v-alert type="info" variant="tonal" class="mb-4">
+      Este contrato ha sido finalizado.
+    </v-alert>
 
-                        <v-list dense>
-                          <v-list-item>
-                            <v-list-item-title class="font-weight-bold">Fecha de Finalización:</v-list-item-title>
-                            <v-list-item-subtitle>{{ contrato.fechaTerminacion ? formatDate(contrato.fechaTerminacion) : 'N/A' }}</v-list-item-subtitle>
-                          </v-list-item>
+    <v-list dense>
+      <v-list-item>
+        <v-list-item-title class="font-weight-bold">Fecha de Finalización:</v-list-item-title>
+        <v-list-item-subtitle>{{ contrato.fechaTerminacion ? formatDate(contrato.fechaTerminacion) : 'N/A' }}</v-list-item-subtitle>
+      </v-list-item>
 
-                          <v-list-item>
-                            <v-list-item-title class="font-weight-bold">Motivo de Finalización:</v-list-item-title>
-                            <v-list-item-subtitle>{{ contrato.motivoFinalizacion || 'N/A' }}</v-list-item-subtitle>
-                          </v-list-item>
-                        </v-list>
-                      </div>
+      <v-list-item>
+        <v-list-item-title class="font-weight-bold">Motivo de Finalización:</v-list-item-title>
+        <v-list-item-subtitle>{{ contrato.motivoFinalizacion || 'N/A' }}</v-list-item-subtitle>
+      </v-list-item>
 
-                      <v-form ref="finalizationForm" v-else>
-                        <v-row>
-                          <v-col cols="12" md="6">
-                            <v-text-field
-                              v-model="finalizationDate"
-                              label="Fecha de Finalización"
-                              type="date"
-                              variant="outlined"
-                              :rules="[v => !!v || 'La fecha de finalización es obligatoria']"
-                              required
-                            />
-                          </v-col>
-                          <v-col cols="12">
-                            <v-textarea
-                              v-model="finalizationReason"
-                              label="Motivo de Finalización"
-                              variant="outlined"
-                              :rules="[v => !!v || 'El motivo de finalización es obligatorio']"
-                              required
-                            />
-                          </v-col>
-                        </v-row>
+      <!-- ✅ Documento de Finalización -->
+      <v-list-item>
+        <v-list-item-title class="font-weight-bold">Documento de Finalización:</v-list-item-title>
+        <v-list-item-subtitle>
+          <template v-if="getEventoTerminacion(contrato)?.documentoUrl">
+            <v-chip color="success" class="font-weight-bold mr-2" label small>
+              Documento adjunto
+            </v-chip>
+            <v-btn
+              :href="toAbsoluteApiUrl(getEventoTerminacion(contrato)?.documentoUrl || '')"
+              target="_blank"
+              color="primary"
+              variant="text"
+              size="small"
+              prepend-icon="mdi-file-eye-outline"
+            >
+              Descargar
+            </v-btn>
+          </template>
+          <template v-else>
+            <v-chip color="warning" class="font-weight-bold" label small>
+              Sin documento adjunto
+            </v-chip>
+          </template>
+        </v-list-item-subtitle>
+      </v-list-item>
+    </v-list>
+  </div>
 
-                        <v-card-actions class="justify-end pa-0 mt-4">
-                          <v-btn
-                            color="error"
-                            variant="elevated"
-                            prepend-icon="mdi-flag-checkered"
-                            @click="confirmFinalizeContract(contrato.id)"
-                            :loading="isLoadingAction"
-                          >
-                            Finalizar Contrato
-                          </v-btn>
-                        </v-card-actions>
-                      </v-form>
-                    </v-window-item>
+  <!-- Contrato ACTIVO (formulario para finalizar) -->
+  <v-form ref="finalizationForm" v-else>
+    <v-row>
+      <v-col cols="12" md="6">
+        <v-text-field
+          v-model="finalizationDate"
+          label="Fecha de Finalización"
+          type="date"
+          variant="outlined"
+          :rules="[v => !!v || 'La fecha de finalización es obligatoria']"
+          required
+        />
+      </v-col>
+      <v-col cols="12">
+        <v-textarea
+          v-model="finalizationReason"
+          label="Motivo de Finalización"
+          variant="outlined"
+          :rules="[v => !!v || 'El motivo de finalización es obligatorio']"
+          required
+        />
+      </v-col>
+
+      <!-- ✅ NUEVO: Campo para subir archivo -->
+      <v-col cols="12">
+        <v-file-input
+          v-model="finalizationFile"
+          label="Documento de Finalización (opcional)"
+          prepend-icon="mdi-paperclip"
+          accept=".pdf,.jpg,.jpeg,.png,.webp,application/pdf,image/jpeg,image/png,image/webp"
+          variant="outlined"
+          show-size
+          clearable
+          hint="Adjunta un documento relacionado con la finalización del contrato"
+          persistent-hint
+        />
+      </v-col>
+    </v-row>
+
+    <v-card-actions class="justify-end pa-0 mt-4">
+      <v-btn
+        color="error"
+        variant="elevated"
+        prepend-icon="mdi-flag-checkered"
+        @click="confirmFinalizeContract(contrato.id)"
+        :loading="isLoadingAction"
+      >
+        Finalizar Contrato
+      </v-btn>
+    </v-card-actions>
+  </v-form>
+</v-window-item>
 
                     <!-- Historial -->
                     <v-window-item value="historial">
@@ -932,6 +1033,44 @@
                 <v-col cols="12" md="6">
                   <v-text-field v-model="editedUser.apellidos" label="Apellidos" variant="outlined" :rules="[v => !!v || 'El apellido es obligatorio']" required />
                 </v-col>
+              <!-- ✅ NUEVO -->
+<v-col cols="12" md="6">
+  <v-text-field
+    v-model="editedUser.correoPersonal"
+    label="Correo Personal"
+    variant="outlined"
+    type="email"
+    hint="Opcional"
+  />
+</v-col>
+
+                <!-- ✅ NUEVOS CAMPOS EN DIÁLOGO DE EDICIÓN -->
+                <v-col cols="12" md="6">
+                  <v-select
+                    v-model="editedUser.tipoSangre"
+                    :items="['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-']"
+                    label="Tipo de Sangre"
+                    variant="outlined"
+                    clearable
+                  />
+                </v-col>
+
+                <v-col cols="12" md="6">
+                  <v-text-field
+                    v-model="editedUser.contactoEmergenciaNombre"
+                    label="Contacto de Emergencia (Nombre)"
+                    variant="outlined"
+                  />
+                </v-col>
+
+                <v-col cols="12" md="6">
+                  <v-text-field
+                    v-model="editedUser.contactoEmergenciaTelefono"
+                    label="Contacto de Emergencia (Teléfono)"
+                    variant="outlined"
+                  />
+                </v-col>
+
                 <v-col cols="12" md="6">
                   <v-text-field v-model="editedUser.celularPersonal" label="Celular Personal" variant="outlined" />
                 </v-col>
@@ -1358,8 +1497,8 @@ interface ContratoPasoExt {
   usuario?: CambioUsuario | null
 }
 
-type TimelineItemEstado = (ContratoHistorialEstado & { 
-  usuario?: CambioUsuario | null 
+type TimelineItemEstado = (ContratoHistorialEstado & {
+  usuario?: CambioUsuario | null
   fechaInicioContrato?: string | null
   motivo?: string | null
 }) & { kind: 'estado' }
@@ -1392,12 +1531,22 @@ interface Contrato extends BaseContrato {
   rutaArchivoRecomendacionMedica?: string | null
 }
 
-interface UserProfile extends User { 
-  contratos?: Contrato[] 
+interface UserProfile extends User {
+  contratos?: Contrato[]
 }
 
+
 interface UserEditForm {
-  nombres: string; apellidos: string; celularPersonal?: string; celularCorporativo?: string; direccion?: string; recomendaciones?: boolean
+  nombres: string
+  apellidos: string
+  correoPersonal?: string
+  tipoSangre?: 'A+' | 'A-' | 'B+' | 'B-' | 'AB+' | 'AB-' | 'O+' | 'O-' | null
+  contactoEmergenciaNombre?: string
+  contactoEmergenciaTelefono?: string
+  celularPersonal?: string
+  celularCorporativo?: string
+  direccion?: string
+  recomendaciones?: boolean
 }
 
 /* ===== Helpers fecha ===== */
@@ -1420,13 +1569,41 @@ function formatFechaOrFechaHora(v:any){
   return hasTime?formatFechaHora(v):formatFecha(v)
 }
 
-/* formateo corto para algunas fechas del template */
+// ✅ SOLUCIÓN CORRECTA - Reemplazar en UserProfileView.vue (línea ~88)
+// ✅ SOLUCIÓN DEFINITIVA - Reemplazar en UserProfileView.vue (línea ~135)
+// Esta función formatea fechas SIN conversión de zona horaria
+
 const formatDate = (dateString: string | null | undefined) => {
   if (!dateString) return 'N/A'
-  const d = new Date(dateString as string)
-  return Number.isNaN(d.getTime()) ? String(dateString) : d.toLocaleDateString('es-CO',{year:'numeric',month:'long',day:'numeric'})
-}
 
+  // Extraer solo la parte de fecha (ignorar hora y zona horaria)
+  const datePart = String(dateString).split('T')[0]
+  const parts = datePart.split('-')
+
+  // Validar formato
+  if (parts.length !== 3) return String(dateString)
+
+  const year = parts[0]
+  const month = parts[1]
+  const day = parts[2]
+
+  // Mapeo manual de meses en español
+  const meses = [
+    'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
+    'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'
+  ]
+
+  const monthIndex = parseInt(month, 10) - 1
+  const dayNum = parseInt(day, 10)
+
+  // Validar rangos
+  if (monthIndex < 0 || monthIndex > 11 || dayNum < 1 || dayNum > 31) {
+    return String(dateString)
+  }
+
+  // Formatear manualmente: "1 de enero de 2026"
+  return `${dayNum} de ${meses[monthIndex]} de ${year}`
+}
 /* ====== Helper URL absoluta ====== */
 function toAbsoluteApiUrl(pathOrUrl?: string | null): string {
   if (!pathOrUrl) return ''
@@ -1512,6 +1689,7 @@ const selectedEvent = ref<ContratoEventoExt | null>(null)
 
 const finalizationDate = ref<string | null>(null)
 const finalizationReason = ref<string | null>(null)
+const finalizationFile = ref<File | File[] | null>(null)
 
 
 /* Editar paso */
@@ -1667,6 +1845,12 @@ const getEstadoNombre = (e: string) => {
   return estado === 'activo' ? 'Activo' : 'Inactivo'
 }
 const fullName = (u?:{nombres?:string; apellidos?:string|null}|null) => u ? [u.nombres,u.apellidos].filter(Boolean).join(' ') : '—'
+/* ===== Helper: buscar evento de terminación ===== */
+function getEventoTerminacion(contrato: Contrato): ContratoEventoExt | null {
+  return contrato.eventos?.find(e =>
+    String(e.tipo).toLowerCase() === 'terminacion'
+  ) || null
+}
 
 /* ======= Render limpio en HISTORIAL ======= */
 const CAMPO_LABELS: Record<string,string> = {
@@ -2070,7 +2254,7 @@ const evento: ContratoEventoExt = {
 showAlert('Éxito','Evento creado correctamente.')
 closeAddEventDialog()
 const target = user.value?.contratos?.find(c=>c.id===contratoIdForNewEvent.value)
-if (target) { 
+if (target) {
   target.eventos = target.eventos || []
   target.eventos.push(evento)  // ← Usar el evento con id garantizado
 }
@@ -2111,12 +2295,35 @@ const submitContractFinalization = async (id:number)=>{
   }
   isLoadingAction.value = true
   try {
+    // 1. Cambiar estado del contrato
     await actualizarContrato(id, {
       estado:'inactivo',
       fechaTerminacion: finalizationDate.value,
       motivoFinalizacion: finalizationReason.value,
       actorId: actorId.value ?? undefined
     } as any)
+
+    // 2. Crear evento de terminación CON archivo adjunto
+    const payload = new FormData()
+    payload.append('tipo', 'Terminacion')
+    payload.append('fechaInicio', finalizationDate.value)
+    payload.append('descripcion', finalizationReason.value)
+
+    // ✅ Adjuntar archivo si existe
+    const file = firstFileFrom(finalizationFile.value)
+    if (file) {
+      payload.append('documento', file)
+    }
+
+    if (actorId.value != null) payload.append('actorId', String(actorId.value))
+
+    await crearEventoDeContrato(id, payload)
+
+    // Limpiar formulario
+    finalizationDate.value = null
+    finalizationReason.value = null
+    finalizationFile.value = null
+
     showAlert('Éxito','Contrato finalizado correctamente.')
     await loadUser()
   } catch (err:any) {

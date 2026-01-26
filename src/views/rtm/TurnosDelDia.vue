@@ -1,3 +1,6 @@
+<!-- ==================== FRAGMENTO 1: TEMPLATE ==================== -->
+<!-- Copia desde aquí hasta el cierre de </template> -->
+
 <template>
   <v-container class="py-4 py-sm-6" :fluid="$vuetify.display.xs">
     <v-card elevation="8" class="pa-4 pa-sm-6 pa-md-8 rounded-xl bg-background-light">
@@ -237,8 +240,96 @@
                       {{ formatTime(etapa.time) }}
                     </span>
                   </div>
+                    <!-- 👇 AGREGAR ESTE BLOQUE COMPLETO AQUÍ -->
+                  <div
+                    v-if="etapa.funcionario && etapa.completed"
+                    class="etapa-funcionario text-caption text-on-primary-text-faded mt-1"
+                  >
+                    <v-icon size="x-small" class="mr-1">mdi-account</v-icon>
+                    {{ etapa.funcionario }}
+                  </div>
+                  <!-- 👆 FIN DEL BLOQUE -->
                 </v-list-item>
               </v-list>
+
+              <!-- 👇 CHIPS DE OBSERVACIONES CON HOVER + CLICK -->
+              <div class="mt-2 mt-sm-3 d-flex flex-wrap" style="gap:6px">
+                <!-- Observaciones del dateo - HOVER + CLICK -->
+                <v-menu
+                  v-if="turno.dateoObservacion"
+                  open-on-hover
+                  :open-delay="200"
+                  :close-delay="100"
+                  location="top"
+                  max-width="350"
+                >
+                  <template #activator="{ props }">
+                    <v-chip
+                      v-bind="props"
+                      color="amber-darken-2"
+                      variant="elevated"
+                      :size="$vuetify.display.xs ? 'x-small' : 'small'"
+                      prepend-icon="mdi-comment-text-outline"
+                      @click="abrirObservacionesDateo(turno)"
+                      class="cursor-pointer chip-observacion"
+                    >
+                      <span class="text-caption">Ver obs. dateo</span>
+                    </v-chip>
+                  </template>
+
+                  <!-- Tooltip/Preview rápido al pasar el cursor -->
+                  <v-card class="pa-2 rounded-lg preview-card" elevation="6">
+                    <div class="text-caption font-weight-bold mb-1 text-amber-darken-3">
+                      📝 Vista rápida - Obs. Dateo
+                    </div>
+                    <div class="text-caption text-truncate-3-lines">
+                      {{ turno.dateoObservacion }}
+                    </div>
+                    <div class="text-caption text-grey-darken-1 mt-1 text-center">
+                      <v-icon size="x-small">mdi-information-outline</v-icon>
+                      Click para ver detalles completos
+                    </div>
+                  </v-card>
+                </v-menu>
+
+                <!-- Observaciones del turno - HOVER + CLICK -->
+                <v-menu
+                  v-if="turno.observaciones"
+                  open-on-hover
+                  :open-delay="200"
+                  :close-delay="100"
+                  location="top"
+                  max-width="350"
+                >
+                  <template #activator="{ props }">
+                    <v-chip
+                      v-bind="props"
+                      color="blue-darken-2"
+                      variant="elevated"
+                      :size="$vuetify.display.xs ? 'x-small' : 'small'"
+                      prepend-icon="mdi-note-text-outline"
+                      @click="abrirObservacionesTurno(turno)"
+                      class="cursor-pointer chip-observacion"
+                    >
+                      <span class="text-caption">Ver obs. turno</span>
+                    </v-chip>
+                  </template>
+
+                  <!-- Tooltip/Preview rápido al pasar el cursor -->
+                  <v-card class="pa-2 rounded-lg preview-card" elevation="6">
+                    <div class="text-caption font-weight-bold mb-1 text-blue-darken-3">
+                      📋 Vista rápida - Obs. Turno
+                    </div>
+                    <div class="text-caption text-truncate-3-lines">
+                      {{ turno.observaciones }}
+                    </div>
+                    <div class="text-caption text-grey-darken-1 mt-1 text-center">
+                      <v-icon size="x-small">mdi-information-outline</v-icon>
+                      Click para ver detalles completos
+                    </div>
+                  </v-card>
+                </v-menu>
+              </div>
             </v-card-text>
 
             <v-card-actions class="justify-center pt-0 flex-column flex-sm-row">
@@ -250,15 +341,6 @@
                 @click="openConfirmDialog(turno, 'editar')"
               >
                 Editar
-              </v-btn>
-              <v-btn
-                color="button-text-light-secondary"
-                variant="text"
-                prepend-icon="mdi-play"
-                :size="$vuetify.display.xs ? 'small' : 'default'"
-                @click="openConfirmDialog(turno, 'continuar')"
-              >
-                Continuar
               </v-btn>
             </v-card-actions>
           </v-card>
@@ -302,6 +384,200 @@
             class="bordered-dialog-button"
           >
             Confirmar
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <!-- 👇 Modal para observaciones del dateo -->
+    <v-dialog
+      v-model="modalObservacionesDateo.show"
+      :max-width="$vuetify.display.xs ? '95%' : '600'"
+      :fullscreen="$vuetify.display.xs"
+    >
+      <v-card class="rounded-xl">
+        <v-card-title class="d-flex align-center justify-space-between pa-3 pa-sm-4 bg-amber-lighten-5">
+          <div class="d-flex align-center" style="gap:8px">
+            <v-icon color="amber-darken-2" :size="$vuetify.display.xs ? 20 : 24">
+              mdi-comment-text-multiple-outline
+            </v-icon>
+            <span class="text-subtitle-1 text-sm-h6 font-weight-bold">
+              Observaciones del Dateo
+            </span>
+          </div>
+          <v-btn
+            icon
+            variant="text"
+            :size="$vuetify.display.xs ? 'small' : 'default'"
+            @click="modalObservacionesDateo.show = false"
+          >
+            <v-icon>mdi-close</v-icon>
+          </v-btn>
+        </v-card-title>
+
+        <v-divider />
+
+        <v-card-text class="pa-3 pa-sm-5">
+          <!-- Info del turno -->
+          <div class="mb-3 mb-sm-4">
+            <div class="d-flex flex-wrap mb-2" style="gap:6px">
+              <v-chip
+                color="primary"
+                variant="tonal"
+                :size="$vuetify.display.xs ? 'x-small' : 'small'"
+                prepend-icon="mdi-counter"
+              >
+                Turno: {{ modalObservacionesDateo.turnoNumero }}
+              </v-chip>
+              <v-chip
+                color="indigo"
+                variant="tonal"
+                :size="$vuetify.display.xs ? 'x-small' : 'small'"
+                prepend-icon="mdi-car"
+              >
+                {{ modalObservacionesDateo.placa }}
+              </v-chip>
+              <v-chip
+                v-if="modalObservacionesDateo.dateoCanal"
+                color="success"
+                variant="tonal"
+                :size="$vuetify.display.xs ? 'x-small' : 'small'"
+                prepend-icon="mdi-source-branch"
+              >
+                Canal: {{ modalObservacionesDateo.dateoCanal }}
+              </v-chip>
+            </div>
+          </div>
+
+          <!-- Observaciones -->
+          <v-card variant="tonal" class="pa-3 pa-sm-4 rounded-lg bg-amber-lighten-5">
+            <div class="text-caption text-sm-body-2 font-weight-medium text-amber-darken-3 mb-2">
+              📝 Observaciones del dateo:
+            </div>
+            <div class="text-body-2 text-sm-body-1" style="white-space: pre-wrap;">
+              {{ modalObservacionesDateo.observacion || 'Sin observaciones' }}
+            </div>
+          </v-card>
+
+          <!-- Imagen si existe -->
+          <div v-if="modalObservacionesDateo.imagenUrl" class="mt-3 mt-sm-4">
+            <div class="text-caption text-sm-body-2 font-weight-medium mb-2">
+              📸 Evidencia fotográfica del dateo:
+            </div>
+            <v-img
+              :src="modalObservacionesDateo.imagenUrl"
+              :max-height="$vuetify.display.xs ? 250 : 400"
+              class="rounded-lg"
+              cover
+            />
+          </div>
+        </v-card-text>
+
+        <v-divider />
+
+        <v-card-actions class="justify-end pa-3 pa-sm-4">
+          <v-btn
+            color="primary"
+            variant="elevated"
+            @click="modalObservacionesDateo.show = false"
+            :size="$vuetify.display.xs ? 'small' : 'default'"
+          >
+            Cerrar
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <!-- 👇 Modal para observaciones del turno -->
+    <v-dialog
+      v-model="modalObservacionesTurno.show"
+      :max-width="$vuetify.display.xs ? '95%' : '600'"
+      :fullscreen="$vuetify.display.xs"
+    >
+      <v-card class="rounded-xl">
+        <v-card-title class="d-flex align-center justify-space-between pa-3 pa-sm-4 bg-blue-lighten-5">
+          <div class="d-flex align-center" style="gap:8px">
+            <v-icon color="blue-darken-2" :size="$vuetify.display.xs ? 20 : 24">
+              mdi-note-text-outline
+            </v-icon>
+            <span class="text-subtitle-1 text-sm-h6 font-weight-bold">
+              Observaciones del Turno
+            </span>
+          </div>
+          <v-btn
+            icon
+            variant="text"
+            :size="$vuetify.display.xs ? 'small' : 'default'"
+            @click="modalObservacionesTurno.show = false"
+          >
+            <v-icon>mdi-close</v-icon>
+          </v-btn>
+        </v-card-title>
+
+        <v-divider />
+
+        <v-card-text class="pa-3 pa-sm-5">
+          <!-- Info del turno -->
+          <div class="mb-3 mb-sm-4">
+            <div class="d-flex flex-wrap mb-2" style="gap:6px">
+              <v-chip
+                color="primary"
+                variant="tonal"
+                :size="$vuetify.display.xs ? 'x-small' : 'small'"
+                prepend-icon="mdi-counter"
+              >
+                Turno: {{ modalObservacionesTurno.turnoNumero }}
+              </v-chip>
+              <v-chip
+                color="indigo"
+                variant="tonal"
+                :size="$vuetify.display.xs ? 'x-small' : 'small'"
+                prepend-icon="mdi-car"
+              >
+                {{ modalObservacionesTurno.placa }}
+              </v-chip>
+              <v-chip
+                v-if="modalObservacionesTurno.servicio"
+                color="success"
+                variant="tonal"
+                :size="$vuetify.display.xs ? 'x-small' : 'small'"
+                prepend-icon="mdi-wrench"
+              >
+                {{ modalObservacionesTurno.servicio }}
+              </v-chip>
+              <v-chip
+                v-if="modalObservacionesTurno.fecha"
+                color="grey"
+                variant="tonal"
+                :size="$vuetify.display.xs ? 'x-small' : 'small'"
+                prepend-icon="mdi-calendar"
+              >
+                {{ modalObservacionesTurno.fecha }}
+              </v-chip>
+            </div>
+          </div>
+
+          <!-- Observaciones -->
+          <v-card variant="tonal" class="pa-3 pa-sm-4 rounded-lg bg-blue-lighten-5">
+            <div class="text-caption text-sm-body-2 font-weight-medium text-blue-darken-3 mb-2">
+              📋 Observaciones del turno:
+            </div>
+            <div class="text-body-2 text-sm-body-1" style="white-space: pre-wrap;">
+              {{ modalObservacionesTurno.observacion || 'Sin observaciones' }}
+            </div>
+          </v-card>
+        </v-card-text>
+
+        <v-divider />
+
+        <v-card-actions class="justify-end pa-3 pa-sm-4">
+          <v-btn
+            color="primary"
+            variant="elevated"
+            @click="modalObservacionesTurno.show = false"
+            :size="$vuetify.display.xs ? 'small' : 'default'"
+          >
+            Cerrar
           </v-btn>
         </v-card-actions>
       </v-card>
@@ -475,6 +751,8 @@
     </v-dialog>
   </v-container>
 </template>
+<!-- ==================== FRAGMENTO 2: SCRIPT ==================== -->
+<!-- Copia desde <script setup lang="ts"> hasta </script> -->
 
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
@@ -554,16 +832,43 @@ interface Turno {
   servicioCodigo?: 'RTM' | 'SOAT' | 'PREV' | 'PERI' | string
   servicioNombre?: string
 
+  // ✅ Usuario que CREÓ el turno (etapa Puerta)
+  usuario?: {
+    id: number
+    nombres: string
+    apellidos: string
+  }
+
+  // ⚠️ Mantener por compatibilidad (puede que venga como "funcionario" del backend)
   funcionario?: {
     id: number
     nombres: string
     apellidos: string
   }
+
   createdAt: string
   updatedAt: string
 
   tieneFacturacion?: boolean | null
   horaFacturacion?: string | null
+
+  dateoObservacion?: string | null
+  dateoImagenUrl?: string | null
+  dateoCanal?: string | null
+
+  // ✅ Usuario que FACTURÓ el turno (etapa Facturación)
+  facturacionFuncionario?: {
+    id: number
+    nombres: string
+    apellidos: string
+  } | null
+
+  // ✅ Usuario que CERTIFICÓ el turno (etapa Certificación)
+  certificacionFuncionario?: {
+    id: number
+    nombres: string
+    apellidos: string
+  } | null
 }
 
 interface Etapa {
@@ -571,6 +876,7 @@ interface Etapa {
   name: string
   completed: boolean
   time: string | null
+  funcionario?: string | null  //  AGREGAR ESTA LÍNEA
 }
 
 /* ===== Estado ===== */
@@ -608,6 +914,59 @@ const turnosFiltrados = computed(() => {
     return codigo === servicioFiltro.value.toUpperCase()
   })
 })
+
+/* ===== Modal observaciones del dateo ===== */
+const modalObservacionesDateo = ref({
+  show: false,
+  turnoNumero: '' as string | number,
+  placa: '',
+  observacion: '',
+  imagenUrl: null as string | null,
+  dateoCanal: null as string | null,
+})
+
+const abrirObservacionesDateo = (turno: Turno) => {
+  modalObservacionesDateo.value = {
+    show: true,
+    turnoNumero: displayTurnoNumero(turno),
+    placa: turno.placa,
+    observacion: turno.dateoObservacion || '',
+    imagenUrl: turno.dateoImagenUrl || null,
+    dateoCanal: turno.dateoCanal || null,
+  }
+}
+
+/* ===== Modal observaciones del turno ===== */
+const modalObservacionesTurno = ref({
+  show: false,
+  turnoNumero: '' as string | number,
+  placa: '',
+  servicio: '',
+  fecha: '',
+  observacion: '',
+})
+
+const abrirObservacionesTurno = (turno: Turno) => {
+  // Combinar fecha + hora de ingreso
+  let fechaCompleta = ''
+  if (turno.fecha && turno.horaIngreso) {
+    const fecha = DateTime.fromISO(turno.fecha, { zone: 'America/Bogota' })
+    if (fecha.isValid) {
+      fechaCompleta = `${formatTime(turno.horaIngreso)} • ${fecha.toFormat('dd/MM/yyyy')}`
+    }
+  } else if (turno.fecha) {
+    fechaCompleta = formatFechaModal(turno.fecha)
+  }
+
+  modalObservacionesTurno.value = {
+    show: true,
+    turnoNumero: displayTurnoNumero(turno),
+    placa: turno.placa,
+    servicio: getServicioCodigo(turno),
+    fecha: fechaCompleta,
+    observacion: turno.observaciones || '',
+  }
+}
 
 /* ===== Conteo por estado ===== */
 const conteoPorEstado = computed(() => {
@@ -752,6 +1111,30 @@ const getServicioCodigo = (t: Turno): string => {
   return t.servicio?.codigoServicio ?? t.servicioCodigo ?? '—'
 }
 
+/* ===== Formatear fecha para modales ===== */
+const formatFechaModal = (fechaString: string | null): string => {
+  if (!fechaString) return ''
+
+  const fecha = DateTime.fromISO(fechaString, { zone: 'America/Bogota' })
+
+  if (!fecha.isValid) {
+    // Intentar parsear como date simple
+    const fechaSimple = DateTime.fromFormat(fechaString, 'yyyy-MM-dd', { zone: 'America/Bogota' })
+    if (fechaSimple.isValid) {
+      return fechaSimple.toFormat('dd/MM/yyyy')
+    }
+    return fechaString
+  }
+
+  // Si tiene hora, mostrar fecha y hora
+  if (fecha.hour !== 0 || fecha.minute !== 0) {
+    return fecha.toFormat('HH:mm dd/MM/yyyy')
+  }
+
+  // Si no tiene hora, solo mostrar fecha
+  return fecha.toFormat('dd/MM/yyyy')
+}
+
 /* ===== Colores ===== */
 const cardColor = (estado: Turno['estado']) => {
   if (estado === 'finalizado') return 'success'
@@ -836,36 +1219,52 @@ const loadTurnosHoy = async () => {
   }
 }
 
-/* ===== Etapas ===== */
 const getEtapas = (turno: Turno): Etapa[] => {
+  const esSOAT = getServicioCodigo(turno).toUpperCase() === 'SOAT'
+
   const etapas: Etapa[] = [
     {
       key: `puerta-${turno.id}`,
       name: 'Puerta',
       completed: !!turno.horaIngreso,
       time: turno.horaIngreso,
+      funcionario: turno.usuario  // ✅ CORRECTO
+        ? `${turno.usuario.nombres} ${turno.usuario.apellidos}`
+        : null
     },
     {
       key: `facturacion-${turno.id}`,
       name: 'Facturación',
       completed: !!turno.tieneFacturacion,
       time: turno.horaFacturacion ?? null,
+      funcionario: turno.facturacionFuncionario
+        ? `${turno.facturacionFuncionario.nombres} ${turno.facturacionFuncionario.apellidos}`
+        : null
     },
-    {
+  ]
+
+  // Solo agregar certificación si NO es SOAT
+  if (!esSOAT) {
+    etapas.push({
       key: `certificacion-${turno.id}`,
       name: 'Certificación',
       completed: !!turno.horaSalida,
       time: turno.horaSalida,
-    },
-  ]
+      funcionario: turno.certificacionFuncionario
+        ? `${turno.certificacionFuncionario.nombres} ${turno.certificacionFuncionario.apellidos}`
+        : null
+    })
+  }
 
   if (turno.estado === 'cancelado' || turno.estado === 'inactivo') {
-    etapas.forEach((etapa) => (etapa.completed = false))
+    etapas.forEach((etapa) => {
+      etapa.completed = false
+      etapa.funcionario = null  // 👈 AGREGAR ESTA LÍNEA
+    })
   }
 
   return etapas
 }
-
 /* ===== Stats ===== */
 const showStatsModal = ref(false)
 const statsData = ref({
@@ -997,6 +1396,8 @@ onMounted(() => {
   loadTurnosHoy()
 })
 </script>
+<!-- ==================== FRAGMENTO 3: STYLES ==================== -->
+<!-- Copia desde <style scoped> hasta </style> -->
 
 <style scoped>
 .v-card {
@@ -1008,7 +1409,6 @@ onMounted(() => {
   padding: 0 !important;
 }
 
-/* En el <style scoped> de TurnosDelDia.vue */
 .title-text-with-border {
   border: 2px solid black;
   padding: 6px 12px;
@@ -1140,9 +1540,55 @@ onMounted(() => {
   overflow-x: auto;
 }
 
+/* 👇 ESTILOS PARA CHIPS DE OBSERVACIONES */
+.cursor-pointer {
+  cursor: pointer;
+}
+
+.chip-observacion {
+  transition: all 0.2s ease;
+}
+
+.chip-observacion:hover {
+  opacity: 0.95;
+  transform: translateY(-2px);
+}
+
+/* 👇 NUEVOS ESTILOS PARA HOVER + CLICK */
+/* Vista previa al hacer hover */
+.preview-card {
+  max-width: 350px;
+  background: linear-gradient(135deg, #ffffff 0%, #f5f5f5 100%);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+/* Truncar texto a 3 líneas */
+.text-truncate-3-lines {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  line-height: 1.4;
+  max-height: calc(1.4em * 3);
+}
+
 @media (max-width: 600px) {
   .v-card-actions {
     gap: 4px;
+  }
+}
+
+/* Estilo para mostrar el funcionario de cada etapa */
+.etapa-funcionario {
+  font-size: 0.7rem;
+  display: flex;
+  align-items: center;
+  padding-left: 28px;
+  font-style: italic;
+}
+
+@media (min-width: 600px) {
+  .etapa-funcionario {
+    font-size: 0.75rem;
   }
 }
 </style>

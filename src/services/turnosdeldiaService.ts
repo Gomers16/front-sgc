@@ -204,6 +204,7 @@ export interface CreateTurnoPayload {
   conductorId?: number | null
   conductorTelefono?: string
   conductorNombre?: string
+   asesorDetectadoId?: number | null
 }
 
 export interface UpdateTurnoPayload {
@@ -307,6 +308,7 @@ class TurnosDelDiaService {
       ...(payload.conductorId !== undefined ? { conductorId: payload.conductorId } : {}),
       ...(payload.conductorTelefono ? { conductorTelefono: payload.conductorTelefono } : {}),
       ...(payload.conductorNombre ? { conductorNombre: payload.conductorNombre } : {}),
+       ...(payload.asesorDetectadoId !== undefined ? { asesorDetectadoId: payload.asesorDetectadoId } : {}),
     }
 
     try {
@@ -383,41 +385,48 @@ class TurnosDelDiaService {
   }
 
   /* ===== Exportar Excel Múltiple (Personalizado) ===== */
-  public static async exportTurnosExcelMultiple(filters: ExportFiltersMultiple) {
-    const params: Record<string, string> = {
-      fechaInicio: filters.fechaInicio,
-      fechaFin: filters.fechaFin,
-    }
-
-    // Si hay servicios seleccionados, los enviamos como parámetro
-    if (filters.serviciosSeleccionados && filters.serviciosSeleccionados.length > 0) {
-      params.servicios = filters.serviciosSeleccionados.join(',')
-    }
-
-    // Si hay medios seleccionados, los enviamos como parámetro
-    if (filters.mediosSeleccionados && filters.mediosSeleccionados.length > 0) {
-      params.medios = filters.mediosSeleccionados.join(',')
-    }
-
-    try {
-      const blob = await download(this.EXPORT_PATH, params)
-      let filename = `reporte_turnos_${DateTime.local().toISODate()}`
-
-      if (filters.serviciosSeleccionados && filters.serviciosSeleccionados.length > 0) {
-        filename += `_${filters.serviciosSeleccionados.join('-')}`
-      }
-      if (filters.mediosSeleccionados && filters.mediosSeleccionados.length > 0) {
-        filename += `_medios`
-      }
-
-      filename += '.xlsx'
-      return { data: blob, filename }
-    } catch (error) {
-      console.error('Error en exportTurnosExcelMultiple:', error)
-      throw error
-    }
+ /* ===== Exportar Excel Múltiple (Personalizado) ===== */
+public static async exportTurnosExcelMultiple(filters: ExportFiltersMultiple) {
+  const params: Record<string, string> = {
+    fechaInicio: filters.fechaInicio,
+    fechaFin: filters.fechaFin,
   }
 
+  // ✅ Enviar como servicioCodigo (CSV de códigos)
+  if (filters.serviciosSeleccionados && filters.serviciosSeleccionados.length > 0) {
+    params.servicioCodigo = filters.serviciosSeleccionados.join(',')
+  }
+
+  // ✅ Convertir medios a canales y enviar como canalAtribucion
+  if (filters.mediosSeleccionados && filters.mediosSeleccionados.length > 0) {
+    const canalMap: Record<MedioEnteroFinalDB, CanalAtrib> = {
+      'Fachada': 'FACHADA',
+      'Redes Sociales': 'REDES',
+      'Call Center': 'TELE',
+      'Asesor Comercial': 'ASESOR',
+    }
+    const canales = filters.mediosSeleccionados.map(m => canalMap[m])
+    params.canalAtribucion = canales.join(',')
+  }
+
+  try {
+    const blob = await download(this.EXPORT_PATH, params)
+    let filename = `reporte_turnos_${DateTime.local().toISODate()}`
+
+    if (filters.serviciosSeleccionados && filters.serviciosSeleccionados.length > 0) {
+      filename += `_${filters.serviciosSeleccionados.join('-')}`
+    }
+    if (filters.mediosSeleccionados && filters.mediosSeleccionados.length > 0) {
+      filename += `_medios`
+    }
+
+    filename += '.xlsx'
+    return { data: blob, filename }
+  } catch (error) {
+    console.error('Error en exportTurnosExcelMultiple:', error)
+    throw error
+  }
+}
   /* ===== Exportar por Servicio específico ===== */
   public static async exportTurnosByServicio(
     fechaInicio: string,
