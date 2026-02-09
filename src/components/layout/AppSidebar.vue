@@ -190,6 +190,15 @@
           />
         </v-list-group>
 
+        <!-- Histórico facturación -->
+<v-list-item
+  v-if="can.verHistoricoFacturacion()"
+  title="Histórico facturación"
+  prepend-icon="mdi-file-document-multiple"
+  :to="{ path: '/facturacion/historico' }"
+  link
+/>
+
         <!-- Descuentos -->
         <v-list-item
           v-if="can.verComisiones()"

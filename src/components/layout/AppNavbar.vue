@@ -5,8 +5,6 @@ import { authSetStore } from '@/stores/AuthStore'
 import { useRouter } from 'vue-router'
 import { useDrawer } from '@/composables/useDrawer'
 import { useDisplay } from 'vuetify'
-import ActivautosLogo from '@/assets/activautos-logo.png'
-import CdaLogo from '@/assets/cda-centro-logo-amarillo.png'
 
 const authStore = authSetStore()
 const router = useRouter()
@@ -50,24 +48,9 @@ const confirmLogout = async () => {
       @click="toggleDrawer"
     />
 
-    <!-- Logos izquierda (ocultos en móvil) -->
-    <div v-if="!smAndDown" class="logo-contenedor">
-      <v-img
-        :src="CdaLogo"
-        alt="Logo CDA"
-        width="140"
-        max-height="60"
-        contain
-        class="logo-img mr-2"
-      />
-      <v-img
-        :src="ActivautosLogo"
-        alt="Logo Activautos"
-        width="160"
-        max-height="50"
-        contain
-        class="logo-img"
-      />
+    <!-- Logo de texto (oculto en móvil) -->
+    <div v-if="!smAndDown" class="logo-texto-contenedor">
+      <span class="logo-texto">ACTIVA MARKETING</span>
     </div>
 
     <!-- Título - Ajustado para móvil -->
@@ -156,15 +139,30 @@ const confirmLogout = async () => {
   background-color: rgba(255, 255, 255, 0.16);
 }
 
-/* Logos */
-.logo-contenedor {
+/* Logo de texto */
+.logo-texto-contenedor {
   display: flex;
   align-items: center;
-  gap: 12px;
+  margin-left: 32px;
+  margin-right: 24px;
 }
 
-.logo-img {
-  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.2));
+.logo-texto {
+  font-size: 1.25rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  color: #ffffff;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+@media (min-width: 960px) {
+  .logo-texto {
+    font-size: 1.5rem;
+  }
+
+  .logo-texto-contenedor {
+    margin-left: 48px;
+  }
 }
 
 /* Título - Versión móvil y desktop */

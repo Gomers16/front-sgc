@@ -39,13 +39,12 @@ export default defineConfigWithVueTs(
   },
   skipFormatting,
 
-  // ¡NUEVA CONFIGURACIÓN PARA DESACTIVAR LA REGLA DE V-SLOT!
-  // Este objeto se añade al final para asegurar que sus reglas anulen las anteriores.
+  // Configuración personalizada de reglas
   {
     name: 'app/custom-rules',
     rules: {
       'vue/valid-v-slot': 'off', // Desactiva la regla que causa el error de v-slot
-      // Puedes añadir otras reglas personalizadas aquí si es necesario
+      'vue/multi-word-component-names': 'off', // Desactiva el warning de nombres de componentes de una sola palabra
     },
   },
 )

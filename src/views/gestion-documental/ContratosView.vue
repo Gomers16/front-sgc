@@ -329,7 +329,12 @@ import {
 } from '@/services/contratoService'
 
 /* PASOS (solo listar/actualizar/crear) */
-import { fetchPasosContrato as fetchPasosContratoAPI } from '@/services/contratosPasosService'
+import {
+  fetchPasosContrato as fetchPasosContratoAPI,
+  crearPasoContrato,
+  actualizarPasoContrato,
+  eliminarArchivoPasoContrato
+} from '@/services/contratosPasosService'
 
 /* =========================================================
  * Helpers
@@ -669,11 +674,27 @@ const pasosContrato = computed<Paso[]>(() => {
 })
 
 // ✅ NUEVO: Agregar este watcher JUSTO DESPUÉS del computed
+// ✅ Sincronizar pasosLocal cuando se construyen por primera vez
 watch(pasosContrato, (newVal) => {
-  if (!isEditing.value && !pasosLocal.value) {
+  if (!isEditing.value && !pasosLocal.value && newVal.length > 0) {
+    console.log('🔄 Inicializando pasosLocal con', newVal.length, 'pasos')
     pasosLocal.value = newVal
   }
 }, { immediate: true })
+
+// ✅ NUEVO: Reinicializar pasos cuando cambia el tipo de contrato
+watch(tipoContratoSeleccionado, () => {
+  if (!isEditing.value) {
+    console.log('🔄 Regenerando pasos por cambio de tipo:', tipoContratoSeleccionado.value)
+    resetPasos()
+    // Forzar reconstrucción
+    nextTick(() => {
+      if (!pasosLocal.value) {
+        pasosLocal.value = construirBasePasos()
+      }
+    })
+  }
+})
 function filenameFromUrl(u?: string | null) {
   if (!u) return undefined
   try { return decodeURIComponent(u.split('/').pop() || '') || undefined } catch { return (u.split('/').pop() || undefined) }
@@ -1104,25 +1125,73 @@ async function crearYAnexarContrato(formData: Record<string, unknown>) {
     }
 
   // ✅ Crear pasos base SOLO si NO es asesor convenio
+  // ✅ Crear pasos base SOLO si NO es asesor convenio
     if (!esAsesorConvenio.value) {
       try {
         const { crearPasoContrato } = await import('@/services/contratosPasosService')
+
+        // 🔍 Debug temporal
+        console.log('📋 Pasos a crear:', {
+          cantidad: pasosContrato.value.length,
+          pasos: pasosContrato.value.map(p => ({
+            nombre: p.nombre,
+            fase: p.fase,
+            orden: p.orden,
+            completado: p.completado,
+            observacion: p.observacion?.slice(0, 30),
+            tieneArchivo: !!p.archivoFile
+          }))
+        })
+
         const creates = pasosContrato.value.map(p => {
           const fd = new FormData()
           fd.append('fase', p.fase)
           fd.append('nombrePaso', p.nombre)
-          if (p.orden != null) fd.append('orden', String(p.orden))
+          fd.append('orden', String(p.orden ?? 0))
           fd.append('completado', p.completado ? 'true' : 'false')
-          if (p.observacion) fd.append('observacion', p.observacion)
-          if (p.fechaCompletado) fd.append('fecha', p.fechaCompletado)
-          if (p.archivoFile) fd.append('archivo', p.archivoFile, p.archivoFile.name)
+
+          // Solo agregar si tienen valor
+          if (p.observacion?.trim()) {
+            fd.append('observacion', p.observacion.trim())
+          }
+
+          // Formato correcto de fecha
+          if (p.fechaCompletado) {
+            const fecha = p.fechaCompletado.includes('T')
+              ? p.fechaCompletado.slice(0, 10)
+              : p.fechaCompletado
+            fd.append('fecha', fecha)
+          }
+
+          // Archivo si existe
+          if (p.archivoFile) {
+            fd.append('archivo', p.archivoFile, p.archivoFile.name)
+          }
+
           return crearPasoContrato(Number(nc.id), fd)
         })
-        await Promise.all(creates)
-      } catch {/* no-op */}
+
+        const resultados = await Promise.all(creates)
+        console.log('✅ Pasos creados:', resultados.length)
+
+      } catch (error) {
+        console.error('❌ Error creando pasos:', error)
+        notify(
+          'Los pasos no pudieron guardarse: ' + ((error as Error)?.message || 'error desconocido'),
+          'warning'
+        )
+      }
     }
     notify('Contrato creado y archivos anexados.', 'success')
     await resetParaSiguienteEnMismaRazon()
+    // ✅ SOLUCIÓN: Recargar pasos para verificar que se guardaron
+    try {
+      await cargarPasosDesdeBackend(Number(nc.id))
+      console.log('✅ Pasos recargados desde backend:', pasosBackend.value?.length)
+    } catch (error) {
+      console.warn('⚠️ No se pudieron recargar los pasos:', error)
+    }
+
   } catch (e) {
     showAlert('Error', (e as Error)?.message || 'No fue posible crear el contrato.')
   } finally { isSaving.value = false }
@@ -1335,6 +1404,12 @@ async function guardarCambiosContrato() {
     recUiTick.value++
     syncTieneRecFlagFromMeta(refreshed['tieneRecomendacionesMedicas'])
 
+     // ✅ NUEVO: Recargar pasos actualizados desde el backend
+    if (contratoEditId.value) {
+      await cargarPasosDesdeBackend(Number(contratoEditId.value))
+      console.log('✅ Pasos recargados después de editar:', pasosBackend.value?.length)
+    }
+
     notify('Contrato actualizado correctamente.', 'success')
     await resetParaSiguienteEnMismaRazon()
   } catch (e) {
@@ -1388,24 +1463,34 @@ async function eliminarArchivoPaso() {
   if (!isEditing.value || !contratoEditId.value || !p?.id) return
 
   try {
-    const fd = new FormData()
-    fd.append('clearArchivo', 'true')
-    const resp = await fetch(`/api/contratos/${contratoEditId.value}/pasos/${p.id}`, {
-      method: 'PUT',
-      credentials: 'include',
-      body: fd
-    })
-    if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
+    await eliminarArchivoPasoContrato(Number(contratoEditId.value), Number(p.id))
     await cargarPasosDesdeBackend(Number(contratoEditId.value))
     notify('Archivo eliminado.', 'success')
-    if (modalPaso.value.paso) { modalPaso.value.paso.archivoUrl = undefined; modalPaso.value.paso.nombreArchivo = undefined }
+    if (modalPaso.value.paso) {
+      modalPaso.value.paso.archivoUrl = undefined
+      modalPaso.value.paso.nombreArchivo = undefined
+    }
   } catch (e) {
     notify((e as Error)?.message || 'No fue posible eliminar el archivo del paso.', 'error')
   }
 }
 
-async function completarPasoConfirmado() {
+/** Localiza el paso actualmente en edición en la data cargada desde el backend */
+function getPasoEnEdicion(): Paso | null {
   const p = modalPaso.value.paso
+  if (!p) return null
+
+  if (!isEditing.value) {
+    if (!pasosLocal.value) return null
+    return pasosLocal.value.find(paso => paso.nombre === p.nombre) || null
+  }
+
+  if (!pasosBackend.value) return null
+  if (!p.id) return null
+  return pasosBackend.value.find(paso => paso.id === p.id) || null
+}
+
+async function completarPasoConfirmado() {
   const obs = (modalPaso.value.form.observacion || '').trim()
   const file = modalPaso.value.form.archivo
 
@@ -1416,41 +1501,70 @@ async function completarPasoConfirmado() {
 
   // Modo CREACIÓN: guardar todo localmente
   if (!isEditing.value) {
-    if (p) {
-      p.completado = true
-      p.observacion = obs || p.observacion
-      p.archivoFile = file || p.archivoFile
-      p.fechaCompletado = new Date().toISOString()
-      // ⬇️ disparar reactividad (desbloquea el siguiente paso)
-      if (pasosLocal.value) pasosLocal.value = [...pasosLocal.value]
+    if (!pasosLocal.value) {
+      pasosLocal.value = construirBasePasos()
     }
+
+    const p = modalPaso.value.paso
+    const pasoIndex = pasosLocal.value.findIndex(paso => paso.nombre === p?.nombre)
+
+    if (pasoIndex !== -1 && p) {
+      pasosLocal.value[pasoIndex] = {
+        ...pasosLocal.value[pasoIndex],
+        completado: true,
+        observacion: obs || p.observacion,
+        archivoFile: file || p.archivoFile,
+        fechaCompletado: new Date().toISOString()
+      }
+
+      pasosLocal.value = [...pasosLocal.value]
+    }
+
     cerrarModalPaso()
     notify('Paso preparado. Se enviará al crear el contrato.', 'success')
     return
   }
 
   // Modo EDICIÓN: mandar a backend
-  if (!contratoEditId.value || !p) { notify('No hay contrato en edición.', 'error'); return }
+  if (!contratoEditId.value) {
+    notify('No hay contrato en edición.', 'error')
+    return
+  }
+
+  // ✅ SOLUCIÓN: Obtener el paso ACTUAL desde pasosBackend
+  const pasoActual = getPasoEnEdicion()
+  if (!pasoActual) {
+    notify('No se encontró el paso a editar.', 'error')
+    return
+  }
+
   try {
     modalPaso.value.loading = true
+
     const fd = new FormData()
-    if (typeof p.fase === 'string') fd.append('fase', p.fase)
-    if (p.nombre) fd.append('nombrePaso', p.nombre)
-    if (p.orden != null) fd.append('orden', String(p.orden))
-    fd.append('completado', 'true')
+    if (typeof pasoActual.fase === 'string') fd.append('fase', pasoActual.fase)
+    if (pasoActual.nombre) fd.append('nombrePaso', pasoActual.nombre)
+    if (pasoActual.orden != null) fd.append('orden', String(pasoActual.orden))
+
+    // ✅ Usar el estado ACTUAL del paso
+      fd.append('completado', 'true')
+
     if (obs) fd.append('observacion', obs)
-    fd.append('fecha', new Date().toISOString())
+
+    const fechaPaso = pasoActual.fechaCompletado || new Date().toISOString()
+    fd.append('fecha', fechaPaso)
+
     if (file) fd.append('archivo', file, file.name)
 
-    const method = p.id ? 'PUT' : 'POST'
-    const url = p.id
-      ? `/api/contratos/${contratoEditId.value}/pasos/${p.id}`
-      : `/api/contratos/${contratoEditId.value}/pasos`
+    if (pasoActual.id) {
+      await actualizarPasoContrato(Number(contratoEditId.value), Number(pasoActual.id), fd)
+      notify('Paso actualizado.', 'success')
+    } else {
+      await crearPasoContrato(Number(contratoEditId.value), fd)
+      notify('Paso creado.', 'success')
+    }
 
-    const resp = await fetch(url, { method, credentials:'include', body: fd })
-    if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
     await cargarPasosDesdeBackend(Number(contratoEditId.value))
-    notify(p.id ? 'Paso actualizado.' : 'Paso creado.', 'success')
     cerrarModalPaso()
   } catch (e) {
     notify((e as Error)?.message || 'No fue posible guardar el paso.', 'error')
@@ -1458,7 +1572,6 @@ async function completarPasoConfirmado() {
     modalPaso.value.loading = false
   }
 }
-
 /* ======= Clip de contrato (input principal) ======= */
 function onFileChange(value: unknown) {
   let f: File | null = null
@@ -1534,6 +1647,11 @@ async function resetParaSiguienteEnMismaRazon({ keepTipo = true }: { keepTipo?: 
   razonSocialSeleccionada.value = keepRazon
   if (keepTipo) tipoContratoSeleccionado.value = keepTipoContrato
   if (keepRazon != null) await cargarUsuariosPorRazonSocial()
+
+  // ✅ NUEVO: Forzar regeneración de pasos
+  await nextTick()
+  pasosLocal.value = construirBasePasos()
+  pasosVersion.value++
 }
 
 function limpiarFormulario() {

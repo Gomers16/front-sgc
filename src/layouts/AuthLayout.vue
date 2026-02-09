@@ -21,8 +21,6 @@ Layout principal para pantallas de autenticación (Login, Reset Password, etc.)
     <!-- Header con logos -->
     <HeaderButtons />
     <LogoHeader
-      :cdaLogoSrc="cdaLogoSrc"
-      :activautosLogoSrc="activautosLogoSrc"
       :pageName="pageName"
     />
 
@@ -43,15 +41,13 @@ import HeaderButtons from '@/components/login/HeaderButtons.vue'
 import LogoHeader from '@/components/layout/LogoHeader.vue'
 
 interface Props {
-  cdaLogoSrc?: string
-  activautosLogoSrc?: string
   pageName?: string
   footerText?: string
 }
 
 withDefaults(defineProps<Props>(), {
-  pageName: 'ACTIVAUTOS CDA DEL CENTRO IBAGUÉ',
-  footerText: 'ACTIVAUTOS CDA DEL CENTRO IBAGUÉ. Todos los derechos reservados.'
+  pageName: 'ACTIVA MARKETING',
+  footerText: 'ACTIVA MARKETING. Todos los derechos reservados.'
 })
 </script>
 

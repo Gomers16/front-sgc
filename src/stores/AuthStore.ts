@@ -1,4 +1,5 @@
 // src/stores/AuthStore.ts
+// ✅ ACTUALIZADO: Ahora lanza errores en lugar de retornar false
 
 import router from '@/router'
 import AuthService from '@/services/AuthService'
@@ -103,37 +104,41 @@ export const useAuthStore = defineStore('auth', {
   },
 
   actions: {
-    /** LOGIN: solo autentica, NO hidrata usuario completo */
-    async login(userData: { email: string; password: string }): Promise<boolean> {
+    /**
+     * ✅ LOGIN CORREGIDO: Ahora lanza errores en lugar de retornar false
+     * Solo autentica, NO hidrata usuario completo
+     */
+    async login(userData: { email: string; password: string }): Promise<void> {
       const auth = new AuthService()
       let loginResponse: LoginResponse
 
       try {
         loginResponse = await auth.login(userData.email, userData.password)
       } catch (err: unknown) {
-        const message =
-          err instanceof Error ? err.message : 'Error desconocido en autenticación'
+        const message = err instanceof Error ? err.message : 'Error de conexión'
         console.error('AuthStore.login:', message)
-        return false
+        throw new Error('Error de conexión. Verifica tu internet.')
       }
 
+      // ✅ Validar si hay errores en la respuesta
       if (loginResponse?.errors?.[0]) {
-        console.error('AuthStore.login:', loginResponse.errors[0].message)
-        return false
+        const errorMsg = loginResponse.errors[0].message || 'Usuario o contraseña incorrectos'
+        console.error('AuthStore.login:', errorMsg)
+        throw new Error(errorMsg)
       }
 
+      // ✅ Validar que el token existe
       if (!loginResponse.token) {
         console.error('AuthStore.login: token faltante')
-        return false
+        throw new Error('Usuario o contraseña incorrectos')
       }
 
+      // ✅ Guardar token
       this.token = loginResponse.token
       sessionStorage.setItem('token', loginResponse.token)
 
-      // 🚀 Dejar que /me cargue el usuario completo
+      // 🚀 Cargar usuario completo desde /me
       await this.checkAuth()
-
-      return true
     },
 
     /** LOGOUT */

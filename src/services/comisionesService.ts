@@ -557,9 +557,12 @@ export async function deleteConfigComision(id: number) {
 
 export async function listAgentesCaptacion() {
   try {
-    // 1) Intentar listado general (SUPER_ADMIN / GERENCIA)
-    const res = await apiFetch<unknown>('/agentes-captacion', {
-      query: { perPage: 200 },
+    // 🔥 Usar endpoint /light con parámetros correctos
+    const res = await apiFetch<{ data?: unknown[] } | unknown[]>('/agentes-captacion/light', {
+      query: {
+        activos: 1,
+        select: 'id,nombre,tipo'
+      },
     })
 
     const r = res as Record<string, unknown>
@@ -575,7 +578,7 @@ export async function listAgentesCaptacion() {
         .filter((a): a is AgenteLight => !!a)
     }
 
-    // 2) Fallback: si viene vacío, probar /me (asesor comercial)
+    // Fallback: si viene vacío, probar /me (asesor comercial con acceso limitado)
     const me = await apiFetch<unknown>('/agentes-captacion/me')
     const agente = mapAgenteCaptacion(me)
     if (agente) {
@@ -588,7 +591,6 @@ export async function listAgentesCaptacion() {
     return []
   }
 }
-
 /* ===== Metas mensuales de asesores ===== */
 
 /**

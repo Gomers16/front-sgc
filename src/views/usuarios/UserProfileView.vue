@@ -2369,12 +2369,38 @@ function getPasoEnEdicion(): ContratoPasoExt | null {
 
 const submitEditPaso = async ()=>{
   if(!contratoIdForPasoEdit.value || !pasoIdForEdit.value) return
+
+  // ✅ Obtener el paso completo
+  const pasoActual = getPasoEnEdicion()
+  if (!pasoActual) {
+    showAlert('Error', 'No se encontró el paso a editar.')
+    return
+  }
+
   isLoadingAction.value = true
   const fileToUpload = firstFileFrom(editPasoFiles.value) || editPasoFileRef.value?.files?.[0] || null
+
+  // ✅ Crear payload con TODOS los campos necesarios
   const payload = new FormData()
+
+  // Campos obligatorios del paso
+  payload.append('fase', pasoActual.fase)
+  payload.append('nombrePaso', pasoActual.nombrePaso)
+  if (pasoActual.orden != null) payload.append('orden', String(pasoActual.orden))
+  payload.append('completado', pasoActual.completado ? 'true' : 'false')
+
+  // Observación actualizada
   payload.append('observacion', pasoEditData.value.observacion || '')
+
+  // Fecha si existe
+  if (pasoActual.fecha) payload.append('fecha', pasoActual.fecha)
+
+  // Archivo si se seleccionó uno nuevo
   if (fileToUpload) payload.append('archivo', fileToUpload)
+
+  // Actor ID
   if (actorId.value != null) payload.append('actorId', String(actorId.value))
+
   try {
     await actualizarPasoContrato(contratoIdForPasoEdit.value, pasoIdForEdit.value, payload)
     showAlert('Éxito','Paso actualizado correctamente.')

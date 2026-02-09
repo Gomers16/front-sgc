@@ -4,22 +4,38 @@
       <v-card-title class="py-5 d-flex align-center justify-space-between flex-wrap">
         <div class="text-h5 font-weight-bold">👥 Clientes</div>
 
-        <!-- 🔎 Filtros -->
+        <!-- 🔎 Filtros CON AUTO-MAYÚSCULAS -->
         <div class="d-flex gap-2 flex-wrap">
           <v-text-field
             v-model="q"
-            label="Buscar por nombre, tel. o documento"
+            label="🔍 Buscar por nombre, teléfono, documento o PLACA"
             variant="outlined"
             density="comfortable"
             hide-details
             clearable
-            style="min-width: 320px"
+            style="min-width: 400px"
+            class="text-uppercase-input"
+            @input="toUpperCase"
             @keyup.enter="reload"
-          />
-          <v-btn color="primary" :loading="loading" @click="reload">Buscar</v-btn>
+          >
+            <template #prepend-inner>
+              <v-icon size="small" color="primary">mdi-magnify</v-icon>
+            </template>
+          </v-text-field>
+          <v-btn color="primary" :loading="loading" @click="reload">
+            <v-icon left>mdi-magnify</v-icon>
+            Buscar
+          </v-btn>
           <v-btn variant="text" :disabled="loading" @click="clear">Limpiar</v-btn>
         </div>
       </v-card-title>
+
+      <!-- 💡 Hint de búsqueda -->
+      <v-card-subtitle v-if="q" class="pb-0">
+        <v-chip size="small" color="primary" variant="tonal" prepend-icon="mdi-information">
+          Buscando "{{ q }}" en nombre, teléfono, documento y placas de vehículos
+        </v-chip>
+      </v-card-subtitle>
 
       <!-- 📋 Tabla -->
       <v-data-table-server
@@ -56,7 +72,29 @@
 
         <template #item.acciones="{ item }">
           <div class="d-flex gap-1">
-            <v-btn size="small" variant="text" icon="mdi-eye" @click="verDetalle(item.id)" />
+            <v-btn
+              size="small"
+              variant="text"
+              icon="mdi-eye"
+              color="primary"
+              @click="verDetalle(item.id)"
+            >
+              <v-icon>mdi-eye</v-icon>
+              <v-tooltip activator="parent">Ver detalle</v-tooltip>
+            </v-btn>
+          </div>
+        </template>
+
+        <!-- Sin resultados -->
+        <template #no-data>
+          <div class="text-center py-8">
+            <v-icon size="64" color="grey-lighten-1">mdi-account-search</v-icon>
+            <p class="text-h6 mt-4 text-grey">
+              {{ q ? 'No se encontraron clientes' : 'No hay clientes registrados' }}
+            </p>
+            <p v-if="q" class="text-grey">
+              Intenta buscar por <strong>nombre, teléfono, documento o placa</strong>
+            </p>
           </div>
         </template>
       </v-data-table-server>
@@ -116,9 +154,14 @@ const sortBy = ref<Array<{ key: string; order: 'asc' | 'desc' }>>([{ key: 'id', 
 const loading = ref(false)
 
 /* =========================
-   Filtros
+   Filtros CON AUTO-MAYÚSCULAS
 ========================= */
 const q = ref('')
+
+// 🔥 Convertir a mayúsculas mientras escribes
+function toUpperCase() {
+  q.value = q.value.toUpperCase()
+}
 
 function onUpdateOptions(opts: DataTableOptions) {
   if (opts?.page !== undefined) page.value = opts.page
@@ -130,11 +173,11 @@ function onUpdateOptions(opts: DataTableOptions) {
 async function loadItems() {
   loading.value = true
   try {
-    const res = await ClientesService.list({
+    const res = (await ClientesService.list({
       page: page.value,
       perPage: itemsPerPage.value,
       q: q.value || undefined,
-    }) as PaginatedResponse
+    })) as PaginatedResponse
 
     // Adonis paginate → { data, meta }
     const data = res?.data ?? []
@@ -147,11 +190,17 @@ async function loadItems() {
   }
 }
 
-function reload() { page.value = 1; loadItems() }
-function clear() { q.value = ''; reload() }
+function reload() {
+  page.value = 1
+  loadItems()
+}
+
+function clear() {
+  q.value = ''
+  reload()
+}
 
 function verDetalle(id: number) {
-  // Usa el nombre EXACTO del router: "ClienteDetalle"
   router.push({ name: 'ClienteDetalle', params: { id } }).catch(() => {})
 }
 
@@ -160,7 +209,18 @@ loadItems()
 </script>
 
 <style scoped>
-.gap-1 { gap: 4px; }
-.gap-2 { gap: 8px; }
-.text-medium-emphasis { opacity: .7; }
+.gap-1 {
+  gap: 4px;
+}
+.gap-2 {
+  gap: 8px;
+}
+.text-medium-emphasis {
+  opacity: 0.7;
+}
+
+/* 🔥 Forzar mayúsculas visualmente */
+.text-uppercase-input :deep(input) {
+  text-transform: uppercase !important;
+}
 </style>

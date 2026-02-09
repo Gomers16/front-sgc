@@ -66,66 +66,60 @@
 
             <!-- Agente (si canal es ASESOR o TELE) -->
             <v-col v-if="mostrarAgente" cols="12" md="6">
-              <v-autocomplete
-                v-model="form.agente_id"
-                :items="filteredAgentes"
-                item-title="nombre"
-                item-value="id"
-                label="Agente / Asesor"
-                variant="outlined"
-                :density="$vuetify.display.xs ? 'compact' : 'comfortable'"
-                :rules="mostrarAgente ? [rules.required] : []"
-                prepend-inner-icon="mdi-account"
-                :disabled="agenteBloqueado"
-                :clearable="!agenteBloqueado"
-              >
-                <template #item="{ props, item }">
-                  <v-list-item v-bind="props">
-                    <template #prepend>
-                      <v-avatar :size="$vuetify.display.xs ? 28 : 32" color="primary">
-                        <v-icon :size="$vuetify.display.xs ? 16 : 20">mdi-account</v-icon>
-                      </v-avatar>
-                    </template>
-                    <v-list-item-title class="text-caption text-sm-body-2">
-                      {{ item.raw.nombre }}
-                    </v-list-item-title>
-                    <v-list-item-subtitle class="text-caption">
-                      {{ item.raw.tipo }}
-                    </v-list-item-subtitle>
-                  </v-list-item>
-                </template>
-              </v-autocomplete>
+           <v-autocomplete
+  v-model="form.agente_id"
+  :items="filteredAgentes"
+  item-title="nombre"
+  item-value="id"
+  label="Agente / Asesor"
+  variant="outlined"
+  :density="$vuetify.display.xs ? 'compact' : 'comfortable'"
+  :rules="mostrarAgente ? [rules.required] : []"
+  prepend-inner-icon="mdi-account"
+  :disabled="agenteBloqueado"
+  :clearable="!agenteBloqueado"
+>
+  <template #item="{ props, item }">
+    <v-list-item v-bind="props">
+      <template #prepend>
+        <v-avatar :size="32" color="primary" class="mr-3">
+          <v-icon size="20">mdi-account</v-icon>
+        </v-avatar>
+      </template>
+      <template #subtitle>
+        <span class="text-caption">{{ item.raw.tipo }}</span>
+      </template>
+    </v-list-item>
+  </template>
+</v-autocomplete>
             </v-col>
 
             <!-- Convenio -->
-            <v-col cols="12" md="6">
-              <v-autocomplete
-                v-model="form.convenio_id"
-                :items="conveniosVisibles"
-                item-title="nombre"
-                item-value="id"
-                label="Convenio (opcional)"
-                variant="outlined"
-                :density="$vuetify.display.xs ? 'compact' : 'comfortable'"
-                prepend-inner-icon="mdi-handshake"
-                clearable
-                :disabled="isConvenioDisabled || convenioBloqueado"
-                :loading="conveniosLoading"
-              >
-                <template #item="{ props, item }">
-                  <v-list-item v-bind="props">
-                    <template #prepend>
-                      <v-avatar :size="$vuetify.display.xs ? 28 : 32" color="secondary">
-                        <v-icon :size="$vuetify.display.xs ? 16 : 20">mdi-handshake</v-icon>
-                      </v-avatar>
-                    </template>
-                    <v-list-item-title class="text-caption text-sm-body-2">
-                      {{ item.raw.nombre }}
-                    </v-list-item-title>
-                  </v-list-item>
-                </template>
-              </v-autocomplete>
-            </v-col>
+<v-col cols="12" md="6">
+<v-autocomplete
+  v-model="form.convenio_id"
+  :items="conveniosVisibles"
+  item-title="nombre"
+  item-value="id"
+  label="Convenio (opcional)"
+  variant="outlined"
+  :density="$vuetify.display.xs ? 'compact' : 'comfortable'"
+  prepend-inner-icon="mdi-handshake"
+  clearable
+  :disabled="isConvenioDisabled || convenioBloqueado"
+  :loading="conveniosLoading"
+>
+  <template #item="{ props }">
+    <v-list-item v-bind="props">
+      <template #prepend>
+        <v-avatar :size="32" color="secondary" class="mr-3">
+          <v-icon size="20">mdi-handshake</v-icon>
+        </v-avatar>
+      </template>
+    </v-list-item>
+  </template>
+</v-autocomplete>
+</v-col>
 
             <!-- Placa -->
             <v-col cols="12" md="6">
@@ -329,6 +323,12 @@ import { listConveniosLight } from '@/services/dateosService'
 const router = useRouter()
 const route = useRoute()
 
+interface AgenteItem {
+  id: number
+  nombre: string
+  tipo: string
+}
+
 interface FormRef {
   validate: () => Promise<{ valid: boolean }>
 }
@@ -390,12 +390,12 @@ const canalesOptions = [
   { title: 'Redes sociales', value: 'REDES' },
 ]
 
-const agentes = ref<{ id: number; nombre: string; tipo: string }[]>([])
+const agentes = ref<AgenteItem[]>([])
 const conveniosAll = ref<{ id: number; nombre: string }[]>([])
 const conveniosAsignados = ref<{ id: number; nombre: string }[]>([])
 const conveniosLoading = ref(false)
 
-const filteredAgentes = computed(() => {
+const filteredAgentes = computed((): AgenteItem[] => {
   return agentes.value.filter((agente) =>
     form.value.canal === 'ASESOR' && form.value.tipo_asesor === 'ASESOR_COMERCIAL'
       ? agente.tipo === 'ASESOR_COMERCIAL'
@@ -415,7 +415,8 @@ const conveniosVisibles = computed(() => {
   }
 
   if (tipo === 'ASESOR_COMERCIAL' && agenteId) {
-    return conveniosAsignados.value.length > 0 ? conveniosAsignados.value : conveniosAll.value
+    // 🔥 SOLO mostrar convenios asignados (sin fallback a todos)
+    return conveniosAsignados.value
   }
 
   if (tipo === 'ASESOR_CONVENIO' && form.value.convenio_id) {
@@ -425,7 +426,6 @@ const conveniosVisibles = computed(() => {
 
   return conveniosAll.value
 })
-
 /* ===== Deshabilitar convenio cuando es asesor convenio ===== */
 const isConvenioDisabled = computed(() => {
   return form.value.tipo_asesor === 'ASESOR_CONVENIO' && form.value.agente_id !== null
@@ -596,30 +596,23 @@ watch(
 
 /* ===== 🔥 Subir imagen con validación robusta ===== */
 async function subirImagen(): Promise<boolean> {
-  console.log('🔍 DEBUG subirImagen - imageFile.value:', imageFile.value)
-  console.log('🔍 DEBUG tipo:', typeof imageFile.value)
-  console.log('🔍 DEBUG es array?:', Array.isArray(imageFile.value))
-
   // Obtener el archivo según el tipo
   let file: File | null = null
 
   if (Array.isArray(imageFile.value)) {
     file = imageFile.value[0] || null
-    console.log('🔍 DEBUG primer elemento array:', file)
   } else if (imageFile.value instanceof File) {
     file = imageFile.value
-    console.log('🔍 DEBUG es File directo:', file)
   }
 
   // Validar que existe el archivo
   if (!file) {
-    console.log('ℹ️ No hay imagen para subir')
     return true // No hay imagen, ok
   }
 
   // Validar que es realmente un File
   if (!(file instanceof File)) {
-    console.error('❌ El objeto no es un File:', file)
+    console.error('El objeto no es un File:', file)
     snackbar.value = {
       show: true,
       color: 'error',
@@ -630,7 +623,6 @@ async function subirImagen(): Promise<boolean> {
 
   uploading.value = true
   try {
-    console.log('📤 Subiendo imagen:', file.name, `(${file.size} bytes)`)
     const data: UploadImageResponse = await uploadImage(file)
 
     form.value.imagen_url = data.url ?? null
@@ -639,10 +631,9 @@ async function subirImagen(): Promise<boolean> {
     form.value.imagen_hash = data.hash ?? null
     form.value.imagen_origen_id = data.id ?? null
 
-    console.log('✅ Imagen subida exitosamente:', form.value.imagen_url)
     return true
   } catch (error) {
-    console.error('❌ Error subiendo imagen:', error)
+    console.error('Error subiendo imagen:', error)
     snackbar.value = {
       show: true,
       color: 'error',
@@ -652,7 +643,7 @@ async function subirImagen(): Promise<boolean> {
   } finally {
     uploading.value = false
   }
-}
+}  // 👈 ¡Esta llave faltaba!
 
 /* ===== Confirmar creación ===== */
 async function confirmCreate() {

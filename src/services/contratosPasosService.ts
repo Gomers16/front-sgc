@@ -188,6 +188,19 @@ export function eliminarPasoContrato(contratoId: number, pasoId: number) {
   })
 }
 
+/**
+ * 🆕 Helper para eliminar solo el archivo de un paso (sin borrar el paso completo)
+ * Usa actualizarPasoContrato con el flag 'clearArchivo'
+ */
+export async function eliminarArchivoPasoContrato(
+  contratoId: number,
+  pasoId: number
+): Promise<ContratoPaso> {
+  const fd = new FormData()
+  fd.append('clearArchivo', 'true')
+  return actualizarPasoContrato(contratoId, pasoId, fd)
+}
+
 /* ===== Helper para construir FormData desde un objeto plano ===== */
 export function buildPasoFormData(input: {
   fase?: 'inicio' | 'desarrollo' | 'fin'

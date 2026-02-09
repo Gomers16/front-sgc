@@ -18,6 +18,20 @@
           <v-card-text>
             <div class="text-h6 mb-1">{{ convenio?.nombre }}</div>
             <div class="text-body-2 text-medium-emphasis mb-3">{{ convenio?.codigo || '—' }}</div>
+
+            <!-- 👇 NUEVO: Mostrar establecimiento -->
+            <div class="text-body-2 mb-3" v-if="convenio?.establecimiento">
+              <strong>Establecimiento:</strong> {{ convenio.establecimiento }}
+            </div>
+
+            <!-- Mostrar método de pago -->
+            <div class="text-body-2 mb-2">
+              <strong>Método de pago:</strong> {{ convenio?.metodoPago || 'No especificado' }}
+            </div>
+            <div class="text-body-2 mb-3" v-if="convenio?.metodoPago && convenio?.metodoPago !== 'EFECTIVO'">
+              <strong>Número:</strong> {{ convenio?.numeroMetodoPago || '—' }}
+            </div>
+
             <div class="text-body-2">
               <strong>Vigencia:</strong>
               {{ formatDate(convenio?.vigencia_desde) }} – {{ formatDate(convenio?.vigencia_hasta) }}

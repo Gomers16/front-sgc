@@ -1207,10 +1207,23 @@ const comisionesPorDateo = computed(() => {
 function getComisionPorRolParaDateo(dateoId: number): number {
   const arr = comisionesPorDateo.value.get(Number(dateoId)) || []
 
+  console.log('🔍 getComisionPorRolParaDateo - Dateo ID:', dateoId)
+  console.log('   - Comisiones encontradas:', arr.length)
+  console.log('   - esAsesorConvenio:', esAsesorConvenio.value)
+  console.log('   - asesorId actual:', asesorId.value)
+  console.log('   - convenioDelAsesor:', convenioDelAsesor.value)
+
   if (esAsesorConvenio.value) {
-    return arr.reduce((sum, c) => {
+    return arr.reduce((sum, c, index) => {
       const montoAsesor = Number(c.valor_unitario || 0)
       const montoConvenio = Number(c.valor_cliente || 0)
+
+      console.log(`   📊 Comisión #${index + 1}:`)
+      console.log('      - ID comisión:', c.id)
+      console.log('      - montoAsesor (dateo):', montoAsesor)
+      console.log('      - montoConvenio (placa):', montoConvenio)
+      console.log('      - c.asesor:', c.asesor)
+      console.log('      - c.convenio:', c.convenio)
 
       const esConvenioDelAsesor =
         c.convenio &&
@@ -1219,24 +1232,31 @@ function getComisionPorRolParaDateo(dateoId: number): number {
 
       const esAsesorQueDateo = c.asesor?.id === asesorId.value
 
+      console.log('      - esConvenioDelAsesor:', esConvenioDelAsesor)
+      console.log('      - esAsesorQueDateo:', esAsesorQueDateo)
+
       let total = 0
 
       if (esConvenioDelAsesor) {
         total += montoConvenio
+        console.log('      ✅ Suma montoConvenio:', montoConvenio)
       }
 
       if (esAsesorQueDateo) {
         total += montoAsesor
+        console.log('      ✅ Suma montoAsesor:', montoAsesor)
       }
+
+      console.log('      💰 Total parcial:', total)
 
       return sum + total
     }, 0)
   }
 
+  // Resto del código sin cambios...
   return arr.reduce((sum, c) => {
     const montoAsesor = Number(c.valor_unitario || 0)
     const montoConvenio = Number(c.valor_cliente || 0)
-
     const hayConvenio = !!c.convenio
 
     if (hayConvenio) {

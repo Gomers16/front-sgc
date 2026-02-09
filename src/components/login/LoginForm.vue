@@ -10,6 +10,7 @@ Formulario de inicio de sesión completamente responsive
    - Glassmorphism effect
    - Validación en tiempo real
    - Feedback visual (success/error/info)
+   - ✅ CORREGIDO: Manejo correcto de errores de login
 
 💡 Ubicación: src/components/login/LoginForm.vue
 -->
@@ -89,9 +90,9 @@ Formulario de inicio de sesión completamente responsive
 
 <script setup lang="ts">
 import { ref } from 'vue'
-import { authSetStore } from '@/stores/AuthStore.ts'
+import { useAuthStore } from '@/stores/AuthStore'
 
-const authStore = authSetStore()
+const authStore = useAuthStore()
 
 // Estado del formulario
 const email = ref('')
@@ -114,7 +115,7 @@ const clearMessage = () => {
   message.value = null
 }
 
-// Handler del login
+// ✅ CORREGIDO: Handler del login con manejo correcto de errores
 const handlerLogin = async () => {
   clearMessage()
 
@@ -134,26 +135,28 @@ const handlerLogin = async () => {
   isLoading.value = true
 
   try {
+    // ✅ El AuthStore ahora lanza errores en lugar de retornar false
     await authStore.login({
       email: email.value.trim(),
       password: password.value,
     })
 
+    // ✅ Si llega aquí, el login fue exitoso
     showMessage('Inicio de sesión exitoso', 'success')
-    // Aquí puedes redirigir: router.push('/dashboard')
- } catch (error: unknown) {
-  let errorMsg = 'Credenciales incorrectas o error de conexión'
+    // La redirección ya la maneja checkAuth() en el store
+  } catch (error: unknown) {
+    // ✅ Manejo mejorado de errores
+    let errorMsg = 'Usuario o contraseña incorrectos'
 
-  if (error instanceof Error) {
-    const err = error as { response?: { data?: { message?: string } } }
-    errorMsg = err.response?.data?.message || error.message || errorMsg
+    if (error instanceof Error) {
+      errorMsg = error.message
+    }
+
+    showMessage(errorMsg, 'error')
+    console.error('Login error:', error)
+  } finally {
+    isLoading.value = false
   }
-
-  showMessage(errorMsg, 'error')
-  console.error('Login error:', error)
-} finally {
-  isLoading.value = false
-}
 }
 </script>
 

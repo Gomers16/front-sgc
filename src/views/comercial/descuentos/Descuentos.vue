@@ -1,5 +1,5 @@
 <!-- src/views/comercial/descuentos/Descuentos.vue -->
-<template>
+ <template>
   <v-container fluid>
     <v-card>
       <v-card-title class="d-flex align-center justify-space-between">
@@ -198,8 +198,19 @@
 </template>
 
 <script setup lang="ts">
+ 
 import { ref, computed, onMounted } from 'vue'
+import type { VForm } from 'vuetify/components'
 import descuentosService, { type Descuento } from '@/services/descuentosService'
+
+// Tipos auxiliares
+type ValidationRule = (v: string | number | null) => boolean | string
+
+interface RulesObject {
+  required: ValidationRule
+  maxLength: (max: number) => ValidationRule
+  minValue: (min: number) => ValidationRule
+}
 
 // Estados
 const cargando = ref(false)
@@ -214,7 +225,7 @@ const descuentos = ref<Descuento[]>([])
 const esEdicion = ref(false)
 
 // Formulario
-const formulario = ref()
+const formulario = ref<VForm | null>(null)
 const descuentoForm = ref<Descuento>({
   codigo: '',
   nombre: '',
@@ -233,7 +244,7 @@ const snackbar = ref({
   color: 'success',
 })
 
-// Headers de la tabla - ⚠️ CORREGIDO: align debe ser tipado correctamente
+// Headers de la tabla
 const headers = [
   { title: 'Código', key: 'codigo', sortable: true },
   { title: 'Nombre', key: 'nombre', sortable: true },
@@ -252,10 +263,12 @@ const estadoItems = [
 ]
 
 // Reglas de validación
-const rules = {
-  required: (v: any) => !!v || 'Este campo es requerido',
-  maxLength: (max: number) => (v: string) => !v || v.length <= max || `Máximo ${max} caracteres`,
-  minValue: (min: number) => (v: number) => v >= min || `El valor mínimo es ${min}`,
+const rules: RulesObject = {
+  required: (v: string | number | null) => !!v || 'Este campo es requerido',
+  maxLength: (max: number) => (v: string | number | null) => 
+    !v || String(v).length <= max || `Máximo ${max} caracteres`,
+  minValue: (min: number) => (v: string | number | null) => 
+    Number(v) >= min || `El valor mínimo es ${min}`,
 }
 
 // Computed
@@ -274,8 +287,9 @@ const cargarDescuentos = async () => {
     if (response.success && Array.isArray(response.data)) {
       descuentos.value = response.data
     }
-  } catch (error: any) {
-    mostrarSnackbar(error.message || 'Error al cargar descuentos', 'error')
+  } catch (error) {
+    const mensaje = error instanceof Error ? error.message : 'Error al cargar descuentos'
+    mostrarSnackbar(mensaje, 'error')
   } finally {
     cargando.value = false
   }
@@ -306,8 +320,8 @@ const cerrarDialog = () => {
 }
 
 const guardar = async () => {
-  const { valid } = await formulario.value.validate()
-  if (!valid) return
+  const validationResult = await formulario.value?.validate()
+  if (!validationResult?.valid) return
 
   try {
     guardando.value = true
@@ -324,8 +338,9 @@ const guardar = async () => {
       cerrarDialog()
       await cargarDescuentos()
     }
-  } catch (error: any) {
-    mostrarSnackbar(error.message || 'Error al guardar el descuento', 'error')
+  } catch (error) {
+    const mensaje = error instanceof Error ? error.message : 'Error al guardar el descuento'
+    mostrarSnackbar(mensaje, 'error')
   } finally {
     guardando.value = false
   }
@@ -348,8 +363,9 @@ const eliminar = async () => {
       dialogEliminar.value = false
       await cargarDescuentos()
     }
-  } catch (error: any) {
-    mostrarSnackbar(error.message || 'Error al eliminar el descuento', 'error')
+  } catch (error) {
+    const mensaje = error instanceof Error ? error.message : 'Error al eliminar el descuento'
+    mostrarSnackbar(mensaje, 'error')
   } finally {
     eliminando.value = false
   }

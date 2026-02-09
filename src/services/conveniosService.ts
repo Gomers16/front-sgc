@@ -1,4 +1,4 @@
-import { get, post } from '@/services/http'
+import { get, post, patch } from '@/services/http'
 
 const API = '/api'
 
@@ -7,10 +7,23 @@ export interface Convenio {
   id: number
   nombre: string
   codigo?: string | null
-  tipo?: string | null
+  tipo?: 'PERSONA' | 'TALLER' | 'PARQUEADERO' | 'LAVADERO' | null
   activo?: boolean | 0 | 1
+  establecimiento?: string | null
+  docTipo?: string | null
+  docNumero?: string | null
+  telefono?: string | null
+  whatsapp?: string | null
+  email?: string | null
+  ciudadId?: number | null
+  direccion?: string | null
+  notas?: string | null
+  metodoPago?: 'EFECTIVO' | 'TRANSFERENCIA' | 'TARJETA' | 'CHEQUE' | null
+  numeroMetodoPago?: string | null
+  asesorConvenioId?: number | null
   vigencia_desde?: string | null
   vigencia_hasta?: string | null
+  fechaApertura?: string | null
   agente_captacion_id?: number | null
   created_at?: string
   updated_at?: string
@@ -35,7 +48,7 @@ export interface ListParams {
 export interface AgenteLight {
   id: number
   nombre: string
-  tipo: 'INTERNO' | 'EXTERNO' | 'ASESOR_INTERNO' | 'ASESOR_EXTERNO' | 'TELEMERCADEO' | string
+  tipo: 'ASESOR_COMERCIAL' | 'ASESOR_CONVENIO' | 'ASESOR_TELEMERCADEO' | string
 }
 
 export interface AsesorActivoResp {
@@ -47,7 +60,6 @@ export interface AsesorActivoResp {
   asignacion_id?: number | null
 }
 
-/* Convenio simple (id, nombre) */
 export interface ConvenioSimple {
   id: number
   nombre: string
@@ -84,6 +96,25 @@ export interface CrearDateoPayload {
   detectado_por_convenio: number
 }
 
+export interface UpdateConvenioPayload {
+  nombre?: string
+  tipo?: 'PERSONA' | 'TALLER' | 'PARQUEADERO' | 'LAVADERO'
+  codigo?: string | null
+  establecimiento?: string | null
+  doc_tipo?: string | null
+  doc_numero?: string | null
+  telefono?: string | null
+  whatsapp?: string | null
+  email?: string | null
+  ciudad_id?: number | null
+  direccion?: string | null
+  notas?: string | null
+  metodo_pago?: 'EFECTIVO' | 'TRANSFERENCIA' | 'TARJETA' | 'CHEQUE' | null
+  numero_metodo_pago?: string | null
+  fecha_apertura?: string | null
+  activo?: boolean
+}
+
 /* ===== Helpers ===== */
 function normalizeListShape<T = unknown>(r: unknown, fallback: ListParams): ListResponse<T> {
   const rObj = r as Record<string, unknown>
@@ -101,6 +132,7 @@ export function formatDate(d?: string | Date | null) {
   const dt = typeof d === 'string' ? new Date(d) : d
   return isNaN(dt.getTime()) ? String(d ?? '') : dt.toLocaleDateString()
 }
+
 export function formatDateTime(d?: string | Date | null) {
   if (!d) return '—'
   const dt = typeof d === 'string' ? new Date(d) : d
@@ -116,7 +148,7 @@ export async function listConvenios(params: ListParams = {}) {
         ? 'true'
         : 'false'
 
-  const vigenteParam = params.activo === undefined ? undefined : params.activo ? 'true' : 'false';
+  const vigenteParam = params.activo === undefined ? undefined : params.activo ? 'true' : 'false'
 
   const r = await get<unknown>(`${API}/convenios`, {
     params: {
@@ -136,18 +168,25 @@ export async function getConvenio(id: number) {
   return get<Convenio>(`${API}/convenios/${id}`)
 }
 
-/* ===== Catálogo de Agentes (opc. para UI) ===== */
+export async function updateConvenio(id: number, payload: UpdateConvenioPayload) {
+  return patch<Convenio, UpdateConvenioPayload>(`${API}/convenios/${id}`, payload)
+}
+
+/* ===== Catálogo de Agentes ===== */
 export async function listAgentesCaptacion(tipo?: string) {
   try {
-    const r = await get<{ data?: AgenteLight[] } | AgenteLight[]>(`${API}/agentes-captacion`, {
+    const r = await get<{ data?: AgenteLight[] } | AgenteLight[]>(`${API}/agentes-captacion/light`, {
       params: {
-        activo: 1,
-        perPage: 200,
-        tipo: tipo || undefined  // ✅ NUEVO: Filtrar por tipo
+        activos: 1,
+        select: 'id,nombre,tipo',
+        tipo: tipo || undefined
       },
     })
-    return Array.isArray(r) ? r : (r?.data ?? [])
-  } catch {
+
+    const agentes = Array.isArray(r) ? r : (r?.data ?? [])
+    return agentes
+  } catch (error) {
+    console.error('Error cargando agentes:', error)
     return []
   }
 }

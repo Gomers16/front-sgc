@@ -184,6 +184,12 @@ watch(
    CONFIRMAR PASO
 ---------------------------- */
 const confirmarPaso = () => {
+  console.log('✅ Confirmando paso con datos:', {
+    observacion: localForm.observacion?.slice(0, 50),
+    tieneArchivo: !!localForm.archivo,
+    nombreArchivo: localForm.archivo?.name
+  })
+
   emit('completarPasoConfirmado', {
     observacion: localForm.observacion,
     archivo: localForm.archivo
