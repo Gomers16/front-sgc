@@ -69,6 +69,59 @@
         </v-card>
       </v-col>
 
+      <!-- 🆕 INFORMACIÓN DE RECURRENCIA -->
+      <v-col cols="12" v-if="comision?.turno">
+        <v-card class="rounded-lg" elevation="4">
+          <v-card-title class="d-flex align-center gap-2">
+            <v-icon :color="comision.turno.es_recurrente ? 'warning' : 'success'">
+              {{ comision.turno.es_recurrente ? 'mdi-account-clock' : 'mdi-account-star' }}
+            </v-icon>
+            <span class="text-subtitle-1 font-weight-bold">
+              {{ comision.turno.es_recurrente ? 'Cliente RECURRENTE' : 'Cliente NUEVO' }}
+            </span>
+          </v-card-title>
+          <v-divider />
+          <v-card-text>
+            <v-row v-if="comision.turno.es_recurrente">
+              <v-col cols="12" md="4">
+                <div class="text-body-2">
+                  <strong>Última visita:</strong>
+                  {{ fmt(comision.turno.fecha_ultima_visita) }}
+                </div>
+              </v-col>
+              <v-col cols="12" md="4">
+                <div class="text-body-2">
+                  <strong>Meses desde última visita:</strong>
+                  {{ comision.turno.meses_desde_ultima_visita || '—' }} meses
+                </div>
+              </v-col>
+              <v-col cols="12" md="4">
+                <div class="text-body-2">
+                  <strong>Turno anterior:</strong>
+                  #{{ comision.turno.ultimo_turno_id || '—' }}
+                </div>
+              </v-col>
+              <v-col cols="12">
+                <v-alert type="info" variant="tonal" density="compact">
+                  <strong>💡 Comisión recurrencia aplicada:</strong>
+                  Por ser cliente recurrente (más de {{ comision.turno.meses_desde_ultima_visita }} meses desde última visita),
+                  se aplicó el valor de dateo recurrencia de <strong>$4,300</strong> en lugar del valor normal.
+                </v-alert>
+              </v-col>
+            </v-row>
+            <v-row v-else>
+              <v-col cols="12">
+                <v-alert type="success" variant="tonal" density="compact">
+                  <strong>✨ Cliente nuevo:</strong>
+                  Es la primera visita de este cliente o no han pasado suficientes meses desde la última visita.
+                  Se aplica la comisión estándar de dateo.
+                </v-alert>
+              </v-col>
+            </v-row>
+          </v-card-text>
+        </v-card>
+      </v-col>
+
       <!-- Valores -->
       <v-col cols="12">
         <v-card class="rounded-lg" elevation="4">
@@ -94,7 +147,7 @@
                 <v-text-field
                   v-model.number="form.valor_unitario"
                   type="number"
-                  label="Valor unitario"
+                  label="Valor unitario (dateo)"
                   variant="outlined"
                   density="comfortable"
                   :readonly="!editable"
@@ -181,7 +234,7 @@ function estadoColor(e?: ComisionEstado) {
   }
 }
 
-function fmt(d?: string) {
+function fmt(d?: string | null) {
   if (!d) return '—'
   try { return new Date(d).toLocaleString() } catch { return d }
 }

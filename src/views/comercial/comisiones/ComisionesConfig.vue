@@ -8,16 +8,16 @@
       </v-card-title>
 
       <v-card-subtitle class="px-6">
-        Define los valores estándar de comisión por <strong>placa</strong> y por
+        Define los valores estándar de comisión por <strong>incentivo</strong> y por
         <strong>dateo</strong>, según el tipo de vehículo y opcionalmente por
         <strong>asesor o convenio</strong>. También puedes configurar las
-        <strong>metas mensuales de RTM</strong> (en cantidad) y los valores
-        unitarios de RTM (en dinero).
+        <strong>metas mensuales de RTM</strong> y las
+        <strong>reglas de recurrencia</strong> para clientes que regresan.
       </v-card-subtitle>
 
       <v-divider class="my-3" />
 
-      <!-- Toggle secciones -->
+      <!-- Toggle secciones (3 pestañas) -->
       <v-card-text class="pt-0 pb-0">
         <v-row class="mb-2">
           <v-col cols="12">
@@ -32,6 +32,9 @@
               </v-btn>
               <v-btn value="METAS" size="small">
                 Metas mensuales
+              </v-btn>
+              <v-btn value="RECURRENCIA" size="small">
+                🔄 Recurrencia
               </v-btn>
             </v-btn-toggle>
           </v-col>
@@ -112,7 +115,7 @@
           <v-col cols="12" md="4">
             <v-text-field
               v-model="form.valorPlaca"
-              label="Comisión por placa"
+              label="Comisión por incentivo"
               type="number"
               min="0"
               density="comfortable"
@@ -260,7 +263,7 @@
 
       <!-- ===================== SECCIÓN METAS MENSUALES ===================== -->
       <v-card-text
-        v-else
+        v-else-if="activeSection === 'METAS'"
         class="pt-4"
       >
         <!-- Form metas -->
@@ -442,6 +445,215 @@
           </template>
         </v-data-table>
       </v-card-text>
+
+      <!-- ===================== SECCIÓN RECURRENCIA (NUEVO) ===================== -->
+      <v-card-text v-else-if="activeSection === 'RECURRENCIA'" class="pt-4">
+        <!-- Configuración global -->
+        <div class="mb-4">
+          <div class="text-subtitle-1 font-weight-medium mb-3">
+            🌐 Configuración global de recurrencia
+          </div>
+          <v-row dense>
+            <v-col cols="12" md="4">
+              <v-text-field
+                v-model="recurrenciaGlobal.meses_minimos"
+                label="Meses mínimos desde última visita"
+                type="number"
+                min="1"
+                density="comfortable"
+                variant="outlined"
+                hide-details="auto"
+                suffix="meses"
+              />
+            </v-col>
+            <v-col cols="12" md="4">
+              <v-text-field
+                v-model="recurrenciaGlobal.valor_dateo_recurrencia"
+                label="Valor dateo recurrencia"
+                type="number"
+                min="0"
+                density="comfortable"
+                variant="outlined"
+                hide-details="auto"
+                prefix="$"
+              />
+            </v-col>
+            <v-col cols="12" md="4" class="d-flex align-end">
+              <v-btn
+                color="primary"
+                :loading="savingRecurrencia"
+                @click="guardarRecurrenciaGlobal"
+                block
+              >
+                Guardar configuración global
+              </v-btn>
+            </v-col>
+          </v-row>
+          <v-alert type="info" variant="tonal" class="mt-3">
+            <strong>Nota:</strong> Si un cliente regresa después de
+            <strong>{{ recurrenciaGlobal.meses_minimos }} meses</strong>, el dateo cobrará
+            <strong>{{ formatCOP(recurrenciaGlobal.valor_dateo_recurrencia) }}</strong>
+            en lugar del valor normal.
+          </v-alert>
+        </div>
+
+        <v-divider class="my-5" />
+
+        <!-- Configuración por asesor -->
+        <div>
+          <div class="text-subtitle-1 font-weight-medium mb-3">
+            👤 Configuración por asesor
+          </div>
+
+          <!-- Form -->
+<v-row dense class="mb-3">
+  <v-col cols="12" md="2">
+    <v-select
+      v-model="tipoAsesorRecurrencia"
+      :items="tipoAsesorItems"
+      item-title="label"
+      item-value="value"
+      label="Tipo de asesor"
+      density="comfortable"
+      variant="outlined"
+      hide-details
+    />
+  </v-col>
+  <v-col cols="12" md="3">
+    <v-autocomplete
+      v-model="recurrenciaForm.asesorId"
+      :items="asesoresFiltradosRecurrencia"
+                item-title="nombre"
+                item-value="id"
+                label="Asesor"
+                density="comfortable"
+                variant="outlined"
+                :loading="asesoresLoading"
+                hide-details
+                clearable
+              />
+            </v-col>
+            <v-col cols="12" md="2">
+              <v-switch
+                v-model="recurrenciaForm.habilitada"
+                label="Habilitada"
+                color="primary"
+                density="comfortable"
+                hide-details
+              />
+            </v-col>
+            <v-col cols="12" md="2">
+              <v-text-field
+                v-model="recurrenciaForm.mesesMinimos"
+                label="Meses mínimos (opcional)"
+                type="number"
+                min="1"
+                density="comfortable"
+                variant="outlined"
+                hide-details
+                clearable
+              />
+            </v-col>
+            <v-col cols="12" md="2">
+              <v-text-field
+                v-model="recurrenciaForm.valorDateo"
+                label="Valor dateo (opcional)"
+                type="number"
+                min="0"
+                density="comfortable"
+                variant="outlined"
+                hide-details
+                prefix="$"
+                clearable
+              />
+            </v-col>
+            <v-col cols="12" md="2">
+              <v-select
+                v-model="recurrenciaForm.tipoVehiculo"
+                :items="recurrenciaTipoVehiculoItems"
+                item-title="label"
+                item-value="value"
+                label="Tipo vehículo"
+                density="comfortable"
+                variant="outlined"
+                hide-details
+              />
+            </v-col>
+            <v-col cols="12" md="1" class="d-flex align-center">
+              <v-btn
+                color="primary"
+                :loading="savingRecurrencia"
+                :disabled="!recurrenciaForm.asesorId"
+                @click="guardarRecurrenciaAsesor"
+                icon="mdi-content-save"
+              />
+            </v-col>
+          </v-row>
+
+          <!-- Tabla -->
+          <v-data-table
+            :headers="recurrenciaHeaders"
+            :items="recurrenciasAsesores"
+            :loading="loadingRecurrencia"
+            item-key="id"
+            density="comfortable"
+          >
+            <template #item.asesor="{ item }">
+              {{ item.asesor_nombre || `#${item.asesor_id}` }}
+            </template>
+
+            <template #item.habilitada="{ item }">
+              <v-chip
+                size="small"
+                :color="item.recurrencia_habilitada ? 'success' : 'error'"
+                variant="flat"
+              >
+                {{ item.recurrencia_habilitada ? 'Sí' : 'No' }}
+              </v-chip>
+            </template>
+
+            <template #item.meses_minimos="{ item }">
+              <span v-if="item.meses_minimos">{{ item.meses_minimos }} meses</span>
+              <span v-else class="text-medium-emphasis">Global ({{ recurrenciaGlobal.meses_minimos }})</span>
+            </template>
+
+            <template #item.valor_dateo="{ item }">
+              <span v-if="item.valor_dateo_recurrencia">{{ formatCOP(item.valor_dateo_recurrencia) }}</span>
+              <span v-else class="text-medium-emphasis">Global ({{ formatCOP(recurrenciaGlobal.valor_dateo_recurrencia) }})</span>
+            </template>
+
+            <template #item.tipo_vehiculo="{ item }">
+              <span v-if="item.tipo_vehiculo === 'MOTO'">Solo motos</span>
+              <span v-else-if="item.tipo_vehiculo === 'VEHICULO'">Solo vehículos</span>
+              <span v-else>Ambos</span>
+            </template>
+
+            <template #item.acciones="{ item }">
+              <div class="d-flex gap-1">
+                <v-btn
+                  size="small"
+                  variant="text"
+                  icon="mdi-pencil"
+                  @click="editarRecurrenciaAsesor(item)"
+                />
+                <v-btn
+                  size="small"
+                  variant="text"
+                  color="error"
+                  icon="mdi-delete"
+                  @click="confirmarEliminarRecurrencia(item)"
+                />
+              </div>
+            </template>
+
+            <template #no-data>
+              <div class="text-center py-6 text-medium-emphasis">
+                No hay configuraciones de recurrencia por asesor.
+              </div>
+            </template>
+          </v-data-table>
+        </div>
+      </v-card-text>
     </v-card>
 
     <!-- Diálogo eliminar regla comisión -->
@@ -462,7 +674,7 @@
               {{ tipoVehiculoLabel(deleteDialog.item.tipo_vehiculo) }}
             </div>
             <div>
-              <strong>Placa:</strong>
+              <strong>Incentivo:</strong>
               {{ formatCOP(deleteDialog.item.valor_placa) }}
             </div>
             <div>
@@ -539,11 +751,45 @@
         </v-card-actions>
       </v-card>
     </v-dialog>
+
+    <!-- Diálogo eliminar recurrencia -->
+    <v-dialog v-model="recurrenciaDeleteDialog.visible" max-width="420">
+      <v-card>
+        <v-card-title class="text-h6">
+          Eliminar configuración de recurrencia
+        </v-card-title>
+        <v-card-text>
+          ¿Seguro que deseas eliminar esta configuración?
+          <div v-if="recurrenciaDeleteDialog.item" class="mt-3 text-body-2">
+            <div>
+              <strong>Asesor:</strong>
+              {{ recurrenciaDeleteDialog.item.asesor_nombre || `#${recurrenciaDeleteDialog.item.asesor_id}` }}
+            </div>
+            <div>
+              <strong>Habilitada:</strong>
+              {{ recurrenciaDeleteDialog.item.recurrencia_habilitada ? 'Sí' : 'No' }}
+            </div>
+          </div>
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn variant="text" @click="recurrenciaDeleteDialog.visible = false">
+            Cancelar
+          </v-btn>
+          <v-btn
+            color="error"
+            :loading="deleting"
+            @click="doDeleteRecurrencia"
+          >
+            Eliminar
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
   </v-container>
 </template>
-
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import {
   listConfigsComision,
   upsertConfigComision,
@@ -555,14 +801,21 @@ import {
   upsertMetaMensual,
   updateMetaMensual,
   deleteMetaMensual,
+  getConfigRecurrenciaGlobal,
+  updateConfigRecurrenciaGlobal,
+  listConfigRecurrenciaAsesores,
+  upsertConfigRecurrenciaAsesor,
+  deleteConfigRecurrenciaAsesor,
   type ComisionConfig,
   type ComisionConfigPayload,
   type TipoVehiculoComision,
   type AgenteLight,
+  type ConfigRecurrenciaGlobal,
+  type ConfigRecurrenciaAsesor,
 } from '@/services/comisionesService'
 
 type Scope = 'GLOBAL' | 'ASESOR'
-type Section = 'REGLAS' | 'METAS'
+type Section = 'REGLAS' | 'METAS' | 'RECURRENCIA'
 
 /** Metas mensuales (por asesor, opción global o por tipo de vehículo) */
 type MetaMensualConfig = {
@@ -603,6 +856,15 @@ const asesoresLoading = ref(false)
 const metas = ref<MetaMensualConfig[]>([])
 const metasLoading = ref(false)
 
+/* Recurrencias */
+const recurrenciaGlobal = ref<ConfigRecurrenciaGlobal>({
+  meses_minimos: 24,
+  valor_dateo_recurrencia: 4300,
+})
+const recurrenciasAsesores = ref<ConfigRecurrenciaAsesor[]>([])
+const loadingRecurrencia = ref(false)
+const savingRecurrencia = ref(false)
+
 /* ===== Formulario reglas ===== */
 const scope = ref<Scope>('GLOBAL')
 
@@ -638,7 +900,7 @@ const headers = [
   { title: 'Alcance', key: 'alcance', sortable: false },
   { title: 'Asesor / Convenio', key: 'asesor', sortable: false },
   { title: 'Tipo vehículo', key: 'tipo_vehiculo', sortable: false },
-  { title: 'Comisión placa', key: 'valor_placa', sortable: true },
+  { title: 'Comisión incentivo', key: 'valor_placa', sortable: true },
   { title: 'Comisión dateo', key: 'valor_dateo', sortable: true },
   { title: 'Actualizado', key: 'fecha_calculo', sortable: true },
   { title: 'Acciones', key: 'acciones', sortable: false, align: 'end' as const },
@@ -661,6 +923,42 @@ const metaTipoVehiculoItems = [
   { label: 'Solo motos', value: 'MOTO' as TipoVehiculoComision },
   { label: 'Solo vehículos', value: 'VEHICULO' as TipoVehiculoComision },
 ]
+
+/* Tabla recurrencias */
+const recurrenciaHeaders = [
+  { title: 'Asesor', key: 'asesor', sortable: false },
+  { title: 'Habilitada', key: 'habilitada', sortable: false },
+  { title: 'Meses mínimos', key: 'meses_minimos', sortable: false },
+  { title: 'Valor dateo', key: 'valor_dateo', sortable: false },
+  { title: 'Tipo vehículo', key: 'tipo_vehiculo', sortable: false },
+  { title: 'Acciones', key: 'acciones', sortable: false, align: 'end' as const },
+]
+
+const recurrenciaTipoVehiculoItems = [
+  { label: 'Ambos', value: 'AMBOS' },
+  { label: 'Solo motos', value: 'MOTO' },
+  { label: 'Solo vehículos', value: 'VEHICULO' },
+]
+
+/** filtro de tipo de asesor para recurrencias */
+const tipoAsesorRecurrencia = ref<'' | 'COMERCIAL' | 'CONVENIO'>('')
+
+/* Formulario recurrencia asesor */
+const recurrenciaForm = ref<{
+  id: number | null
+  asesorId: number | null
+  habilitada: boolean
+  mesesMinimos: string
+  valorDateo: string
+  tipoVehiculo: 'MOTO' | 'VEHICULO' | 'AMBOS'
+}>({
+  id: null,
+  asesorId: null,
+  habilitada: true,
+  mesesMinimos: '',
+  valorDateo: '',
+  tipoVehiculo: 'AMBOS',
+})
 
 /* ===== Helpers ===== */
 
@@ -696,10 +994,8 @@ const asesoresFiltrados = computed(() => {
   return asesores.value.filter((a) => {
     const t = normalizeTipo(a.tipo)
     if (target === 'CONVENIO') {
-      // cualquier tipo que contenga "CONVENIO"
       return t.includes('CONVENIO')
     }
-    // COMERCIAL: todo lo que NO sea convenio
     if (!t) return true
     return !t.includes('CONVENIO')
   })
@@ -709,12 +1005,24 @@ const asesoresFiltrados = computed(() => {
 const asesoresComerciales = computed(() =>
   asesores.value.filter((a) => {
     const t = normalizeTipo(a.tipo)
-    // comercial = todo lo que NO sea convenio
     if (!t) return true
     return !t.includes('CONVENIO')
   }),
 )
+/** Asesores filtrados por tipo para RECURRENCIAS */
+const asesoresFiltradosRecurrencia = computed(() => {
+  if (!tipoAsesorRecurrencia.value) return asesores.value
 
+  const target = tipoAsesorRecurrencia.value
+  return asesores.value.filter((a) => {
+    const t = normalizeTipo(a.tipo)
+    if (target === 'CONVENIO') {
+      return t.includes('CONVENIO')
+    }
+    if (!t) return true
+    return !t.includes('CONVENIO')
+  })
+})
 function findAsesorNombre(id: number | null | undefined) {
   if (!id) return ''
   const a = asesores.value.find((x) => x.id === id)
@@ -803,11 +1111,28 @@ async function loadAsesores() {
 async function loadMetas() {
   metasLoading.value = true
   try {
-    // En la vista de CONFIG no mandamos mes/asesor → backend usa /comisiones/metas (config)
     const rows = await listMetasMensuales()
     metas.value = rows as MetaMensualConfig[]
   } finally {
     metasLoading.value = false
+  }
+}
+
+async function loadRecurrenciaGlobal() {
+  try {
+    const data = await getConfigRecurrenciaGlobal()
+    recurrenciaGlobal.value = data
+  } catch (err) {
+    console.error('Error cargando config recurrencia global:', err)
+  }
+}
+
+async function loadRecurrenciasAsesores() {
+  loadingRecurrencia.value = true
+  try {
+    recurrenciasAsesores.value = await listConfigRecurrenciaAsesores()
+  } finally {
+    loadingRecurrencia.value = false
   }
 }
 
@@ -834,7 +1159,6 @@ function editConfig(cfg: ComisionConfig) {
   scope.value = cfg.asesor_id ? 'ASESOR' : 'GLOBAL'
 
   if (cfg.asesor_id) {
-    // al editar, intentamos adivinar tipo para que el filtro coincida
     const a = asesores.value.find((x) => x.id === cfg.asesor_id)
     const t = normalizeTipo(a?.tipo)
     if (t.includes('CONVENIO')) tipoAsesor.value = 'CONVENIO'
@@ -979,11 +1303,108 @@ async function doDeleteMeta() {
   }
 }
 
+/* ===== CRUD Recurrencias ===== */
+
+async function guardarRecurrenciaGlobal() {
+  savingRecurrencia.value = true
+  try {
+    const data = await updateConfigRecurrenciaGlobal({
+      meses_minimos: Number(recurrenciaGlobal.value.meses_minimos || 24),
+      valor_dateo_recurrencia: Number(recurrenciaGlobal.value.valor_dateo_recurrencia || 4300),
+    })
+    recurrenciaGlobal.value = data
+  } finally {
+    savingRecurrencia.value = false
+  }
+}
+
+function resetRecurrenciaForm() {
+  recurrenciaForm.value = {
+    id: null,
+    asesorId: null,
+    habilitada: true,
+    mesesMinimos: '',
+    valorDateo: '',
+    tipoVehiculo: 'AMBOS',
+  }
+}
+
+function editarRecurrenciaAsesor(item: ConfigRecurrenciaAsesor) {
+  recurrenciaForm.value = {
+    id: item.id,
+    asesorId: item.asesor_id,
+    habilitada: item.recurrencia_habilitada,
+    mesesMinimos: item.meses_minimos ? String(item.meses_minimos) : '',
+    valorDateo: item.valor_dateo_recurrencia ? String(item.valor_dateo_recurrencia) : '',
+    tipoVehiculo: item.tipo_vehiculo,
+  }
+}
+
+async function guardarRecurrenciaAsesor() {
+  if (!recurrenciaForm.value.asesorId) return
+  savingRecurrencia.value = true
+  try {
+    await upsertConfigRecurrenciaAsesor({
+      asesor_id: recurrenciaForm.value.asesorId,
+      recurrencia_habilitada: recurrenciaForm.value.habilitada,
+      meses_minimos: recurrenciaForm.value.mesesMinimos
+        ? Number(recurrenciaForm.value.mesesMinimos)
+        : null,
+      valor_dateo_recurrencia: recurrenciaForm.value.valorDateo
+        ? Number(recurrenciaForm.value.valorDateo)
+        : null,
+      tipo_vehiculo: recurrenciaForm.value.tipoVehiculo,
+    })
+    await loadRecurrenciasAsesores()
+    resetRecurrenciaForm()
+  } finally {
+    savingRecurrencia.value = false
+  }
+}
+
+const recurrenciaDeleteDialog = ref<{ visible: boolean; item: ConfigRecurrenciaAsesor | null }>({
+  visible: false,
+  item: null,
+})
+
+function confirmarEliminarRecurrencia(item: ConfigRecurrenciaAsesor) {
+  recurrenciaDeleteDialog.value = {
+    visible: true,
+    item,
+  }
+}
+
+async function doDeleteRecurrencia() {
+  const item = recurrenciaDeleteDialog.value.item
+  if (!item) return
+  deleting.value = true
+  try {
+    await deleteConfigRecurrenciaAsesor(item.id)
+    await loadRecurrenciasAsesores()
+    recurrenciaDeleteDialog.value.visible = false
+    recurrenciaDeleteDialog.value.item = null
+  } finally {
+    deleting.value = false
+  }
+}
+
+/* Watch para cargar datos cuando cambias de pestaña */
+watch(activeSection, (val) => {
+  if (val === 'METAS' && metas.value.length === 0) {
+    loadMetas()
+  } else if (val === 'RECURRENCIA' && recurrenciasAsesores.value.length === 0) {
+    loadRecurrenciaGlobal()
+    loadRecurrenciasAsesores()
+  }
+})
+
 /* Init */
 onMounted(() => {
   loadConfigs()
   loadAsesores()
   loadMetas()
+  loadRecurrenciaGlobal()
+  loadRecurrenciasAsesores()
 })
 </script>
 

@@ -268,8 +268,8 @@
           </template>
 
           <template #item.porcentaje_comision_meta="{ item }">
-  {{ (item.porcentaje_comision_meta ?? 0) }}%
-</template>
+            {{ (item.porcentaje_comision_meta ?? 0) }}%
+          </template>
 
           <template #item.comision_estimada="{ item }">
             {{ formatCOP(calcComisionMeta(item)) }}
@@ -292,7 +292,7 @@
     </v-dialog>
 
     <!-- 🧾 Modal de detalle de comisión -->
-    <v-dialog v-model="detailDialog.visible" max-width="560">
+    <v-dialog v-model="detailDialog.visible" max-width="720" scrollable>
       <v-card v-if="detailDialog.item">
         <v-card-title class="text-h6 d-flex align-center justify-space-between">
           <span>Detalle comisión #{{ detailDialog.item.id }}</span>
@@ -300,7 +300,63 @@
             {{ detailDialog.item.estado }}
           </v-chip>
         </v-card-title>
-        <v-card-text>
+        <v-divider />
+
+        <v-card-text class="pt-4">
+          <!-- 🆕 SECCIÓN DE RECURRENCIA -->
+          <v-card
+            v-if="detailDialog.item.turno"
+            class="mb-4"
+            variant="tonal"
+            :color="detailDialog.item.turno.es_recurrente ? 'warning' : 'success'"
+          >
+            <v-card-title class="d-flex align-center gap-2 text-subtitle-1">
+              <v-icon>
+                {{ detailDialog.item.turno.es_recurrente ? 'mdi-account-clock' : 'mdi-account-star' }}
+              </v-icon>
+              {{ detailDialog.item.turno.es_recurrente ? 'Cliente RECURRENTE' : 'Cliente NUEVO' }}
+            </v-card-title>
+            <v-card-text>
+              <v-row dense v-if="detailDialog.item.turno.es_recurrente">
+                <v-col cols="12" md="4">
+                  <div class="text-body-2">
+                    <strong>Última visita:</strong><br />
+                    {{ formatDateTime(detailDialog.item.turno.fecha_ultima_visita) }}
+                  </div>
+                </v-col>
+                <v-col cols="12" md="4">
+                  <div class="text-body-2">
+                    <strong>Meses transcurridos:</strong><br />
+                    {{ detailDialog.item.turno.meses_desde_ultima_visita || '—' }} meses
+                  </div>
+                </v-col>
+                <v-col cols="12" md="4">
+                  <div class="text-body-2">
+                    <strong>Turno anterior:</strong><br />
+                    #{{ detailDialog.item.turno.ultimo_turno_id || '—' }}
+                  </div>
+                </v-col>
+                <v-col cols="12" class="mt-2">
+                  <v-divider />
+                  <div class="text-caption text-medium-emphasis mt-2">
+                    💡 <strong>Comisión recurrencia:</strong>
+                    Por ser cliente recurrente (más de {{ detailDialog.item.turno.meses_desde_ultima_visita }} meses),
+                    se aplicó el valor de dateo recurrencia de <strong>$4,300</strong>.
+                  </div>
+                </v-col>
+              </v-row>
+              <v-row dense v-else>
+                <v-col cols="12">
+                  <div class="text-caption">
+                    ✨ <strong>Cliente nuevo:</strong>
+                    Primera visita o no han pasado suficientes meses. Se aplica comisión estándar.
+                  </div>
+                </v-col>
+              </v-row>
+            </v-card-text>
+          </v-card>
+
+          <!-- INFORMACIÓN GENERAL -->
           <v-row dense>
             <v-col cols="12" md="6">
               <strong>Generado:</strong>
@@ -312,7 +368,7 @@
               <strong>Asesor:</strong>
               <div>{{ detailDialog.item.asesor?.nombre || '—' }}</div>
               <div class="text-caption text-medium-emphasis">
-                Comisión asesor:
+                Comisión asesor (dateo):
                 <strong>{{ formatCOP(detailDialog.item.valor_unitario) }}</strong>
               </div>
             </v-col>
@@ -325,7 +381,7 @@
                 v-if="detailDialog.item.valor_cliente && detailDialog.item.valor_cliente > 0"
                 class="text-caption text-medium-emphasis"
               >
-                Comisión convenio:
+                Comisión convenio (incentivo):
                 <strong>{{ formatCOP(detailDialog.item.valor_cliente) }}</strong>
               </div>
             </v-col>
@@ -379,7 +435,7 @@
               <div>{{ formatCOP(detailDialog.item.valor_unitario) }}</div>
             </v-col>
             <v-col cols="12" md="4">
-              <strong>Cliente / Convenio:</strong>
+              <strong>Incentivo (convenio):</strong>
               <div>{{ formatCOP(detailDialog.item.valor_cliente ?? 0) }}</div>
             </v-col>
 
@@ -395,6 +451,7 @@
             </v-col>
           </v-row>
         </v-card-text>
+
         <v-card-actions>
           <v-spacer />
           <v-btn variant="text" @click="detailDialog.visible = false">Cerrar</v-btn>
@@ -437,7 +494,7 @@ const headers = [
   { title: 'Asesor', key: 'asesor', sortable: false },
   { title: 'Convenio', key: 'convenio', sortable: false },
   { title: 'Valor unitario (dateo)', key: 'valor_unitario', sortable: true },
-  { title: 'Comisión Placa', key: 'valor_cliente', sortable: false },
+  { title: 'Comisión Incentivo', key: 'valor_cliente', sortable: false },
   { title: 'Valor total', key: 'valor_total', sortable: true },
   { title: 'Generado', key: 'generado_at', sortable: true },
   { title: 'Acciones', key: 'acciones', sortable: false, align: 'end' as const },
@@ -513,7 +570,7 @@ function estadoColor(e: ComisionEstado) {
 }
 
 /** Formato bonito de fecha/hora (12h, sin segundos) */
-function formatDateTime(value?: string) {
+function formatDateTime(value?: string | null) {
   if (!value) return '—'
   const d = new Date(value)
   if (Number.isNaN(d.getTime())) return value

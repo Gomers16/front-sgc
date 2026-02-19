@@ -77,6 +77,12 @@ export interface TurnoLight {
 
   numero_global?: number | string
   numero_servicio?: number | string
+
+  // 🆕 Campos de recurrencia
+  es_recurrente?: boolean
+  meses_desde_ultima_visita?: number | null
+  ultimo_turno_id?: number | null
+  fecha_ultima_visita?: string | null
 }
 
 export interface ComisionListItem {
@@ -232,6 +238,12 @@ function mapTurno(api: unknown): TurnoLight | null {
       t.numeroServicio ??
       t.turnoNumeroServicio ??
       t.turno_numero_servicio) as number | string | undefined,
+
+    // 🆕 Mapeo de campos de recurrencia
+    es_recurrente: t.es_recurrente != null ? Boolean(t.es_recurrente) : undefined,
+    meses_desde_ultima_visita: t.meses_desde_ultima_visita != null ? Number(t.meses_desde_ultima_visita) : null,
+    ultimo_turno_id: t.ultimo_turno_id != null ? Number(t.ultimo_turno_id) : null,
+    fecha_ultima_visita: (t.fecha_ultima_visita as string) ?? null,
   }
 }
 
@@ -591,6 +603,7 @@ export async function listAgentesCaptacion() {
     return []
   }
 }
+
 /* ===== Metas mensuales de asesores ===== */
 
 /**
@@ -684,6 +697,109 @@ export async function updateMetaMensual(
  */
 export async function deleteMetaMensual(id: number) {
   await apiFetch<unknown>(`/comisiones/metas/${id}`, {
+    method: 'DELETE',
+  })
+}
+
+/* ===== Configuración de Recurrencias (NUEVO) ===== */
+
+export interface ConfigRecurrenciaGlobal {
+  meses_minimos: number
+  valor_dateo_recurrencia: number
+}
+
+export interface ConfigRecurrenciaAsesor {
+  id: number
+  asesor_id: number
+  asesor_nombre: string | null
+  recurrencia_habilitada: boolean
+  meses_minimos: number | null
+  valor_dateo_recurrencia: number | null
+  tipo_vehiculo: 'MOTO' | 'VEHICULO' | 'AMBOS'
+}
+
+export interface ConfigRecurrenciaAsesorPayload {
+  asesor_id: number
+  recurrencia_habilitada: boolean
+  meses_minimos?: number | null
+  valor_dateo_recurrencia?: number | null
+  tipo_vehiculo: 'MOTO' | 'VEHICULO' | 'AMBOS'
+}
+
+/**
+ * GET /api/comisiones/recurrencia/config/global
+ */
+export async function getConfigRecurrenciaGlobal() {
+  const raw = await apiFetch<unknown>('/comisiones/recurrencia/config/global')
+  const r = raw as Record<string, unknown>
+  return {
+    meses_minimos: Number(r.meses_minimos ?? 24),
+    valor_dateo_recurrencia: Number(r.valor_dateo_recurrencia ?? 4300),
+  }
+}
+
+/**
+ * POST /api/comisiones/recurrencia/config/global
+ */
+export async function updateConfigRecurrenciaGlobal(payload: ConfigRecurrenciaGlobal) {
+  const raw = await apiFetch<unknown>('/comisiones/recurrencia/config/global', {
+    method: 'POST',
+    body: payload,
+  })
+  const r = raw as Record<string, unknown>
+  return {
+    meses_minimos: Number(r.meses_minimos ?? 24),
+    valor_dateo_recurrencia: Number(r.valor_dateo_recurrencia ?? 4300),
+  }
+}
+
+/**
+ * GET /api/comisiones/recurrencia/config/asesores
+ */
+export async function listConfigRecurrenciaAsesores(params?: { asesorId?: number }) {
+  const raw = await apiFetch<{ data: unknown[] }>('/comisiones/recurrencia/config/asesores', {
+    query: params as Record<string, unknown>,
+  })
+  const rows = Array.isArray(raw?.data) ? raw.data : []
+  return rows.map((r) => {
+    const a = r as Record<string, unknown>
+    return {
+      id: a.id as number,
+      asesor_id: a.asesor_id as number,
+      asesor_nombre: (a.asesor_nombre ?? null) as string | null,
+      recurrencia_habilitada: Boolean(a.recurrencia_habilitada),
+      meses_minimos: (a.meses_minimos ?? null) as number | null,
+      valor_dateo_recurrencia: (a.valor_dateo_recurrencia ?? null) as number | null,
+      tipo_vehiculo: (a.tipo_vehiculo ?? 'AMBOS') as 'MOTO' | 'VEHICULO' | 'AMBOS',
+    }
+  })
+}
+
+/**
+ * POST /api/comisiones/recurrencia/config/asesores
+ */
+export async function upsertConfigRecurrenciaAsesor(payload: ConfigRecurrenciaAsesorPayload) {
+  const raw = await apiFetch<unknown>('/comisiones/recurrencia/config/asesores', {
+    method: 'POST',
+    body: payload,
+  })
+  const r = raw as Record<string, unknown>
+  return {
+    id: r.id as number,
+    asesor_id: r.asesor_id as number,
+    asesor_nombre: (r.asesor_nombre ?? null) as string | null,
+    recurrencia_habilitada: Boolean(r.recurrencia_habilitada),
+    meses_minimos: (r.meses_minimos ?? null) as number | null,
+    valor_dateo_recurrencia: (r.valor_dateo_recurrencia ?? null) as number | null,
+    tipo_vehiculo: (r.tipo_vehiculo ?? 'AMBOS') as 'MOTO' | 'VEHICULO' | 'AMBOS',
+  }
+}
+
+/**
+ * DELETE /api/comisiones/recurrencia/config/asesores/:id
+ */
+export async function deleteConfigRecurrenciaAsesor(id: number) {
+  await apiFetch<unknown>(`/comisiones/recurrencia/config/asesores/${id}`, {
     method: 'DELETE',
   })
 }
