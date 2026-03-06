@@ -198,6 +198,26 @@
                   :readonly="!editando"
                 />
               </v-col>
+
+              <!-- ── DESCUENTO INFORMATIVO (solo si el agente es ASESOR_COMERCIAL) ── -->
+              <v-col v-if="esAsesorComercial" cols="12">
+                <v-autocomplete
+                  v-model="form.descuento_id"
+                  :items="descuentosActivos"
+                  item-title="nombre"
+                  item-value="id"
+                  label="Descuento informativo (opcional)"
+                  variant="outlined"
+                  :density="$vuetify.display.xs ? 'compact' : 'comfortable'"
+                  prepend-inner-icon="mdi-tag-text"
+                  clearable
+                  :loading="descuentosLoading"
+                  :disabled="!editando"
+                  :readonly="!editando"
+                  hint="Solo aplica para clientes nuevos directos. Baja la comisión de $17.200 a $4.300."
+                  :persistent-hint="editando"
+                />
+              </v-col>
             </v-row>
           </v-card-text>
           <v-card-actions class="px-3 px-sm-4 pb-3 pb-sm-4 pt-0">
@@ -369,6 +389,8 @@ import {
   type ResultadoDateo,
 } from '@/services/dateosService'
 import { uploadImage, type UploadImageResponse } from '@/services/uploadsService'
+import descuentosService from '@/services/descuentosService'
+import type { Descuento } from '@/services/descuentosService'
 
 const route = useRoute()
 const router = useRouter()
@@ -395,12 +417,36 @@ const canalItems = [
   { title: 'Redes sociales', value: 'REDES' },
 ]
 
+/* ===== Descuentos ===== */
+const descuentosActivos = ref<Descuento[]>([])
+const descuentosLoading = ref(false)
+
+const esAsesorComercial = computed(() => {
+  const tipo = String(dateo.value?.agente?.tipo || '').toUpperCase()
+  return tipo.includes('COMERCIAL')
+})
+
+async function loadDescuentos() {
+  descuentosLoading.value = true
+  try {
+    const res = await descuentosService.getActivos()
+    const raw = res.data
+    descuentosActivos.value = Array.isArray(raw) ? raw : raw ? [raw] : []
+  } catch (e) {
+    console.error('Error cargando descuentos:', e)
+    descuentosActivos.value = []
+  } finally {
+    descuentosLoading.value = false
+  }
+}
+
 type FormShape = {
   resultado: ResultadoDateo
   observacion: string
   placa: string
   telefono: string
   canal: 'ASESOR' | 'TELE' | 'FACHADA' | 'REDES'
+  descuento_id: number | null
   imagen_url: string | null
   imagen_mime?: string | null
   imagen_tamano_bytes?: number | null
@@ -414,6 +460,7 @@ type UpdateDateoPayload = {
   placa: string
   telefono: string | null
   canal: 'ASESOR' | 'TELE' | 'FACHADA' | 'REDES'
+  descuento_id?: number | null
   imagen_url?: string
   imagen_mime?: string | null
   imagen_tamano_bytes?: number | null
@@ -427,6 +474,7 @@ const form = ref<FormShape>({
   placa: '',
   telefono: '',
   canal: 'ASESOR',
+  descuento_id: null,
   imagen_url: null,
 })
 
@@ -557,6 +605,7 @@ async function load() {
     form.value.placa = (d.placa ?? '').toUpperCase()
     form.value.telefono = d.telefono ?? ''
     form.value.canal = (d.canal ?? 'ASESOR') as 'ASESOR' | 'TELE' | 'FACHADA' | 'REDES'
+    form.value.descuento_id = d.descuento_id ?? null
     form.value.imagen_url = d.imagen_url ?? null
     form.value.imagen_mime = d.imagen_mime ?? null
     form.value.imagen_tamano_bytes = d.imagen_tamano_bytes ?? null
@@ -626,6 +675,7 @@ async function guardar() {
       placa: form.value.placa.trim().toUpperCase(),
       telefono: form.value.telefono || null,
       canal: form.value.canal,
+      descuento_id: esAsesorComercial.value ? (form.value.descuento_id ?? null) : null,
     }
 
     // 🔥 AGREGAR campos de imagen si existen
@@ -694,7 +744,10 @@ function volver() {
   router.push({ name: 'ComercialDateos' })
 }
 
-onMounted(load)
+onMounted(() => {
+  load()
+  loadDescuentos()
+})
 </script>
 
 <style scoped>

@@ -200,6 +200,19 @@
                 <v-chip size="small" color="blue-grey" variant="tonal">Convenio</v-chip>
                 <span class="text-medium-emphasis">{{ turnoCard.convenioNombre }}</span>
               </div>
+
+              <!-- Descuento informativo pre-marcado desde el dateo -->
+              <div class="capt-line mt-1" v-if="turnoMeta.descuentoId">
+                <v-chip size="small" color="orange-darken-2" variant="tonal" prepend-icon="mdi-tag-check">
+                  Informativo
+                </v-chip>
+                <span class="text-medium-emphasis font-weight-medium">{{ descuentoDelDateoNombre }}</span>
+                <v-tooltip text="El comercial pre-marcó este descuento al crear el dateo" location="top">
+                  <template #activator="{ props }">
+                    <v-icon v-bind="props" size="16" color="orange-darken-2">mdi-information-outline</v-icon>
+                  </template>
+                </v-tooltip>
+              </div>
             </template>
 
             <v-alert type="info" variant="tonal" class="mt-4">
@@ -421,12 +434,184 @@
               </template>
             </v-col>
           </v-row>
+
+          <!-- SECCIÓN DESCUENTO INFORMATIVO (solo tickets RTM, no simplificados) -->
+          <template v-if="!esServicioSimplificado">
+            <v-divider class="my-4" />
+            <div class="section-title d-flex align-center" style="gap:8px">
+              <v-icon color="orange-darken-2" size="20">mdi-tag-multiple</v-icon>
+              Descuento Informativo
+            </div>
+
+            <!-- CASO A: Pre-marcado desde el dateo → solo lectura, automático -->
+            <v-alert
+              v-if="turnoMeta.descuentoId"
+              type="warning"
+              variant="tonal"
+              density="compact"
+              color="orange-darken-2"
+              class="mt-2"
+              prepend-icon="mdi-tag-check"
+            >
+              <div><strong>Pre-marcado desde el dateo:</strong> {{ descuentoDelDateoNombre }}</div>
+              <div class="text-caption mt-1">
+                El comercial indicó este descuento al crear el dateo.
+                Se aplicará automáticamente — la comisión bajará del valor nuevo directo
+                al valor básico de dateo.
+              </div>
+            </v-alert>
+
+            <!-- ++ NUEVO: Monto descuento - CASO A dateo pre-marcado ++ -->
+            <v-card v-if="turnoMeta.descuentoId" variant="tonal" color="orange-darken-2" class="mt-3 pa-3 rounded-lg">
+              <div class="text-subtitle-2 font-weight-bold mb-1 d-flex align-center" style="gap:6px">
+                <v-icon size="16">mdi-currency-usd</v-icon>
+                Monto del descuento a aplicar
+                <v-chip size="x-small" color="blue" variant="flat" class="ms-1">
+                  {{ esVehiculoMoto ? 'Moto' : 'Carro' }}
+                </v-chip>
+              </div>
+              <div class="text-caption text-medium-emphasis mb-3">
+                Máximo: <strong>{{ formatCOP(descuentoMaximo) }}</strong> — puedes aplicar de $0 a {{ formatCOP(descuentoMaximo) }}
+              </div>
+              <v-row dense align="center">
+                <v-col cols="12" md="5">
+                  <v-text-field
+                    v-model.number="descuentoMontoAplicado"
+                    label="Monto descuento ($)"
+                    variant="outlined"
+                    density="comfortable"
+                    type="number"
+                    prefix="$"
+                    :min="0"
+                    :max="descuentoMaximo"
+                    hide-details
+                    @blur="clampDescuentoMonto"
+                  />
+                </v-col>
+                <v-col cols="12" md="7">
+                  <v-slider
+                    v-model="descuentoMontoAplicado"
+                    :min="0"
+                    :max="descuentoMaximo"
+                    :step="1000"
+                    color="orange-darken-2"
+                    thumb-label
+                    hide-details
+                    class="mt-2"
+                  >
+                    <template #thumb-label="{ modelValue }">
+                      ${{ Math.round(modelValue / 1000) }}k
+                    </template>
+                  </v-slider>
+                </v-col>
+              </v-row>
+              <div v-if="descuentoMontoAplicado === 0" class="text-caption text-medium-emphasis mt-2">
+                ℹ️ Con $0 se registra el descuento pero sin reducción de precio.
+              </div>
+            </v-card>
+
+            <!-- CASO B: No venía del dateo → opción para aplicar manualmente en caja -->
+            <template v-else>
+              <v-row dense class="mt-2">
+                <v-col cols="12" md="6">
+                  <v-select
+                    v-model="descuentoIdEnCaja"
+                    :items="descuentosActivos"
+                    item-title="nombre"
+                    item-value="id"
+                    label="Aplicar descuento informativo (opcional)"
+                    variant="outlined"
+                    density="comfortable"
+                    clearable
+                    hide-details
+                    prepend-inner-icon="mdi-tag-outline"
+                  />
+                </v-col>
+                <v-col cols="12" md="6">
+                  <v-autocomplete
+                    v-model="autorizadoPorId"
+                    :items="usuariosItems"
+                    item-title="nombre"
+                    item-value="id"
+                    label="Autorizado por"
+                    variant="outlined"
+                    density="comfortable"
+                    :disabled="!descuentoIdEnCaja"
+                    hide-details
+                    clearable
+                    prepend-inner-icon="mdi-account-check"
+                    placeholder="Usuario que autoriza el descuento"
+                  />
+                </v-col>
+                <v-col cols="12" v-if="descuentoIdEnCaja">
+                  <!-- ++ NUEVO: Monto descuento - CASO B caja manual ++ -->
+                  <v-card variant="tonal" color="orange-darken-2" class="mt-2 pa-3 rounded-lg">
+                    <div class="text-subtitle-2 font-weight-bold mb-1 d-flex align-center" style="gap:6px">
+                      <v-icon size="16">mdi-currency-usd</v-icon>
+                      Monto del descuento a aplicar
+                      <v-chip size="x-small" color="blue" variant="flat" class="ms-1">
+                        {{ esVehiculoMoto ? 'Moto' : 'Carro' }}
+                      </v-chip>
+                    </div>
+                    <div class="text-caption text-medium-emphasis mb-3">
+                      Máximo: <strong>{{ formatCOP(descuentoMaximo) }}</strong> — puedes aplicar de $0 a {{ formatCOP(descuentoMaximo) }}
+                    </div>
+                    <v-row dense align="center">
+                      <v-col cols="12" md="5">
+                        <v-text-field
+                          v-model.number="descuentoMontoAplicado"
+                          label="Monto descuento ($)"
+                          variant="outlined"
+                          density="comfortable"
+                          type="number"
+                          prefix="$"
+                          :min="0"
+                          :max="descuentoMaximo"
+                          hide-details
+                          @blur="clampDescuentoMonto"
+                        />
+                      </v-col>
+                      <v-col cols="12" md="7">
+                        <v-slider
+                          v-model="descuentoMontoAplicado"
+                          :min="0"
+                          :max="descuentoMaximo"
+                          :step="1000"
+                          color="orange-darken-2"
+                          thumb-label
+                          hide-details
+                          class="mt-2"
+                        >
+                          <template #thumb-label="{ modelValue }">
+                            ${{ Math.round(modelValue / 1000) }}k
+                          </template>
+                        </v-slider>
+                      </v-col>
+                    </v-row>
+                    <div v-if="descuentoMontoAplicado === 0" class="text-caption text-medium-emphasis mt-2">
+                      ℹ️ Con $0 se registra el descuento pero sin reducción de precio.
+                    </div>
+                  </v-card>
+
+                  <v-alert type="warning" variant="tonal" density="compact" class="mt-1">
+                    <strong>⚠️ Efecto en comisión:</strong>
+                    La comisión bajará del valor nuevo directo al valor básico de dateo.
+                    <div v-if="!autorizadoPorId" class="mt-1" style="color:#c62828">
+                      Debes registrar quién autorizó el descuento antes de confirmar.
+                    </div>
+                  </v-alert>
+                </v-col>
+              </v-row>
+            </template>
+          </template>
+          <!-- FIN SECCIÓN DESCUENTO INFORMATIVO -->
+
         </v-card-text>
 
         <v-card-actions class="px-4 pb-4">
           <v-spacer />
           <v-btn variant="text" @click="dialogConfirm=false">Cancelar</v-btn>
-          <v-btn color="primary" :loading="saving" :disabled="saving" @click="confirmarYGuardar">
+          <v-btn color="primary" :loading="saving" :disabled="saving || (!!descuentoIdEnCaja && !autorizadoPorId)" @click="confirmarYGuardar">
             Confirmar y guardar
           </v-btn>
         </v-card-actions>
@@ -454,11 +639,60 @@
             </div>
           </v-alert>
 
+          <!-- Trazabilidad descuento informativo -->
+          <v-alert
+            v-if="turnoMeta.descuentoId || descuentoIdEnCaja"
+            type="info"
+            variant="tonal"
+            density="compact"
+            class="mb-3"
+            prepend-icon="mdi-tag-check"
+          >
+            <div>
+              <strong>Descuento informativo aplicado:</strong>
+              {{ turnoMeta.descuentoId ? descuentoDelDateoNombre : (descuentosActivos.find(d => d.id === descuentoIdEnCaja)?.nombre ?? '—') }}
+            </div>
+            <!-- ++ NUEVO: monto aplicado en resultado ++ -->
+            <div class="text-caption mt-1">
+              <strong>Monto aplicado:</strong> {{ formatCOP(descuentoMontoAplicado) }}
+            </div>
+            <div class="text-caption mt-1">
+              <template v-if="turnoMeta.descuentoId">
+                <strong>Origen:</strong> Pre-marcado por el comercial en el dateo (automático).
+              </template>
+              <template v-else>
+                <strong>Origen:</strong> Aplicado en caja.
+                Autorizado por: <strong>{{ usuariosItems.find(u => u.id === autorizadoPorId)?.nombre ?? '—' }}</strong>.
+              </template>
+              La comisión fue ajustada al valor básico de dateo.
+            </div>
+          </v-alert>
+
           <div class="text-body-2" v-if="!esServicioSimplificado">
             <b>Placa:</b> {{ form.placa || '—' }} •
             <b>Fecha:</b> {{ form.fecha || '—' }} •
-            <b>Hora:</b> {{ hora12 || '—' }} •
-            <b>Total:</b> {{ totalFacturaDisplay || totalDisplay || '—' }}
+            <b>Hora:</b> {{ hora12 || '—' }}
+          </div>
+          <div class="mt-2" v-if="!esServicioSimplificado">
+            <template v-if="(turnoMeta.descuentoId || descuentoIdEnCaja) && descuentoMontoAplicado > 0">
+              <div class="text-body-2">
+                <b>Subtotal (sin descuento):</b>
+                {{ formatCOP(form.totalFactura || form.total) }}
+              </div>
+              <div class="text-body-2 text-orange-darken-2">
+                <b>Descuento aplicado:</b>
+                - {{ formatCOP(descuentoMontoAplicado) }}
+              </div>
+              <div class="text-body-1 font-weight-bold">
+                <b>Total con descuento:</b>
+                {{ formatCOP(Math.max(0, (form.totalFactura || form.total || 0) - descuentoMontoAplicado)) }}
+              </div>
+            </template>
+            <template v-else>
+              <div class="text-body-2">
+                <b>Total:</b> {{ totalFacturaDisplay || totalDisplay || '—' }}
+              </div>
+            </template>
           </div>
           <div class="text-body-2" v-else>
             <b>Servicio:</b> {{ turnoCard.servicioNombre }} •
@@ -470,13 +704,13 @@
           <v-spacer />
           <v-btn color="primary" variant="flat" @click="closeResult">Cerrar</v-btn>
           <v-btn
-  variant="tonal"
-  prepend-icon="mdi-open-in-new"
-  v-if="result?.id || result?.data?.id"
-  @click="goToDetalle((result?.id || result?.data?.id) as number)"
->
-  Ver detalle
-</v-btn>
+            variant="tonal"
+            prepend-icon="mdi-open-in-new"
+            v-if="result?.id || result?.data?.id"
+            @click="goToDetalle((result?.id || result?.data?.id) as number)"
+          >
+            Ver detalle
+          </v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
@@ -484,12 +718,16 @@
     <v-snackbar v-model="snack.show" :timeout="3000">{{ snack.text }}</v-snackbar>
   </v-container>
 </template>
-
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted, onBeforeUnmount } from 'vue'
+// ++ CAMBIO 1: agregar watch ++
+import { ref, reactive, computed, onMounted, onBeforeUnmount, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import TurnosDelDiaService from '@/services/turnosdeldiaService'
 import { FacturacionService } from '@/services/facturacion_service'
+// ✅ FIX 1: descuentosService es default export → sin llaves, minúscula
+import descuentosService from '@/services/descuentosService'
+// ✅ FIX 2: obtenerUsuarios existe en UserService → no hace falta crear usuariosService
+import { obtenerUsuarios } from '@/services/UserService'
 
 /* ===================== Interfaces y tipos ===================== */
 interface FacturacionResult {
@@ -534,6 +772,20 @@ interface TurnoResponse {
   [key: string]: unknown
 }
 
+// ++ CAMBIO 2: agregar valorCarro y valorMoto ++
+interface DescuentoItem {
+  id: number
+  codigo: string
+  nombre: string
+  valorCarro: number
+  valorMoto: number
+}
+
+interface UsuarioItem {
+  id: number
+  nombre: string
+}
+
 
 /* ===================== Router / Query ===================== */
 const route = useRoute()
@@ -557,6 +809,13 @@ const result = ref<FacturacionResult | null>(null)
 
 /* ====== Ticket actual (id en backend) ====== */
 const currentTicketId = ref<number | null>(null)
+
+/* ===================== Descuento informativo ===================== */
+const descuentosActivos = ref<DescuentoItem[]>([])
+const usuariosItems = ref<UsuarioItem[]>([])
+const descuentoIdEnCaja = ref<number | null>(null)
+const autorizadoPorId = ref<number | null>(null)
+const descuentoDelDateoNombre = ref<string>('')
 
 /* ===================== OCR (cliente y backend) ===================== */
 type OCRStatus = 'idle' | 'running' | 'done'
@@ -618,22 +877,7 @@ function onHora12Blur() {
   }
 }
 
-/* ===================== DETECCIÓN SERVICIO SIMPLIFICADO ===================== */
-const esServicioSimplificado = computed(() => {
-  const codigo = (turnoCard.servicioCodigo || '').toUpperCase()
-  const nombre = (turnoCard.servicioNombre || '').toUpperCase()
 
-  // SOAT
-  if (codigo.includes('SOAT') || nombre.includes('SOAT')) return true
-
-  // PREVENTIVA
-  if (codigo.includes('PREV') || nombre.includes('PREVENTIVA')) return true
-
-  // PERITAJE
-  if (codigo.includes('PERI') || nombre.includes('PERITAJE')) return true
-
-  return false
-})
 
 /* ===================== Estado visual ===================== */
 const requeridosOk = computed(() => {
@@ -994,12 +1238,63 @@ const turnoMeta = reactive<{
   sedeId: number | null
   dateoId: number | null
   agenteId: number | null
+  descuentoId: number | null
 }>({
   servicioId: null,
   sedeId: null,
   dateoId: null,
   agenteId: null,
+  descuentoId: null,
 })
+// ← AQUÍ va el bloque movido
+const descuentoDelDateoDetalle = ref<DescuentoItem | null>(null)
+const descuentoMontoAplicado = ref<number>(0)
+
+const esVehiculoMoto = computed(() => {
+  const tipo = (turnoCard.tipoVehiculo || '').toUpperCase()
+  return tipo.includes('MOTO') || tipo.includes('MOTOCI')
+})
+
+/* ===================== DETECCIÓN SERVICIO SIMPLIFICADO ===================== */
+const esServicioSimplificado = computed(() => {
+  const codigo = (turnoCard.servicioCodigo || '').toUpperCase()
+  const nombre = (turnoCard.servicioNombre || '').toUpperCase()
+
+  // SOAT
+  if (codigo.includes('SOAT') || nombre.includes('SOAT')) return true
+
+  // PREVENTIVA
+  if (codigo.includes('PREV') || nombre.includes('PREVENTIVA')) return true
+
+  // PERITAJE
+  if (codigo.includes('PERI') || nombre.includes('PERITAJE')) return true
+
+  return false
+})
+
+const descuentoMaximo = computed((): number => {
+  if (turnoMeta.descuentoId && descuentoDelDateoDetalle.value) {
+    return esVehiculoMoto.value
+      ? (descuentoDelDateoDetalle.value.valorMoto ?? 0)
+      : (descuentoDelDateoDetalle.value.valorCarro ?? 0)
+  }
+  if (descuentoIdEnCaja.value) {
+    const desc = descuentosActivos.value.find(d => d.id === descuentoIdEnCaja.value)
+    if (desc) return esVehiculoMoto.value ? (desc.valorMoto ?? 0) : (desc.valorCarro ?? 0)
+  }
+  return 0
+})
+
+watch(descuentoIdEnCaja, () => { descuentoMontoAplicado.value = 0 })
+watch(descuentoMaximo, (max) => {
+  if (descuentoMontoAplicado.value > max) descuentoMontoAplicado.value = max
+})
+
+function clampDescuentoMonto() {
+  const max = descuentoMaximo.value
+  if (descuentoMontoAplicado.value < 0) descuentoMontoAplicado.value = 0
+  if (descuentoMontoAplicado.value > max) descuentoMontoAplicado.value = max
+}
 
 function mapClaseToTipo(clase?: { id?: number; codigo?: string; nombre?: string } | null): string | null {
   if (!clase) return null
@@ -1117,6 +1412,7 @@ function hydrateTurnoCard(turno: Record<string, unknown>) {
   const _dateo = (turno.captacionDateo ?? turno.dateo ?? null) as Record<string, unknown> | null
   turnoMeta.dateoId    = (_dateo?.id ?? turno.dateo_id ?? null) as number | null
   turnoMeta.agenteId   = (agenteCaptacion?.id ?? turno.agente_id ?? null) as number | null
+  turnoMeta.descuentoId = (_dateo?.descuentoId ?? _dateo?.descuento_id ?? null) as number | null
 }
 
 /* ===================== Sincronización de PLACA (solo si NO es servicio simplificado) ===================== */
@@ -1229,10 +1525,74 @@ async function fetchTurnoAndHydrate() {
     }
 
     hydrateTurnoCard(turno as Record<string, unknown>)
+
+    // ++ CAMBIO 4: guardar detalle completo (nombre + valorCarro + valorMoto) ++
+    if (turnoMeta.descuentoId) {
+      try {
+        const descResp = await descuentosService.getById(turnoMeta.descuentoId)
+        const data = descResp?.data
+        if (data && !Array.isArray(data)) {
+          descuentoDelDateoNombre.value = data.nombre ?? `Descuento #${turnoMeta.descuentoId}`
+          descuentoDelDateoDetalle.value = {
+            id:         data.id!,
+            codigo:     data.codigo,
+            nombre:     data.nombre,
+            valorCarro: data.valorCarro ?? 0,
+            valorMoto:  data.valorMoto  ?? 0,
+          }
+        } else {
+          descuentoDelDateoNombre.value = `Descuento #${turnoMeta.descuentoId}`
+        }
+      } catch {
+        descuentoDelDateoNombre.value = `Descuento #${turnoMeta.descuentoId}`
+      }
+    }
   } catch (err) {
     console.error('Error cargando turno asociado:', err)
     snack.text = '❌ No se pudo cargar la información del turno'
     snack.show = true
+  }
+}
+
+/* ===================== Catálogos para modal de descuento ===================== */
+async function loadDescuentosYUsuarios() {
+  try {
+    const [descsResp, users] = await Promise.all([
+      descuentosService.getActivos(),
+      obtenerUsuarios(),
+    ])
+
+    const arr = Array.isArray(descsResp.data) ? descsResp.data : []
+    // ++ CAMBIO 5: mapear también valorCarro y valorMoto ++
+    descuentosActivos.value = arr.map(d => ({
+      id: d.id!,
+      codigo: d.codigo,
+      nombre: d.nombre,
+      valorCarro: d.valorCarro ?? 0,
+      valorMoto:  d.valorMoto  ?? 0,
+    }))
+
+    const CARGOS_AUTORIZADORES = new Set([
+      'GERENCIA',
+      'LIDER DE SEDE',
+      'DIRECCION DE CALIDAD Y AUDITORÍA',
+      'DIRECCION DE CALIDAD Y AUDITORIA',
+      'DIRECCION ADMINISTRATIVA Y COMERCIAL',
+      'LIDER DE INFORMES',
+    ])
+
+    usuariosItems.value = users
+      .filter(u => {
+        const cargo = (u.cargo?.nombre ?? '').toUpperCase().trim()
+        const rol   = (u.rol?.nombre   ?? '').toUpperCase().trim()
+        return CARGOS_AUTORIZADORES.has(cargo) || rol === 'GERENCIA'
+      })
+      .map(u => ({
+        id: u.id,
+        nombre: `${u.nombres} ${u.apellidos}`.trim(),
+      }))
+  } catch (err) {
+    console.error('Error cargando descuentos/usuarios:', err)
   }
 }
 
@@ -1406,6 +1766,10 @@ function resetAll() {
   ivaDisplay.value = ''
   totalFacturaDisplay.value = ''
   hora12.value = ''
+
+  descuentoIdEnCaja.value = null
+  autorizadoPorId.value = null
+  descuentoMontoAplicado.value = 0  // ++ CAMBIO 8 ++
 }
 
 /* ===================== Confirmación y Guardado ===================== */
@@ -1420,6 +1784,9 @@ function openConfirm() {
     return
   }
   dialogConfirm.value = true
+  descuentoIdEnCaja.value = null
+  autorizadoPorId.value = null
+  descuentoMontoAplicado.value = 0  // ++ CAMBIO 9 ++
 }
 
 // 🔥 FUNCIÓN CORREGIDA: confirmarYGuardar
@@ -1491,40 +1858,46 @@ async function confirmarYGuardar() {
       const dateoIdFinal = turnoMeta.dateoId || (ticketActual?.dateo_id as number) || (ticketActual?.dateoId as number) || undefined
       const servicioIdFinal = turnoMeta.servicioId || (ticketActual?.servicio_id as number) || (ticketActual?.servicioId as number) || undefined
 
-      await FacturacionService.update(id, {
-        placa: String(form.placa || '').toUpperCase(),
-        fecha_pago: fechaPagoISO,
-        total: form.totalFactura || form.total || 0,
-        subtotal: form.subtotal || undefined,
-        iva: form.iva || undefined,
-        total_factura: form.totalFactura || undefined,
-        vendedor_text: form.vendedor || undefined,
-        prefijo: form.prefijo || undefined,
-        consecutivo: form.consecutivo || undefined,
-        nit: form.nit || undefined,
-        pin: form.pin || undefined,
-        marca: form.marca || undefined,
-        image_rotation: imageRotation.value || 0,
-        turno_id: getTurnoIdFromQuery() ?? undefined,
-        dateo_id: dateoIdFinal,
-        sede_id: sedeIdFinal,
-        agente_id: agenteIdFinal,
-        servicio_id: servicioIdFinal,
-      })
+      const totalOriginal = form.totalFactura || form.total || 0
+const montoDesc = (turnoMeta.descuentoId || descuentoIdEnCaja.value)
+  ? (descuentoMontoAplicado.value || 0)
+  : 0
+
+await FacturacionService.update(id, {
+  placa: String(form.placa || '').toUpperCase(),
+  fecha_pago: fechaPagoISO,
+  total: totalOriginal,
+  total_factura: totalOriginal || undefined,
+  subtotal: form.subtotal || undefined,
+  iva: form.iva || undefined,
+  vendedor_text: form.vendedor || undefined,
+  prefijo: form.prefijo || undefined,
+  consecutivo: form.consecutivo || undefined,
+  nit: form.nit || undefined,
+  pin: form.pin || undefined,
+  marca: form.marca || undefined,
+  image_rotation: imageRotation.value || 0,
+  turno_id: getTurnoIdFromQuery() ?? undefined,
+  dateo_id: dateoIdFinal,
+  sede_id: sedeIdFinal,
+  agente_id: agenteIdFinal,
+  servicio_id: servicioIdFinal,
+  descuento_id: (turnoMeta.descuentoId ?? descuentoIdEnCaja.value) ?? undefined,
+  autorizado_por_id: turnoMeta.descuentoId ? undefined : (autorizadoPorId.value ?? undefined),
+  descuento_monto_aplicado: montoDesc > 0 ? montoDesc : undefined,
+})
     }
 
     const confirmed = await FacturacionService.confirmar(id) as unknown as FacturacionResult
     result.value = confirmed || { ok: true }
 
     dialogConfirm.value = false
-    dialogResult.value = false
+    dialogResult.value = true
 
     snack.text = esServicioSimplificado.value
       ? '✅ Facturación simplificada guardada correctamente'
       : '✅ Facturación guardada y confirmada'
     snack.show = true
-
-    router.push('/rtm/turnos-dia')
   } catch (err: unknown) {
     const errorMsg = err instanceof Error ? err.message : 'Error desconocido'
     console.error('confirmarYGuardar error:', err)
@@ -1534,9 +1907,11 @@ async function confirmarYGuardar() {
     saving.value = false
   }
 }
+
 /* ===================== Navegación post-resultado ===================== */
 function closeResult() {
   dialogResult.value = false
+  router.push('/rtm/turnos-dia')
 }
 
 function goToDetalle(id: number) {
@@ -1547,6 +1922,7 @@ function goToDetalle(id: number) {
 onMounted(async () => {
   window.addEventListener('paste', onPaste)
   await fetchTurnoAndHydrate()
+  await loadDescuentosYUsuarios()
 
   const turnoId = getTurnoIdFromQuery()
   if (turnoId) {

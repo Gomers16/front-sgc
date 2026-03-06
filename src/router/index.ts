@@ -229,6 +229,13 @@ const routes: RouteRecordRaw[] = [
     component: () => import('@/views/comercial/descuentos/Descuentos.vue'),
     meta: { layout: 'MainLayout', title: 'Gestión de Descuentos' },
   },
+  // 🆕 Historial de descuentos
+  {
+    path: '/comercial/descuentos/historial',
+    name: 'ComercialDescuentosHistorial',
+    component: () => import('@/views/comercial/descuentos/Descuentoshistorial.vue'),
+    meta: { layout: 'MainLayout', title: 'Historial de Descuentos' },
+  },
 
   // CLIENTES
   {

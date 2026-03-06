@@ -150,6 +150,24 @@
               />
             </v-col>
 
+            <!-- ── DESCUENTO INFORMATIVO (solo ASESOR_COMERCIAL) ── -->
+            <v-col v-if="puedeAplicarInformativo" cols="12" md="6">
+              <v-autocomplete
+                v-model="form.descuento_id"
+                :items="descuentosActivos"
+                item-title="nombre"
+                item-value="id"
+                label="Descuento informativo (opcional)"
+                variant="outlined"
+                :density="$vuetify.display.xs ? 'compact' : 'comfortable'"
+                prepend-inner-icon="mdi-tag-text"
+                clearable
+                :loading="descuentosLoading"
+                hint="Solo aplica para clientes nuevos directos. Baja la comisión de $17.200 a $4.300."
+                persistent-hint
+              />
+            </v-col>
+
             <!-- Observación -->
             <v-col cols="12">
               <v-textarea
@@ -319,6 +337,8 @@ import { createDateo } from '@/services/dateosService'
 import { listAgentesCaptacion, listConveniosAsignados } from '@/services/conveniosService'
 import { uploadImage, type UploadImageResponse } from '@/services/uploadsService'
 import { listConveniosLight } from '@/services/dateosService'
+import descuentosService from '@/services/descuentosService'
+import type { Descuento } from '@/services/descuentosService'
 
 const router = useRouter()
 const route = useRoute()
@@ -341,6 +361,7 @@ interface CreateDateoPayload {
   placa: string | null
   telefono: string | null
   observacion: string | null
+  descuento_id?: number | null
   imagen_url?: string | null
   imagen_mime?: string | null
   imagen_tamano_bytes?: number | null
@@ -375,12 +396,35 @@ const form = ref({
   telefono: '',
   observacion: '',
   tipo_asesor: null as 'ASESOR_COMERCIAL' | 'ASESOR_CONVENIO' | null,
+  descuento_id: null as number | null,
   imagen_url: null as string | null,
   imagen_mime: null as string | null,
   imagen_tamano_bytes: null as number | null,
   imagen_hash: null as string | null,
   imagen_origen_id: null as string | number | null,
 })
+
+/* ===== Descuentos ===== */
+const descuentosActivos = ref<Descuento[]>([])
+const descuentosLoading = ref(false)
+
+const puedeAplicarInformativo = computed(() => {
+  return form.value.tipo_asesor === 'ASESOR_COMERCIAL'
+})
+
+async function loadDescuentos() {
+  descuentosLoading.value = true
+  try {
+    const res = await descuentosService.getActivos()
+    const raw = res.data
+    descuentosActivos.value = Array.isArray(raw) ? raw : raw ? [raw] : []
+  } catch (e) {
+    console.error('Error cargando descuentos:', e)
+    descuentosActivos.value = []
+  } finally {
+    descuentosLoading.value = false
+  }
+}
 
 /* ===== Opciones de selects ===== */
 const canalesOptions = [
@@ -426,6 +470,7 @@ const conveniosVisibles = computed(() => {
 
   return conveniosAll.value
 })
+
 /* ===== Deshabilitar convenio cuando es asesor convenio ===== */
 const isConvenioDisabled = computed(() => {
   return form.value.tipo_asesor === 'ASESOR_CONVENIO' && form.value.agente_id !== null
@@ -571,6 +616,7 @@ watch(
 
     form.value.agente_id = null
     form.value.convenio_id = null
+    form.value.descuento_id = null
     conveniosAsignados.value = []
   }
 )
@@ -579,6 +625,7 @@ watch(
   () => form.value.agente_id,
   async (nuevoAgenteId) => {
     form.value.convenio_id = null
+    form.value.descuento_id = null
     conveniosAsignados.value = []
 
     if (!nuevoAgenteId) return
@@ -678,6 +725,7 @@ async function handleSubmit() {
       placa: form.value.placa ? form.value.placa.toUpperCase().trim() : null,
       telefono: form.value.telefono || null,
       observacion: form.value.observacion || null,
+      descuento_id: puedeAplicarInformativo.value ? (form.value.descuento_id || null) : null,
     }
 
     // 🔥 Agregar campos de imagen si existen
@@ -780,6 +828,7 @@ onMounted(() => {
   const q = route.query.fromFicha as string | undefined
   fromAsesor.value = q ? Number(q) : null
   loadCatalogos()
+  loadDescuentos()
 })
 </script>
 

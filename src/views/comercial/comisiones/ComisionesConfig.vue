@@ -111,34 +111,88 @@
           </v-col>
         </v-row>
 
+        <!-- Fila 1: incentivo base + específicos por tipo 🆕 -->
         <v-row dense>
           <v-col cols="12" md="4">
             <v-text-field
               v-model="form.valorPlaca"
-              label="Comisión por incentivo"
+              label="💼 Incentivo base (fallback)"
+              hint="Se usa si no hay valor específico por tipo de vehículo"
+              persistent-hint
               type="number"
               min="0"
               density="comfortable"
               variant="outlined"
-              hide-details="auto"
               prefix="$"
             />
           </v-col>
 
+          <!-- 🆕 -->
           <v-col cols="12" md="4">
             <v-text-field
-              v-model="form.valorDateo"
-              label="Comisión por dateo (asesor / convenio)"
+              v-model="form.valorPlacaVehiculo"
+              label="💼🚗 Incentivo específico vehículo"
+              hint="Si está vacío usa el incentivo base"
+              persistent-hint
               type="number"
               min="0"
               density="comfortable"
               variant="outlined"
-              hide-details="auto"
+              prefix="$"
+              clearable
+            />
+          </v-col>
+
+          <!-- 🆕 -->
+          <v-col cols="12" md="4">
+            <v-text-field
+              v-model="form.valorPlacaMoto"
+              label="💼🏍️ Incentivo específico moto"
+              hint="Si está vacío usa el incentivo base"
+              persistent-hint
+              type="number"
+              min="0"
+              density="comfortable"
+              variant="outlined"
+              prefix="$"
+              clearable
+            />
+          </v-col>
+        </v-row>
+
+        <!-- Fila 2: dateo nuevo + nuevo directo -->
+        <v-row dense class="mt-2">
+          <v-col cols="12" md="6">
+            <v-text-field
+              v-model="form.valorDateo"
+              label="📋 Comisión dateo nuevo (via convenio)"
+              hint="Comercial datea cliente nuevo CON convenio"
+              persistent-hint
+              type="number"
+              min="0"
+              density="comfortable"
+              variant="outlined"
               prefix="$"
             />
           </v-col>
 
-          <v-col cols="12" md="4" class="d-flex align-end justify-end gap-2">
+          <v-col cols="12" md="6">
+            <v-text-field
+              v-model="form.valorNuevoDirecto"
+              label="🌟 Comisión cliente nuevo directo"
+              hint="Comercial datea cliente nuevo SIN convenio"
+              persistent-hint
+              type="number"
+              min="0"
+              density="comfortable"
+              variant="outlined"
+              prefix="$"
+            />
+          </v-col>
+        </v-row>
+
+        <v-row dense class="mt-2">
+          <v-col cols="12" class="d-flex align-end justify-end gap-2">
             <v-btn
               color="primary"
               :loading="saving"
@@ -158,7 +212,13 @@
           </v-col>
         </v-row>
 
-        <v-row v-if="formPreview" class="mt-3" dense>
+        <!-- Alerta informativa -->
+        <v-alert type="info" variant="tonal" class="mt-3 mb-2 text-caption">
+          <strong>Recurrente / Recuperación:</strong> esos valores se configuran en la pestaña
+          <strong>🔄 Recurrencia</strong> (aplican automáticamente cuando el RepGeneral los detecta).
+        </v-alert>
+
+        <v-row v-if="formPreview" class="mt-1" dense>
           <v-col cols="12">
             <v-chip variant="tonal" size="small" class="mr-2">
               Alcance:
@@ -180,8 +240,7 @@
           </v-col>
         </v-row>
       </v-card-text>
-
-      <v-card-text
+<v-card-text
         v-if="activeSection === 'REGLAS'"
         class="pt-4"
       >
@@ -224,11 +283,29 @@
           </template>
 
           <template #item.valor_placa="{ item }">
-            {{ formatCOP(item.valor_placa) }}
+            <span class="text-caption">💼 {{ formatCOP(item.valor_placa) }}</span>
+          </template>
+
+          <!-- 🆕 -->
+          <template #item.valor_placa_vehiculo="{ item }">
+            <span class="text-caption">
+              {{ item.valor_placa_vehiculo != null ? '🚗 ' + formatCOP(item.valor_placa_vehiculo) : '—' }}
+            </span>
+          </template>
+
+          <!-- 🆕 -->
+          <template #item.valor_placa_moto="{ item }">
+            <span class="text-caption">
+              {{ item.valor_placa_moto != null ? '🏍️ ' + formatCOP(item.valor_placa_moto) : '—' }}
+            </span>
           </template>
 
           <template #item.valor_dateo="{ item }">
-            {{ formatCOP(item.valor_dateo) }}
+            <span class="text-caption">📋 {{ formatCOP(item.valor_dateo) }}</span>
+          </template>
+
+          <template #item.valor_nuevo_directo="{ item }">
+            <span class="text-caption">🌟 {{ formatCOP(item.valor_nuevo_directo) }}</span>
           </template>
 
           <template #item.fecha_calculo="{ item }">
@@ -446,15 +523,17 @@
         </v-data-table>
       </v-card-text>
 
-      <!-- ===================== SECCIÓN RECURRENCIA (NUEVO) ===================== -->
+      <!-- ===================== SECCIÓN RECURRENCIA ===================== -->
       <v-card-text v-else-if="activeSection === 'RECURRENCIA'" class="pt-4">
         <!-- Configuración global -->
         <div class="mb-4">
           <div class="text-subtitle-1 font-weight-medium mb-3">
             🌐 Configuración global de recurrencia
           </div>
+
+          <!-- Fila 1: meses + valores base (fallback) -->
           <v-row dense>
-            <v-col cols="12" md="4">
+            <v-col cols="12" md="3">
               <v-text-field
                 v-model="recurrenciaGlobal.meses_minimos"
                 label="Meses mínimos desde última visita"
@@ -466,19 +545,95 @@
                 suffix="meses"
               />
             </v-col>
-            <v-col cols="12" md="4">
+            <v-col cols="12" md="3">
               <v-text-field
                 v-model="recurrenciaGlobal.valor_dateo_recurrencia"
-                label="Valor dateo recurrencia"
+                label="🔄 Recurrente base (fallback)"
+                hint="Se usa si no hay valor por tipo de vehículo"
+                persistent-hint
+                type="number"
+                min="0"
+                density="comfortable"
+                variant="outlined"
+                prefix="$"
+              />
+            </v-col>
+            <v-col cols="12" md="3">
+              <v-text-field
+                v-model="recurrenciaGlobal.valor_dateo_recuperacion"
+                label="💛 Recuperación base (fallback)"
+                hint="Se usa si no hay valor por tipo de vehículo"
+                persistent-hint
+                type="number"
+                min="0"
+                density="comfortable"
+                variant="outlined"
+                prefix="$"
+              />
+            </v-col>
+          </v-row>
+
+          <!-- Fila 2 — valores específicos por tipo de vehículo -->
+          <v-row dense class="mt-3">
+            <v-col cols="12" class="text-caption text-medium-emphasis mb-1">
+              Valores específicos por tipo de vehículo (opcional — si están vacíos usa el valor base de arriba)
+            </v-col>
+            <v-col cols="12" md="3">
+              <v-text-field
+                v-model="recurrenciaGlobal.valor_dateo_recurrencia_vehiculo"
+                label="🔄 Recurrente 🚗 Vehículo"
                 type="number"
                 min="0"
                 density="comfortable"
                 variant="outlined"
                 hide-details="auto"
                 prefix="$"
+                clearable
               />
             </v-col>
-            <v-col cols="12" md="4" class="d-flex align-end">
+            <v-col cols="12" md="3">
+              <v-text-field
+                v-model="recurrenciaGlobal.valor_dateo_recurrencia_moto"
+                label="🔄 Recurrente 🏍️ Moto"
+                type="number"
+                min="0"
+                density="comfortable"
+                variant="outlined"
+                hide-details="auto"
+                prefix="$"
+                clearable
+              />
+            </v-col>
+            <v-col cols="12" md="3">
+              <v-text-field
+                v-model="recurrenciaGlobal.valor_dateo_recuperacion_vehiculo"
+                label="💛 Recuperación 🚗 Vehículo"
+                type="number"
+                min="0"
+                density="comfortable"
+                variant="outlined"
+                hide-details="auto"
+                prefix="$"
+                clearable
+              />
+            </v-col>
+            <v-col cols="12" md="3">
+              <v-text-field
+                v-model="recurrenciaGlobal.valor_dateo_recuperacion_moto"
+                label="💛 Recuperación 🏍️ Moto"
+                type="number"
+                min="0"
+                density="comfortable"
+                variant="outlined"
+                hide-details="auto"
+                prefix="$"
+                clearable
+              />
+            </v-col>
+          </v-row>
+
+          <v-row dense class="mt-2">
+            <v-col cols="12" md="3" class="d-flex align-end">
               <v-btn
                 color="primary"
                 :loading="savingRecurrencia"
@@ -489,11 +644,15 @@
               </v-btn>
             </v-col>
           </v-row>
+
           <v-alert type="info" variant="tonal" class="mt-3">
-            <strong>Nota:</strong> Si un cliente regresa después de
-            <strong>{{ recurrenciaGlobal.meses_minimos }} meses</strong>, el dateo cobrará
-            <strong>{{ formatCOP(recurrenciaGlobal.valor_dateo_recurrencia) }}</strong>
-            en lugar del valor normal.
+            <strong>Nota:</strong>
+            Si el cliente vino hace <strong>menos de {{ recurrenciaGlobal.meses_minimos }} meses</strong>
+            → 🔄 <strong>Recurrente</strong>: dateo cobra <strong>{{ formatCOP(recurrenciaGlobal.valor_dateo_recurrencia) }}</strong>.
+            Si vino hace <strong>más de {{ recurrenciaGlobal.meses_minimos }} meses</strong>
+            → 💛 <strong>Recuperación</strong>: dateo cobra <strong>{{ formatCOP(recurrenciaGlobal.valor_dateo_recuperacion) }}</strong>.
+            Si nunca ha venido → 🆕 <strong>Nuevo</strong>: comisión normal.
+            Los valores específicos por tipo de vehículo tienen prioridad sobre el valor base si están configurados.
           </v-alert>
         </div>
 
@@ -506,23 +665,23 @@
           </div>
 
           <!-- Form -->
-<v-row dense class="mb-3">
-  <v-col cols="12" md="2">
-    <v-select
-      v-model="tipoAsesorRecurrencia"
-      :items="tipoAsesorItems"
-      item-title="label"
-      item-value="value"
-      label="Tipo de asesor"
-      density="comfortable"
-      variant="outlined"
-      hide-details
-    />
-  </v-col>
-  <v-col cols="12" md="3">
-    <v-autocomplete
-      v-model="recurrenciaForm.asesorId"
-      :items="asesoresFiltradosRecurrencia"
+          <v-row dense class="mb-3">
+            <v-col cols="12" md="2">
+              <v-select
+                v-model="tipoAsesorRecurrencia"
+                :items="tipoAsesorItems"
+                item-title="label"
+                item-value="value"
+                label="Tipo de asesor"
+                density="comfortable"
+                variant="outlined"
+                hide-details
+              />
+            </v-col>
+            <v-col cols="12" md="3">
+              <v-autocomplete
+                v-model="recurrenciaForm.asesorId"
+                :items="asesoresFiltradosRecurrencia"
                 item-title="nombre"
                 item-value="id"
                 label="Asesor"
@@ -557,7 +716,20 @@
             <v-col cols="12" md="2">
               <v-text-field
                 v-model="recurrenciaForm.valorDateo"
-                label="Valor dateo (opcional)"
+                label="🔄 Dateo recurrente (opc.)"
+                type="number"
+                min="0"
+                density="comfortable"
+                variant="outlined"
+                hide-details
+                prefix="$"
+                clearable
+              />
+            </v-col>
+            <v-col cols="12" md="2">
+              <v-text-field
+                v-model="recurrenciaForm.valorDateoRecuperacion"
+                label="💛 Dateo recuperación (opc.)"
                 type="number"
                 min="0"
                 density="comfortable"
@@ -617,9 +789,22 @@
               <span v-else class="text-medium-emphasis">Global ({{ recurrenciaGlobal.meses_minimos }})</span>
             </template>
 
-            <template #item.valor_dateo="{ item }">
-              <span v-if="item.valor_dateo_recurrencia">{{ formatCOP(item.valor_dateo_recurrencia) }}</span>
-              <span v-else class="text-medium-emphasis">Global ({{ formatCOP(recurrenciaGlobal.valor_dateo_recurrencia) }})</span>
+            <template #item.valor_dateo_recurrencia="{ item }">
+              <span v-if="item.valor_dateo_recurrencia">
+                {{ formatCOP(item.valor_dateo_recurrencia) }}
+              </span>
+              <span v-else class="text-medium-emphasis text-caption">
+                Global ({{ formatCOP(recurrenciaGlobal.valor_dateo_recurrencia) }})
+              </span>
+            </template>
+
+            <template #item.valor_dateo_recuperacion="{ item }">
+              <span v-if="item.valor_dateo_recuperacion">
+                {{ formatCOP(item.valor_dateo_recuperacion) }}
+              </span>
+              <span v-else class="text-medium-emphasis text-caption">
+                Global ({{ formatCOP(recurrenciaGlobal.valor_dateo_recuperacion) }})
+              </span>
             </template>
 
             <template #item.tipo_vehiculo="{ item }">
@@ -674,12 +859,26 @@
               {{ tipoVehiculoLabel(deleteDialog.item.tipo_vehiculo) }}
             </div>
             <div>
-              <strong>Incentivo:</strong>
+              <strong>Incentivo base:</strong>
               {{ formatCOP(deleteDialog.item.valor_placa) }}
             </div>
+            <!-- 🆕 -->
+            <div v-if="deleteDialog.item.valor_placa_vehiculo != null">
+              <strong>Incentivo vehículo:</strong>
+              {{ formatCOP(deleteDialog.item.valor_placa_vehiculo) }}
+            </div>
+            <!-- 🆕 -->
+            <div v-if="deleteDialog.item.valor_placa_moto != null">
+              <strong>Incentivo moto:</strong>
+              {{ formatCOP(deleteDialog.item.valor_placa_moto) }}
+            </div>
             <div>
-              <strong>Dateo:</strong>
+              <strong>Dateo nuevo (convenio):</strong>
               {{ formatCOP(deleteDialog.item.valor_dateo) }}
+            </div>
+            <div>
+              <strong>Nuevo directo (sin convenio):</strong>
+              {{ formatCOP(deleteDialog.item.valor_nuevo_directo) }}
             </div>
           </div>
         </v-card-text>
@@ -860,6 +1059,11 @@ const metasLoading = ref(false)
 const recurrenciaGlobal = ref<ConfigRecurrenciaGlobal>({
   meses_minimos: 24,
   valor_dateo_recurrencia: 4300,
+  valor_dateo_recuperacion: 8600,
+  valor_dateo_recurrencia_vehiculo: null,
+  valor_dateo_recurrencia_moto: null,
+  valor_dateo_recuperacion_vehiculo: null,
+  valor_dateo_recuperacion_moto: null,
 })
 const recurrenciasAsesores = ref<ConfigRecurrenciaAsesor[]>([])
 const loadingRecurrencia = ref(false)
@@ -871,15 +1075,21 @@ const scope = ref<Scope>('GLOBAL')
 const form = ref<{
   id: number | null
   asesorId: number | null
-  tipoVehiculo: TipoVehiculoComision | '' // '' mientras no selecciona
+  tipoVehiculo: TipoVehiculoComision | ''
   valorPlaca: string
+  valorPlacaVehiculo: string   // 🆕
+  valorPlacaMoto: string       // 🆕
   valorDateo: string
+  valorNuevoDirecto: string
 }>({
   id: null,
   asesorId: null,
   tipoVehiculo: '',
   valorPlaca: '',
+  valorPlacaVehiculo: '',      // 🆕
+  valorPlacaMoto: '',          // 🆕
   valorDateo: '',
+  valorNuevoDirecto: '',
 })
 
 /** filtro de tipo de asesor (para separar comerciales vs convenios) */
@@ -900,8 +1110,11 @@ const headers = [
   { title: 'Alcance', key: 'alcance', sortable: false },
   { title: 'Asesor / Convenio', key: 'asesor', sortable: false },
   { title: 'Tipo vehículo', key: 'tipo_vehiculo', sortable: false },
-  { title: 'Comisión incentivo', key: 'valor_placa', sortable: true },
-  { title: 'Comisión dateo', key: 'valor_dateo', sortable: true },
+  { title: '💼 Incentivo base', key: 'valor_placa', sortable: true },
+  { title: '🚗 Incentivo vehículo', key: 'valor_placa_vehiculo', sortable: false },  // 🆕
+  { title: '🏍️ Incentivo moto', key: 'valor_placa_moto', sortable: false },          // 🆕
+  { title: '📋 Dateo nuevo', key: 'valor_dateo', sortable: true },
+  { title: '🌟 Nuevo directo', key: 'valor_nuevo_directo', sortable: true },
   { title: 'Actualizado', key: 'fecha_calculo', sortable: true },
   { title: 'Acciones', key: 'acciones', sortable: false, align: 'end' as const },
 ]
@@ -929,7 +1142,8 @@ const recurrenciaHeaders = [
   { title: 'Asesor', key: 'asesor', sortable: false },
   { title: 'Habilitada', key: 'habilitada', sortable: false },
   { title: 'Meses mínimos', key: 'meses_minimos', sortable: false },
-  { title: 'Valor dateo', key: 'valor_dateo', sortable: false },
+  { title: '🔄 Dateo recurrente', key: 'valor_dateo_recurrencia', sortable: false },
+  { title: '💛 Dateo recuperación', key: 'valor_dateo_recuperacion', sortable: false },
   { title: 'Tipo vehículo', key: 'tipo_vehiculo', sortable: false },
   { title: 'Acciones', key: 'acciones', sortable: false, align: 'end' as const },
 ]
@@ -950,6 +1164,7 @@ const recurrenciaForm = ref<{
   habilitada: boolean
   mesesMinimos: string
   valorDateo: string
+  valorDateoRecuperacion: string
   tipoVehiculo: 'MOTO' | 'VEHICULO' | 'AMBOS'
 }>({
   id: null,
@@ -957,6 +1172,7 @@ const recurrenciaForm = ref<{
   habilitada: true,
   mesesMinimos: '',
   valorDateo: '',
+  valorDateoRecuperacion: '',
   tipoVehiculo: 'AMBOS',
 })
 
@@ -989,13 +1205,10 @@ function formatDateTime(value?: string | null) {
 /** Lista de asesores filtrada por tipo (Comercial / Convenio) para REGLAS */
 const asesoresFiltrados = computed(() => {
   if (!tipoAsesor.value) return asesores.value
-
   const target = tipoAsesor.value
   return asesores.value.filter((a) => {
     const t = normalizeTipo(a.tipo)
-    if (target === 'CONVENIO') {
-      return t.includes('CONVENIO')
-    }
+    if (target === 'CONVENIO') return t.includes('CONVENIO')
     if (!t) return true
     return !t.includes('CONVENIO')
   })
@@ -1009,36 +1222,33 @@ const asesoresComerciales = computed(() =>
     return !t.includes('CONVENIO')
   }),
 )
+
 /** Asesores filtrados por tipo para RECURRENCIAS */
 const asesoresFiltradosRecurrencia = computed(() => {
   if (!tipoAsesorRecurrencia.value) return asesores.value
-
   const target = tipoAsesorRecurrencia.value
   return asesores.value.filter((a) => {
     const t = normalizeTipo(a.tipo)
-    if (target === 'CONVENIO') {
-      return t.includes('CONVENIO')
-    }
+    if (target === 'CONVENIO') return t.includes('CONVENIO')
     if (!t) return true
     return !t.includes('CONVENIO')
   })
 })
+
 function findAsesorNombre(id: number | null | undefined) {
   if (!id) return ''
   const a = asesores.value.find((x) => x.id === id)
   if (!a) return ''
-
   const t = normalizeTipo(a.tipo)
   let sufijo = ''
   if (t.includes('CONVENIO')) sufijo = ' (Convenio)'
   else if (t) sufijo = ' (Comercial)'
-
   return `${a.nombre}${sufijo}`
 }
 
 /* Preview pequeña de lo que se está configurando (reglas) */
 const formPreview = computed(() => {
-  if (!form.value.tipoVehiculo && !form.value.valorPlaca && !form.value.valorDateo) return null
+  if (!form.value.tipoVehiculo && !form.value.valorPlaca && !form.value.valorDateo && !form.value.valorNuevoDirecto) return null
   return {
     alcance: scope.value === 'GLOBAL' ? 'Global' : 'Por asesor / convenio',
     asesorNombre: scope.value === 'ASESOR' ? findAsesorNombre(form.value.asesorId) : null,
@@ -1050,8 +1260,10 @@ const canSubmit = computed(() => {
   if (!form.value.tipoVehiculo) return false
   const placa = Number(form.value.valorPlaca || 0)
   const dateo = Number(form.value.valorDateo || 0)
+  const directo = Number(form.value.valorNuevoDirecto || 0)
   if (Number.isNaN(placa) || placa < 0) return false
   if (Number.isNaN(dateo) || dateo < 0) return false
+  if (Number.isNaN(directo) || directo < 0) return false
   if (scope.value === 'ASESOR' && !form.value.asesorId) return false
   return true
 })
@@ -1087,7 +1299,6 @@ const canSubmitMeta = computed(() => {
   if (Number.isNaN(carro) || carro < 0) return false
   return true
 })
-
 /* ===== Carga de datos ===== */
 
 async function loadConfigs() {
@@ -1144,7 +1355,10 @@ function resetForm() {
     asesorId: null,
     tipoVehiculo: '',
     valorPlaca: '',
+    valorPlacaVehiculo: '',    // 🆕
+    valorPlacaMoto: '',        // 🆕
     valorDateo: '',
+    valorNuevoDirecto: '',
   }
   scope.value = 'GLOBAL'
   tipoAsesor.value = ''
@@ -1155,7 +1369,10 @@ function editConfig(cfg: ComisionConfig) {
   form.value.asesorId = cfg.asesor_id
   form.value.tipoVehiculo = (cfg.tipo_vehiculo || '') as TipoVehiculoComision | ''
   form.value.valorPlaca = String(cfg.valor_placa ?? '')
+  form.value.valorPlacaVehiculo = cfg.valor_placa_vehiculo != null ? String(cfg.valor_placa_vehiculo) : ''  // 🆕
+  form.value.valorPlacaMoto = cfg.valor_placa_moto != null ? String(cfg.valor_placa_moto) : ''              // 🆕
   form.value.valorDateo = String(cfg.valor_dateo ?? '')
+  form.value.valorNuevoDirecto = String(cfg.valor_nuevo_directo ?? '')
   scope.value = cfg.asesor_id ? 'ASESOR' : 'GLOBAL'
 
   if (cfg.asesor_id) {
@@ -1175,7 +1392,10 @@ async function submitForm() {
     const payload: ComisionConfigPayload = {
       tipo_vehiculo: form.value.tipoVehiculo as TipoVehiculoComision,
       valor_placa: Number(form.value.valorPlaca || 0),
+      valor_placa_vehiculo: form.value.valorPlacaVehiculo !== '' ? Number(form.value.valorPlacaVehiculo) : null,  // 🆕
+      valor_placa_moto: form.value.valorPlacaMoto !== '' ? Number(form.value.valorPlacaMoto) : null,              // 🆕
       valor_dateo: Number(form.value.valorDateo || 0),
+      valor_nuevo_directo: Number(form.value.valorNuevoDirecto || 0),
       asesor_id: scope.value === 'ASESOR' ? form.value.asesorId ?? null : null,
     }
 
@@ -1199,10 +1419,7 @@ const deleteDialog = ref<{ visible: boolean; item: ComisionConfig | null }>({
 })
 
 function confirmDelete(item: ComisionConfig) {
-  deleteDialog.value = {
-    visible: true,
-    item,
-  }
+  deleteDialog.value = { visible: true, item }
 }
 
 async function doDelete() {
@@ -1283,10 +1500,7 @@ const metaDeleteDialog = ref<{ visible: boolean; item: MetaMensualConfig | null 
 })
 
 function confirmDeleteMeta(item: MetaMensualConfig) {
-  metaDeleteDialog.value = {
-    visible: true,
-    item,
-  }
+  metaDeleteDialog.value = { visible: true, item }
 }
 
 async function doDeleteMeta() {
@@ -1311,6 +1525,19 @@ async function guardarRecurrenciaGlobal() {
     const data = await updateConfigRecurrenciaGlobal({
       meses_minimos: Number(recurrenciaGlobal.value.meses_minimos || 24),
       valor_dateo_recurrencia: Number(recurrenciaGlobal.value.valor_dateo_recurrencia || 4300),
+      valor_dateo_recuperacion: Number(recurrenciaGlobal.value.valor_dateo_recuperacion || 8600),
+      valor_dateo_recurrencia_vehiculo: recurrenciaGlobal.value.valor_dateo_recurrencia_vehiculo
+        ? Number(recurrenciaGlobal.value.valor_dateo_recurrencia_vehiculo)
+        : null,
+      valor_dateo_recurrencia_moto: recurrenciaGlobal.value.valor_dateo_recurrencia_moto
+        ? Number(recurrenciaGlobal.value.valor_dateo_recurrencia_moto)
+        : null,
+      valor_dateo_recuperacion_vehiculo: recurrenciaGlobal.value.valor_dateo_recuperacion_vehiculo
+        ? Number(recurrenciaGlobal.value.valor_dateo_recuperacion_vehiculo)
+        : null,
+      valor_dateo_recuperacion_moto: recurrenciaGlobal.value.valor_dateo_recuperacion_moto
+        ? Number(recurrenciaGlobal.value.valor_dateo_recuperacion_moto)
+        : null,
     })
     recurrenciaGlobal.value = data
   } finally {
@@ -1325,6 +1552,7 @@ function resetRecurrenciaForm() {
     habilitada: true,
     mesesMinimos: '',
     valorDateo: '',
+    valorDateoRecuperacion: '',
     tipoVehiculo: 'AMBOS',
   }
 }
@@ -1336,6 +1564,7 @@ function editarRecurrenciaAsesor(item: ConfigRecurrenciaAsesor) {
     habilitada: item.recurrencia_habilitada,
     mesesMinimos: item.meses_minimos ? String(item.meses_minimos) : '',
     valorDateo: item.valor_dateo_recurrencia ? String(item.valor_dateo_recurrencia) : '',
+    valorDateoRecuperacion: item.valor_dateo_recuperacion ? String(item.valor_dateo_recuperacion) : '',
     tipoVehiculo: item.tipo_vehiculo,
   }
 }
@@ -1353,6 +1582,9 @@ async function guardarRecurrenciaAsesor() {
       valor_dateo_recurrencia: recurrenciaForm.value.valorDateo
         ? Number(recurrenciaForm.value.valorDateo)
         : null,
+      valor_dateo_recuperacion: recurrenciaForm.value.valorDateoRecuperacion
+        ? Number(recurrenciaForm.value.valorDateoRecuperacion)
+        : null,
       tipo_vehiculo: recurrenciaForm.value.tipoVehiculo,
     })
     await loadRecurrenciasAsesores()
@@ -1368,10 +1600,7 @@ const recurrenciaDeleteDialog = ref<{ visible: boolean; item: ConfigRecurrenciaA
 })
 
 function confirmarEliminarRecurrencia(item: ConfigRecurrenciaAsesor) {
-  recurrenciaDeleteDialog.value = {
-    visible: true,
-    item,
-  }
+  recurrenciaDeleteDialog.value = { visible: true, item }
 }
 
 async function doDeleteRecurrencia() {

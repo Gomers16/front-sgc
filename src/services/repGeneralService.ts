@@ -2,12 +2,21 @@
 import { post } from './http'
 
 export interface RepGeneralImportResumen {
+  mesesMinimos: number
   clientesCreados: number
   clientesActualizados: number
   vehiculosCreados: number
   vehiculosActualizados: number
   conductoresCreados: number
+  conductoresActualizados: number
+  turnosCreados: number
+  turnosActualizados: number
+  turnosNuevos: number
+  turnosRecurrentes: number
+  turnosRecuperacion: number
   errores: number
+  erroresDetalle?: string[]
+  primerError: string | null
 }
 
 export interface RepGeneralImportResponse {
@@ -17,8 +26,9 @@ export interface RepGeneralImportResponse {
 }
 
 /**
- * Importa el archivo RepGeneral (CSV) y devuelve el resumen
- * de creación/actualización de clientes, vehículos y conductores.
+ * Importa el archivo RepGeneral (CSV o XLSX) y devuelve el resumen
+ * de creación/actualización de clientes, vehículos, conductores y
+ * clasificación de recurrencia (nuevo / recurrente / recuperación).
  */
 export async function importarRepGeneral(
   file: File
@@ -32,12 +42,6 @@ export async function importarRepGeneral(
   const data = await post<RepGeneralImportResponse>(
     '/api/rtm/rep-general/import',
     formData
-    // ❌ ELIMINA este objeto:
-    // {
-    //   headers: {
-    //     'Content-Type': 'multipart/form-data',
-    //   },
-    // }
   )
 
   return data

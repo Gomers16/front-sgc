@@ -33,6 +33,9 @@ export interface TurnoInfo {
   numeroServicio?: number
   servicioCodigo?: string
   estado?: string
+  es_recurrente?: boolean | null              // 🆕 para clasificar tipo de cliente
+  es_recuperacion?: boolean | null            // 🆕 para clasificar tipo de cliente
+  meses_desde_ultima_visita?: number | null   // 🆕 para mostrar en tooltip
 }
 
 export interface Dateo extends DateoImagenMeta {
@@ -53,6 +56,8 @@ export interface Dateo extends DateoImagenMeta {
   updated_at?: string
   origen?: OrigenDateo
   turnoInfo?: TurnoInfo | null
+  descuento_id?: number | null                               // 🆕
+  descuento?: { id: number; nombre: string } | null         // 🆕
 }
 
 export interface ListResponse<T> { data: T[]; total: number; page: number; perPage: number }

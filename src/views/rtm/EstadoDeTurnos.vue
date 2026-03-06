@@ -739,7 +739,42 @@
                 <p>Vehículos creados: {{ importResult.resumen.vehiculosCreados }}</p>
                 <p>Vehículos actualizados: {{ importResult.resumen.vehiculosActualizados }}</p>
                 <p>Conductores creados: {{ importResult.resumen.conductoresCreados }}</p>
-                <p>Filas con errores: {{ importResult.resumen.errores }}</p>
+
+                <v-divider class="my-2" />
+
+                <p>
+                  🆕 Clientes nuevos:
+                  <strong>{{ importResult.resumen.turnosNuevos ?? 0 }}</strong>
+                </p>
+                <p>
+                  🔄 Recurrentes (vinieron hace menos de {{ importResult.resumen.mesesMinimos ?? 24 }} meses):
+                  <strong>{{ importResult.resumen.turnosRecurrentes ?? 0 }}</strong>
+                </p>
+                <p>
+                  💛 Recuperación (regresaron después de {{ importResult.resumen.mesesMinimos ?? 24 }}+ meses):
+                  <strong>{{ importResult.resumen.turnosRecuperacion ?? 0 }}</strong>
+                </p>
+
+                <v-divider class="my-2" />
+
+               <p>Filas con errores: {{ importResult.resumen.errores }}</p>
+
+                <div
+                  v-if="importResult.resumen.erroresDetalle?.length"
+                  class="mt-2"
+                >
+                  <p class="font-weight-bold text-error mb-1">⚠️ Detalle de errores:</p>
+                  <v-alert
+                    v-for="(err, idx) in importResult.resumen.erroresDetalle"
+                    :key="idx"
+                    type="error"
+                    variant="tonal"
+                    density="compact"
+                    class="mb-1 text-caption"
+                  >
+                    {{ err }}
+                  </v-alert>
+                </div>
               </div>
             </v-alert>
           </div>

@@ -7,6 +7,14 @@ export type FactEstado = 'BORRADOR' | 'OCR_LISTO' | 'LISTA_CONFIRMAR' | 'CONFIRM
 export type FormaPago = 'EFECTIVO' | 'TARJETA' | 'TRANSFERENCIA' | 'MIXTO'
 export type DocTipo = 'CC' | 'NIT'
 
+export interface DescuentoAplicadoDTO {
+  id: number
+  codigo: string
+  nombre: string
+  montoAplicado: number
+  autorizadoPor: { id: number; nombre: string } | null
+}
+
 export interface FacturacionTicket {
   id: number
   // Archivo
@@ -28,6 +36,9 @@ export interface FacturacionTicket {
   subtotal: number | null
   iva: number | null
   total_factura: number | null
+
+  // 🆕 Total original antes de aplicar el descuento (trazabilidad)
+  total_sin_descuento: number | null
 
   // Datos OCR/extra
   nit: string | null
@@ -89,6 +100,14 @@ export interface FacturacionTicket {
   created_at: string
   updated_at: string
 
+  // 🆕 Descuento informativo
+  descuento_id: number | null
+  descuento_monto_aplicado: number | null
+  autorizado_por_id: number | null
+
+  // 🆕 DTO enriquecido del descuento (viene del getById)
+  descuentoAplicado?: DescuentoAplicadoDTO | null
+
   // 🔹 Enriquecidos (virtuales del backend al preloadear turno/servicio)
   turnoGlobal?: number | null
   turnoServicio?: number | null
@@ -142,6 +161,14 @@ export interface TicketUpdatePayload {
   pago_tarjeta?: number | null
   pago_efectivo?: number | null
   pago_cambio?: number | null
+  /** ID del descuento informativo aplicado (pre-marcado desde dateo o asignado en caja) */
+  descuento_id?: number | null
+  /** ID del usuario que autorizó el descuento cuando se aplica manualmente en caja */
+  autorizado_por_id?: number | null
+  /** Monto en pesos que el cajero decide aplicar del descuento (0 hasta el máximo permitido) */
+  descuento_monto_aplicado?: number
+  /** Total original antes de aplicar el descuento (para trazabilidad) */
+  total_sin_descuento?: number
 }
 
 /* =============================== Endpoints =============================== */

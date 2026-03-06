@@ -61,7 +61,10 @@
                 </div>
               </v-col>
               <v-col cols="12" sm="6">
-                <div class="text-body-2"><strong>Asesor:</strong> {{ comision?.asesor?.nombre || '—' }} <span v-if="comision?.asesor">({{ comision?.asesor?.tipo }})</span></div>
+                <div class="text-body-2">
+                  <strong>Asesor:</strong> {{ comision?.asesor?.nombre || '—' }}
+                  <span v-if="comision?.asesor">({{ comision?.asesor?.tipo }})</span>
+                </div>
                 <div class="text-body-2"><strong>Convenio:</strong> {{ comision?.convenio?.nombre || '—' }}</div>
               </v-col>
             </v-row>
@@ -69,52 +72,160 @@
         </v-card>
       </v-col>
 
-      <!-- 🆕 INFORMACIÓN DE RECURRENCIA -->
+      <!-- INFORMACIÓN DE RECURRENCIA (3 ESTADOS) -->
       <v-col cols="12" v-if="comision?.turno">
         <v-card class="rounded-lg" elevation="4">
           <v-card-title class="d-flex align-center gap-2">
-            <v-icon :color="comision.turno.es_recurrente ? 'warning' : 'success'">
-              {{ comision.turno.es_recurrente ? 'mdi-account-clock' : 'mdi-account-star' }}
-            </v-icon>
-            <span class="text-subtitle-1 font-weight-bold">
-              {{ comision.turno.es_recurrente ? 'Cliente RECURRENTE' : 'Cliente NUEVO' }}
-            </span>
+            <v-icon :color="recurrenciaIconColor">{{ recurrenciaIcono }}</v-icon>
+            <span class="text-subtitle-1 font-weight-bold">{{ recurrenciaLabel }}</span>
           </v-card-title>
           <v-divider />
           <v-card-text>
-            <v-row v-if="comision.turno.es_recurrente">
+            <!-- CLIENTE RECURRENTE -->
+            <template v-if="comision.turno.es_recurrente && !comision.turno.es_recuperacion">
+              <v-row>
+                <v-col cols="12" md="4">
+                  <div class="text-body-2">
+                    <strong>Última visita:</strong>
+                    {{ fmt(comision.turno.fecha_ultima_visita) }}
+                  </div>
+                </v-col>
+                <v-col cols="12" md="4">
+                  <div class="text-body-2">
+                    <strong>Meses desde última visita:</strong>
+                    {{ comision.turno.meses_desde_ultima_visita || '—' }} meses
+                  </div>
+                </v-col>
+                <v-col cols="12" md="4">
+                  <div class="text-body-2">
+                    <strong>Turno anterior:</strong>
+                    #{{ comision.turno.ultimo_turno_id || '—' }}
+                  </div>
+                </v-col>
+                <v-col cols="12">
+                  <v-alert type="warning" variant="tonal" density="compact">
+                    <strong>🔄 Comisión recurrente aplicada:</strong>
+                    El cliente vino hace <strong>{{ comision.turno.meses_desde_ultima_visita }} meses</strong>
+                    (menos del umbral configurado). Se aplicó el valor de dateo recurrente reducido
+                    en lugar de la comisión normal.
+                  </v-alert>
+                </v-col>
+              </v-row>
+            </template>
+
+            <!-- CLIENTE RECUPERACIÓN -->
+            <template v-else-if="comision.turno.es_recuperacion">
+              <v-row>
+                <v-col cols="12" md="4">
+                  <div class="text-body-2">
+                    <strong>Última visita:</strong>
+                    {{ fmt(comision.turno.fecha_ultima_visita) }}
+                  </div>
+                </v-col>
+                <v-col cols="12" md="4">
+                  <div class="text-body-2">
+                    <strong>Meses desde última visita:</strong>
+                    {{ comision.turno.meses_desde_ultima_visita || '—' }} meses
+                  </div>
+                </v-col>
+                <v-col cols="12" md="4">
+                  <div class="text-body-2">
+                    <strong>Turno anterior:</strong>
+                    #{{ comision.turno.ultimo_turno_id || '—' }}
+                  </div>
+                </v-col>
+                <v-col cols="12">
+                  <v-alert type="warning" variant="tonal" density="compact" color="amber-darken-2">
+                    <strong>💛 Comisión recuperación aplicada:</strong>
+                    El cliente regresó después de <strong>{{ comision.turno.meses_desde_ultima_visita }} meses</strong>
+                    (superó el umbral configurado). Se aplicó el valor de dateo recuperación intermedio.
+                  </v-alert>
+                </v-col>
+              </v-row>
+            </template>
+
+            <!-- CLIENTE NUEVO -->
+            <template v-else>
+              <v-row>
+                <v-col cols="12">
+                  <v-alert type="success" variant="tonal" density="compact">
+                    <strong>✨ Cliente nuevo:</strong>
+                    Es la primera visita de este cliente en el sistema.
+                    Se aplica la comisión estándar de dateo completa.
+                  </v-alert>
+                </v-col>
+              </v-row>
+            </template>
+          </v-card-text>
+        </v-card>
+      </v-col>
+
+      <!-- 🆕 TARJETA DESCUENTO INFORMATIVO (solo si tiene descuento) -->
+      <v-col cols="12" v-if="comision?.descuento">
+        <v-card class="rounded-lg" elevation="4" color="orange-darken-2" variant="tonal">
+          <v-card-title class="d-flex align-center gap-2">
+            <v-icon color="orange-darken-2">mdi-tag-check</v-icon>
+            <span class="text-subtitle-1 font-weight-bold">Descuento informativo aplicado</span>
+            <v-chip
+              size="small"
+              class="ms-2"
+              :color="comision.descuento_origen === 'dateo' ? 'blue' : 'purple'"
+              variant="flat"
+            >
+              <v-icon start size="14">
+                {{ comision.descuento_origen === 'dateo' ? 'mdi-calendar-check' : 'mdi-cash-register' }}
+              </v-icon>
+              {{ comision.descuento_origen === 'dateo' ? 'Pre-marcado en el dateo' : 'Aplicado en caja' }}
+            </v-chip>
+          </v-card-title>
+          <v-divider />
+          <v-card-text>
+            <v-row>
+              <!-- Nombre y código del descuento -->
               <v-col cols="12" md="4">
-                <div class="text-body-2">
-                  <strong>Última visita:</strong>
-                  {{ fmt(comision.turno.fecha_ultima_visita) }}
-                </div>
+                <div class="text-caption text-medium-emphasis text-uppercase mb-1">Descuento</div>
+                <div class="text-body-1 font-weight-medium">{{ comision.descuento.nombre }}</div>
+                <div class="text-caption text-medium-emphasis">Código: {{ comision.descuento.codigo }}</div>
               </v-col>
-              <v-col cols="12" md="4">
-                <div class="text-body-2">
-                  <strong>Meses desde última visita:</strong>
-                  {{ comision.turno.meses_desde_ultima_visita || '—' }} meses
-                </div>
+
+              <!-- Fecha de aplicación -->
+              <v-col cols="12" md="4" v-if="comision.descuento_aplicado_at">
+                <div class="text-caption text-medium-emphasis text-uppercase mb-1">Aplicado el</div>
+                <div class="text-body-2">{{ fmt(comision.descuento_aplicado_at) }}</div>
               </v-col>
-              <v-col cols="12" md="4">
-                <div class="text-body-2">
-                  <strong>Turno anterior:</strong>
-                  #{{ comision.turno.ultimo_turno_id || '—' }}
-                </div>
+
+              <!-- Cajero que lo procesó -->
+              <v-col cols="12" md="4" v-if="comision.descuento_aplicado_por">
+                <div class="text-caption text-medium-emphasis text-uppercase mb-1">Procesado por (cajero)</div>
+                <div class="text-body-2 font-weight-medium">{{ comision.descuento_aplicado_por.nombre }}</div>
               </v-col>
+
+              <!-- Quién autorizó (solo origen caja) -->
+              <v-col cols="12" md="4" v-if="comision.descuento_origen === 'caja' && comision.descuento_autorizado_por">
+                <div class="text-caption text-medium-emphasis text-uppercase mb-1">Autorizado por</div>
+                <div class="text-body-2 font-weight-medium">{{ comision.descuento_autorizado_por.nombre }}</div>
+              </v-col>
+
+              <!-- Separador y efecto -->
               <v-col cols="12">
-                <v-alert type="info" variant="tonal" density="compact">
-                  <strong>💡 Comisión recurrencia aplicada:</strong>
-                  Por ser cliente recurrente (más de {{ comision.turno.meses_desde_ultima_visita }} meses desde última visita),
-                  se aplicó el valor de dateo recurrencia de <strong>$4,300</strong> en lugar del valor normal.
-                </v-alert>
-              </v-col>
-            </v-row>
-            <v-row v-else>
-              <v-col cols="12">
-                <v-alert type="success" variant="tonal" density="compact">
-                  <strong>✨ Cliente nuevo:</strong>
-                  Es la primera visita de este cliente o no han pasado suficientes meses desde la última visita.
-                  Se aplica la comisión estándar de dateo.
+                <v-divider class="my-2" />
+                <v-alert
+                  type="info"
+                  variant="tonal"
+                  density="compact"
+                  color="orange-darken-3"
+                  prepend-icon="mdi-information-outline"
+                >
+                  <template v-if="comision.descuento_origen === 'dateo'">
+                    <strong>Pre-marcado por el comercial al crear el dateo.</strong>
+                    La comisión de este dateo se calculó con el valor básico de recurrencia
+                    en lugar del valor nuevo directo.
+                  </template>
+                  <template v-else>
+                    <strong>Aplicado manualmente en caja al confirmar el ticket.</strong>
+                    La comisión de este dateo se calculó con el valor básico de recurrencia
+                    en lugar del valor nuevo directo.
+                  </template>
                 </v-alert>
               </v-col>
             </v-row>
@@ -147,7 +258,7 @@
                 <v-text-field
                   v-model.number="form.valor_unitario"
                   type="number"
-                  label="Valor unitario (dateo)"
+                  :label="labelValorUnitario"
                   variant="outlined"
                   density="comfortable"
                   :readonly="!editable"
@@ -162,6 +273,23 @@
                   density="comfortable"
                   readonly
                 />
+              </v-col>
+            </v-row>
+
+            <!-- Desglose dateo + incentivo -->
+            <v-row v-if="comision?.monto_asesor != null || comision?.monto_convenio != null" dense class="mt-1">
+              <v-col cols="12">
+                <v-divider class="mb-3" />
+                <div class="text-caption text-medium-emphasis d-flex flex-wrap gap-3">
+                  <span>
+                    💼 Dateo asesor:
+                    <strong>{{ formatCOP(Number(comision?.monto_asesor ?? 0)) }}</strong>
+                  </span>
+                  <span>
+                    🏢 Incentivo convenio:
+                    <strong>{{ formatCOP(Number(comision?.monto_convenio ?? 0)) }}</strong>
+                  </span>
+                </div>
               </v-col>
             </v-row>
           </v-card-text>
@@ -224,6 +352,40 @@ const totalCalc = computed(() => {
 
 const editable = computed(() => comision.value?.estado === 'PENDIENTE')
 
+// ====== LÓGICA 3 ESTADOS ======
+const esRecurrente = computed(() =>
+  !!(comision.value?.turno?.es_recurrente && !comision.value?.turno?.es_recuperacion)
+)
+const esRecuperacion = computed(() =>
+  !!(comision.value?.turno?.es_recuperacion)
+)
+
+const recurrenciaLabel = computed(() => {
+  if (esRecurrente.value) return 'Cliente RECURRENTE'
+  if (esRecuperacion.value) return 'Cliente RECUPERACIÓN'
+  return 'Cliente NUEVO'
+})
+
+const recurrenciaIcono = computed(() => {
+  if (esRecurrente.value) return 'mdi-account-clock'
+  if (esRecuperacion.value) return 'mdi-account-reactivate'
+  return 'mdi-account-star'
+})
+
+const recurrenciaIconColor = computed(() => {
+  if (esRecurrente.value) return 'warning'
+  if (esRecuperacion.value) return 'amber-darken-2'
+  return 'success'
+})
+
+const labelValorUnitario = computed(() => {
+  if (esRecurrente.value) return 'Valor dateo (recurrente)'
+  if (esRecuperacion.value) return 'Valor dateo (recuperación)'
+  // 🆕 Si tiene descuento informativo, indicar que fue ajustado
+  if (comision.value?.descuento) return 'Valor dateo (con descuento informativo)'
+  return 'Valor unitario (dateo)'
+})
+
 function estadoColor(e?: ComisionEstado) {
   switch (e) {
     case 'PENDIENTE': return 'warning'
@@ -236,7 +398,7 @@ function estadoColor(e?: ComisionEstado) {
 
 function fmt(d?: string | null) {
   if (!d) return '—'
-  try { return new Date(d).toLocaleString() } catch { return d }
+  try { return new Date(d).toLocaleString('es-CO') } catch { return d }
 }
 
 async function load() {
@@ -264,7 +426,13 @@ function volver() {
 }
 
 /* Confirmaciones */
-const dialog = ref<{ visible: boolean; title: string; message: string; color: string; onConfirm: () => void }>({
+const dialog = ref<{
+  visible: boolean
+  title: string
+  message: string
+  color: string
+  onConfirm: () => void
+}>({
   visible: false,
   title: '',
   message: '',
@@ -303,4 +471,6 @@ onMounted(load)
 
 <style scoped>
 .g-4 { gap: 16px; }
+.gap-2 { gap: 8px; }
+.gap-3 { gap: 12px; }
 </style>

@@ -235,52 +235,65 @@
           {{ item.created_at_fmt || formatDateTime(item.created_at) }}
         </template>
 
-       <!-- Estado (resultado del dateo) -->
-<!-- Estado (resultado del dateo) -->
-<template #item.resultado="{ item }">
-  <v-chip
-    :color="chipColorResultado(item.resultado)"
-    size="small"
-    variant="flat"
-    :prepend-icon="item.resultado === 'RE_DATEAR' ? 'mdi-refresh' : undefined"
-  >
-    {{ textoResultado(item.resultado) }}
-  </v-chip>
-</template>
+        <!-- Estado (resultado del dateo) -->
+        <template #item.resultado="{ item }">
+          <v-chip
+            :color="chipColorResultado(item.resultado)"
+            size="small"
+            variant="flat"
+            :prepend-icon="item.resultado === 'RE_DATEAR' ? 'mdi-refresh' : undefined"
+          >
+            {{ textoResultado(item.resultado) }}
+          </v-chip>
+        </template>
 
-<!-- Turno -->
-<template #item.turnoInfo="{ item }">
-  <div v-if="item.turnoInfo" class="d-flex align-center justify-center" style="gap:6px">
-    <v-chip size="x-small" color="primary" variant="tonal" class="font-weight-600">
-      {{ (item.turnoInfo.fecha && formatDateOnly(item.turnoInfo.fecha)) || '—' }}
-    </v-chip>
-    <v-chip size="x-small" color="indigo" variant="tonal" class="font-weight-600">
-      G: {{ item.turnoInfo.numeroGlobal ?? '—' }}
-    </v-chip>
-    <v-chip size="x-small" color="deep-purple" variant="tonal" class="font-weight-600">
-      S: {{ item.turnoInfo.numeroServicio ?? '—' }}
-    </v-chip>
-    <v-chip
-      v-if="item.turnoInfo.servicioCodigo"
-      size="x-small"
-      variant="tonal"
-      class="font-weight-600"
-    >
-      {{ item.turnoInfo.servicioCodigo }}
-    </v-chip>
-    <v-chip
-      size="x-small"
-      :color="chipColorEstadoTurno(item.turnoInfo.estado || item.resultado)"
-      variant="elevated"
-      prepend-icon="mdi-progress-clock"
-      class="font-weight-600"
-    >
-      {{ textoEstadoTurno(item.turnoInfo.estado || item.resultado) }}
-    </v-chip>
-  </div>
-  <span v-else class="text-medium-emphasis d-flex justify-center">—</span>
-</template>
+        <!-- ── INFORMATIVO ── -->
+        <template #item.descuento="{ item }">
+          <v-chip
+            v-if="item.descuento_id || item.descuento?.nombre"
+            size="x-small"
+            color="orange-darken-1"
+            variant="tonal"
+            prepend-icon="mdi-tag-text"
+            class="font-weight-600"
+          >
+            {{ item.descuento?.nombre ?? `#${item.descuento_id}` }}
+          </v-chip>
+          <span v-else class="text-medium-emphasis">—</span>
+        </template>
 
+        <!-- Turno -->
+        <template #item.turnoInfo="{ item }">
+          <div v-if="item.turnoInfo" class="d-flex align-center justify-center" style="gap:6px">
+            <v-chip size="x-small" color="primary" variant="tonal" class="font-weight-600">
+              {{ (item.turnoInfo.fecha && formatDateOnly(item.turnoInfo.fecha)) || '—' }}
+            </v-chip>
+            <v-chip size="x-small" color="indigo" variant="tonal" class="font-weight-600">
+              G: {{ item.turnoInfo.numeroGlobal ?? '—' }}
+            </v-chip>
+            <v-chip size="x-small" color="deep-purple" variant="tonal" class="font-weight-600">
+              S: {{ item.turnoInfo.numeroServicio ?? '—' }}
+            </v-chip>
+            <v-chip
+              v-if="item.turnoInfo.servicioCodigo"
+              size="x-small"
+              variant="tonal"
+              class="font-weight-600"
+            >
+              {{ item.turnoInfo.servicioCodigo }}
+            </v-chip>
+            <v-chip
+              size="x-small"
+              :color="chipColorEstadoTurno(item.turnoInfo.estado || item.resultado)"
+              variant="elevated"
+              prepend-icon="mdi-progress-clock"
+              class="font-weight-600"
+            >
+              {{ textoEstadoTurno(item.turnoInfo.estado || item.resultado) }}
+            </v-chip>
+          </div>
+          <span v-else class="text-medium-emphasis d-flex justify-center">—</span>
+        </template>
 
         <!-- Acciones -->
         <template #item.acciones="{ item }">
@@ -471,6 +484,7 @@ const headers = [
   { title: 'Teléfono cliente', key: 'telefono', sortable: true },
   { title: 'Creado', key: 'created_at', sortable: true },
   { title: 'Estado', key: 'resultado', sortable: true },
+  { title: 'Informativo', key: 'descuento', sortable: false },
   { title: 'Turno', key: 'turnoInfo', sortable: false, align: 'center' as const },
   { title: 'Acciones', key: 'acciones', sortable: false, align: 'end' as const },
 ]
@@ -558,11 +572,7 @@ const agentesVisibles = computed(() => {
   })
 })
 
-/* Convenios visibles según tipo + agente:
- * - sin tipo/agente → todos
- * - tipo = CONVENIO + agente → sólo su convenio 1:1
- * - tipo = COMERCIAL + agente → sólo conveniosAsignados (si hay) o todos
- */
+/* Convenios visibles según tipo + agente */
 const conveniosVisibles = computed(() => {
   const tipo = filters.value.tipoAgente
   const agenteId = filters.value.agenteId
@@ -604,11 +614,7 @@ function autoVincularConvenioDeAsesorConvenio() {
   }
 }
 
-/* Cuando cambia el agente:
- * - limpio convenio
- * - si tipo = CONVENIO → auto-match por nombre
- * - si tipo = COMERCIAL → cargo convenios asignados
- */
+/* Cuando cambia el agente */
 watch(
   () => filters.value.agenteId,
   async (nuevo) => {
@@ -628,9 +634,7 @@ watch(
   }
 )
 
-/* Si luego de cargar conveniosAll ya había un asesor CONVENIO seleccionado,
- * volvemos a intentar auto-vincular su convenio.
- */
+/* Si luego de cargar conveniosAll ya había un asesor CONVENIO seleccionado */
 watch(
   () => conveniosAll.value,
   () => {
@@ -781,6 +785,7 @@ loadItems()
 .gap-2 { gap: 8px; }
 .text-h5 { font-weight: bold; }
 .evidence-thumb { cursor: zoom-in; }
+.font-weight-600 { font-weight: 600; }
 
 .agent-type-chip {
   display: inline-flex;

@@ -45,7 +45,13 @@
         </template>
 
         <template #item.total="{ item }">
-          {{ fmtCOP(pickTotal(item)) }}
+          <div>
+            <div class="font-weight-bold">{{ fmtCOP(pickTotal(item)) }}</div>
+            <div v-if="(item.descuento_monto_aplicado ?? 0) > 0" class="text-caption text-orange-darken-2">
+  <v-icon size="12">mdi-tag</v-icon>
+  Desc: -{{ fmtCOP(item.descuento_monto_aplicado ?? 0) }}
+</div>
+          </div>
         </template>
 
         <template #item.servicioNombre="{ item }">
@@ -120,10 +126,6 @@
         <v-divider />
 
         <v-card-text>
-          <div class="text-body-2 mb-4">
-            Resumen de la facturación confirmada / registrada.
-          </div>
-
           <v-row>
             <!-- COLUMNA IZQUIERDA: IMAGEN DEL TICKET -->
             <v-col cols="12" md="5">
@@ -132,9 +134,7 @@
                 Evidencia (Ticket)
               </div>
 
-              <!-- Preview de imagen -->
               <div v-if="imageBlobUrl || dialog.item?.filePath || dialog.item?.file_path" class="image-preview-wrapper">
-                <!-- Controles de zoom -->
                 <div class="d-flex align-center justify-space-between mb-2">
                   <div class="d-flex align-center" style="gap:6px">
                     <v-btn size="x-small" variant="text" icon="mdi-magnify-minus" @click="zoomOut" />
@@ -156,7 +156,6 @@
                   </v-btn>
                 </div>
 
-                <!-- Canvas para la imagen -->
                 <div class="preview-canvas">
                   <img
                     v-if="imageBlobUrl"
@@ -177,7 +176,6 @@
                 </div>
               </div>
 
-              <!-- No hay imagen -->
               <v-alert v-else type="info" variant="tonal" class="text-center">
                 <v-icon size="48" class="mb-2">mdi-image-off</v-icon>
                 <div>No hay imagen disponible para este ticket</div>
@@ -202,10 +200,25 @@
                     <span v-else>—</span>
                   </div>
 
-                  <div class="label">Total</div>
-                  <div class="value mb-2">
-                    {{ fmtCOP(pickTotal(dialog.item)) }}
-                  </div>
+                  <!-- TOTALES CON DESGLOSE DE DESCUENTO -->
+                  <template v-if="tieneDescuento">
+                    <div class="label">Subtotal (sin descuento)</div>
+                    <div class="value mb-1">{{ fmtCOP(totalSinDescuento) }}</div>
+
+                    <div class="label text-orange-darken-2">Descuento aplicado</div>
+                    <div class="value mb-1 text-orange-darken-2">
+                      - {{ fmtCOP(dialog.item?.descuentoAplicado?.montoAplicado ?? dialog.item?.descuento_monto_aplicado ?? 0) }}
+                    </div>
+
+                    <div class="label">Total con descuento</div>
+                    <div class="value mb-2 text-success font-weight-bold" style="font-size:1.1rem">
+                      {{ fmtCOP(pickTotal(dialog.item)) }}
+                    </div>
+                  </template>
+                  <template v-else>
+                    <div class="label">Total</div>
+                    <div class="value mb-2">{{ fmtCOP(pickTotal(dialog.item)) }}</div>
+                  </template>
 
                   <div class="label">Vendedor</div>
                   <div class="value mb-2">{{ dialog.item?.vendedorText || dialog.item?.vendedor_text || '—' }}</div>
@@ -270,14 +283,114 @@
                       <v-chip size="x-small" color="blue-grey" variant="tonal">Convenio</v-chip>
                       <span class="text-medium-emphasis">{{ dialog.item?.dateo?.convenio?.nombre }}</span>
                     </div>
-                    <div
-                      v-if="!dialog.item?.dateo?.agente && !dialog.item?.dateo?.asesorConvenio && !dialog.item?.dateo?.convenio"
-                    >
+                    <div v-if="!dialog.item?.dateo?.agente && !dialog.item?.dateo?.asesorConvenio && !dialog.item?.dateo?.convenio">
                       —
                     </div>
                   </div>
                 </v-col>
               </v-row>
+
+              <!-- ======================== SECCIÓN DESCUENTO ======================== -->
+              <template v-if="tieneDescuento">
+                <v-divider class="my-4" />
+
+                <v-card variant="tonal" color="orange-darken-2" class="pa-4 rounded-lg">
+                  <div class="d-flex align-center mb-3" style="gap:8px">
+                    <v-icon color="orange-darken-2" size="20">mdi-tag-multiple</v-icon>
+                    <span class="text-subtitle-2 font-weight-bold">Descuento Informativo Aplicado</span>
+                    <v-chip
+                      size="x-small"
+                      :color="origenDescuento === 'dateo' ? 'blue' : 'purple'"
+                      variant="flat"
+                      class="ml-1"
+                    >
+                      {{ origenDescuento === 'dateo' ? 'Pre-marcado (dateo)' : 'Aplicado en caja' }}
+                    </v-chip>
+                  </div>
+
+                  <v-row dense>
+                    <!-- Nombre del descuento -->
+                    <v-col cols="12" md="6">
+                      <div class="label-desc">Descuento</div>
+                      <div class="value-desc">
+                        {{ dialog.item?.descuentoAplicado?.nombre ?? nombreDescuentoFallback ?? '—' }}
+                        <span v-if="dialog.item?.descuentoAplicado?.codigo" class="text-caption text-medium-emphasis ml-1">
+                          ({{ dialog.item.descuentoAplicado.codigo }})
+                        </span>
+                      </div>
+                    </v-col>
+
+                    <!-- Monto descontado -->
+                    <v-col cols="12" md="6">
+                      <div class="label-desc">Monto descontado</div>
+                      <div class="value-desc text-orange-darken-2 font-weight-bold">
+                        - {{ fmtCOP(dialog.item?.descuentoAplicado?.montoAplicado ?? dialog.item?.descuento_monto_aplicado ?? 0) }}
+                      </div>
+                    </v-col>
+
+                    <!-- Total original -->
+                    <v-col cols="12" md="6">
+                      <div class="label-desc">Total sin descuento</div>
+                      <div class="value-desc">{{ fmtCOP(totalSinDescuento) }}</div>
+                    </v-col>
+
+                    <!-- Total final -->
+                    <v-col cols="12" md="6">
+                      <div class="label-desc">Total final (con descuento)</div>
+                      <div class="value-desc text-success font-weight-bold">
+                        {{ fmtCOP(pickTotal(dialog.item)) }}
+                      </div>
+                    </v-col>
+
+                    <!-- Autorizado por (solo si fue en caja) -->
+                    <v-col cols="12" md="6" v-if="origenDescuento === 'caja'">
+                      <div class="label-desc">Autorizado por</div>
+                      <div class="value-desc">
+                        <v-icon size="14" class="mr-1">mdi-account-check</v-icon>
+                        {{ dialog.item?.descuentoAplicado?.autorizadoPor?.nombre ?? '—' }}
+                      </div>
+                    </v-col>
+
+                    <!-- Confirmado por (cajero) -->
+                    <v-col cols="12" md="6">
+                      <div class="label-desc">Confirmado por</div>
+                      <div class="value-desc">
+                        <v-icon size="14" class="mr-1">mdi-account</v-icon>
+                        {{ nombreConfirmadoPor }}
+                      </div>
+                    </v-col>
+
+                    <!-- Fecha de confirmación -->
+                    <v-col cols="12" md="6">
+                      <div class="label-desc">Fecha de aplicación</div>
+                      <div class="value-desc">
+                        <v-icon size="14" class="mr-1">mdi-calendar-check</v-icon>
+                        <span v-if="dialog.item?.confirmadoAt || dialog.item?.confirmado_at">
+                          {{ asDate(dialog.item?.confirmadoAt ?? dialog.item?.confirmado_at) }}
+                          •
+                          {{ asTime(dialog.item?.confirmadoAt ?? dialog.item?.confirmado_at) }}
+                        </span>
+                        <span v-else>—</span>
+                      </div>
+                    </v-col>
+                  </v-row>
+
+                  <!-- Nota efecto en comisión -->
+                  <v-alert
+                    type="warning"
+                    variant="tonal"
+                    density="compact"
+                    class="mt-3"
+                    prepend-icon="mdi-information-outline"
+                  >
+                    <span class="text-caption">
+                      La comisión del comercial fue ajustada al valor básico de dateo por aplicación de descuento informativo.
+                    </span>
+                  </v-alert>
+                </v-card>
+              </template>
+              <!-- ======================== FIN SECCIÓN DESCUENTO ======================== -->
+
             </v-col>
           </v-row>
         </v-card-text>
@@ -302,13 +415,19 @@ const route = useRoute()
 const router = useRouter()
 
 // Tipo extendido que coincide con la estructura real del backend
+interface DescuentoAplicadoDTO {
+  id: number
+  codigo: string
+  nombre: string
+  montoAplicado: number
+  autorizadoPor: { id: number; nombre: string } | null
+}
+
 interface ExtendedFacturacionTicket {
-  // Propiedades base
   id?: number
   hash?: string
   estado?: string | null
 
-  // Archivos - usar los mismos nombres del backend
   file_path?: string | null
   filePath?: string | null
   file_mime?: string | null
@@ -318,7 +437,6 @@ interface ExtendedFacturacionTicket {
   image_rotation?: number | null
   imageRotation?: number | null
 
-  // Campos de negocio
   placa?: string | null
   fecha_pago?: string | null
   fechaPago?: string | null
@@ -334,7 +452,10 @@ interface ExtendedFacturacionTicket {
   subtotal?: number | null
   iva?: number | null
 
-  // Campos de texto
+  // 🆕 Total original antes del descuento
+  total_sin_descuento?: number | null
+  totalSinDescuento?: number | null
+
   vendedor_text?: string | null
   vendedorText?: string | null
   prefijo?: string | null
@@ -343,7 +464,6 @@ interface ExtendedFacturacionTicket {
   pin?: string | null
   marca?: string | null
 
-  // IDs de relaciones
   turnoId?: number | null
   turno_id?: number | null
   servicioId?: number | null
@@ -355,7 +475,6 @@ interface ExtendedFacturacionTicket {
   dateoId?: number | null
   dateo_id?: number | null
 
-  // Snapshots
   servicio_nombre?: string | null
   servicioNombre?: string | null
   sede_nombre?: string | null
@@ -365,29 +484,31 @@ interface ExtendedFacturacionTicket {
   funcionarioNombre?: string | null
   canalAtribucion?: string | null
 
-  // Relaciones preloaded
-  servicio?: {
-    nombreServicio?: string | null
-  } | null
-  sede?: {
-    nombre?: string | null
-  } | null
-  turno?: {
-    turnoNumero?: string | number | null
-    placa?: string | null
-  } | null
+  // 🆕 Descuento informativo
+  descuento_id?: number | null
+  descuentoId?: number | null
+  descuento_monto_aplicado?: number | null
+  descuentoMontoAplicado?: number | null
+  autorizado_por_id?: number | null
+  autorizadoPorId?: number | null
+  descuentoAplicado?: DescuentoAplicadoDTO | null
+
+  // Confirmación
+  confirmedById?: number | null
+  confirmed_by_id?: number | null
+  confirmedBy?: { id: number; nombres?: string | null; apellidos?: string | null } | null
+  autorizadoPor?: { id: number; nombres?: string | null; apellidos?: string | null } | null
+
+  servicio?: { nombreServicio?: string | null } | null
+  sede?: { nombre?: string | null } | null
+  turno?: { turnoNumero?: string | number | null; placa?: string | null } | null
   dateo?: {
-    agente?: {
-      nombre?: string | null
-    } | null
-    asesorConvenio?: {
-      nombre?: string | null
-    } | null
-    convenio?: {
-      nombre?: string | null
-    } | null
+    agente?: { nombre?: string | null } | null
+    asesorConvenio?: { nombre?: string | null } | null
+    convenio?: { nombre?: string | null } | null
   } | null
 }
+
 /* ===== Tabla (server) ===== */
 const loading = ref(false)
 const rows = ref<FacturacionTicket[]>([])
@@ -404,7 +525,7 @@ const headers = [
   { title: 'Estado', key: 'estado', width: 140 },
   { title: 'Placa', key: 'placa', width: 120 },
   { title: 'Fecha pago', key: 'fecha_pago', width: 160 },
-  { title: 'Total factura', key: 'total', width: 140 },
+  { title: 'Total factura', key: 'total', width: 160 },
   { title: 'Servicio', key: 'servicioNombre', width: 240 },
   { title: 'Sede', key: 'sedeNombre', width: 200 },
   { title: 'Vendedor', key: 'vendedor_text', width: 220 },
@@ -457,6 +578,50 @@ const fechaPagoIso = computed(() => {
   return i?.fechaPago || i?.fecha_pago || i?.confirmadoAt || i?.confirmado_at || i?.createdAt || i?.created_at || null
 })
 
+/* ===== Computed descuento ===== */
+const tieneDescuento = computed(() => {
+  const i = dialog.item
+  if (!i) return false
+  const tieneId = !!(i.descuentoId ?? i.descuento_id ?? i.descuentoAplicado?.id)
+  const tieneMonto = (i.descuentoAplicado?.montoAplicado ?? i.descuentoMontoAplicado ?? i.descuento_monto_aplicado ?? 0) > 0
+  return tieneId && tieneMonto
+})
+
+const origenDescuento = computed<'dateo' | 'caja'>(() => {
+  const i = dialog.item
+  if (!i) return 'dateo'
+  // Prioridad 1: descuentoAplicado.autorizadoPor (viene del DTO enriquecido del getById)
+  if (i.descuentoAplicado?.autorizadoPor) return 'caja'
+  // Prioridad 2: campos planos
+  if (i.autorizadoPorId ?? i.autorizado_por_id) return 'caja'
+  return 'dateo'
+})
+
+const totalSinDescuento = computed(() => {
+  const i = dialog.item
+  if (!i) return 0
+  const sinDesc = i.totalSinDescuento ?? i.total_sin_descuento
+  if (sinDesc && sinDesc > 0) return sinDesc
+  // Fallback: total actual + monto descuento
+  const monto = i.descuentoAplicado?.montoAplicado ?? i.descuentoMontoAplicado ?? i.descuento_monto_aplicado ?? 0
+  const totalActual = pickTotal(i)
+  return totalActual + (monto || 0)
+})
+
+const nombreDescuentoFallback = computed(() => {
+  const i = dialog.item
+  if (!i) return null
+  return i.descuentoAplicado?.nombre ?? null
+})
+
+const nombreConfirmadoPor = computed(() => {
+  const i = dialog.item
+  if (!i) return '—'
+  const cb = i.confirmedBy
+  if (cb) return [cb.nombres, cb.apellidos].filter(Boolean).join(' ') || '—'
+  return '—'
+})
+
 /* ===== Controles de imagen ===== */
 const imageScale = ref(1)
 const imageError = ref(false)
@@ -472,25 +637,13 @@ const imgStyle = computed(() => {
   }
 })
 
-function zoomIn() {
-  imageScale.value = Math.min(imageScale.value + 0.2, 3)
-}
-
-function zoomOut() {
-  imageScale.value = Math.max(imageScale.value - 0.2, 0.5)
-}
-
-function resetZoom() {
-  imageScale.value = 1
-}
-
-function onImageError() {
-  imageError.value = true
-}
+function zoomIn() { imageScale.value = Math.min(imageScale.value + 0.2, 3) }
+function zoomOut() { imageScale.value = Math.max(imageScale.value - 0.2, 0.5) }
+function resetZoom() { imageScale.value = 1 }
+function onImageError() { imageError.value = true }
 
 async function loadImageBlob(ticketId: number) {
   try {
-    // Intentar obtener el token de diferentes fuentes
     const token =
       localStorage.getItem('auth_token') ||
       localStorage.getItem('token') ||
@@ -498,26 +651,17 @@ async function loadImageBlob(ticketId: number) {
       sessionStorage.getItem('token')
 
     const headers: Record<string, string> = {}
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`
-    }
+    if (token) headers['Authorization'] = `Bearer ${token}`
 
     const response = await fetch(`/api/facturacion/tickets/${ticketId}/imagen`, {
       headers,
-      credentials: 'include' // Incluir cookies si las hay
+      credentials: 'include'
     })
 
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`)
-    }
+    if (!response.ok) throw new Error(`HTTP ${response.status}`)
 
     const blob = await response.blob()
-
-    // Liberar URL anterior si existe
-    if (imageBlobUrl.value) {
-      URL.revokeObjectURL(imageBlobUrl.value)
-    }
-
+    if (imageBlobUrl.value) URL.revokeObjectURL(imageBlobUrl.value)
     imageBlobUrl.value = URL.createObjectURL(blob)
     imageError.value = false
   } catch (err) {
@@ -529,12 +673,10 @@ async function loadImageBlob(ticketId: number) {
 
 function closeDialog() {
   dialog.open = false
-  // Limpiar blob URL
   if (imageBlobUrl.value) {
     URL.revokeObjectURL(imageBlobUrl.value)
     imageBlobUrl.value = null
   }
-  // Reset zoom y error al cerrar
   setTimeout(() => {
     imageScale.value = 1
     imageError.value = false
@@ -548,11 +690,7 @@ async function openDetailById(id: number | string) {
     dialog.open = true
     imageError.value = false
     imageScale.value = 1
-
-    // Cargar imagen si existe
-    if (full.id) {
-      await loadImageBlob(Number(full.id))
-    }
+    if (full.id) await loadImageBlob(Number(full.id))
   } catch (err) {
     console.error('Error cargando detalle:', err)
     snack.text = '❌ No se pudo cargar el detalle'
@@ -638,17 +776,11 @@ function pickTotal(it: ExtendedFacturacionTicket | null) {
 
 function getServicioNombre(it: ExtendedFacturacionTicket | null) {
   if (!it) return '—'
-  return it?.servicio_nombre
-      ?? it?.servicioNombre
-      ?? it?.servicio?.nombreServicio
-      ?? '—'
+  return it?.servicio_nombre ?? it?.servicioNombre ?? it?.servicio?.nombreServicio ?? '—'
 }
 function getSedeNombre(it: ExtendedFacturacionTicket | null) {
   if (!it) return '—'
-  return it?.sede_nombre
-      ?? it?.sedeNombre
-      ?? it?.sede?.nombre
-      ?? '—'
+  return it?.sede_nombre ?? it?.sedeNombre ?? it?.sede?.nombre ?? '—'
 }
 
 /* ===== Snack ===== */
@@ -661,10 +793,7 @@ onMounted(async () => {
 })
 
 onBeforeUnmount(() => {
-  // Limpiar blob URL al desmontar
-  if (imageBlobUrl.value) {
-    URL.revokeObjectURL(imageBlobUrl.value)
-  }
+  if (imageBlobUrl.value) URL.revokeObjectURL(imageBlobUrl.value)
 })
 </script>
 
@@ -692,6 +821,22 @@ onBeforeUnmount(() => {
   font-weight: 600;
 }
 
+/* Labels y values dentro de la tarjeta de descuento */
+.label-desc {
+  font-size: .72rem;
+  color: rgba(0,0,0,.55);
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  margin-bottom: 2px;
+}
+.value-desc {
+  font-weight: 600;
+  font-size: .92rem;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+}
+
 .rounded-xl { border-radius: 16px; }
 .rounded-2xl { border-radius: 20px; }
 .text-medium-emphasis { color: rgba(0,0,0,.6); }
@@ -704,7 +849,7 @@ onBeforeUnmount(() => {
   margin-top: 6px;
 }
 
-/* ===== Preview de imagen ===== */
+/* Preview de imagen */
 .image-preview-wrapper {
   border: 2px solid #e0e0e0;
   border-radius: 12px;
@@ -730,23 +875,8 @@ onBeforeUnmount(() => {
   border-radius: 6px;
 }
 
-/* Scrollbar personalizado para el canvas */
-.preview-canvas::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-
-.preview-canvas::-webkit-scrollbar-track {
-  background: #f1f1f1;
-  border-radius: 4px;
-}
-
-.preview-canvas::-webkit-scrollbar-thumb {
-  background: #888;
-  border-radius: 4px;
-}
-
-.preview-canvas::-webkit-scrollbar-thumb:hover {
-  background: #555;
-}
+.preview-canvas::-webkit-scrollbar { width: 8px; height: 8px; }
+.preview-canvas::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 4px; }
+.preview-canvas::-webkit-scrollbar-thumb { background: #888; border-radius: 4px; }
+.preview-canvas::-webkit-scrollbar-thumb:hover { background: #555; }
 </style>

@@ -62,13 +62,6 @@
         />
         <v-list-item title="Turnos del día" :to="{ path: '/rtm/turnos-dia' }" link />
         <v-list-item title="Estado turno" :to="{ path: '/rtm/estado-turnos' }" link />
-
-        <v-list-item
-          v-if="can.verHistoricoFacturacion()"
-          title="Histórico facturación"
-          :to="{ path: '/facturacion/historico' }"
-          link
-        />
       </v-list-group>
 
       <!-- Comercial -->
@@ -181,32 +174,45 @@
             <v-list-item v-bind="props" title="Comisiones" />
           </template>
 
-          <v-list-item title="Resumen / Listado" :to="{ path: '/comercial/comisiones' }" link />
+          <v-list-item title="Resumen" :to="{ path: '/comercial/comisiones' }" link />
           <v-list-item
             v-if="can.configurarComisiones()"
-            title="Parámetros / Configuración"
+            title="Configuración"
             :to="{ name: 'ComercialComisionesConfig' }"
             link
           />
         </v-list-group>
 
-        <!-- Histórico facturación -->
-<v-list-item
-  v-if="can.verHistoricoFacturacion()"
-  title="Histórico facturación"
-  prepend-icon="mdi-file-document-multiple"
-  :to="{ path: '/facturacion/historico' }"
-  link
-/>
-
-        <!-- Descuentos -->
-        <v-list-item
+        <!-- 🆕 Descuentos -->
+        <v-list-group
           v-if="can.verComisiones()"
-          title="Descuentos"
+          value="comercial-descuentos"
           prepend-icon="mdi-tag-multiple"
-          :to="{ name: 'ComercialDescuentos' }"
-          link
-        />
+          class="nav-item"
+          color="#FACC15"
+        >
+          <template #activator="{ props }">
+            <v-list-item v-bind="props" title="Descuentos" />
+          </template>
+
+          <v-list-item
+            title="Descuentos"
+            :to="{ name: 'ComercialDescuentos' }"
+            link
+          />
+          <v-list-item
+            title="Historial"
+            :to="{ name: 'ComercialDescuentosHistorial' }"
+            link
+          />
+          <v-list-item
+            v-if="can.verHistoricoFacturacion()"
+            title="Facturación"
+            :to="{ path: '/facturacion/historico' }"
+            link
+          />
+        </v-list-group>
+
       </v-list-group>
 
       <!-- Gestión Documental -->

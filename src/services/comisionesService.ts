@@ -62,6 +62,19 @@ export interface ConvenioLight {
   nombre: string
 }
 
+// 🆕 Descuento informativo aplicado en el ticket
+export interface DescuentoLight {
+  id: number
+  codigo: string
+  nombre: string
+}
+
+// 🆕 Usuario ligero para trazabilidad (cajero / autorizador)
+export interface UsuarioLight {
+  id: number
+  nombre: string
+}
+
 export interface ServicioLight {
   id?: number
   codigo?: string
@@ -78,11 +91,20 @@ export interface TurnoLight {
   numero_global?: number | string
   numero_servicio?: number | string
 
-  // 🆕 Campos de recurrencia
+  // 🆕 Campos de recurrencia (3 estados)
   es_recurrente?: boolean
+  es_recuperacion?: boolean        // ✅ AGREGADO
   meses_desde_ultima_visita?: number | null
   ultimo_turno_id?: number | null
   fecha_ultima_visita?: string | null
+
+  // 🆕 Detalle de la visita anterior (solo viene en show(), no en list())
+  ultima_visita?: {
+    placa: string | null
+    conductor_nombre: string | null
+    vehiculo_descripcion: string | null
+    fecha: string | null
+  } | null
 }
 
 export interface ComisionListItem {
@@ -105,6 +127,12 @@ export interface ComisionListItem {
   asesor?: AgenteLight | null
   convenio?: ConvenioLight | null
   turno?: TurnoLight | null
+
+  // 🆕 Descuento informativo
+  descuento?: DescuentoLight | null
+  /** 'dateo' = pre-marcado por el comercial al crear el dateo
+   *  'caja'  = aplicado manualmente por el cajero al confirmar el ticket */
+  descuento_origen?: 'dateo' | 'caja' | null
 }
 
 export interface ComisionDetail extends ComisionListItem {
@@ -112,6 +140,17 @@ export interface ComisionDetail extends ComisionListItem {
   pagado_at?: string | null
   anulado_at?: string | null
   observacion?: string | null
+  // ✅ AGREGADOS: desglose de montos por asesor y convenio
+  monto_asesor?: number | null
+  monto_convenio?: number | null
+
+  // 🆕 Trazabilidad completa del descuento informativo
+  /** Fecha en que se aplicó el descuento (= ticket.confirmado_at) */
+  descuento_aplicado_at?: string | null
+  /** Cajero que confirmó el ticket (quien procesó el descuento) */
+  descuento_aplicado_por?: UsuarioLight | null
+  /** Usuario que autorizó el descuento (solo cuando origen = 'caja') */
+  descuento_autorizado_por?: UsuarioLight | null
 }
 
 export interface ListParams {
@@ -150,7 +189,12 @@ export interface ComisionConfig {
   asesor_id: number | null
   tipo_vehiculo: TipoVehiculoComision | null
   valor_placa: number
+  // 🆕 incentivos específicos por tipo de vehículo (null = sin configurar, usa valor_placa)
+  valor_placa_vehiculo: number | null
+  valor_placa_moto: number | null
   valor_dateo: number
+  // 🆕 Dateo cliente nuevo SIN convenio ($17.200) — solo comercial directo
+  valor_nuevo_directo: number
   fecha_calculo?: string | null
 }
 
@@ -162,7 +206,12 @@ export interface ComisionConfigPayload {
   asesor_id?: number | null
   tipo_vehiculo: TipoVehiculoComision
   valor_placa: number
+  // 🆕 incentivos específicos por tipo de vehículo (null = sin configurar, usa valor_placa)
+  valor_placa_vehiculo?: number | null
+  valor_placa_moto?: number | null
   valor_dateo: number
+  // 🆕 Dateo cliente nuevo SIN convenio ($17.200)
+  valor_nuevo_directo: number
 }
 
 /* =========== Tipos para Metas mensuales (resumen + config) =========== */
@@ -224,6 +273,17 @@ function mapTurno(api: unknown): TurnoLight | null {
   const t = api as Record<string, unknown>
   const vehiculo = t.vehiculo as Record<string, unknown> | undefined
 
+  // 🆕 Mapear ultima_visita si viene del backend (solo en show())
+  const ultimaVisitaRaw = t.ultima_visita as Record<string, unknown> | null | undefined
+  const ultimaVisita = ultimaVisitaRaw
+    ? {
+        placa: (ultimaVisitaRaw.placa as string) ?? null,
+        conductor_nombre: (ultimaVisitaRaw.conductor_nombre as string) ?? null,
+        vehiculo_descripcion: (ultimaVisitaRaw.vehiculo_descripcion as string) ?? null,
+        fecha: (ultimaVisitaRaw.fecha as string) ?? null,
+      }
+    : null
+
   return {
     id: (t.id ?? t.turno_id ?? t.numero ?? 0) as number,
     numero: (t.numero ?? t.id ?? t.turno_id) as string | number | undefined,
@@ -239,11 +299,15 @@ function mapTurno(api: unknown): TurnoLight | null {
       t.turnoNumeroServicio ??
       t.turno_numero_servicio) as number | string | undefined,
 
-    // 🆕 Mapeo de campos de recurrencia
+    // 🆕 Mapeo de campos de recurrencia (3 estados)
     es_recurrente: t.es_recurrente != null ? Boolean(t.es_recurrente) : undefined,
+    es_recuperacion: t.es_recuperacion != null ? Boolean(t.es_recuperacion) : undefined,  // ✅ AGREGADO
     meses_desde_ultima_visita: t.meses_desde_ultima_visita != null ? Number(t.meses_desde_ultima_visita) : null,
     ultimo_turno_id: t.ultimo_turno_id != null ? Number(t.ultimo_turno_id) : null,
     fecha_ultima_visita: (t.fecha_ultima_visita as string) ?? null,
+
+    // 🆕 Detalle de la visita anterior
+    ultima_visita: ultimaVisita,
   }
 }
 
@@ -275,6 +339,17 @@ function mapAgenteCaptacion(api: unknown): AgenteLight | null {
   }
 }
 
+// 🆕 Mapea un usuario ligero (cajero / autorizador)
+function mapUsuarioLight(api: unknown): UsuarioLight | null {
+  if (!api) return null
+  const u = api as Record<string, unknown>
+  const nombre = [u.nombres ?? u.nombre, u.apellidos]
+    .filter(Boolean)
+    .join(' ')
+    .trim() || '—'
+  return { id: u.id as number, nombre }
+}
+
 function mapComisionToListItem(api: unknown): ComisionListItem {
   const a = api as Record<string, unknown>
   // API ya trae valor_unitario (monto asesor), valor_cliente (base convenio) y valor_total
@@ -298,6 +373,22 @@ function mapComisionToListItem(api: unknown): ComisionListItem {
     a.dateoId ??
     null
 
+  // 🆕 Descuento informativo
+  const descuentoRaw = a.descuento ?? a.descuento_info ?? null
+  const descuento: DescuentoLight | null = descuentoRaw
+    ? (() => {
+        const d = descuentoRaw as Record<string, unknown>
+        return {
+          id: d.id as number,
+          codigo: String(d.codigo ?? ''),
+          nombre: String(d.nombre ?? ''),
+        }
+      })()
+    : null
+  const descuento_origen = (
+    a.descuento_origen ?? a.descuentoOrigen ?? null
+  ) as 'dateo' | 'caja' | null
+
   return {
     id: a.id as number,
     dateo_id: dateoId != null ? Number(dateoId) : undefined,
@@ -319,6 +410,9 @@ function mapComisionToListItem(api: unknown): ComisionListItem {
       ? { id: a.convenio_id as number, nombre: '—' }
       : null,
     turno,
+    // 🆕
+    descuento,
+    descuento_origen,
   }
 }
 
@@ -331,6 +425,30 @@ function mapComisionToDetail(api: unknown): ComisionDetail {
     pagado_at: (a.pagado_at as string) ?? null,
     anulado_at: (a.anulado_at as string) ?? null,
     observacion: (a.observacion as string) ?? null,
+    // ✅ AGREGADOS: mapeo de montos desglosados
+    monto_asesor: a.monto_asesor != null
+      ? num(a.monto_asesor)
+      : a.montoAsesor != null
+      ? num(a.montoAsesor)
+      : null,
+    monto_convenio: a.monto_convenio != null
+      ? num(a.monto_convenio)
+      : a.montoConvenio != null
+      ? num(a.montoConvenio)
+      : null,
+    // 🆕 Trazabilidad descuento
+    descuento_aplicado_at: (
+      a.descuento_aplicado_at ??
+      a.ticket_confirmado_at ??
+      a.confirmado_at ??
+      null
+    ) as string | null,
+    descuento_aplicado_por: mapUsuarioLight(
+      a.descuento_aplicado_por ?? a.confirmed_by ?? a.confirmedBy ?? null
+    ),
+    descuento_autorizado_por: mapUsuarioLight(
+      a.descuento_autorizado_por ?? a.autorizado_por ?? a.autorizadoPor ?? null
+    ),
   }
 }
 
@@ -346,7 +464,12 @@ function mapConfigToUi(api: unknown): ComisionConfig {
     asesor_id: (a.asesor_id ?? a.asesorId ?? null) as number | null,
     tipo_vehiculo: (a.tipo_vehiculo ?? a.tipoVehiculo ?? null) as TipoVehiculoComision | null,
     valor_placa: num(a.valor_placa ?? a.base),
+    // 🆕
+    valor_placa_vehiculo: a.valor_placa_vehiculo != null ? num(a.valor_placa_vehiculo) : null,
+    valor_placa_moto: a.valor_placa_moto != null ? num(a.valor_placa_moto) : null,
     valor_dateo: num(a.valor_dateo ?? a.monto),
+    // 🆕 nuevo directo
+    valor_nuevo_directo: num(a.valor_nuevo_directo ?? a.valorNuevoDirecto ?? 0),
     fecha_calculo:
       (a.fecha_calculo ??
       a.fechaCalculo ??
@@ -377,7 +500,7 @@ function mapMetaMensual(api: unknown): MetaMensualRow {
     id: a.id as number,
     asesor_id: (a.asesor_id ?? a.asesorId ?? null) as number | null,
     asesor_nombre: (a.asesor_nombre ?? a.asesorNombre ?? null) as string | null,
-    asesor_tipo: (a.asesor_tipo ?? a.asesorTipo ?? null) as string | null, // 👈 importante para filtrar convenios en el front
+    asesor_tipo: (a.asesor_tipo ?? a.asesorTipo ?? null) as string | null,
     mes: (a.mes ?? null) as string | null,
 
     // Config de meta
@@ -437,7 +560,6 @@ function mapMetaMensual(api: unknown): MetaMensualRow {
         : undefined,
   }
 }
-
 /* ============================= Funciones ============================= */
 
 /* ===== Comisiones reales ===== */
@@ -701,11 +823,17 @@ export async function deleteMetaMensual(id: number) {
   })
 }
 
-/* ===== Configuración de Recurrencias (NUEVO) ===== */
+/* ===== Configuración de Recurrencias ===== */
 
+// 🆕 CAMBIO 1: interfaz actualizada con los 4 campos nuevos (nullable = opcionales)
 export interface ConfigRecurrenciaGlobal {
   meses_minimos: number
   valor_dateo_recurrencia: number
+  valor_dateo_recuperacion: number
+  valor_dateo_recurrencia_vehiculo?: number | null
+  valor_dateo_recurrencia_moto?: number | null
+  valor_dateo_recuperacion_vehiculo?: number | null
+  valor_dateo_recuperacion_moto?: number | null
 }
 
 export interface ConfigRecurrenciaAsesor {
@@ -715,6 +843,7 @@ export interface ConfigRecurrenciaAsesor {
   recurrencia_habilitada: boolean
   meses_minimos: number | null
   valor_dateo_recurrencia: number | null
+  valor_dateo_recuperacion: number | null
   tipo_vehiculo: 'MOTO' | 'VEHICULO' | 'AMBOS'
 }
 
@@ -723,25 +852,47 @@ export interface ConfigRecurrenciaAsesorPayload {
   recurrencia_habilitada: boolean
   meses_minimos?: number | null
   valor_dateo_recurrencia?: number | null
+  valor_dateo_recuperacion?: number | null
   tipo_vehiculo: 'MOTO' | 'VEHICULO' | 'AMBOS'
 }
 
 /**
  * GET /api/comisiones/recurrencia/config/global
  */
-export async function getConfigRecurrenciaGlobal() {
+// 🆕 CAMBIO 2: mapea los 4 campos nuevos desde el backend
+export async function getConfigRecurrenciaGlobal(): Promise<ConfigRecurrenciaGlobal> {
   const raw = await apiFetch<unknown>('/comisiones/recurrencia/config/global')
   const r = raw as Record<string, unknown>
   return {
     meses_minimos: Number(r.meses_minimos ?? 24),
     valor_dateo_recurrencia: Number(r.valor_dateo_recurrencia ?? 4300),
+    valor_dateo_recuperacion: Number(r.valor_dateo_recuperacion ?? 8600),
+    valor_dateo_recurrencia_vehiculo:
+      r.valor_dateo_recurrencia_vehiculo != null
+        ? Number(r.valor_dateo_recurrencia_vehiculo)
+        : null,
+    valor_dateo_recurrencia_moto:
+      r.valor_dateo_recurrencia_moto != null
+        ? Number(r.valor_dateo_recurrencia_moto)
+        : null,
+    valor_dateo_recuperacion_vehiculo:
+      r.valor_dateo_recuperacion_vehiculo != null
+        ? Number(r.valor_dateo_recuperacion_vehiculo)
+        : null,
+    valor_dateo_recuperacion_moto:
+      r.valor_dateo_recuperacion_moto != null
+        ? Number(r.valor_dateo_recuperacion_moto)
+        : null,
   }
 }
 
 /**
  * POST /api/comisiones/recurrencia/config/global
  */
-export async function updateConfigRecurrenciaGlobal(payload: ConfigRecurrenciaGlobal) {
+// 🆕 CAMBIO 3: acepta y retorna los 4 campos nuevos
+export async function updateConfigRecurrenciaGlobal(
+  payload: ConfigRecurrenciaGlobal
+): Promise<ConfigRecurrenciaGlobal> {
   const raw = await apiFetch<unknown>('/comisiones/recurrencia/config/global', {
     method: 'POST',
     body: payload,
@@ -750,6 +901,23 @@ export async function updateConfigRecurrenciaGlobal(payload: ConfigRecurrenciaGl
   return {
     meses_minimos: Number(r.meses_minimos ?? 24),
     valor_dateo_recurrencia: Number(r.valor_dateo_recurrencia ?? 4300),
+    valor_dateo_recuperacion: Number(r.valor_dateo_recuperacion ?? 8600),
+    valor_dateo_recurrencia_vehiculo:
+      r.valor_dateo_recurrencia_vehiculo != null
+        ? Number(r.valor_dateo_recurrencia_vehiculo)
+        : null,
+    valor_dateo_recurrencia_moto:
+      r.valor_dateo_recurrencia_moto != null
+        ? Number(r.valor_dateo_recurrencia_moto)
+        : null,
+    valor_dateo_recuperacion_vehiculo:
+      r.valor_dateo_recuperacion_vehiculo != null
+        ? Number(r.valor_dateo_recuperacion_vehiculo)
+        : null,
+    valor_dateo_recuperacion_moto:
+      r.valor_dateo_recuperacion_moto != null
+        ? Number(r.valor_dateo_recuperacion_moto)
+        : null,
   }
 }
 
@@ -770,6 +938,7 @@ export async function listConfigRecurrenciaAsesores(params?: { asesorId?: number
       recurrencia_habilitada: Boolean(a.recurrencia_habilitada),
       meses_minimos: (a.meses_minimos ?? null) as number | null,
       valor_dateo_recurrencia: (a.valor_dateo_recurrencia ?? null) as number | null,
+      valor_dateo_recuperacion: (a.valor_dateo_recuperacion ?? null) as number | null,
       tipo_vehiculo: (a.tipo_vehiculo ?? 'AMBOS') as 'MOTO' | 'VEHICULO' | 'AMBOS',
     }
   })
@@ -791,6 +960,7 @@ export async function upsertConfigRecurrenciaAsesor(payload: ConfigRecurrenciaAs
     recurrencia_habilitada: Boolean(r.recurrencia_habilitada),
     meses_minimos: (r.meses_minimos ?? null) as number | null,
     valor_dateo_recurrencia: (r.valor_dateo_recurrencia ?? null) as number | null,
+    valor_dateo_recuperacion: (r.valor_dateo_recuperacion ?? null) as number | null,
     tipo_vehiculo: (r.tipo_vehiculo ?? 'AMBOS') as 'MOTO' | 'VEHICULO' | 'AMBOS',
   }
 }
