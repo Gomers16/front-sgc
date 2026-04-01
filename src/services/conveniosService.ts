@@ -27,6 +27,12 @@ export interface Convenio {
   agente_captacion_id?: number | null
   created_at?: string
   updated_at?: string
+  // 🆕 Ruta y gestión
+  ruta?: string | null
+  subRuta?: string | null
+  periodicidad?: 'DIARIA' | 'SEMANAL' | 'QUINCENAL' | 'MENSUAL' | null
+  reporta?: string | null
+  estado?: 'ACTIVO' | 'INACTIVO' | 'PROSPECTO' | null
 }
 
 export interface ListResponse<T> {
@@ -41,6 +47,9 @@ export interface ListParams {
   perPage?: number
   texto?: string
   activo?: '' | 0 | 1 | boolean
+  // 🆕 Filtros nuevos
+  estado?: string
+  ruta?: string
   sortBy?: string
   order?: 'asc' | 'desc'
 }
@@ -57,6 +66,7 @@ export interface AsesorActivoResp {
   activo?: boolean
   asesor: { id: number; nombre: string; tipo?: string } | null
   asignado_at?: string | null
+  desde?: string | null
   asignacion_id?: number | null
 }
 
@@ -113,6 +123,12 @@ export interface UpdateConvenioPayload {
   numero_metodo_pago?: string | null
   fecha_apertura?: string | null
   activo?: boolean
+  // 🆕 Ruta y gestión
+  ruta?: string | null
+  sub_ruta?: string | null
+  periodicidad?: 'DIARIA' | 'SEMANAL' | 'QUINCENAL' | 'MENSUAL' | null
+  reporta?: string | null
+  estado?: 'ACTIVO' | 'INACTIVO' | 'PROSPECTO' | null
 }
 
 /* ===== Helpers ===== */
@@ -158,7 +174,10 @@ export async function listConvenios(params: ListParams = {}) {
       perPage: params.perPage,
       sortBy: params.sortBy,
       order: params.order,
-      vigente: vigenteParam
+      vigente: vigenteParam,
+      // 🆕
+      estado: params.estado || undefined,
+      ruta: params.ruta || undefined,
     },
   })
   return normalizeListShape<Convenio>(r, params)
@@ -179,7 +198,7 @@ export async function listAgentesCaptacion(tipo?: string) {
       params: {
         activos: 1,
         select: 'id,nombre,tipo',
-        tipo: tipo || undefined
+        tipo: tipo || undefined,
       },
     })
 
@@ -200,7 +219,8 @@ export async function getAsesorActivo(convenioId: number): Promise<AsesorActivoR
     activo: (rObj?.activo ?? Boolean(rObj?.asesor)) as boolean,
     asesor: (rObj?.asesor ?? null) as { id: number; nombre: string; tipo?: string } | null,
     asignado_at: (rObj?.asignado_at ?? rObj?.desde ?? null) as string | null,
-    asignacion_id: (rObj?.asignacion_id ?? rObj?.asignacionId ?? null) as number | null
+    desde: (rObj?.desde ?? rObj?.asignado_at ?? null) as string | null,
+    asignacion_id: (rObj?.asignacion_id ?? rObj?.asignacionId ?? null) as number | null,
   }
 }
 

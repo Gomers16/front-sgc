@@ -183,6 +183,25 @@
           />
         </v-list-group>
 
+        <!-- 🧾 Comprobantes -->
+        <v-list-group
+          v-if="can.verComisiones()"
+          value="comercial-comprobantes"
+          prepend-icon="mdi-receipt-text-outline"
+          class="nav-item"
+          color="#FACC15"
+        >
+          <template #activator="{ props }">
+            <v-list-item v-bind="props" title="Comprobantes" />
+          </template>
+
+          <v-list-item
+            title="Comprobantes de pago"
+            :to="{ name: 'ComercialComprobantes' }"
+            link
+          />
+        </v-list-group>
+
         <!-- 🆕 Descuentos -->
         <v-list-group
           v-if="can.verComisiones()"

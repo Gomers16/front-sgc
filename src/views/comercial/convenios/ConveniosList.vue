@@ -1,32 +1,63 @@
 <template>
   <v-container class="py-6">
     <v-card elevation="8" class="rounded-xl">
-      <v-card-title class="d-flex align-center justify-space-between flex-wrap py-5">
+
+      <!-- ══════════════════════════════════
+           HEADER + FILTROS
+      ═══════════════════════════════════ -->
+      <v-card-title class="d-flex align-center justify-space-between flex-wrap gap-3 py-5 px-5">
         <div class="text-h5 font-weight-bold">🤝 Convenios</div>
 
-        <div class="d-flex gap-2 flex-wrap">
+        <div class="d-flex gap-2 flex-wrap align-center">
+          <!-- Búsqueda texto -->
           <v-text-field
             v-model="filters.texto"
-            label="Buscar por nombre"
+            label="Buscar por nombre, doc, email…"
             prepend-inner-icon="mdi-magnify"
             variant="outlined"
             density="comfortable"
             hide-details
             clearable
-            style="min-width: 280px"
+            style="min-width: 260px"
+            @keyup.enter="reload"
           />
 
+          <!-- Filtro estado activo -->
           <v-select
             v-model="filters.activo"
             :items="estadoItems"
             item-title="label"
             item-value="value"
+            label="Activo"
+            variant="outlined"
+            density="comfortable"
+            hide-details
+            clearable
+            style="min-width: 140px"
+          />
+
+          <!-- Filtro estado detallado -->
+          <v-select
+            v-model="filters.estado"
+            :items="estadoDetalladoItems"
             label="Estado"
             variant="outlined"
             density="comfortable"
             hide-details
             clearable
-            style="min-width: 160px"
+            style="min-width: 140px"
+          />
+
+          <!-- Filtro ruta -->
+          <v-select
+            v-model="filters.ruta"
+            :items="rutasItems"
+            label="Ruta"
+            variant="outlined"
+            density="comfortable"
+            hide-details
+            clearable
+            style="min-width: 120px"
           />
 
           <v-btn color="primary" :loading="loading" @click="reload">Aplicar</v-btn>
@@ -34,6 +65,9 @@
         </div>
       </v-card-title>
 
+      <!-- ══════════════════════════════════
+           TABLA
+      ═══════════════════════════════════ -->
       <v-data-table-server
         class="px-4 pb-4"
         :headers="headers"
@@ -46,45 +80,100 @@
         @update:options="loadItems"
         item-value="id"
       >
+        <!-- Estado activo/inactivo -->
         <template #item.activo="{ item }">
           <v-chip :color="item.activo ? 'success' : 'error'" size="small" variant="flat">
             {{ item.activo ? 'Activo' : 'Inactivo' }}
           </v-chip>
         </template>
 
+        <!-- Estado detallado -->
+        <template #item.estado="{ item }">
+          <v-chip
+            v-if="item.estado"
+            :color="chipEstado(item.estado).color"
+            size="small"
+            variant="tonal"
+          >
+            {{ item.estado }}
+          </v-chip>
+          <span v-else class="text-medium-emphasis">—</span>
+        </template>
+
+        <!-- Contacto -->
         <template #item.contacto="{ item }">
-          <div class="d-flex flex-column">
-            <span v-if="item.telefono"><strong>Tel:</strong> {{ item.telefono }}</span>
-            <span v-else-if="item.whatsapp"><strong>Corporativo:</strong> {{ item.whatsapp }}</span>
-            <span v-else-if="item.email"><strong>Email:</strong> {{ item.email }}</span>
-            <span v-else class="text-medium-emphasis">—</span>
+          <div class="d-flex flex-column py-1">
+            <span v-if="item.telefono" class="text-body-2">
+              <v-icon size="13" class="mr-1">mdi-phone</v-icon>{{ item.telefono }}
+            </span>
+            <span v-if="item.whatsapp" class="text-body-2">
+              <v-icon size="13" class="mr-1">mdi-whatsapp</v-icon>{{ item.whatsapp }}
+            </span>
+            <span v-if="item.email" class="text-caption text-medium-emphasis">{{ item.email }}</span>
+            <span v-if="!item.telefono && !item.whatsapp && !item.email" class="text-medium-emphasis">—</span>
           </div>
         </template>
 
+        <!-- Establecimiento -->
         <template #item.establecimiento="{ item }">
           <span v-if="item.establecimiento">{{ item.establecimiento }}</span>
           <span v-else class="text-medium-emphasis">—</span>
         </template>
 
+        <!-- Ruta + Sub-ruta -->
+        <template #item.ruta="{ item }">
+          <div class="d-flex flex-column gap-1 py-1">
+            <v-chip v-if="item.ruta" color="primary" variant="tonal" size="x-small">
+              {{ item.ruta }}
+            </v-chip>
+            <v-chip v-if="item.subRuta" color="secondary" variant="tonal" size="x-small">
+              {{ item.subRuta }}
+            </v-chip>
+            <span v-if="!item.ruta && !item.subRuta" class="text-medium-emphasis">—</span>
+          </div>
+        </template>
+
+        <!-- Periodicidad -->
+        <template #item.periodicidad="{ item }">
+          <v-chip
+            v-if="item.periodicidad"
+            :color="chipPeriodicidad(item.periodicidad).color"
+            variant="tonal"
+            size="x-small"
+          >
+            <v-icon start size="11">{{ chipPeriodicidad(item.periodicidad).icon }}</v-icon>
+            {{ item.periodicidad }}
+          </v-chip>
+          <span v-else class="text-medium-emphasis">—</span>
+        </template>
+
+        <!-- Método de pago -->
         <template #item.metodoPago="{ item }">
-          <div class="d-flex flex-column">
+          <div class="d-flex flex-column py-1">
             <span v-if="item.metodoPago">
               <strong>{{ item.metodoPago }}</strong>
             </span>
-            <span v-if="item.metodoPago && item.metodoPago !== 'EFECTIVO' && item.numeroMetodoPago" class="text-caption text-medium-emphasis">
+            <span
+              v-if="item.metodoPago && item.metodoPago !== 'EFECTIVO' && item.numeroMetodoPago"
+              class="text-caption text-medium-emphasis"
+            >
               {{ item.numeroMetodoPago }}
             </span>
             <span v-if="!item.metodoPago" class="text-medium-emphasis">—</span>
           </div>
         </template>
 
+        <!-- Asesor activo -->
         <template #item.asesor="{ item }">
-          <span class="text-medium-emphasis" v-if="!asesorActivoMap[item.id]">—</span>
-          <span v-else>{{ asesorActivoMap[item.id]?.asesor?.nombre }}</span>
+          <span v-if="asesorActivoMap[item.id]?.asesor">
+            {{ asesorActivoMap[item.id].asesor?.nombre }}
+          </span>
+          <span v-else class="text-medium-emphasis">—</span>
         </template>
 
+        <!-- Acciones -->
         <template #item.acciones="{ item }">
-          <div class="d-flex gap-1">
+          <div class="d-flex gap-1 justify-end">
             <v-btn
               size="small"
               variant="text"
@@ -120,224 +209,392 @@
       </v-data-table-server>
     </v-card>
 
-    <!-- Modal: Ver detalle (solo lectura) -->
-    <v-dialog v-model="dlgDetalle.visible" max-width="640">
+    <!-- ══════════════════════════════════
+         MODAL: Ver detalle (solo lectura)
+    ═══════════════════════════════════ -->
+    <v-dialog v-model="dlgDetalle.visible" max-width="700">
       <v-card>
-        <v-card-title class="text-h6">
-          Detalle del convenio
-        </v-card-title>
-        <v-card-text>
-          <v-skeleton-loader
-            v-if="dlgDetalle.loading"
-            type="article"
-          />
-          <div v-else-if="dlgDetalle.item">
-            <div class="mb-2">
-              <strong>Nombre:</strong> {{ dlgDetalle.item.nombre || '—' }}
-            </div>
-            <div class="mb-2">
-              <strong>Tipo:</strong> {{ dlgDetalle.item.tipo || '—' }}
-            </div>
-            <div class="mb-2" v-if="dlgDetalle.item.establecimiento">
-              <strong>Establecimiento:</strong> {{ dlgDetalle.item.establecimiento }}
-            </div>
-            <div class="mb-2">
-              <strong>Documento:</strong>
-              <span v-if="dlgDetalle.item.docTipo || dlgDetalle.item.docNumero">
-                {{ dlgDetalle.item.docTipo || '' }} {{ dlgDetalle.item.docNumero || '' }}
-              </span>
-              <span v-else>—</span>
-            </div>
-            <div class="mb-2">
-              <strong>Teléfono:</strong> {{ dlgDetalle.item.telefono || '—' }}
-            </div>
-            <div class="mb-2">
-              <strong>Corporativo:</strong> {{ dlgDetalle.item.whatsapp || '—' }}
-            </div>
-            <div class="mb-2">
-              <strong>Email:</strong> {{ dlgDetalle.item.email || '—' }}
-            </div>
-            <div class="mb-2">
-              <strong>Dirección:</strong> {{ dlgDetalle.item.direccion || '—' }}
-            </div>
-            <div class="mb-2">
-              <strong>Método de pago:</strong> {{ dlgDetalle.item.metodoPago || 'No especificado' }}
-            </div>
-            <div class="mb-2" v-if="dlgDetalle.item.metodoPago && dlgDetalle.item.metodoPago !== 'EFECTIVO'">
-              <strong>Número de pago:</strong> {{ dlgDetalle.item.numeroMetodoPago || '—' }}
-            </div>
-            <div class="mb-2">
-              <strong>Fecha de apertura:</strong> {{ dlgDetalle.item.fechaApertura || '—' }}
-            </div>
+        <v-card-title class="d-flex align-center justify-space-between px-6 pt-5">
+          <span class="text-h6">Detalle del convenio</span>
+          <div class="d-flex gap-2" v-if="dlgDetalle.item">
+            <v-chip
+              v-if="dlgDetalle.item.estado"
+              :color="chipEstado(dlgDetalle.item.estado).color"
+              size="small"
+              variant="flat"
+            >
+              {{ dlgDetalle.item.estado }}
+            </v-chip>
+            <v-chip
+              :color="dlgDetalle.item.activo ? 'success' : 'error'"
+              size="small"
+              variant="flat"
+            >
+              {{ dlgDetalle.item.activo ? 'Activo' : 'Inactivo' }}
+            </v-chip>
           </div>
-          <div v-else class="text-medium-emphasis">
+        </v-card-title>
+        <v-divider />
+
+        <v-card-text class="px-6 py-4">
+          <v-skeleton-loader v-if="dlgDetalle.loading" type="article" />
+
+          <div v-else-if="dlgDetalle.item">
+            <!-- Sección: Datos básicos -->
+            <div class="text-overline text-medium-emphasis mb-2">Datos básicos</div>
+            <v-row dense class="mb-3">
+              <v-col cols="12" sm="8">
+                <div class="text-caption text-medium-emphasis">Nombre</div>
+                <div class="text-body-2 font-weight-medium">{{ dlgDetalle.item.nombre || '—' }}</div>
+              </v-col>
+              <v-col cols="12" sm="4">
+                <div class="text-caption text-medium-emphasis">Tipo</div>
+                <div class="text-body-2">{{ dlgDetalle.item.tipo || '—' }}</div>
+              </v-col>
+              <v-col cols="12" sm="6">
+                <div class="text-caption text-medium-emphasis">Establecimiento</div>
+                <div class="text-body-2">{{ dlgDetalle.item.establecimiento || '—' }}</div>
+              </v-col>
+              <v-col cols="12" sm="6">
+                <div class="text-caption text-medium-emphasis">Documento</div>
+                <div class="text-body-2">
+                  <span v-if="dlgDetalle.item.docTipo || dlgDetalle.item.docNumero">
+                    {{ dlgDetalle.item.docTipo }} {{ dlgDetalle.item.docNumero }}
+                  </span>
+                  <span v-else>—</span>
+                </div>
+              </v-col>
+              <v-col cols="12" sm="6">
+                <div class="text-caption text-medium-emphasis">Fecha de apertura</div>
+                <div class="text-body-2">{{ dlgDetalle.item.fechaApertura || '—' }}</div>
+              </v-col>
+              <v-col cols="12" sm="6">
+                <div class="text-caption text-medium-emphasis">Dirección</div>
+                <div class="text-body-2">{{ dlgDetalle.item.direccion || '—' }}</div>
+              </v-col>
+            </v-row>
+
+            <v-divider class="mb-3" />
+
+            <!-- Sección: Contacto -->
+            <div class="text-overline text-medium-emphasis mb-2">Contacto</div>
+            <v-row dense class="mb-3">
+              <v-col cols="12" sm="4">
+                <div class="text-caption text-medium-emphasis">Teléfono</div>
+                <div class="text-body-2">{{ dlgDetalle.item.telefono || '—' }}</div>
+              </v-col>
+              <v-col cols="12" sm="4">
+                <div class="text-caption text-medium-emphasis">WhatsApp</div>
+                <div class="text-body-2">{{ dlgDetalle.item.whatsapp || '—' }}</div>
+              </v-col>
+              <v-col cols="12" sm="4">
+                <div class="text-caption text-medium-emphasis">Email</div>
+                <div class="text-body-2">{{ dlgDetalle.item.email || '—' }}</div>
+              </v-col>
+            </v-row>
+
+            <v-divider class="mb-3" />
+
+            <!-- Sección: Pago -->
+            <div class="text-overline text-medium-emphasis mb-2">Método de pago</div>
+            <v-row dense class="mb-3">
+              <v-col cols="12" sm="6">
+                <div class="text-caption text-medium-emphasis">Método</div>
+                <div class="text-body-2">{{ dlgDetalle.item.metodoPago || '—' }}</div>
+              </v-col>
+              <v-col
+                cols="12"
+                sm="6"
+                v-if="dlgDetalle.item.metodoPago && dlgDetalle.item.metodoPago !== 'EFECTIVO'"
+              >
+                <div class="text-caption text-medium-emphasis">Número / Cuenta</div>
+                <div class="text-body-2">{{ dlgDetalle.item.numeroMetodoPago || '—' }}</div>
+              </v-col>
+            </v-row>
+
+            <v-divider class="mb-3" />
+
+            <!-- Sección: Ruta y gestión (NUEVOS) -->
+            <div class="text-overline text-medium-emphasis mb-2">Ruta y gestión</div>
+            <v-row dense>
+              <v-col cols="6" sm="3">
+                <div class="text-caption text-medium-emphasis">Ruta</div>
+                <v-chip v-if="dlgDetalle.item.ruta" color="primary" variant="tonal" size="small">
+                  {{ dlgDetalle.item.ruta }}
+                </v-chip>
+                <span v-else class="text-body-2 text-medium-emphasis">—</span>
+              </v-col>
+              <v-col cols="6" sm="3">
+                <div class="text-caption text-medium-emphasis">Sub-ruta</div>
+                <v-chip v-if="dlgDetalle.item.subRuta" color="secondary" variant="tonal" size="small">
+                  {{ dlgDetalle.item.subRuta }}
+                </v-chip>
+                <span v-else class="text-body-2 text-medium-emphasis">—</span>
+              </v-col>
+              <v-col cols="6" sm="3">
+                <div class="text-caption text-medium-emphasis">Periodicidad</div>
+                <v-chip
+                  v-if="dlgDetalle.item.periodicidad"
+                  :color="chipPeriodicidad(dlgDetalle.item.periodicidad).color"
+                  variant="tonal"
+                  size="small"
+                >
+                  {{ dlgDetalle.item.periodicidad }}
+                </v-chip>
+                <span v-else class="text-body-2 text-medium-emphasis">—</span>
+              </v-col>
+              <v-col cols="6" sm="3">
+                <div class="text-caption text-medium-emphasis">Reporta</div>
+                <div class="text-body-2">{{ dlgDetalle.item.reporta || '—' }}</div>
+              </v-col>
+            </v-row>
+          </div>
+
+          <div v-else class="text-medium-emphasis text-body-2">
             No se pudo cargar la información del convenio.
           </div>
         </v-card-text>
-        <v-card-actions>
+
+        <v-divider />
+        <v-card-actions class="px-6 py-3">
           <v-spacer />
           <v-btn color="primary" @click="dlgDetalle.visible = false">Cerrar</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
 
-    <!-- Modal: Editar convenio -->
-    <v-dialog v-model="dlgEditar.visible" max-width="800" scrollable>
+    <!-- ══════════════════════════════════
+         MODAL: Editar convenio
+    ═══════════════════════════════════ -->
+    <v-dialog v-model="dlgEditar.visible" max-width="860" scrollable>
       <v-card>
-        <v-card-title class="text-h6 d-flex align-center justify-space-between">
-          <span>Editar Convenio #{{ dlgEditar.item?.id }}</span>
+        <v-card-title class="d-flex align-center justify-space-between px-6 pt-5">
+          <span class="text-h6">Editar Convenio #{{ dlgEditar.item?.id }}</span>
           <v-chip :color="dlgEditar.form.activo ? 'success' : 'error'" size="small">
             {{ dlgEditar.form.activo ? 'Activo' : 'Inactivo' }}
           </v-chip>
         </v-card-title>
         <v-divider />
 
-        <v-card-text style="max-height: 600px">
+        <v-card-text style="max-height: 70vh">
           <v-skeleton-loader v-if="dlgEditar.loading" type="article, article" />
 
           <v-form v-else ref="formEditar">
+
+            <!-- ── Sección: Datos básicos ── -->
+            <div class="text-overline text-medium-emphasis mt-2 mb-1">Datos básicos</div>
             <v-row>
-              <!-- Nombre -->
               <v-col cols="12" md="8">
                 <v-text-field
                   v-model="dlgEditar.form.nombre"
                   label="Nombre *"
                   variant="outlined"
+                  density="comfortable"
                   :rules="[v => !!v || 'El nombre es requerido']"
                 />
               </v-col>
-
-              <!-- Tipo -->
               <v-col cols="12" md="4">
                 <v-select
                   v-model="dlgEditar.form.tipo"
                   :items="tiposConvenio"
                   label="Tipo"
                   variant="outlined"
+                  density="comfortable"
                 />
               </v-col>
 
-              <!-- Código -->
               <v-col cols="12" md="6">
                 <v-text-field
                   v-model="dlgEditar.form.codigo"
                   label="Código"
                   variant="outlined"
+                  density="comfortable"
                 />
               </v-col>
-
-              <!-- Establecimiento -->
               <v-col cols="12" md="6">
                 <v-text-field
                   v-model="dlgEditar.form.establecimiento"
                   label="Establecimiento"
                   variant="outlined"
+                  density="comfortable"
                 />
               </v-col>
 
-              <!-- Tipo Documento -->
               <v-col cols="12" md="4">
                 <v-select
                   v-model="dlgEditar.form.docTipo"
                   :items="tiposDocumento"
                   label="Tipo Doc."
                   variant="outlined"
+                  density="comfortable"
                 />
               </v-col>
-
-              <!-- Número Documento -->
               <v-col cols="12" md="8">
                 <v-text-field
                   v-model="dlgEditar.form.docNumero"
                   label="Número Documento"
                   variant="outlined"
+                  density="comfortable"
                 />
               </v-col>
 
-              <!-- Teléfono -->
-              <v-col cols="12" md="6">
-                <v-text-field
-                  v-model="dlgEditar.form.telefono"
-                  label="Teléfono"
-                  variant="outlined"
-                />
-              </v-col>
-
-              <!-- WhatsApp -->
-              <v-col cols="12" md="6">
-                <v-text-field
-                  v-model="dlgEditar.form.whatsapp"
-                  label="WhatsApp / Corporativo"
-                  variant="outlined"
-                />
-              </v-col>
-
-              <!-- Email -->
-              <v-col cols="12">
-                <v-text-field
-                  v-model="dlgEditar.form.email"
-                  label="Email"
-                  type="email"
-                  variant="outlined"
-                />
-              </v-col>
-
-              <!-- Dirección -->
-              <v-col cols="12">
-                <v-textarea
-                  v-model="dlgEditar.form.direccion"
-                  label="Dirección"
-                  variant="outlined"
-                  rows="2"
-                />
-              </v-col>
-
-              <!-- 👇 NUEVO: Fecha de Apertura -->
               <v-col cols="12" md="6">
                 <v-text-field
                   v-model="dlgEditar.form.fechaApertura"
                   label="Fecha de Apertura"
                   type="date"
                   variant="outlined"
+                  density="comfortable"
                   prepend-inner-icon="mdi-calendar"
-                  hint="Selecciona la fecha de apertura del convenio"
-                  persistent-hint
+                />
+              </v-col>
+              <v-col cols="12" md="6">
+                <!-- Estado detallado -->
+                <v-select
+                  v-model="dlgEditar.form.estado"
+                  :items="estadoDetalladoItems"
+                  label="Estado"
+                  variant="outlined"
+                  density="comfortable"
+                  clearable
                 />
               </v-col>
 
-              <!-- Método de Pago -->
-              <v-col cols="12" md="6">
+              <v-col cols="12">
+                <v-text-field
+                  v-model="dlgEditar.form.direccion"
+                  label="Dirección"
+                  variant="outlined"
+                  density="comfortable"
+                />
+              </v-col>
+            </v-row>
+
+            <v-divider class="my-3" />
+
+            <!-- ── Sección: Contacto ── -->
+            <div class="text-overline text-medium-emphasis mb-1">Contacto</div>
+            <v-row>
+              <v-col cols="12" md="4">
+                <v-text-field
+                  v-model="dlgEditar.form.telefono"
+                  label="Teléfono"
+                  variant="outlined"
+                  density="comfortable"
+                />
+              </v-col>
+              <v-col cols="12" md="4">
+                <v-text-field
+                  v-model="dlgEditar.form.whatsapp"
+                  label="WhatsApp / Corporativo"
+                  variant="outlined"
+                  density="comfortable"
+                />
+              </v-col>
+              <v-col cols="12" md="4">
+                <v-text-field
+                  v-model="dlgEditar.form.email"
+                  label="Email"
+                  type="email"
+                  variant="outlined"
+                  density="comfortable"
+                />
+              </v-col>
+            </v-row>
+
+            <v-divider class="my-3" />
+
+            <!-- ── Sección: Método de pago ── -->
+            <div class="text-overline text-medium-emphasis mb-1">Método de pago</div>
+            <v-row>
+              <v-col cols="12" md="5">
                 <v-select
                   v-model="dlgEditar.form.metodoPago"
                   :items="metodosPago"
                   label="Método de Pago"
                   variant="outlined"
+                  density="comfortable"
+                  clearable
                 />
               </v-col>
-
-              <!-- Número Método Pago -->
-              <v-col cols="12">
+              <v-col cols="12" md="7">
                 <v-text-field
                   v-model="dlgEditar.form.numeroMetodoPago"
-                  label="Número Método Pago"
+                  label="Número / Cuenta"
                   variant="outlined"
-                  :disabled="dlgEditar.form.metodoPago === 'EFECTIVO' || !dlgEditar.form.metodoPago"
-                  :hint="dlgEditar.form.metodoPago !== 'EFECTIVO' && dlgEditar.form.metodoPago ? 'Requerido para métodos distintos a efectivo' : ''"
+                  density="comfortable"
+                  :disabled="!dlgEditar.form.metodoPago || dlgEditar.form.metodoPago === 'EFECTIVO'"
+                  :hint="
+                    dlgEditar.form.metodoPago && dlgEditar.form.metodoPago !== 'EFECTIVO'
+                      ? 'Requerido para este método'
+                      : ''
+                  "
                   persistent-hint
                 />
               </v-col>
+            </v-row>
 
-              <!-- Notas -->
+            <v-divider class="my-3" />
+
+            <!-- ── Sección: Ruta y gestión (NUEVOS) ── -->
+            <div class="text-overline text-medium-emphasis mb-1">Ruta y gestión</div>
+            <v-row>
+              <v-col cols="12" md="3">
+                <v-text-field
+                  v-model="dlgEditar.form.ruta"
+                  label="Ruta"
+                  variant="outlined"
+                  density="comfortable"
+                  hint="Ej: 1, 2, CDA, INT"
+                  persistent-hint
+                />
+              </v-col>
+              <v-col cols="12" md="3">
+                <v-text-field
+                  v-model="dlgEditar.form.subRuta"
+                  label="Sub-ruta"
+                  variant="outlined"
+                  density="comfortable"
+                  hint="Ej: 1.2, 1.15"
+                  persistent-hint
+                />
+              </v-col>
+              <v-col cols="12" md="3">
+                <v-select
+                  v-model="dlgEditar.form.periodicidad"
+                  :items="periodicidadItems"
+                  label="Periodicidad"
+                  variant="outlined"
+                  density="comfortable"
+                  clearable
+                />
+              </v-col>
+              <v-col cols="12" md="3">
+                <v-text-field
+                  v-model="dlgEditar.form.reporta"
+                  label="Reporta"
+                  variant="outlined"
+                  density="comfortable"
+                  hint="Iniciales o nombre del asesor"
+                  persistent-hint
+                />
+              </v-col>
+            </v-row>
+
+            <v-divider class="my-3" />
+
+            <!-- ── Notas + Activo ── -->
+            <v-row>
               <v-col cols="12">
                 <v-textarea
                   v-model="dlgEditar.form.notas"
                   label="Notas"
                   variant="outlined"
+                  density="comfortable"
                   rows="3"
+                  auto-grow
                 />
               </v-col>
-
-              <!-- Activo -->
               <v-col cols="12">
                 <v-switch
                   v-model="dlgEditar.form.activo"
@@ -347,132 +604,71 @@
                 />
               </v-col>
             </v-row>
+
           </v-form>
         </v-card-text>
 
         <v-divider />
-        <v-card-actions>
+        <v-card-actions class="px-6 py-3">
           <v-spacer />
           <v-btn variant="text" @click="dlgEditar.visible = false" :disabled="dlgEditar.saving">
             Cancelar
           </v-btn>
-          <v-btn
-            color="primary"
-            :loading="dlgEditar.saving"
-            @click="guardarEdicion"
-          >
+          <v-btn color="primary" :loading="dlgEditar.saving" @click="guardarEdicion">
             Guardar Cambios
           </v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
 
-    <!-- 👇 NUEVO: Modal profesional de cédula duplicada -->
-    <v-dialog v-model="dlgErrorDuplicado.visible" max-width="600" persistent>
+    <!-- ══════════════════════════════════
+         MODAL: Documento duplicado
+    ═══════════════════════════════════ -->
+    <v-dialog v-model="dlgErrorDuplicado.visible" max-width="560" persistent>
       <v-card>
         <v-card-title class="d-flex align-center py-4 px-6 bg-error">
-          <v-icon size="32" class="mr-3 text-white">mdi-alert-circle-outline</v-icon>
-          <span class="text-h5 text-white font-weight-bold">Documento Duplicado</span>
+          <v-icon size="28" class="mr-2 text-white">mdi-alert-circle-outline</v-icon>
+          <span class="text-h6 text-white font-weight-bold">Documento Duplicado</span>
         </v-card-title>
-
         <v-divider />
-
         <v-card-text class="pa-6">
-          <!-- Alerta principal -->
-          <v-alert
-            type="error"
-            variant="tonal"
-            prominent
-            border="start"
-            class="mb-5"
-          >
-            <div class="text-h6 mb-2">⚠️ No se puede guardar el convenio</div>
-            <div class="text-body-1">
-              El documento que intentas registrar ya está asociado a otro convenio en el sistema.
-            </div>
+          <v-alert type="error" variant="tonal" prominent border="start" class="mb-4">
+            <div class="text-subtitle-1 font-weight-bold mb-1">⚠️ No se puede guardar</div>
+            <div>El documento ya está asociado a otro convenio.</div>
           </v-alert>
 
-          <!-- Información del documento -->
-          <v-card variant="outlined" class="mb-4">
-            <v-card-text class="pa-4">
-              <div class="d-flex align-center mb-3">
-                <v-icon color="error" class="mr-2">mdi-card-account-details</v-icon>
-                <span class="text-subtitle-1 font-weight-bold">Documento Intentado</span>
-              </div>
-              <div class="pl-9">
-                <v-chip color="error" variant="flat" size="large" class="font-weight-bold">
-                  {{ dlgErrorDuplicado.cedula }}
-                </v-chip>
-              </div>
-            </v-card-text>
+          <v-card variant="outlined" class="mb-4 pa-3">
+            <div class="text-caption text-medium-emphasis mb-1">Documento intentado</div>
+            <v-chip color="error" variant="flat" class="font-weight-bold">
+              {{ dlgErrorDuplicado.cedula }}
+            </v-chip>
           </v-card>
 
-          <!-- Información adicional -->
-          <v-card variant="outlined" color="info">
-            <v-card-text class="pa-4">
-              <div class="d-flex align-center mb-2">
-                <v-icon color="info" class="mr-2">mdi-information-outline</v-icon>
-                <span class="text-subtitle-1 font-weight-bold">¿Qué hacer?</span>
-              </div>
-              <v-list density="compact" class="bg-transparent">
-                <v-list-item>
-                  <template #prepend>
-                    <v-icon size="small" color="info">mdi-numeric-1-circle</v-icon>
-                  </template>
-                  <v-list-item-title class="text-body-2">
-                    Verifica que el número de documento sea correcto
-                  </v-list-item-title>
-                </v-list-item>
-                <v-list-item>
-                  <template #prepend>
-                    <v-icon size="small" color="info">mdi-numeric-2-circle</v-icon>
-                  </template>
-                  <v-list-item-title class="text-body-2">
-                    Si el documento es correcto, busca el convenio existente para editarlo
-                  </v-list-item-title>
-                </v-list-item>
-                <v-list-item>
-                  <template #prepend>
-                    <v-icon size="small" color="info">mdi-numeric-3-circle</v-icon>
-                  </template>
-                  <v-list-item-title class="text-body-2">
-                    Si es un error en el convenio anterior, corrígelo primero
-                  </v-list-item-title>
-                </v-list-item>
-              </v-list>
-            </v-card-text>
-          </v-card>
+          <div class="text-body-2 text-medium-emphasis">
+            Verifica el número, busca el convenio existente o corrígelo antes de continuar.
+          </div>
         </v-card-text>
-
         <v-divider />
-
-        <v-card-actions class="pa-4">
-          <v-btn
-            variant="outlined"
-            color="info"
-            prepend-icon="mdi-magnify"
-            @click="buscarConvenioDuplicado"
-          >
-            Buscar Convenio
+        <v-card-actions class="px-6 py-3">
+          <v-btn variant="outlined" color="info" prepend-icon="mdi-magnify" @click="buscarConvenioDuplicado">
+            Buscar convenio
           </v-btn>
           <v-spacer />
-          <v-btn
-            color="primary"
-            variant="elevated"
-            prepend-icon="mdi-check"
-            @click="cerrarModalDuplicado"
-          >
+          <v-btn color="primary" variant="elevated" @click="dlgErrorDuplicado.visible = false">
             Entendido
           </v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
 
-    <!-- Modal: Asignar asesor -->
+    <!-- ══════════════════════════════════
+         MODAL: Asignar asesor
+    ═══════════════════════════════════ -->
     <v-dialog v-model="dlgAsignar.visible" max-width="520">
       <v-card>
-        <v-card-title class="text-h6">Asignar asesor</v-card-title>
-        <v-card-text>
+        <v-card-title class="text-h6 px-6 pt-5">Asignar asesor</v-card-title>
+        <v-divider />
+        <v-card-text class="px-6 py-4">
           <v-autocomplete
             v-model="dlgAsignar.asesorId"
             :items="asesoresItems"
@@ -484,7 +680,8 @@
             hide-details
           />
         </v-card-text>
-        <v-card-actions>
+        <v-divider />
+        <v-card-actions class="px-6 py-3">
           <v-spacer />
           <v-btn variant="text" @click="dlgAsignar.visible = false">Cancelar</v-btn>
           <v-btn color="primary" :loading="dlgAsignar.loading" @click="confirmAsignar">Asignar</v-btn>
@@ -492,11 +689,14 @@
       </v-card>
     </v-dialog>
 
-    <!-- Modal: Retirar asesor -->
+    <!-- ══════════════════════════════════
+         MODAL: Retirar asesor
+    ═══════════════════════════════════ -->
     <v-dialog v-model="dlgRetirar.visible" max-width="520">
       <v-card>
-        <v-card-title class="text-h6">Retirar asesor</v-card-title>
-        <v-card-text>
+        <v-card-title class="text-h6 px-6 pt-5">Retirar asesor</v-card-title>
+        <v-divider />
+        <v-card-text class="px-6 py-4">
           <v-text-field
             v-model="dlgRetirar.motivo"
             label="Motivo (opcional)"
@@ -504,15 +704,18 @@
             hide-details
           />
         </v-card-text>
-        <v-card-actions>
+        <v-divider />
+        <v-card-actions class="px-6 py-3">
           <v-spacer />
           <v-btn variant="text" @click="dlgRetirar.visible = false">Cancelar</v-btn>
           <v-btn color="error" :loading="dlgRetirar.loading" @click="confirmRetirar">Retirar</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
+
   </v-container>
 </template>
+
 <script setup lang="ts">
 import { ref } from 'vue'
 import type { VForm } from 'vuetify/components'
@@ -526,59 +729,97 @@ import {
   listAgentesCaptacion,
 } from '@/services/conveniosService'
 
-/** Tipos lightweight para no depender de exports opcionales del service */
+/* ─── Tipos locales ─── */
 type ConvenioLite = {
   id: number
   nombre: string
   activo: boolean | 0 | 1
-  vigencia_desde?: string | null
-  vigencia_hasta?: string | null
+  tipo?: string | null
+  codigo?: string | null
+  establecimiento?: string | null
+  docTipo?: string | null
+  docNumero?: string | null
   telefono?: string | null
   whatsapp?: string | null
   email?: string | null
-  tipo?: string | null
-  codigo?: string | null
-  docTipo?: string | null
-  docNumero?: string | null
   direccion?: string | null
   notas?: string | null
-  establecimiento?: string | null
   metodoPago?: string | null
   numeroMetodoPago?: string | null
   fechaApertura?: string | null
-}
-type AsesorActivoLite = {
-  asesor?: { id: number; nombre: string; tipo?: string } | null
-  convenio_id?: number
-  activo?: boolean
+  // 🆕
+  ruta?: string | null
+  subRuta?: string | null
+  periodicidad?: 'DIARIA' | 'SEMANAL' | 'QUINCENAL' | 'MENSUAL' | null
+  reporta?: string | null
+  estado?: 'ACTIVO' | 'INACTIVO' | 'PROSPECTO' | null
 }
 
-/* Opciones para selects */
+type AsesorActivoLite = {
+  asesor?: { id: number; nombre: string; tipo?: string } | null
+}
+
+/* ─── Opciones de selects ─── */
 const tiposConvenio = ['PERSONA', 'TALLER', 'PARQUEADERO', 'LAVADERO']
 const tiposDocumento = ['CC', 'NIT', 'CE', 'PASAPORTE', 'RUT']
 const metodosPago = ['EFECTIVO', 'TRANSFERENCIA', 'TARJETA', 'CHEQUE']
-
-/* Filtros */
-const filters = ref<{ texto: string; activo: '' | 0 | 1 | boolean }>({
-  texto: '',
-  activo: '',
-})
+const periodicidadItems = ['DIARIA', 'SEMANAL', 'QUINCENAL', 'MENSUAL']
+const estadoDetalladoItems = ['ACTIVO', 'INACTIVO', 'PROSPECTO']
 const estadoItems = [
   { label: 'Activos', value: 1 },
   { label: 'Inactivos', value: 0 },
 ]
+// Rutas disponibles (ajustar según los valores reales del Excel)
+const rutasItems = ['1', '2', '3', '4', 'CDA', 'INT', 'RICAURTE', 'SALADO']
 
-/* Tabla */
+/* ─── Helpers de chips ─── */
+function chipEstado(estado: string) {
+  const map: Record<string, { color: string }> = {
+    ACTIVO: { color: 'success' },
+    INACTIVO: { color: 'error' },
+    PROSPECTO: { color: 'warning' },
+  }
+  return map[estado] ?? { color: 'default' }
+}
+
+function chipPeriodicidad(p: string) {
+  const map: Record<string, { color: string; icon: string }> = {
+    DIARIA: { color: 'error', icon: 'mdi-calendar-today' },
+    SEMANAL: { color: 'warning', icon: 'mdi-calendar-week' },
+    QUINCENAL: { color: 'info', icon: 'mdi-calendar-multiselect' },
+    MENSUAL: { color: 'success', icon: 'mdi-calendar-month' },
+  }
+  return map[p] ?? { color: 'default', icon: 'mdi-calendar' }
+}
+
+/* ─── Filtros ─── */
+const filters = ref<{
+  texto: string
+  activo: '' | 0 | 1 | boolean
+  estado: string
+  ruta: string
+}>({
+  texto: '',
+  activo: '',
+  estado: '',
+  ruta: '',
+})
+
+/* ─── Tabla ─── */
 const headers = [
   { title: 'ID', key: 'id', sortable: true },
   { title: 'Nombre', key: 'nombre', sortable: true },
-  { title: 'Estado', key: 'activo', sortable: true },
+  { title: 'Activo', key: 'activo', sortable: true },
+  { title: 'Estado', key: 'estado', sortable: false },
   { title: 'Contacto', key: 'contacto', sortable: false },
   { title: 'Establecimiento', key: 'establecimiento', sortable: true },
+  { title: 'Ruta', key: 'ruta', sortable: false },
+  { title: 'Periodicidad', key: 'periodicidad', sortable: false },
   { title: 'Método Pago', key: 'metodoPago', sortable: false },
   { title: 'Asesor activo', key: 'asesor', sortable: false },
   { title: 'Acciones', key: 'acciones', sortable: false, align: 'end' as const },
 ]
+
 const rows = ref<ConvenioLite[]>([])
 const totalItems = ref(0)
 const page = ref(1)
@@ -586,14 +827,14 @@ const itemsPerPage = ref(10)
 const sortBy = ref<Array<{ key: string; order: 'asc' | 'desc' }>>([{ key: 'id', order: 'desc' }])
 const loading = ref(false)
 
-/* Asesor activo cache por convenioId */
 const asesorActivoMap = ref<Record<number, AsesorActivoLite>>({})
 
-/* Catálogo asesores */
+/* ─── Asesores catálogo ─── */
 const asesoresItems = ref<{ id: number; nombre: string; tipo: string }[]>([])
 const asesoresLoading = ref(false)
 
 async function loadAsesores() {
+  if (asesoresItems.value.length) return
   asesoresLoading.value = true
   try {
     asesoresItems.value = await listAgentesCaptacion('ASESOR_COMERCIAL')
@@ -602,7 +843,7 @@ async function loadAsesores() {
   }
 }
 
-/* Data */
+/* ─── Carga de datos ─── */
 async function loadItems() {
   loading.value = true
   try {
@@ -610,11 +851,14 @@ async function loadItems() {
       Array.isArray(sortBy.value) && sortBy.value[0]
         ? sortBy.value[0]
         : { key: 'id', order: 'desc' as const }
+
     const res = await listConvenios({
       page: page.value,
       perPage: itemsPerPage.value,
       texto: filters.value.texto || undefined,
       activo: filters.value.activo === '' ? undefined : filters.value.activo,
+      estado: filters.value.estado || undefined,
+      ruta: filters.value.ruta || undefined,
       sortBy: sort.key,
       order: sort.order,
     })
@@ -622,16 +866,18 @@ async function loadItems() {
     rows.value = res.data as ConvenioLite[]
     totalItems.value = Number(res.total || 0)
 
-    // Cargar asesor activo por convenio (lazy, tolerante a errores)
+    // Asesor activo (lazy, en paralelo)
     asesorActivoMap.value = {}
-    for (const c of rows.value) {
-      try {
-        const info = await getAsesorActivo(c.id)
-        asesorActivoMap.value[c.id] = info as AsesorActivoLite
-      } catch {
-        // ignora fallos individuales
-      }
-    }
+    await Promise.allSettled(
+      rows.value.map(async (c) => {
+        try {
+          const info = await getAsesorActivo(c.id)
+          asesorActivoMap.value[c.id] = info as AsesorActivoLite
+        } catch {
+          // ignora fallos individuales
+        }
+      })
+    )
   } finally {
     loading.value = false
   }
@@ -641,58 +887,61 @@ function reload() {
   page.value = 1
   loadItems()
 }
+
 function resetFilters() {
-  filters.value = { texto: '', activo: '' }
+  filters.value = { texto: '', activo: '', estado: '', ruta: '' }
   reload()
 }
 
-/* Dialog detalle convenio (solo lectura) */
-const dlgDetalle = ref<{
-  visible: boolean
-  loading: boolean
-  item: ConvenioLite | null
-}>({
+/* ─── Dialog: Ver detalle ─── */
+const dlgDetalle = ref<{ visible: boolean; loading: boolean; item: ConvenioLite | null }>({
   visible: false,
   loading: false,
   item: null,
 })
 
 async function verDetalle(id: number) {
-  dlgDetalle.value.visible = true
-  dlgDetalle.value.loading = true
-  dlgDetalle.value.item = null
+  dlgDetalle.value = { visible: true, loading: true, item: null }
   try {
-    const conv = await getConvenio(id)
-    dlgDetalle.value.item = conv as ConvenioLite
+    dlgDetalle.value.item = (await getConvenio(id)) as ConvenioLite
   } finally {
     dlgDetalle.value.loading = false
   }
 }
 
-/* Dialog de edición completo */
+/* ─── Dialog: Editar ─── */
 const formEditar = ref<VForm | null>(null)
+
+type FormEditar = {
+  nombre: string
+  tipo: 'PERSONA' | 'TALLER' | 'PARQUEADERO' | 'LAVADERO'
+  codigo: string
+  establecimiento: string
+  docTipo: string
+  docNumero: string
+  telefono: string
+  whatsapp: string
+  email: string
+  direccion: string
+  notas: string
+  metodoPago: string
+  numeroMetodoPago: string
+  fechaApertura: string
+  activo: boolean
+  // 🆕
+  ruta: string
+  subRuta: string
+  periodicidad: string
+  reporta: string
+  estado: string
+}
+
 const dlgEditar = ref<{
   visible: boolean
   loading: boolean
   saving: boolean
   item: ConvenioLite | null
-  form: {
-    nombre: string
-    tipo: 'PERSONA' | 'TALLER' | 'PARQUEADERO' | 'LAVADERO'
-    codigo: string
-    establecimiento: string
-    docTipo: string
-    docNumero: string
-    telefono: string
-    whatsapp: string
-    email: string
-    direccion: string
-    notas: string
-    metodoPago: 'EFECTIVO' | 'TRANSFERENCIA' | 'TARJETA' | 'CHEQUE' | ''
-    numeroMetodoPago: string
-    fechaApertura: string
-    activo: boolean
-  }
+  form: FormEditar
 }>({
   visible: false,
   loading: false,
@@ -714,33 +963,24 @@ const dlgEditar = ref<{
     numeroMetodoPago: '',
     fechaApertura: '',
     activo: true,
+    ruta: '',
+    subRuta: '',
+    periodicidad: '',
+    reporta: '',
+    estado: '',
   },
-})
-
-/* 👇 NUEVO: Dialog error duplicado */
-const dlgErrorDuplicado = ref<{
-  visible: boolean
-  cedula: string
-  convenioExistente: string | null
-}>({
-  visible: false,
-  cedula: '',
-  convenioExistente: null,
 })
 
 async function openEditar(id: number) {
   dlgEditar.value.visible = true
   dlgEditar.value.loading = true
   dlgEditar.value.item = null
-
   try {
-    const conv = await getConvenio(id)
-    dlgEditar.value.item = conv as ConvenioLite
-
-    // Llenar el formulario con los datos actuales
+    const conv = (await getConvenio(id)) as ConvenioLite
+    dlgEditar.value.item = conv
     dlgEditar.value.form = {
       nombre: conv.nombre || '',
-      tipo: (conv.tipo as 'PERSONA' | 'TALLER' | 'PARQUEADERO' | 'LAVADERO') || 'PERSONA',
+      tipo: (conv.tipo as FormEditar['tipo']) || 'PERSONA',
       codigo: conv.codigo || '',
       establecimiento: conv.establecimiento || '',
       docTipo: conv.docTipo || '',
@@ -750,10 +990,16 @@ async function openEditar(id: number) {
       email: conv.email || '',
       direccion: conv.direccion || '',
       notas: conv.notas || '',
-      metodoPago: (conv.metodoPago as 'EFECTIVO' | 'TRANSFERENCIA' | 'TARJETA' | 'CHEQUE') || '',
+      metodoPago: conv.metodoPago || '',
       numeroMetodoPago: conv.numeroMetodoPago || '',
-      fechaApertura: conv.fechaApertura ? conv.fechaApertura.split(' ')[0] : '',
+      fechaApertura: conv.fechaApertura ? conv.fechaApertura.split('T')[0].split(' ')[0] : '',
       activo: !!conv.activo,
+      // 🆕
+      ruta: conv.ruta || '',
+      subRuta: conv.subRuta || '',
+      periodicidad: conv.periodicidad || '',
+      reporta: conv.reporta || '',
+      estado: conv.estado || '',
     }
   } finally {
     dlgEditar.value.loading = false
@@ -763,14 +1009,14 @@ async function openEditar(id: number) {
 async function guardarEdicion() {
   if (!dlgEditar.value.item) return
 
-  // Validar formulario
-  const validationResult = await formEditar.value?.validate()
-  if (!validationResult?.valid) return
+  const valid = await formEditar.value?.validate()
+  if (!valid?.valid) return
 
-  // Validar método de pago
-  if (dlgEditar.value.form.metodoPago &&
-      dlgEditar.value.form.metodoPago !== 'EFECTIVO' &&
-      !dlgEditar.value.form.numeroMetodoPago) {
+  if (
+    dlgEditar.value.form.metodoPago &&
+    dlgEditar.value.form.metodoPago !== 'EFECTIVO' &&
+    !dlgEditar.value.form.numeroMetodoPago
+  ) {
     alert('Se requiere número de método de pago para métodos distintos a EFECTIVO')
     return
   }
@@ -789,79 +1035,68 @@ async function guardarEdicion() {
       email: dlgEditar.value.form.email || null,
       direccion: dlgEditar.value.form.direccion || null,
       notas: dlgEditar.value.form.notas || null,
-      metodo_pago: dlgEditar.value.form.metodoPago || null,
+      metodo_pago: (dlgEditar.value.form.metodoPago as any) || null,
       numero_metodo_pago: dlgEditar.value.form.numeroMetodoPago || null,
       fecha_apertura: dlgEditar.value.form.fechaApertura || null,
       activo: dlgEditar.value.form.activo,
+      // 🆕
+      ruta: dlgEditar.value.form.ruta || null,
+      sub_ruta: dlgEditar.value.form.subRuta || null,
+      periodicidad: (dlgEditar.value.form.periodicidad as any) || null,
+      reporta: dlgEditar.value.form.reporta || null,
+      estado: (dlgEditar.value.form.estado as any) || null,
     })
 
     dlgEditar.value.visible = false
     await loadItems()
   } catch (error: any) {
-    // 🔍 Detectar error de cédula duplicada - MEJORADO
-    const errorMsg = error?.response?.data?.message || error?.message || ''
-
-    // Buscar diferentes variaciones del mensaje de error
+    const msg = error?.response?.data?.message || error?.message || ''
     const isDuplicado =
-      errorMsg.includes('Duplicate entry') ||
-      errorMsg.toLowerCase().includes('duplicado') ||
-      errorMsg.toLowerCase().includes('documento ya está en uso') ||
-      errorMsg.toLowerCase().includes('ya existe') ||
-      (error?.response?.status === 409) || // HTTP Conflict
-      errorMsg.includes('convenios_doc_tipo_doc_numero_unique')
+      error?.response?.status === 409 ||
+      msg.includes('Duplicate entry') ||
+      msg.toLowerCase().includes('duplicado') ||
+      msg.toLowerCase().includes('ya está en uso') ||
+      msg.includes('convenios_doc_tipo_doc_numero_unique')
 
     if (isDuplicado) {
-      // Mostrar modal profesional
-      const cedula = dlgEditar.value.form.docNumero || 'N/A'
-
       dlgErrorDuplicado.value = {
         visible: true,
-        cedula: `${dlgEditar.value.form.docTipo || ''} ${cedula}`,
-        convenioExistente: `Convenio ya existente con esta identificación`,
+        cedula: `${dlgEditar.value.form.docTipo || ''} ${dlgEditar.value.form.docNumero || 'N/A'}`.trim(),
       }
     } else {
-      // Otro tipo de error - mostrar mensaje genérico
-      alert(`Error al guardar: ${errorMsg}`)
+      alert(`Error al guardar: ${msg}`)
     }
   } finally {
     dlgEditar.value.saving = false
   }
 }
 
-// 👇 NUEVO: Funciones para el modal de duplicado
-function cerrarModalDuplicado() {
-  dlgErrorDuplicado.value.visible = false
-  // Opcional: Limpiar el campo de documento para que el usuario lo corrija
-  // dlgEditar.value.form.docNumero = ''
-}
+/* ─── Dialog: Duplicado ─── */
+const dlgErrorDuplicado = ref<{ visible: boolean; cedula: string }>({
+  visible: false,
+  cedula: '',
+})
 
 function buscarConvenioDuplicado() {
-  // Cerrar el modal de edición
   dlgEditar.value.visible = false
   dlgErrorDuplicado.value.visible = false
-
-  // Aplicar filtro de búsqueda con el documento duplicado
-  const soloNumero = dlgErrorDuplicado.value.cedula.replace(/[^0-9]/g, '')
-  filters.value.texto = soloNumero
+  filters.value.texto = dlgErrorDuplicado.value.cedula.replace(/[^0-9]/g, '')
   reload()
 }
 
-/* Dialog Asignar */
+/* ─── Dialog: Asignar ─── */
 const dlgAsignar = ref<{
   visible: boolean
   convenioId: number | null
   asesorId: number | null
   loading: boolean
-}>({
-  visible: false,
-  convenioId: null,
-  asesorId: null,
-  loading: false,
-})
+}>({ visible: false, convenioId: null, asesorId: null, loading: false })
+
 function openAsignar(convenioId: number) {
   dlgAsignar.value = { visible: true, convenioId, asesorId: null, loading: false }
-  if (!asesoresItems.value.length) loadAsesores()
+  loadAsesores()
 }
+
 async function confirmAsignar() {
   if (!dlgAsignar.value.convenioId || !dlgAsignar.value.asesorId) return
   dlgAsignar.value.loading = true
@@ -877,21 +1112,18 @@ async function confirmAsignar() {
   }
 }
 
-/* Dialog Retirar */
+/* ─── Dialog: Retirar ─── */
 const dlgRetirar = ref<{
   visible: boolean
   convenioId: number | null
   motivo: string
   loading: boolean
-}>({
-  visible: false,
-  convenioId: null,
-  motivo: '',
-  loading: false,
-})
+}>({ visible: false, convenioId: null, motivo: '', loading: false })
+
 function openRetirar(convenioId: number) {
   dlgRetirar.value = { visible: true, convenioId, motivo: '', loading: false }
 }
+
 async function confirmRetirar() {
   if (!dlgRetirar.value.convenioId) return
   dlgRetirar.value.loading = true
@@ -907,7 +1139,7 @@ async function confirmRetirar() {
   }
 }
 
-/* Init */
+/* ─── Init ─── */
 loadAsesores()
 loadItems()
 </script>
@@ -915,4 +1147,5 @@ loadItems()
 <style scoped>
 .gap-1 { gap: 4px; }
 .gap-2 { gap: 8px; }
+.gap-3 { gap: 12px; }
 </style>

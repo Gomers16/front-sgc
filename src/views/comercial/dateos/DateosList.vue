@@ -247,7 +247,7 @@
           </v-chip>
         </template>
 
-        <!-- ── INFORMATIVO ── -->
+        <!-- ── DESCUENTO ── -->
         <template #item.descuento="{ item }">
           <v-chip
             v-if="item.descuento_id || item.descuento?.nombre"
@@ -258,6 +258,21 @@
             class="font-weight-600"
           >
             {{ item.descuento?.nombre ?? `#${item.descuento_id}` }}
+          </v-chip>
+          <span v-else class="text-medium-emphasis">—</span>
+        </template>
+
+        <!-- ++ AVANCE ++ -->
+        <template #item.es_avance="{ item }">
+          <v-chip
+            v-if="item.es_avance"
+            size="x-small"
+            color="warning"
+            variant="flat"
+            prepend-icon="mdi-cash-fast"
+            class="font-weight-600"
+          >
+            AVANCE
           </v-chip>
           <span v-else class="text-medium-emphasis">—</span>
         </template>
@@ -484,7 +499,8 @@ const headers = [
   { title: 'Teléfono cliente', key: 'telefono', sortable: true },
   { title: 'Creado', key: 'created_at', sortable: true },
   { title: 'Estado', key: 'resultado', sortable: true },
-  { title: 'Informativo', key: 'descuento', sortable: false },
+  { title: 'Descuento', key: 'descuento', sortable: false },
+  { title: 'Avance', key: 'es_avance', sortable: false },  // ++ AVANCE ++
   { title: 'Turno', key: 'turnoInfo', sortable: false, align: 'center' as const },
   { title: 'Acciones', key: 'acciones', sortable: false, align: 'end' as const },
 ]
@@ -515,10 +531,7 @@ async function loadAsesores() {
   }
 }
 
-/* Catálogo convenios:
- * conveniosAll = todos
- * conveniosAsignados = sólo del asesor comercial seleccionado
- */
+/* Catálogo convenios */
 const conveniosAll = ref<{ id: number; nombre: string }[]>([])
 const conveniosAsignados = ref<{ id: number; nombre: string }[]>([])
 const conveniosLoading = ref(false)
@@ -603,7 +616,7 @@ watch(
   }
 )
 
-/* Helper: auto-vincular convenio del asesor CONVENIO (mismo nombre) */
+/* Helper: auto-vincular convenio del asesor CONVENIO */
 function autoVincularConvenioDeAsesorConvenio() {
   if (!filters.value.agenteId) return
   const asesor = asesoresItems.value.find((a) => a.id === filters.value.agenteId)

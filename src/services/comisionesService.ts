@@ -53,23 +53,42 @@ export type ComisionEstado = 'PENDIENTE' | 'APROBADA' | 'PAGADA' | 'ANULADA'
 export interface AgenteLight {
   id: number
   nombre: string
-  /** Puede ser INTERNO, EXTERNO, CONVENIO, etc. */
   tipo: 'INTERNO' | 'EXTERNO' | 'CONVENIO' | string
+  medioPago?: string | null
+  telefono?: string | null
 }
 
 export interface ConvenioLight {
   id: number
   nombre: string
+  metodo_pago?: string | null
+  numero_metodo_pago?: string | null
 }
 
-// 🆕 Descuento informativo aplicado en el ticket
+// 🆕 Ítem de convenio para autocomplete del filtro
+export interface ConvenioItem {
+  id: number
+  nombre: string
+}
+
+// 🆕 Ítem de descuento para el filtro
+export interface DescuentoItem {
+  id: number
+  codigo: string
+  nombre: string
+  valorCarro: number
+  valorMoto: number
+  activo: boolean
+}
+
+// Descuento informativo aplicado en el ticket
 export interface DescuentoLight {
   id: number
   codigo: string
   nombre: string
 }
 
-// 🆕 Usuario ligero para trazabilidad (cajero / autorizador)
+// Usuario ligero para trazabilidad (cajero / autorizador)
 export interface UsuarioLight {
   id: number
   nombre: string
@@ -91,14 +110,14 @@ export interface TurnoLight {
   numero_global?: number | string
   numero_servicio?: number | string
 
-  // 🆕 Campos de recurrencia (3 estados)
+  // Campos de recurrencia (3 estados)
   es_recurrente?: boolean
-  es_recuperacion?: boolean        // ✅ AGREGADO
+  es_recuperacion?: boolean
   meses_desde_ultima_visita?: number | null
   ultimo_turno_id?: number | null
   fecha_ultima_visita?: string | null
 
-  // 🆕 Detalle de la visita anterior (solo viene en show(), no en list())
+  // Detalle de la visita anterior (solo viene en show(), no en list())
   ultima_visita?: {
     placa: string | null
     conductor_nombre: string | null
@@ -108,6 +127,8 @@ export interface TurnoLight {
 }
 
 export interface ComisionListItem {
+  base?: number | null
+  descuento_monto_aplicado?: number | null
   tiene_desglose?: boolean
   desglose?: Record<string, unknown>[]
   id: number
@@ -123,12 +144,20 @@ export interface ComisionListItem {
   /** Suma de asesor + placa */
   valor_total: number
 
+  // ✅ Desglose real de montos (vienen del backend en lista Y en detalle)
+  monto_asesor?: number | null
+  monto_convenio?: number | null
+  es_avance?: boolean | null
+
+  // 🆕 tipo_vehiculo directo de la comisión (MOTO | VEHICULO | null)
+  tipo_vehiculo?: 'MOTO' | 'VEHICULO' | null
+
   generado_at?: string
   asesor?: AgenteLight | null
   convenio?: ConvenioLight | null
   turno?: TurnoLight | null
 
-  // 🆕 Descuento informativo
+  // Descuento informativo
   descuento?: DescuentoLight | null
   /** 'dateo' = pre-marcado por el comercial al crear el dateo
    *  'caja'  = aplicado manualmente por el cajero al confirmar el ticket */
@@ -140,11 +169,8 @@ export interface ComisionDetail extends ComisionListItem {
   pagado_at?: string | null
   anulado_at?: string | null
   observacion?: string | null
-  // ✅ AGREGADOS: desglose de montos por asesor y convenio
-  monto_asesor?: number | null
-  monto_convenio?: number | null
 
-  // 🆕 Trazabilidad completa del descuento informativo
+  // Trazabilidad completa del descuento informativo
   /** Fecha en que se aplicó el descuento (= ticket.confirmado_at) */
   descuento_aplicado_at?: string | null
   /** Cajero que confirmó el ticket (quien procesó el descuento) */
@@ -156,12 +182,14 @@ export interface ComisionDetail extends ComisionListItem {
 export interface ListParams {
   page?: number
   perPage?: number
-  mes?: string // 'YYYY-MM'
+  desde?: string  // 'YYYY-MM-DD'
+  hasta?: string  // 'YYYY-MM-DD'
   asesorId?: number
-  convenioId?: number // 👈 NUEVO: para filtrar por convenio_id (asesor convenio)
+  convenioId?: number
   estado?: ComisionEstado | ''
   sortBy?: string
   order?: 'asc' | 'desc'
+  tipoVehiculo?: 'MOTO' | 'VEHICULO' | ''
 }
 
 export interface ListResponse<T> {
@@ -189,11 +217,11 @@ export interface ComisionConfig {
   asesor_id: number | null
   tipo_vehiculo: TipoVehiculoComision | null
   valor_placa: number
-  // 🆕 incentivos específicos por tipo de vehículo (null = sin configurar, usa valor_placa)
+  // incentivos específicos por tipo de vehículo (null = sin configurar, usa valor_placa)
   valor_placa_vehiculo: number | null
   valor_placa_moto: number | null
   valor_dateo: number
-  // 🆕 Dateo cliente nuevo SIN convenio ($17.200) — solo comercial directo
+  // Dateo cliente nuevo SIN convenio ($17.200) — solo comercial directo
   valor_nuevo_directo: number
   fecha_calculo?: string | null
 }
@@ -206,11 +234,11 @@ export interface ComisionConfigPayload {
   asesor_id?: number | null
   tipo_vehiculo: TipoVehiculoComision
   valor_placa: number
-  // 🆕 incentivos específicos por tipo de vehículo (null = sin configurar, usa valor_placa)
+  // incentivos específicos por tipo de vehículo (null = sin configurar, usa valor_placa)
   valor_placa_vehiculo?: number | null
   valor_placa_moto?: number | null
   valor_dateo: number
-  // 🆕 Dateo cliente nuevo SIN convenio ($17.200)
+  // Dateo cliente nuevo SIN convenio ($17.200)
   valor_nuevo_directo: number
 }
 
@@ -225,7 +253,7 @@ export interface MetaMensualRow {
   id?: number
   asesor_id?: number | null
   asesor_nombre?: string | null
-  asesor_tipo?: string | null // 👈 tipo del agente (COMERCIAL / CONVENIO / etc.)
+  asesor_tipo?: string | null // tipo del agente (COMERCIAL / CONVENIO / etc.)
   mes?: string | null
 
   // Config meta
@@ -273,7 +301,7 @@ function mapTurno(api: unknown): TurnoLight | null {
   const t = api as Record<string, unknown>
   const vehiculo = t.vehiculo as Record<string, unknown> | undefined
 
-  // 🆕 Mapear ultima_visita si viene del backend (solo en show())
+  // Mapear ultima_visita si viene del backend (solo en show())
   const ultimaVisitaRaw = t.ultima_visita as Record<string, unknown> | null | undefined
   const ultimaVisita = ultimaVisitaRaw
     ? {
@@ -299,14 +327,14 @@ function mapTurno(api: unknown): TurnoLight | null {
       t.turnoNumeroServicio ??
       t.turno_numero_servicio) as number | string | undefined,
 
-    // 🆕 Mapeo de campos de recurrencia (3 estados)
+    // Mapeo de campos de recurrencia (3 estados)
     es_recurrente: t.es_recurrente != null ? Boolean(t.es_recurrente) : undefined,
-    es_recuperacion: t.es_recuperacion != null ? Boolean(t.es_recuperacion) : undefined,  // ✅ AGREGADO
+    es_recuperacion: t.es_recuperacion != null ? Boolean(t.es_recuperacion) : undefined,
     meses_desde_ultima_visita: t.meses_desde_ultima_visita != null ? Number(t.meses_desde_ultima_visita) : null,
     ultimo_turno_id: t.ultimo_turno_id != null ? Number(t.ultimo_turno_id) : null,
     fecha_ultima_visita: (t.fecha_ultima_visita as string) ?? null,
 
-    // 🆕 Detalle de la visita anterior
+    // Detalle de la visita anterior
     ultima_visita: ultimaVisita,
   }
 }
@@ -325,10 +353,15 @@ function mapAsesor(api: unknown): AgenteLight | null {
 function mapConvenio(api: unknown): ConvenioLight | null {
   if (!api) return null
   const c = api as Record<string, unknown>
-  return { id: c.id as number, nombre: c.nombre as string }
+  return {
+    id: c.id as number,
+    nombre: c.nombre as string,
+    metodo_pago: (c.metodo_pago ?? c.metodoPago ?? null) as string | null,
+    numero_metodo_pago: (c.numero_metodo_pago ?? c.numeroMetodoPago ?? null) as string | null,
+  }
 }
 
-/** 👇 Nuevo helper para agentes de captación (listados y /me) */
+/** Helper para agentes de captación (listados y /me) */
 function mapAgenteCaptacion(api: unknown): AgenteLight | null {
   if (!api) return null
   const a = api as Record<string, unknown>
@@ -336,10 +369,18 @@ function mapAgenteCaptacion(api: unknown): AgenteLight | null {
     id: a.id as number,
     nombre: (a.nombre ?? a.nombre_completo ?? a.nombreCompleto ?? '—') as string,
     tipo: (a.tipo ?? a.tipo_agente ?? a.tipoAgente ?? 'INTERNO') as string,
+    // Medio de pago: puede venir como medio_pago, nequi, cuenta_bancaria, etc.
+    medioPago: (
+      a.medio_pago ?? a.medioPago ??
+      a.nequi ?? a.numeroNequi ?? a.numero_nequi ??
+      a.cuenta ?? a.cuentaBancaria ?? a.cuenta_bancaria ??
+      null
+    ) as string | null,
+    telefono: (a.telefono ?? a.celular ?? a.phone ?? null) as string | null,
   }
 }
 
-// 🆕 Mapea un usuario ligero (cajero / autorizador)
+// Mapea un usuario ligero (cajero / autorizador)
 function mapUsuarioLight(api: unknown): UsuarioLight | null {
   if (!api) return null
   const u = api as Record<string, unknown>
@@ -373,7 +414,7 @@ function mapComisionToListItem(api: unknown): ComisionListItem {
     a.dateoId ??
     null
 
-  // 🆕 Descuento informativo
+  // Descuento informativo
   const descuentoRaw = a.descuento ?? a.descuento_info ?? null
   const descuento: DescuentoLight | null = descuentoRaw
     ? (() => {
@@ -393,11 +434,44 @@ function mapComisionToListItem(api: unknown): ComisionListItem {
     id: a.id as number,
     dateo_id: dateoId != null ? Number(dateoId) : undefined,
 
+    // 🆕 tipo_vehiculo directo de la comisión
+    tipo_vehiculo: (a.tipo_vehiculo ?? a.tipoVehiculo ?? null) as 'MOTO' | 'VEHICULO' | null,
+
     estado: (a.estado as ComisionEstado) ?? 'PENDIENTE',
     cantidad: num(a.cantidad ?? 1),
     valor_unitario,
     valor_cliente,
     valor_total,
+
+    // FIX: monto_asesor y monto_convenio ahora se mapean en el listado también
+    monto_asesor: a.monto_asesor != null
+      ? num(a.monto_asesor)
+      : a.montoAsesor != null
+      ? num(a.montoAsesor)
+      : null,
+    monto_convenio: a.monto_convenio != null
+      ? num(a.monto_convenio)
+      : a.montoConvenio != null
+      ? num(a.montoConvenio)
+      : null,
+    es_avance: a.es_avance != null
+      ? Boolean(a.es_avance)
+      : a.esAvance != null
+      ? Boolean(a.esAvance)
+      : null,
+
+    // AVANCE: mapear base y descuento_monto_aplicado desde el backend
+    base: a.base != null
+      ? num(a.base)
+      : a.baseIncentivo != null
+      ? num(a.baseIncentivo)
+      : null,
+    descuento_monto_aplicado: a.descuento_monto_aplicado != null
+      ? num(a.descuento_monto_aplicado)
+      : a.descuentoMontoAplicado != null
+      ? num(a.descuentoMontoAplicado)
+      : null,
+
     generado_at: generado ? String(generado) : undefined,
     asesor: asesor
       ? mapAsesor(asesor)
@@ -410,13 +484,13 @@ function mapComisionToListItem(api: unknown): ComisionListItem {
       ? { id: a.convenio_id as number, nombre: '—' }
       : null,
     turno,
-    // 🆕
     descuento,
     descuento_origen,
   }
 }
 
 function mapComisionToDetail(api: unknown): ComisionDetail {
+  // monto_asesor / monto_convenio / es_avance ya vienen del base (mapComisionToListItem)
   const base = mapComisionToListItem(api)
   const a = api as Record<string, unknown>
   return {
@@ -425,18 +499,7 @@ function mapComisionToDetail(api: unknown): ComisionDetail {
     pagado_at: (a.pagado_at as string) ?? null,
     anulado_at: (a.anulado_at as string) ?? null,
     observacion: (a.observacion as string) ?? null,
-    // ✅ AGREGADOS: mapeo de montos desglosados
-    monto_asesor: a.monto_asesor != null
-      ? num(a.monto_asesor)
-      : a.montoAsesor != null
-      ? num(a.montoAsesor)
-      : null,
-    monto_convenio: a.monto_convenio != null
-      ? num(a.monto_convenio)
-      : a.montoConvenio != null
-      ? num(a.montoConvenio)
-      : null,
-    // 🆕 Trazabilidad descuento
+    // Trazabilidad descuento
     descuento_aplicado_at: (
       a.descuento_aplicado_at ??
       a.ticket_confirmado_at ??
@@ -464,11 +527,10 @@ function mapConfigToUi(api: unknown): ComisionConfig {
     asesor_id: (a.asesor_id ?? a.asesorId ?? null) as number | null,
     tipo_vehiculo: (a.tipo_vehiculo ?? a.tipoVehiculo ?? null) as TipoVehiculoComision | null,
     valor_placa: num(a.valor_placa ?? a.base),
-    // 🆕
     valor_placa_vehiculo: a.valor_placa_vehiculo != null ? num(a.valor_placa_vehiculo) : null,
     valor_placa_moto: a.valor_placa_moto != null ? num(a.valor_placa_moto) : null,
     valor_dateo: num(a.valor_dateo ?? a.monto),
-    // 🆕 nuevo directo
+    // nuevo directo
     valor_nuevo_directo: num(a.valor_nuevo_directo ?? a.valorNuevoDirecto ?? 0),
     fecha_calculo:
       (a.fecha_calculo ??
@@ -560,6 +622,7 @@ function mapMetaMensual(api: unknown): MetaMensualRow {
         : undefined,
   }
 }
+
 /* ============================= Funciones ============================= */
 
 /* ===== Comisiones reales ===== */
@@ -691,7 +754,7 @@ export async function deleteConfigComision(id: number) {
 
 export async function listAgentesCaptacion() {
   try {
-    // 🔥 Usar endpoint /light con parámetros correctos
+    // Usar endpoint /light con parámetros correctos
     const res = await apiFetch<{ data?: unknown[] } | unknown[]>('/agentes-captacion/light', {
       query: {
         activos: 1,
@@ -722,6 +785,57 @@ export async function listAgentesCaptacion() {
     return []
   } catch (err) {
     console.error('Error cargando agentes de captación:', err)
+    return []
+  }
+}
+
+// 🆕 Lista convenios para el autocomplete del filtro de convenio
+export async function listConvenios(): Promise<ConvenioItem[]> {
+  try {
+    const raw = await apiFetch<{ data?: unknown[] } | unknown[]>('/convenios', {
+      query: { perPage: 200, activos: 1 },
+    })
+    const r = raw as Record<string, unknown>
+    const rows: unknown[] = Array.isArray(r?.data)
+      ? r.data
+      : Array.isArray(raw)
+      ? raw as unknown[]
+      : []
+    return rows.map((row) => {
+      const a = row as Record<string, unknown>
+      return { id: a.id as number, nombre: String(a.nombre ?? '—') }
+    })
+  } catch (err) {
+    console.error('Error cargando convenios:', err)
+    return []
+  }
+}
+
+// 🆕 Lista descuentos activos para el filtro de descuento
+export async function listDescuentos(): Promise<DescuentoItem[]> {
+  try {
+    const raw = await apiFetch<{ data?: unknown[] } | unknown[]>('/descuentos', {
+      query: { activos: 1, perPage: 100 },
+    })
+    const r = raw as Record<string, unknown>
+    const rows: unknown[] = Array.isArray(r?.data)
+      ? r.data
+      : Array.isArray(raw)
+      ? raw as unknown[]
+      : []
+    return rows.map((row) => {
+      const a = row as Record<string, unknown>
+      return {
+        id: a.id as number,
+        codigo: String(a.codigo ?? ''),
+        nombre: String(a.nombre ?? '—'),
+        valorCarro: Number(a.valor_carro ?? a.valorCarro ?? 0),
+        valorMoto: Number(a.valor_moto ?? a.valorMoto ?? 0),
+        activo: Boolean(a.activo ?? true),
+      }
+    })
+  } catch (err) {
+    console.error('Error cargando descuentos:', err)
     return []
   }
 }
@@ -825,7 +939,7 @@ export async function deleteMetaMensual(id: number) {
 
 /* ===== Configuración de Recurrencias ===== */
 
-// 🆕 CAMBIO 1: interfaz actualizada con los 4 campos nuevos (nullable = opcionales)
+// CAMBIO 1: interfaz actualizada con los 4 campos nuevos (nullable = opcionales)
 export interface ConfigRecurrenciaGlobal {
   meses_minimos: number
   valor_dateo_recurrencia: number
@@ -859,7 +973,7 @@ export interface ConfigRecurrenciaAsesorPayload {
 /**
  * GET /api/comisiones/recurrencia/config/global
  */
-// 🆕 CAMBIO 2: mapea los 4 campos nuevos desde el backend
+// CAMBIO 2: mapea los 4 campos nuevos desde el backend
 export async function getConfigRecurrenciaGlobal(): Promise<ConfigRecurrenciaGlobal> {
   const raw = await apiFetch<unknown>('/comisiones/recurrencia/config/global')
   const r = raw as Record<string, unknown>
@@ -889,7 +1003,7 @@ export async function getConfigRecurrenciaGlobal(): Promise<ConfigRecurrenciaGlo
 /**
  * POST /api/comisiones/recurrencia/config/global
  */
-// 🆕 CAMBIO 3: acepta y retorna los 4 campos nuevos
+// CAMBIO 3: acepta y retorna los 4 campos nuevos
 export async function updateConfigRecurrenciaGlobal(
   payload: ConfigRecurrenciaGlobal
 ): Promise<ConfigRecurrenciaGlobal> {

@@ -331,4 +331,55 @@ export const FacturacionService = {
     const confirmed = await FacturacionService.confirmar(updated.id, !!forzar)
     return confirmed
   },
+
+  /* ==================== Documentos INFORMATIVO_POLICIA ==================== */
+
+  /**
+   * Sube uno de los 3 documentos requeridos para descuento INFORMATIVO_POLICIA.
+   * tipo: 'carnet' | 'tarjeta_propiedad' | 'cedula'
+   */
+  async subirDocumentoPolicia(
+    id: number | string,
+    tipo: 'carnet' | 'tarjeta_propiedad' | 'cedula',
+    file: File
+  ): Promise<{
+    ok: boolean
+    tipo: string
+    documentos_completos: boolean
+    documentos_faltantes: string[]
+  }> {
+    const form = new FormData()
+    form.append('archivo', file)
+    form.append('tipo', tipo)
+    return upload(`${base}/${id}/documentos-policia`, form)
+  },
+
+  /**
+   * Obtiene el blob URL de un documento policia para mostrarlo en la UI.
+   * tipo: 'carnet' | 'tarjeta_propiedad' | 'cedula'
+   * Retorna null si no existe.
+   */
+  async getDocumentoPoliciaBlob(
+    id: number | string,
+    tipo: 'carnet' | 'tarjeta_propiedad' | 'cedula'
+  ): Promise<string | null> {
+    try {
+      const token =
+        localStorage.getItem('auth_token') ||
+        localStorage.getItem('token') ||
+        sessionStorage.getItem('auth_token') ||
+        sessionStorage.getItem('token')
+      const headers: Record<string, string> = {}
+      if (token) headers['Authorization'] = `Bearer ${token}`
+      const resp = await fetch(`/api/facturacion/tickets/${id}/documentos-policia/${tipo}`, {
+        headers,
+        credentials: 'include',
+      })
+      if (!resp.ok) return null
+      const blob = await resp.blob()
+      return URL.createObjectURL(blob)
+    } catch {
+      return null
+    }
+  },
 }

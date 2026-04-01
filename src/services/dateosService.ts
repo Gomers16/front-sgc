@@ -1,5 +1,5 @@
 // src/services/dateosService.ts
-import { get, post, put, del } from '@/services/http'
+import { get, post, put, del, patch } from '@/services/http'
 
 export type CanalCaptacion = 'FACHADA' | 'ASESOR' | 'TELE' | 'REDES'
 export type ResultadoDateo = 'PENDIENTE' | 'EN_PROCESO' | 'EXITOSO' | 'NO_EXITOSO' | 'RE_DATEAR'
@@ -56,8 +56,11 @@ export interface Dateo extends DateoImagenMeta {
   updated_at?: string
   origen?: OrigenDateo
   turnoInfo?: TurnoInfo | null
-  descuento_id?: number | null                               // 🆕
-  descuento?: { id: number; nombre: string } | null         // 🆕
+  descuento_id?: number | null
+  descuento?: { id: number; codigo: string; nombre: string } | null  // ++ codigo para detectar AVANCE
+  // ++ AVANCE ++
+  es_avance?: boolean
+  comprobante_avance_url?: string | null
 }
 
 export interface ListResponse<T> { data: T[]; total: number; page: number; perPage: number }
@@ -159,6 +162,29 @@ export function updateDateo(id: number, payload: Partial<Dateo>) {
 
 export function deleteDateo(id: number) {
   return del<{ ok: boolean }>(`/api/captacion-dateos/${id}`)
+}
+
+/**
+ * Activa o desactiva el avance de un dateo.
+ * PATCH /api/captacion-dateos/:id/avance
+ *
+ * - Si es_avance = true y el agente es COMERCIAL → comprobante_avance_url obligatorio
+ * - Si es_avance = false → comprobante_avance_url se limpia en backend automáticamente
+ */
+export function toggleAvance(
+  id: number,
+  esAvance: boolean,
+  comprobanteUrl?: string | null
+) {
+  return patch<Dateo, { es_avance: boolean; comprobante_avance_url: string | null }>(
+    `/api/captacion-dateos/${id}/avance`,
+    { es_avance: esAvance, comprobante_avance_url: comprobanteUrl ?? null }
+  )
+}
+
+/** Helper: detecta si un descuento es de tipo AVANCE por su código */
+export function esDescuentoAvance(codigo?: string | null): boolean {
+  return String(codigo || '').toUpperCase().includes('AVANCE')
 }
 
 export async function listAgentesCaptacion() {

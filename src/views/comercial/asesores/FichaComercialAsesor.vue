@@ -527,6 +527,21 @@
                 <span v-else class="text-medium-emphasis">—</span>
               </template>
 
+              <!-- Descuento aplicado -->
+              <template #item.descuento_col="{ item }">
+                <template v-if="item.es_avance || item.descuento">
+                  <v-chip
+                    size="x-small"
+                    :color="item.es_avance ? 'deep-orange' : 'orange-darken-2'"
+                    variant="tonal"
+                    :prepend-icon="item.es_avance ? 'mdi-currency-usd-off' : 'mdi-tag-check'"
+                  >
+                    {{ item.descuento?.nombre || (item.es_avance ? 'AVANCE' : '—') }}
+                  </v-chip>
+                </template>
+                <span v-else class="text-medium-emphasis text-caption">—</span>
+              </template>
+
               <!-- Estado resultado del dateo -->
               <template #item.resultado="{ item }">
                 <v-chip
@@ -538,8 +553,7 @@
                   {{ textoResultado(item.resultado) }}
                 </v-chip>
               </template>
-
-              <!-- 🆕 NUEVO: Tipo de cliente -->
+<!-- 🆕 NUEVO: Tipo de cliente -->
               <template #item.tipo_cliente="{ item }">
                 <v-tooltip :text="getTipoClienteParaDateo(item).tooltip" location="top">
                   <template #activator="{ props }">
@@ -650,7 +664,8 @@
         </v-window>
       </v-card-text>
     </v-card>
-<!-- Visor de imagen -->
+
+    <!-- Visor de imagen -->
     <v-dialog v-model="viewer.visible" max-width="720">
       <v-card>
         <v-card-title class="text-h6">Evidencia</v-card-title>
@@ -858,7 +873,6 @@
     </v-dialog>
   </v-container>
 </template>
-
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
@@ -915,6 +929,8 @@ type DateoConExtras = Dateo & {
   exitoso?: boolean
   consumido_exitoso?: boolean
   convenio?: { id: number; nombre: string } | null
+  descuento?: { id: number; codigo: string; nombre: string } | null
+  es_avance?: boolean | null
   created_at_fmt?: string
   turnoInfo?: {
     fecha?: string
@@ -1017,6 +1033,7 @@ const rangoLegible = computed(() => {
   const f = (s: string) => new Date(s + 'T00:00:00').toLocaleDateString()
   return `${f(filtros.value.desde)} → ${f(filtros.value.hasta)}`
 })
+
 /* ===== Headers RESPONSIVE ===== */
 const headersProspectos = [
   { title: 'ID', key: 'id', sortable: true },
@@ -1058,7 +1075,7 @@ const headersConvenios = [
   { title: 'Vigencia', key: 'vigencia' },
 ] as const
 
-// 🆕 ACTUALIZADO: incluye columna Tipo cliente
+// 🆕 ACTUALIZADO: incluye columnas Descuento y Tipo cliente
 const headersDateos = computed(() => {
   const tituloComision = esAsesorConvenio.value ? 'Incentivo' : 'Comisión asesor'
   return [
@@ -1067,6 +1084,7 @@ const headersDateos = computed(() => {
     { title: 'Placa', key: 'placa' },
     { title: 'Teléfono', key: 'telefono' },
     { title: 'Tipo cliente', key: 'tipo_cliente', align: 'center' as const },
+    { title: 'Descuento', key: 'descuento_col', sortable: false },
     { title: 'Convenio', key: 'convenio' },
     { title: 'Estado', key: 'resultado' },
     { title: 'Turno', key: 'turnoInfo', align: 'center' as const },
@@ -1076,7 +1094,7 @@ const headersDateos = computed(() => {
   ] as const
 })
 
-// 🆕 ACTUALIZADO: incluye tipo_cliente en versiones responsive
+// 🆕 ACTUALIZADO: incluye descuento_col en versión tablet
 const headersDateosResponsive = computed(() => {
   if (xs.value) {
     return [
@@ -1093,6 +1111,7 @@ const headersDateosResponsive = computed(() => {
       { title: 'Foto', key: 'imagen_url' },
       { title: 'Placa', key: 'placa' },
       { title: 'Tipo', key: 'tipo_cliente', align: 'center' as const },
+      { title: 'Descuento', key: 'descuento_col', sortable: false },
       { title: 'Convenio', key: 'convenio' },
       { title: 'Estado', key: 'resultado' },
       { title: esAsesorConvenio.value ? 'Incentivo' : 'Comisión', key: 'comisionAsesor', align: 'end' as const },
@@ -2050,6 +2069,7 @@ function exportCsv(soloExitosos: boolean) {
     placa: (d.placa || '').toUpperCase(),
     telefono: d.telefono || '',
     tipo_cliente: getTipoClienteParaDateo(d).label,
+    descuento: d.descuento?.nombre || (d.es_avance ? 'AVANCE' : ''),
     convenio: d.convenio?.nombre || 'Sin convenio',
     estado: isExitoso(d) ? 'EXITOSO' : textoResultado(d.resultado),
     monto_comision: getComisionPorRolParaDateo(d.id),
@@ -2058,11 +2078,11 @@ function exportCsv(soloExitosos: boolean) {
   }))
 
   const headersDisplay = [
-    'ID', 'Placa', 'Teléfono', 'Tipo cliente', 'Convenio',
+    'ID', 'Placa', 'Teléfono', 'Tipo cliente', 'Descuento', 'Convenio',
     'Estado', 'Monto Comisión (COP)', 'Estado Pago', 'Fecha de Creación',
   ]
   const headersKeys = [
-    'id', 'placa', 'telefono', 'tipo_cliente', 'convenio',
+    'id', 'placa', 'telefono', 'tipo_cliente', 'descuento', 'convenio',
     'estado', 'monto_comision', 'estado_comision', 'fecha_creacion',
   ]
 

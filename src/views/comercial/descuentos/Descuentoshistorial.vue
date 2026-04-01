@@ -222,7 +222,7 @@
     </v-card>
 
     <!-- ── Modal detalle ── -->
-    <v-dialog v-model="detailDialog.visible" max-width="680" scrollable>
+    <v-dialog v-model="detailDialog.visible" max-width="720" scrollable>
       <v-card v-if="detailDialog.item">
         <v-card-title class="text-h6 d-flex align-center justify-space-between">
           <span>Detalle descuento — Ticket #{{ detailDialog.item.ticket_id }}</span>
@@ -344,6 +344,111 @@
               </div>
             </v-col>
 
+            <!-- ── Documentos INFORMATIVO_POLICIA ── -->
+            <template v-if="detailDialog.item.descuento?.codigo === 'INFORMATIVO_POLICIA'">
+              <v-col cols="12">
+                <v-divider class="my-3" />
+                <div class="text-body-2 font-weight-bold mb-3 d-flex align-center" style="gap:6px">
+                  <v-icon size="18" color="blue-darken-3">mdi-shield-account</v-icon>
+                  Documentos presentados (Policía / Militar)
+                </div>
+
+                <v-row dense>
+                  <v-col
+                    v-for="tipo in (['carnet', 'tarjeta_propiedad', 'cedula'] as const)"
+                    :key="tipo"
+                    cols="12" md="4"
+                  >
+                    <div class="text-caption font-weight-medium mb-1 text-medium-emphasis">
+                      {{ DOC_POLICIA_LABELS[tipo] }}
+                    </div>
+
+                    <!-- Cargando -->
+                    <div
+                      v-if="docPoliciaState[tipo] === 'loading'"
+                      class="d-flex align-center justify-center bg-grey-lighten-4 rounded pa-4"
+                      style="min-height:120px"
+                    >
+                      <v-progress-circular indeterminate color="blue-darken-3" size="28" />
+                    </div>
+
+                    <!-- Imagen cargada -->
+                    <v-img
+                      v-else-if="docPoliciaState[tipo] === 'loaded' && docPoliciaBlobs[tipo]"
+                      :src="docPoliciaBlobs[tipo]"
+                      max-height="200"
+                      contain
+                      class="rounded border bg-grey-lighten-5"
+                    >
+                      <template #placeholder>
+                        <div class="d-flex align-center justify-center fill-height">
+                          <v-progress-circular indeterminate color="grey-lighten-3" />
+                        </div>
+                      </template>
+                    </v-img>
+
+                    <!-- No disponible / error -->
+                    <div
+                      v-else-if="docPoliciaState[tipo] === 'error'"
+                      class="d-flex align-center justify-center bg-grey-lighten-4 rounded pa-4 text-center"
+                      style="min-height:120px"
+                    >
+                      <div>
+                        <v-icon color="grey" size="32">mdi-image-off</v-icon>
+                        <div class="text-caption text-medium-emphasis mt-1">No disponible</div>
+                      </div>
+                    </div>
+                  </v-col>
+                </v-row>
+              </v-col>
+            </template>
+            <!-- ── Fin documentos INFORMATIVO_POLICIA ── -->
+
+            <!-- Comprobante de avance -->
+            <v-col
+              cols="12"
+              v-if="detailDialog.item.es_avance && detailDialog.item.comprobante_avance_url"
+            >
+              <v-divider class="my-3" />
+              <div class="text-body-2 font-weight-bold mb-2 d-flex align-center gap-1">
+                <v-icon size="18" color="green">mdi-whatsapp</v-icon>
+                Comprobante del avance
+              </div>
+
+              <!-- Cargando -->
+              <div
+                v-if="comprobanteState === 'loading'"
+                class="d-flex align-center justify-center bg-grey-lighten-4 rounded pa-6"
+              >
+                <v-progress-circular indeterminate color="orange" size="32" />
+                <span class="ms-3 text-caption text-medium-emphasis">Cargando comprobante...</span>
+              </div>
+
+              <!-- Imagen cargada como blob -->
+              <v-img
+                v-else-if="comprobanteState === 'loaded' && comprobanteBlobUrl"
+                :src="comprobanteBlobUrl"
+                max-height="340"
+                contain
+                class="rounded border bg-grey-lighten-4"
+              />
+
+              <!-- Error -->
+              <v-alert
+                v-else-if="comprobanteState === 'error'"
+                type="warning"
+                variant="tonal"
+                density="compact"
+                class="mt-1"
+              >
+                No se pudo cargar la imagen del comprobante.
+              </v-alert>
+
+              <div class="text-caption text-medium-emphasis mt-2">
+                Evidencia WhatsApp subida por el comercial al crear el dateo.
+              </div>
+            </v-col>
+
           </v-row>
         </v-card-text>
 
@@ -357,10 +462,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
-import { get } from '@/services/http'
-import { formatCOP } from '@/services/comisionesService'
-import { listAgentesCaptacion } from '@/services/comisionesService'
+import { ref, reactive, watch, onUnmounted, onMounted } from 'vue'
+import { get, download } from '@/services/http'
+import { formatCOP, listAgentesCaptacion } from '@/services/comisionesService'
 
 /* ── Tipos ── */
 interface DescuentoLight {
@@ -376,22 +480,24 @@ interface PersonaLight {
 }
 
 interface HistorialRow {
-  ticket_id:               number
-  confirmado_at:           string | null
-  placa:                   string | null
-  turno_id:                number | null
-  turno_global:            number | null
-  turno_servicio:          number | null
-  servicio_nombre:         string | null
-  servicio_codigo:         string | null
-  tipo_vehiculo:           string | null
-  descuento:               DescuentoLight | null
+  ticket_id:                number
+  confirmado_at:            string | null
+  placa:                    string | null
+  turno_id:                 number | null
+  turno_global:             number | null
+  turno_servicio:           number | null
+  servicio_nombre:          string | null
+  servicio_codigo:          string | null
+  tipo_vehiculo:            string | null
+  descuento:                DescuentoLight | null
   descuento_monto_aplicado: number | null
-  origen:                  'dateo' | 'caja'
-  comercial:               PersonaLight | null
-  dateo_id:                number | null
-  cajero:                  PersonaLight | null
-  autorizado_por:          PersonaLight | null
+  origen:                   'dateo' | 'caja'
+  comercial:                PersonaLight | null
+  dateo_id:                 number | null
+  cajero:                   PersonaLight | null
+  autorizado_por:           PersonaLight | null
+  es_avance:                boolean
+  comprobante_avance_url:   string | null
 }
 
 interface HistorialMeta {
@@ -404,22 +510,105 @@ interface HistorialMeta {
 }
 
 /* ── Estado ── */
-const rows        = ref<HistorialRow[]>([])
-const totalItems  = ref(0)
-const page        = ref(1)
-const itemsPerPage = ref(50)
-const loading     = ref(false)
+const rows           = ref<HistorialRow[]>([])
+const totalItems     = ref(0)
+const page           = ref(1)
+const itemsPerPage   = ref(50)
+const loading        = ref(false)
 const catalogLoading = ref(false)
+
+/* ── Comprobante avance ── */
+type ComprobanteState = 'idle' | 'loading' | 'loaded' | 'error'
+const comprobanteState   = ref<ComprobanteState>('idle')
+const comprobanteBlobUrl = ref<string | null>(null)
+
+async function cargarComprobante(url: string) {
+  if (comprobanteBlobUrl.value) {
+    URL.revokeObjectURL(comprobanteBlobUrl.value)
+    comprobanteBlobUrl.value = null
+  }
+  comprobanteState.value = 'loading'
+  try {
+    const blob = await download(url)
+    comprobanteBlobUrl.value = URL.createObjectURL(blob)
+    comprobanteState.value = 'loaded'
+  } catch (err) {
+    console.error('Error cargando comprobante avance:', err)
+    comprobanteState.value = 'error'
+  }
+}
+
+/* ── Documentos INFORMATIVO_POLICIA ── */
+type DocPoliciaKey = 'carnet' | 'tarjeta_propiedad' | 'cedula'
+type DocBlobState  = 'idle' | 'loading' | 'loaded' | 'error'
+
+const DOC_POLICIA_LABELS: Record<DocPoliciaKey, string> = {
+  carnet:            'Carnet policial / militar',
+  tarjeta_propiedad: 'Tarjeta de propiedad',
+  cedula:            'Cédula del propietario',
+}
+
+const docPoliciaBlobs = reactive<Record<DocPoliciaKey, string | null>>({
+  carnet:            null,
+  tarjeta_propiedad: null,
+  cedula:            null,
+})
+const docPoliciaState = reactive<Record<DocPoliciaKey, DocBlobState>>({
+  carnet:            'idle',
+  tarjeta_propiedad: 'idle',
+  cedula:            'idle',
+})
+
+function limpiarDocsPolicia() {
+  const keys: DocPoliciaKey[] = ['carnet', 'tarjeta_propiedad', 'cedula']
+  for (const k of keys) {
+    if (docPoliciaBlobs[k]) {
+      URL.revokeObjectURL(docPoliciaBlobs[k]!)
+      docPoliciaBlobs[k] = null
+    }
+    docPoliciaState[k] = 'idle'
+  }
+}
+
+async function cargarDocPolicia(ticketId: number, tipo: DocPoliciaKey) {
+  docPoliciaState[tipo] = 'loading'
+  try {
+    const token =
+      localStorage.getItem('auth_token') ||
+      localStorage.getItem('token')      ||
+      sessionStorage.getItem('auth_token') ||
+      sessionStorage.getItem('token')
+    const headers: Record<string, string> = {}
+    if (token) headers['Authorization'] = `Bearer ${token}`
+
+    const resp = await fetch(
+      `/api/facturacion/tickets/${ticketId}/documentos-policia/${tipo}`,
+      { headers, credentials: 'include' }
+    )
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
+    const blob = await resp.blob()
+    if (docPoliciaBlobs[tipo]) URL.revokeObjectURL(docPoliciaBlobs[tipo]!)
+    docPoliciaBlobs[tipo] = URL.createObjectURL(blob)
+    docPoliciaState[tipo] = 'loaded'
+  } catch {
+    docPoliciaState[tipo] = 'error'
+  }
+}
 
 /* ── Catálogos ── */
 const descuentosItems = ref<{ id: number; nombre: string; codigo: string }[]>([])
 const asesoresItems   = ref<{ id: number; nombre: string }[]>([])
 
-/* ── Filtros ── */
+/* ── Helper fecha local ── */
 function hoy() {
-  return new Date().toISOString().slice(0, 10)
+  const d = new Date()
+  const year  = d.getFullYear()
+  const month = String(d.getMonth() + 1).padStart(2, '0')
+  const day   = String(d.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
 }
 
+/* ── Filtros ── */
 const filters = ref({
   fechaDesde:  hoy(),
   fechaHasta:  hoy(),
@@ -436,15 +625,15 @@ const origenItems = [
 
 /* ── Headers tabla ── */
 const headers = [
-  { title: 'Fecha',          key: 'confirmado_at',           sortable: false },
-  { title: 'Placa / Turno',  key: 'placa',                   sortable: false },
-  { title: 'Descuento',      key: 'descuento',               sortable: false },
-  { title: 'Origen',         key: 'origen',                  sortable: false },
-  { title: 'Comercial',      key: 'comercial',               sortable: false },
-  { title: 'Cajero',         key: 'cajero',                  sortable: false },
-  { title: 'Autorizado por', key: 'autorizado_por',          sortable: false },
+  { title: 'Fecha',          key: 'confirmado_at',            sortable: false },
+  { title: 'Placa / Turno',  key: 'placa',                    sortable: false },
+  { title: 'Descuento',      key: 'descuento',                sortable: false },
+  { title: 'Origen',         key: 'origen',                   sortable: false },
+  { title: 'Comercial',      key: 'comercial',                sortable: false },
+  { title: 'Cajero',         key: 'cajero',                   sortable: false },
+  { title: 'Autorizado por', key: 'autorizado_por',           sortable: false },
   { title: 'Monto desc.',    key: 'descuento_monto_aplicado', sortable: false },
-  { title: '',               key: 'acciones',                sortable: false, align: 'end' as const },
+  { title: '',               key: 'acciones',                 sortable: false, align: 'end' as const },
 ]
 
 /* ── Helpers ── */
@@ -468,8 +657,7 @@ async function loadCatalogos() {
   try {
     const [descs, asesores] = await Promise.all([
       get<{ success: boolean; data: { id: number; codigo: string; nombre: string }[] }>(
-        '/api/descuentos/activos',
-        { credentials: 'include', headers: { Accept: 'application/json' } }
+        '/api/descuentos/activos'
       ),
       listAgentesCaptacion(),
     ])
@@ -498,8 +686,7 @@ async function loadHistorial() {
 
     const qs  = new URLSearchParams(params).toString()
     const res = await get<{ success: boolean; meta: HistorialMeta; data: HistorialRow[] }>(
-      `/api/descuentos/historial?${qs}`,
-      { credentials: 'include', headers: { Accept: 'application/json' } }
+      `/api/descuentos/historial?${qs}`
     )
 
     let data = res.data ?? []
@@ -553,8 +740,46 @@ const detailDialog = ref<{ visible: boolean; item: HistorialRow | null }>({
 })
 
 function verDetalle(item: HistorialRow) {
+  // Limpiar estado anterior
+  comprobanteState.value = 'idle'
+  if (comprobanteBlobUrl.value) {
+    URL.revokeObjectURL(comprobanteBlobUrl.value)
+    comprobanteBlobUrl.value = null
+  }
+  limpiarDocsPolicia()
+
   detailDialog.value = { visible: true, item }
+
+  if (item.es_avance && item.comprobante_avance_url) {
+    cargarComprobante(item.comprobante_avance_url)
+  }
+
+  // Cargar las 3 fotos si el descuento es INFORMATIVO_POLICIA
+  if (item.descuento?.codigo === 'INFORMATIVO_POLICIA') {
+    const keys: DocPoliciaKey[] = ['carnet', 'tarjeta_propiedad', 'cedula']
+    for (const tipo of keys) {
+      cargarDocPolicia(item.ticket_id, tipo)
+    }
+  }
 }
+
+// Limpiar blobs al cerrar modal
+watch(() => detailDialog.value.visible, (visible) => {
+  if (!visible) {
+    if (comprobanteBlobUrl.value) {
+      URL.revokeObjectURL(comprobanteBlobUrl.value)
+      comprobanteBlobUrl.value = null
+      comprobanteState.value = 'idle'
+    }
+    limpiarDocsPolicia()
+  }
+})
+
+// Limpiar al desmontar
+onUnmounted(() => {
+  if (comprobanteBlobUrl.value) URL.revokeObjectURL(comprobanteBlobUrl.value)
+  limpiarDocsPolicia()
+})
 
 /* ── Init ── */
 onMounted(() => {

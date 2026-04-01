@@ -221,7 +221,20 @@ const routes: RouteRecordRaw[] = [
     props: true,
     meta: { layout: 'MainLayout' },
   },
-
+// Comprobantes de pago
+{
+  path: '/comercial/comprobantes',
+  name: 'ComercialComprobantes',
+  component: () => import('@/views/comercial/comprobantes/ComprobantesPago.vue'),
+  meta: { layout: 'MainLayout', title: 'Comprobantes de pago' },
+},
+{
+  path: '/comercial/comprobantes/:id',
+  name: 'ComercialComprobanteDetalle',
+  component: () => import('@/views/comercial/comprobantes/ComprobanteDetalle.vue'),
+  props: true,
+  meta: { layout: 'MainLayout', title: 'Detalle del comprobante' },
+},
   // Descuentos
   {
     path: '/comercial/descuentos',

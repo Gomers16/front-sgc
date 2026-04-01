@@ -1,5 +1,5 @@
 // src/services/captacion_dateos_service.ts
-import { get, post, put, del } from './http'
+import { get, post, put, del, patch } from './http'
 
 /**
  * CAPTACIÓN / DATEOS
@@ -11,6 +11,7 @@ import { get, post, put, del } from './http'
  *  - POST   /api/captacion-dateos/verificar-vencidos  → ⭐ NUEVO: Revierte dateos vencidos (>72h PENDIENTE)
  *  - PUT    /api/captacion-dateos/:id                 → Actualizar dateo
  *  - DELETE /api/captacion-dateos/:id                 → Eliminar dateo
+ *  - PATCH  /api/captacion-dateos/:id/avance          → Activar/desactivar avance
  *
  * 🔄 FLUJO PROSPECTOS ↔ DATEOS:
  * 1. Cuando se crea un dateo con una placa, TODOS los prospectos con esa placa se archivan
@@ -105,6 +106,10 @@ export const CaptacionDateosService = {
     imagen_hash?: string | null
     imagen_origen_id?: string | null
     imagen_subida_por?: number | null
+    descuento_id?: number | null
+    // ++ AVANCE ++
+    es_avance?: boolean | null
+    comprobante_avance_url?: string | null
   }) {
     return post(`${base}`, body)
   },
@@ -140,6 +145,10 @@ export const CaptacionDateosService = {
       imagen_origen_id?: string | null
       imagen_subida_por?: number | null
       consumido_turno_id?: number | null
+      descuento_id?: number | null
+      // ++ AVANCE ++
+      es_avance?: boolean | null
+      comprobante_avance_url?: string | null
     }
   ) {
     return put(`${base}/${id}`, body)
@@ -214,5 +223,23 @@ export const CaptacionDateosService = {
       fallidos: number
       total: number
     }>(`${base}/verificar-vencidos`, {})
+  },
+
+  /**
+   * Activa o desactiva el avance de un dateo.
+   * PATCH /api/captacion-dateos/:id/avance
+   *
+   * - Si es_avance = true y el agente es COMERCIAL → comprobante_avance_url obligatorio
+   * - Si es_avance = false → comprobante_avance_url se limpia en backend automáticamente
+   */
+  toggleAvance(
+    id: number | string,
+    esAvance: boolean,
+    comprobanteUrl?: string | null
+  ) {
+    return patch(`${base}/${id}/avance`, {
+      es_avance: esAvance,
+      comprobante_avance_url: comprobanteUrl ?? null,
+    })
   },
 }

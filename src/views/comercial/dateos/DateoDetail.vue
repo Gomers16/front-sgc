@@ -97,43 +97,43 @@
               </v-col>
             </v-row>
 
-           <!-- Turno (solo visual) -->
-<v-divider class="my-3" />
-<div class="text-caption text-sm-subtitle-2 mb-2 font-weight-600">Turno vinculado</div>
+            <!-- Turno (solo visual) -->
+            <v-divider class="my-3" />
+            <div class="text-caption text-sm-subtitle-2 mb-2 font-weight-600">Turno vinculado</div>
 
-<div v-if="dateo?.turnoInfo" class="d-flex align-center flex-wrap" style="gap:6px">
-  <v-chip size="x-small" color="primary" variant="tonal" class="font-weight-600">
-    {{ (dateo?.turnoInfo?.fecha && formatDateOnly(dateo.turnoInfo.fecha)) || '—' }}
-  </v-chip>
-  <v-chip size="x-small" color="indigo" variant="tonal" class="font-weight-600">
-    Nº Global: {{ dateo?.turnoInfo?.numeroGlobal ?? '—' }}
-  </v-chip>
-  <v-chip size="x-small" color="deep-purple" variant="tonal" class="font-weight-600">
-    Nº Servicio: {{ dateo?.turnoInfo?.numeroServicio ?? '—' }}
-  </v-chip>
+            <div v-if="dateo?.turnoInfo" class="d-flex align-center flex-wrap" style="gap:6px">
+              <v-chip size="x-small" color="primary" variant="tonal" class="font-weight-600">
+                {{ (dateo?.turnoInfo?.fecha && formatDateOnly(dateo.turnoInfo.fecha)) || '—' }}
+              </v-chip>
+              <v-chip size="x-small" color="indigo" variant="tonal" class="font-weight-600">
+                Nº Global: {{ dateo?.turnoInfo?.numeroGlobal ?? '—' }}
+              </v-chip>
+              <v-chip size="x-small" color="deep-purple" variant="tonal" class="font-weight-600">
+                Nº Servicio: {{ dateo?.turnoInfo?.numeroServicio ?? '—' }}
+              </v-chip>
 
-  <v-chip
-    v-if="dateo?.turnoInfo?.servicioCodigo"
-    size="x-small"
-    variant="tonal"
-    class="font-weight-600"
-  >
-    {{ dateo?.turnoInfo?.servicioCodigo }}
-  </v-chip>
+              <v-chip
+                v-if="dateo?.turnoInfo?.servicioCodigo"
+                size="x-small"
+                variant="tonal"
+                class="font-weight-600"
+              >
+                {{ dateo?.turnoInfo?.servicioCodigo }}
+              </v-chip>
 
-  <v-chip
-    size="x-small"
-    :color="chipColorEstadoTurno(dateo?.turnoInfo?.estado || dateo?.resultado)"
-    variant="elevated"
-    prepend-icon="mdi-progress-clock"
-    class="font-weight-600"
-  >
-    {{ textoEstadoTurno(dateo?.turnoInfo?.estado || dateo?.resultado) }}
-  </v-chip>
-</div>
-<div v-else class="text-caption text-sm-body-2 text-medium-emphasis">
-  — Sin turno vinculado —
-</div>
+              <v-chip
+                size="x-small"
+                :color="chipColorEstadoTurno(dateo?.turnoInfo?.estado || dateo?.resultado)"
+                variant="elevated"
+                prepend-icon="mdi-progress-clock"
+                class="font-weight-600"
+              >
+                {{ textoEstadoTurno(dateo?.turnoInfo?.estado || dateo?.resultado) }}
+              </v-chip>
+            </div>
+            <div v-else class="text-caption text-sm-body-2 text-medium-emphasis">
+              — Sin turno vinculado —
+            </div>
           </v-card-text>
 
           <!-- Acciones de la ficha -->
@@ -199,14 +199,14 @@
                 />
               </v-col>
 
-              <!-- ── DESCUENTO INFORMATIVO (solo si el agente es ASESOR_COMERCIAL) ── -->
-              <v-col v-if="esAsesorComercial" cols="12">
+              <!-- ── DESCUENTO (COMERCIAL o CONVENIO) ── -->
+              <v-col v-if="puedeSeleccionarDescuento" cols="12">
                 <v-autocomplete
                   v-model="form.descuento_id"
                   :items="descuentosActivos"
                   item-title="nombre"
                   item-value="id"
-                  label="Descuento informativo (opcional)"
+                  label="Descuento (opcional)"
                   variant="outlined"
                   :density="$vuetify.display.xs ? 'compact' : 'comfortable'"
                   prepend-inner-icon="mdi-tag-text"
@@ -214,9 +214,51 @@
                   :loading="descuentosLoading"
                   :disabled="!editando"
                   :readonly="!editando"
-                  hint="Solo aplica para clientes nuevos directos. Baja la comisión de $17.200 a $4.300."
+                  hint="Selecciona el tipo de descuento que aplica a este dateo."
                   :persistent-hint="editando"
                 />
+              </v-col>
+
+              <!-- ++ AVANCE: Comprobante (solo si descuento AVANCE + COMERCIAL + editando) ++ -->
+              <v-col v-if="debeSubirComprobante && editando" cols="12">
+                <v-file-input
+                  v-model="comprobanteAvanceFile"
+                  label="Comprobante WhatsApp *"
+                  variant="outlined"
+                  :density="$vuetify.display.xs ? 'compact' : 'comfortable'"
+                  accept="image/*"
+                  prepend-icon="mdi-whatsapp"
+                  show-size
+                  :multiple="false"
+                  @change="handleComprobanteAvanceChange"
+                  @click:clear="handleClearComprobanteAvance"
+                />
+                <small class="text-caption text-medium-emphasis">
+                  Obligatorio cuando el comercial solicita el avance en nombre del convenio.
+                </small>
+                <div v-if="comprobanteAvancePreview" class="mt-2">
+                  <v-img :src="comprobanteAvancePreview" max-width="220" max-height="140" class="rounded" cover />
+                </div>
+              </v-col>
+
+              <!-- ++ AVANCE: Mostrar comprobante existente en modo lectura ++ -->
+              <v-col v-if="form.comprobante_avance_url && !editando" cols="12">
+                <div class="text-caption font-weight-bold mb-1">Comprobante WhatsApp:</div>
+                <v-img
+                  :src="form.comprobante_avance_url"
+                  max-width="220"
+                  max-height="140"
+                  class="rounded"
+                  cover
+                />
+                <v-btn
+                  size="x-small"
+                  variant="text"
+                  prepend-icon="mdi-open-in-new"
+                  :href="form.comprobante_avance_url"
+                  target="_blank"
+                  class="mt-1"
+                >Ver original</v-btn>
               </v-col>
             </v-row>
           </v-card-text>
@@ -384,6 +426,7 @@ import {
   getDateo,
   updateDateo,
   deleteDateo,
+  esDescuentoAvance,
   formatDateTime as fmt,
   type Dateo,
   type ResultadoDateo,
@@ -421,9 +464,23 @@ const canalItems = [
 const descuentosActivos = ref<Descuento[]>([])
 const descuentosLoading = ref(false)
 
-const esAsesorComercial = computed(() => {
+// Muestra el select para COMERCIAL y CONVENIO
+const puedeSeleccionarDescuento = computed(() => {
   const tipo = String(dateo.value?.agente?.tipo || '').toUpperCase()
-  return tipo.includes('COMERCIAL')
+  return tipo.includes('COMERCIAL') || tipo.includes('CONVENIO')
+})
+
+// Detecta si el descuento seleccionado es de tipo AVANCE
+const esAvanceSeleccionado = computed(() => {
+  if (!form.value.descuento_id) return false
+  const d = descuentosActivos.value.find(x => x.id === form.value.descuento_id)
+  return esDescuentoAvance((d as { codigo?: string })?.codigo)
+})
+
+// Debe subir comprobante: avance seleccionado Y es COMERCIAL
+const debeSubirComprobante = computed(() => {
+  const tipo = String(dateo.value?.agente?.tipo || '').toUpperCase()
+  return esAvanceSeleccionado.value && tipo.includes('COMERCIAL')
 })
 
 async function loadDescuentos() {
@@ -447,6 +504,9 @@ type FormShape = {
   telefono: string
   canal: 'ASESOR' | 'TELE' | 'FACHADA' | 'REDES'
   descuento_id: number | null
+  // ++ AVANCE ++
+  es_avance: boolean
+  comprobante_avance_url: string | null
   imagen_url: string | null
   imagen_mime?: string | null
   imagen_tamano_bytes?: number | null
@@ -461,6 +521,9 @@ type UpdateDateoPayload = {
   telefono: string | null
   canal: 'ASESOR' | 'TELE' | 'FACHADA' | 'REDES'
   descuento_id?: number | null
+  // ++ AVANCE ++
+  es_avance?: boolean
+  comprobante_avance_url?: string | null
   imagen_url?: string
   imagen_mime?: string | null
   imagen_tamano_bytes?: number | null
@@ -475,6 +538,9 @@ const form = ref<FormShape>({
   telefono: '',
   canal: 'ASESOR',
   descuento_id: null,
+  // ++ AVANCE ++
+  es_avance: false,
+  comprobante_avance_url: null,
   imagen_url: null,
 })
 
@@ -514,6 +580,8 @@ function cancelarEdicion() {
   }
   evidenciaModel.value = null
   evidenciaFile.value = null
+
+  handleClearComprobanteAvance()
 }
 
 /* ===== Normalización de placa ===== */
@@ -546,14 +614,57 @@ watch(evidenciaModel, (val) => {
   }
 })
 
+// Watcher: sincroniza es_avance con el descuento seleccionado
+watch(() => form.value.descuento_id, () => {
+  form.value.es_avance = esAvanceSeleccionado.value
+  if (!esAvanceSeleccionado.value) {
+    handleClearComprobanteAvance()
+  }
+})
+
 onBeforeUnmount(() => {
   if (previewUrl.value) URL.revokeObjectURL(previewUrl.value)
+  if (comprobanteAvancePreview.value) URL.revokeObjectURL(comprobanteAvancePreview.value)
 })
 
 function maxSizeRule(v: File | File[] | null) {
   const f = Array.isArray(v) ? v?.[0] : v
   if (!f) return true
   return f.size <= MAX_IMAGE_MB * 1024 * 1024 || `La imagen no debe superar ${MAX_IMAGE_MB}MB`
+}
+
+/* ===== Comprobante AVANCE ===== */
+const comprobanteAvanceFile = ref<File | null>(null)
+const comprobanteAvancePreview = ref<string | null>(null)
+const uploadingComprobante = ref(false)
+
+function handleComprobanteAvanceChange() {
+  if (comprobanteAvancePreview.value) URL.revokeObjectURL(comprobanteAvancePreview.value)
+  comprobanteAvancePreview.value = null
+  const f = Array.isArray(comprobanteAvanceFile.value) ? comprobanteAvanceFile.value[0] : comprobanteAvanceFile.value
+  if (f instanceof File) comprobanteAvancePreview.value = URL.createObjectURL(f)
+}
+
+function handleClearComprobanteAvance() {
+  if (comprobanteAvancePreview.value) URL.revokeObjectURL(comprobanteAvancePreview.value)
+  comprobanteAvancePreview.value = null
+  comprobanteAvanceFile.value = null
+}
+
+async function subirComprobanteAvance(): Promise<boolean> {
+  const f = Array.isArray(comprobanteAvanceFile.value) ? comprobanteAvanceFile.value[0] : comprobanteAvanceFile.value
+  if (!f) return true
+  uploadingComprobante.value = true
+  try {
+    const data: UploadImageResponse = await uploadImage(f)
+    form.value.comprobante_avance_url = data.url ?? null
+    return true
+  } catch {
+    snackbar.value = { visible: true, msg: 'Error al subir el comprobante de avance.', color: 'error' }
+    return false
+  } finally {
+    uploadingComprobante.value = false
+  }
 }
 
 function mapTipoCorto(t?: string) {
@@ -606,6 +717,9 @@ async function load() {
     form.value.telefono = d.telefono ?? ''
     form.value.canal = (d.canal ?? 'ASESOR') as 'ASESOR' | 'TELE' | 'FACHADA' | 'REDES'
     form.value.descuento_id = d.descuento_id ?? null
+    // ++ AVANCE ++
+    form.value.es_avance = d.es_avance ?? false
+    form.value.comprobante_avance_url = d.comprobante_avance_url ?? null
     form.value.imagen_url = d.imagen_url ?? null
     form.value.imagen_mime = d.imagen_mime ?? null
     form.value.imagen_tamano_bytes = d.imagen_tamano_bytes ?? null
@@ -618,6 +732,7 @@ async function load() {
     }
     evidenciaModel.value = null
     evidenciaFile.value = null
+    handleClearComprobanteAvance()
 
     editando.value = false
   } catch (e) {
@@ -645,20 +760,29 @@ async function uploadImagen() {
   }
 }
 
-/* ===== 🔥 GUARDAR (con subida automática de imagen) ===== */
+/* ===== 🔥 GUARDAR ===== */
 async function guardar() {
   if (!isFormValid.value) {
-    snackbar.value = {
-      visible: true,
-      msg: 'La placa debe tener exactamente 6 caracteres',
-      color: 'error'
-    }
+    snackbar.value = { visible: true, msg: 'La placa debe tener exactamente 6 caracteres', color: 'error' }
     return
+  }
+
+  // Validar comprobante si aplica
+  if (debeSubirComprobante.value && !form.value.comprobante_avance_url) {
+    const f = Array.isArray(comprobanteAvanceFile.value) ? comprobanteAvanceFile.value[0] : comprobanteAvanceFile.value
+    if (!f) {
+      snackbar.value = {
+        visible: true,
+        msg: 'El comprobante de WhatsApp es obligatorio para solicitar un avance como comercial.',
+        color: 'error',
+      }
+      return
+    }
   }
 
   saving.value = true
   try {
-    // 🔥 PASO 1: Si hay imagen pendiente, subirla primero
+    // PASO 1: Subir imagen si hay pendiente
     if (evidenciaFile.value instanceof File) {
       console.log('📤 Subiendo imagen antes de guardar...')
       await uploadImagen()
@@ -668,17 +792,28 @@ async function guardar() {
       console.log('✅ Imagen subida:', form.value.imagen_url)
     }
 
-    // 🔥 PASO 2: Preparar payload con TODOS los campos (incluida imagen)
+    // PASO 2: Subir comprobante de avance si hay pendiente
+    if (debeSubirComprobante.value && comprobanteAvanceFile.value instanceof File) {
+      const ok = await subirComprobanteAvance()
+      if (!ok) {
+        saving.value = false
+        return
+      }
+    }
+
+    // PASO 3: Preparar payload
     const payload: UpdateDateoPayload = {
       resultado: form.value.resultado,
       observacion: form.value.observacion || null,
       placa: form.value.placa.trim().toUpperCase(),
       telefono: form.value.telefono || null,
       canal: form.value.canal,
-      descuento_id: esAsesorComercial.value ? (form.value.descuento_id ?? null) : null,
+      descuento_id: form.value.descuento_id ?? null,
+      // ++ AVANCE ++
+      es_avance: form.value.es_avance,
+      comprobante_avance_url: form.value.es_avance ? (form.value.comprobante_avance_url ?? null) : null,
     }
 
-    // 🔥 AGREGAR campos de imagen si existen
     if (form.value.imagen_url) {
       payload.imagen_url = form.value.imagen_url
       payload.imagen_mime = form.value.imagen_mime ?? null
@@ -695,7 +830,6 @@ async function guardar() {
 
     snackbar.value = { visible: true, msg: 'Cambios guardados correctamente ✅', color: 'success' }
 
-    // 🔥 PASO 3: Limpiar estado de imagen temporal
     if (evidenciaFile.value) {
       evidenciaModel.value = null
       evidenciaFile.value = null
@@ -705,7 +839,6 @@ async function guardar() {
       }
     }
 
-    // Recargar datos
     await load()
 
   } catch (e) {
