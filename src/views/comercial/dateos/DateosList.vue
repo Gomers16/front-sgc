@@ -2,152 +2,95 @@
 <template>
   <v-container class="py-6">
     <v-card elevation="8" class="rounded-xl">
-      <v-card-title class="py-5 d-flex align-center justify-space-between flex-wrap">
-        <div class="text-h5 font-weight-bold">🗒️ Dateos</div>
+      <v-card-title class="py-4 px-4 px-sm-6">
+        <div class="text-h5 font-weight-bold mb-4">🗒️ Dateos</div>
+      </v-card-title>
 
-        <div class="d-flex gap-2 flex-wrap">
-          <v-text-field
-            v-model="filters.placa"
-            label="Placa"
-            variant="outlined"
-            density="comfortable"
-            hide-details
-            clearable
-            style="min-width: 130px"
-          />
-          <v-text-field
-            v-model="filters.telefono"
-            label="Teléfono cliente"
-            variant="outlined"
-            density="comfortable"
-            hide-details
-            clearable
-            style="min-width: 160px"
-          />
-
-          <v-select
-            v-model="filters.canal"
-            :items="canalItems"
-            label="Canal"
-            variant="outlined"
-            density="comfortable"
-            hide-details
-            style="min-width: 160px"
-          />
-
-          <!-- 🔹 Filtro de tipo de asesor -->
-          <v-select
-            v-model="filters.tipoAgente"
-            :items="tipoAgenteItems"
-            label="Tipo asesor"
-            variant="outlined"
-            density="comfortable"
-            hide-details
-            clearable
-            style="min-width: 160px"
-          />
-
-          <v-autocomplete
-            v-model="filters.agenteId"
-            :items="agentesVisibles"
-            item-title="nombre"
-            item-value="id"
-            label="Agente"
-            variant="outlined"
-            density="comfortable"
-            hide-details
-            clearable
-            :loading="asesoresLoading"
-            style="min-width: 260px"
-          >
-            <!-- item -->
-            <template #item="{ props, item }">
-              <v-list-item v-bind="props" :title="item?.raw?.nombre">
-                <template #append>
-                  <v-chip
-                    size="small"
-                    class="agent-type-chip"
-                    :class="{
-                      'agent-type--comercial': /COMERCIAL/i.test(item?.raw?.tipo),
-                      'agent-type--convenio': /CONVENIO/i.test(item?.raw?.tipo),
-                      'agent-type--tele': /TELE/i.test(item?.raw?.tipo),
-                    }"
-                  >
+      <v-card-text class="px-4 px-sm-6 pt-0">
+        <v-row dense>
+          <v-col cols="6" sm="4" md="2">
+            <v-text-field v-model="filters.placa" label="Placa" variant="outlined" density="compact" hide-details clearable />
+          </v-col>
+          <v-col cols="6" sm="4" md="2">
+            <v-text-field v-model="filters.telefono" label="Teléfono" variant="outlined" density="compact" hide-details clearable />
+          </v-col>
+          <v-col cols="6" sm="4" md="2">
+            <v-select v-model="filters.canal" :items="canalItems" label="Canal" variant="outlined" density="compact" hide-details />
+          </v-col>
+          <v-col cols="6" sm="4" md="2">
+            <v-select v-model="filters.tipoAgente" :items="tipoAgenteItems" label="Tipo asesor" variant="outlined" density="compact" hide-details clearable />
+          </v-col>
+          <v-col cols="12" sm="6" md="4">
+            <v-autocomplete
+              v-model="filters.agenteId"
+              :items="agentesVisibles"
+              item-title="nombre"
+              item-value="id"
+              label="Agente"
+              variant="outlined"
+              density="compact"
+              hide-details
+              clearable
+              :loading="asesoresLoading"
+            >
+              <template #item="{ props, item }">
+                <v-list-item v-bind="props" :title="item?.raw?.nombre">
+                  <template #append>
+                    <v-chip size="small" class="agent-type-chip" :class="{ 'agent-type--comercial': /COMERCIAL/i.test(item?.raw?.tipo), 'agent-type--convenio': /CONVENIO/i.test(item?.raw?.tipo), 'agent-type--tele': /TELE/i.test(item?.raw?.tipo) }">
+                      {{ mapTipoCorto(item?.raw?.tipo) }}
+                    </v-chip>
+                  </template>
+                </v-list-item>
+              </template>
+              <template #selection="{ item }">
+                <div class="d-flex align-center gap-1">
+                  <span>{{ safe(item?.raw?.nombre) }}</span>
+                  <v-chip size="small" class="agent-type-chip" :class="{ 'agent-type--comercial': /COMERCIAL/i.test(item?.raw?.tipo), 'agent-type--convenio': /CONVENIO/i.test(item?.raw?.tipo), 'agent-type--tele': /TELE/i.test(item?.raw?.tipo) }">
                     {{ mapTipoCorto(item?.raw?.tipo) }}
                   </v-chip>
-                </template>
-              </v-list-item>
-            </template>
+                </div>
+              </template>
+            </v-autocomplete>
+          </v-col>
+          <v-col cols="12" sm="6" md="4">
+            <v-autocomplete v-model="filters.convenioId" :items="conveniosVisibles" item-title="nombre" item-value="id" label="Convenio" variant="outlined" density="compact" hide-details clearable :loading="conveniosLoading" />
+          </v-col>
+          <v-col cols="6" sm="4" md="2">
+            <v-select v-model="filters.resultado" :items="resultadoItems" label="Estado" variant="outlined" density="compact" hide-details clearable />
+          </v-col>
+          <v-col cols="6" sm="4" md="2">
+            <v-text-field v-model="filters.desde" type="date" label="Desde" variant="outlined" density="compact" hide-details />
+          </v-col>
+          <v-col cols="6" sm="4" md="2">
+            <v-text-field v-model="filters.hasta" type="date" label="Hasta" variant="outlined" density="compact" hide-details />
+          </v-col>
 
-            <!-- selected -->
-            <template #selection="{ item }">
-              <div class="d-flex align-center gap-1">
-                <span>{{ safe(item?.raw?.nombre) }}</span>
-                <v-chip
-                  size="small"
-                  class="agent-type-chip"
-                  :class="{
-                    'agent-type--comercial': /COMERCIAL/i.test(item?.raw?.tipo),
-                    'agent-type--convenio': /CONVENIO/i.test(item?.raw?.tipo),
-                    'agent-type--tele': /TELE/i.test(item?.raw?.tipo),
-                  }"
-                >
-                  {{ mapTipoCorto(item?.raw?.tipo) }}
-                </v-chip>
-              </div>
-            </template>
-          </v-autocomplete>
+          <!-- Botones -->
+          <v-col cols="6" sm="3" md="2">
+            <v-btn color="primary" :loading="loading" @click="reload" block>
+              Aplicar
+            </v-btn>
+          </v-col>
+          <v-col cols="6" sm="3" md="2">
+            <v-btn variant="outlined" :disabled="loading" @click="resetFilters" block>
+              Limpiar
+            </v-btn>
+          </v-col>
+          <v-col cols="6" sm="3" md="2">
+            <v-btn color="secondary" @click="irCrear" prepend-icon="mdi-plus" block>
+              Nuevo
+            </v-btn>
+          </v-col>
+          <v-col cols="6" sm="3" md="2">
+            <v-btn color="teal-darken-1" variant="tonal" prepend-icon="mdi-file-upload-outline" @click="abrirImportacion" block>
+              <span class="d-none d-sm-inline">Importar histórico</span>
+              <span class="d-sm-none">Importar</span>
+            </v-btn>
+          </v-col>
+        </v-row>
+      </v-card-text>
 
-          <!-- Convenio -->
-          <v-autocomplete
-            v-model="filters.convenioId"
-            :items="conveniosVisibles"
-            item-title="nombre"
-            item-value="id"
-            label="Convenio"
-            variant="outlined"
-            density="comfortable"
-            hide-details
-            clearable
-            :loading="conveniosLoading"
-            style="min-width: 240px"
-          />
 
-          <v-select
-            v-model="filters.resultado"
-            :items="resultadoItems"
-            label="Estado"
-            variant="outlined"
-            density="comfortable"
-            hide-details
-            clearable
-            style="min-width: 170px"
-          />
-
-          <v-text-field
-            v-model="filters.desde"
-            type="date"
-            label="Desde"
-            variant="outlined"
-            density="comfortable"
-            hide-details
-            style="min-width: 150px"
-          />
-          <v-text-field
-            v-model="filters.hasta"
-            type="date"
-            label="Hasta"
-            variant="outlined"
-            density="comfortable"
-            hide-details
-            style="min-width: 150px"
-          />
-
-          <v-btn color="primary" :loading="loading" @click="reload">Aplicar</v-btn>
-          <v-btn variant="text" :disabled="loading" @click="resetFilters">Limpiar</v-btn>
-          <v-btn color="secondary" @click="irCrear" prepend-icon="mdi-plus">Nuevo</v-btn>
-        </div>
-      </v-card-title>
 
       <v-expand-transition>
         <v-alert
@@ -247,7 +190,7 @@
           </v-chip>
         </template>
 
-        <!-- ── DESCUENTO ── -->
+        <!-- Descuento -->
         <template #item.descuento="{ item }">
           <v-chip
             v-if="item.descuento_id || item.descuento?.nombre"
@@ -262,7 +205,7 @@
           <span v-else class="text-medium-emphasis">—</span>
         </template>
 
-        <!-- ++ AVANCE ++ -->
+        <!-- Avance -->
         <template #item.es_avance="{ item }">
           <v-chip
             v-if="item.es_avance"
@@ -315,83 +258,301 @@
           <div class="d-flex gap-1">
             <v-tooltip text="Ver detalle del dateo">
               <template #activator="{ props }">
-                <v-btn
-                  size="small"
-                  variant="text"
-                  icon="mdi-eye"
-                  v-bind="props"
-                  @click="verDetalle(item.id)"
-                />
+                <v-btn size="small" variant="text" icon="mdi-eye" v-bind="props" @click="verDetalle(item.id)" />
               </template>
             </v-tooltip>
-
             <v-tooltip text="Marcar EN PROCESO">
               <template #activator="{ props }">
-                <v-btn
-                  size="small"
-                  variant="text"
-                  icon="mdi-progress-clock"
-                  color="info"
-                  v-bind="props"
-                  @click="marcarResultado(item.id, 'EN_PROCESO')"
-                />
+                <v-btn size="small" variant="text" icon="mdi-progress-clock" color="info" v-bind="props" @click="marcarResultado(item.id, 'EN_PROCESO')" />
               </template>
             </v-tooltip>
-
             <v-tooltip text="Marcar EXITOSO">
               <template #activator="{ props }">
-                <v-btn
-                  size="small"
-                  variant="text"
-                  icon="mdi-clipboard-check"
-                  color="success"
-                  v-bind="props"
-                  @click="marcarResultado(item.id, 'EXITOSO')"
-                />
+                <v-btn size="small" variant="text" icon="mdi-clipboard-check" color="success" v-bind="props" @click="marcarResultado(item.id, 'EXITOSO')" />
               </template>
             </v-tooltip>
-
             <v-tooltip text="Marcar NO EXITOSO">
               <template #activator="{ props }">
-                <v-btn
-                  size="small"
-                  variant="text"
-                  icon="mdi-clipboard-remove"
-                  color="error"
-                  v-bind="props"
-                  @click="marcarResultado(item.id, 'NO_EXITOSO')"
-                />
+                <v-btn size="small" variant="text" icon="mdi-clipboard-remove" color="error" v-bind="props" @click="marcarResultado(item.id, 'NO_EXITOSO')" />
               </template>
             </v-tooltip>
-
             <v-tooltip text="Marcar PENDIENTE">
               <template #activator="{ props }">
-                <v-btn
-                  size="small"
-                  variant="text"
-                  icon="mdi-clipboard-text-clock"
-                  v-bind="props"
-                  @click="marcarResultado(item.id, 'PENDIENTE')"
-                />
+                <v-btn size="small" variant="text" icon="mdi-clipboard-text-clock" v-bind="props" @click="marcarResultado(item.id, 'PENDIENTE')" />
               </template>
             </v-tooltip>
-
             <v-tooltip text="Eliminar dateo">
               <template #activator="{ props }">
-                <v-btn
-                  size="small"
-                  variant="text"
-                  icon="mdi-delete"
-                  color="error"
-                  v-bind="props"
-                  @click="confirmEliminar(item.id)"
-                />
+                <v-btn size="small" variant="text" icon="mdi-delete" color="error" v-bind="props" @click="confirmEliminar(item.id)" />
               </template>
             </v-tooltip>
           </div>
         </template>
       </v-data-table-server>
     </v-card>
+
+    <!-- ═══════════════════════════════════════════════════════
+         MODAL IMPORTAR HISTÓRICO
+    ════════════════════════════════════════════════════════ -->
+    <v-dialog v-model="importacion.visible" max-width="680" persistent>
+      <v-card class="rounded-xl">
+        <v-card-title class="pt-5 pb-2 px-6 d-flex align-center gap-2">
+          <v-icon color="teal-darken-1">mdi-file-upload-outline</v-icon>
+          <span class="text-h6 font-weight-bold">Importar histórico RTM</span>
+          <v-spacer />
+          <v-btn
+            icon="mdi-close"
+            variant="text"
+            size="small"
+            :disabled="importacion.loading"
+            @click="cerrarImportacion"
+          />
+        </v-card-title>
+
+        <v-divider />
+
+        <v-card-text class="px-6 pt-5">
+
+          <!-- PASO 1: Selección de archivo -->
+          <div v-if="importacion.paso === 1">
+            <p class="text-body-2 text-medium-emphasis mb-4">
+              Sube el archivo <strong>INTERNOS_TOTAL2025.xlsx</strong>. El sistema leerá todas las
+              hojas (MAR2025 → FEB2026) y creará los dateos y turnos históricos vinculados a cada
+              asesor y convenio.
+            </p>
+
+            <v-file-input
+              v-model="importacion.archivo"
+              label="Seleccionar archivo Excel"
+              accept=".xlsx,.xls"
+              prepend-icon="mdi-microsoft-excel"
+              variant="outlined"
+              density="comfortable"
+              :error-messages="importacion.archivoError"
+              show-size
+              @update:model-value="importacion.archivoError = ''"
+            />
+
+            <v-expansion-panels variant="accordion" class="mt-3">
+              <v-expansion-panel title="Opciones avanzadas">
+                <v-expansion-panel-text>
+                  <v-text-field
+                    v-model="importacion.hojas"
+                    label="Filtrar hojas (vacío = todas)"
+                    placeholder="Ej: MAR2025,ABR2025"
+                    variant="outlined"
+                    density="comfortable"
+                    hint="Separa con comas si quieres importar solo algunas hojas"
+                    persistent-hint
+                    class="mb-3"
+                  />
+                  <v-switch
+                    v-model="importacion.dryRun"
+                    label="Modo simulación (no guarda nada)"
+                    color="warning"
+                    density="comfortable"
+                    hide-details
+                  />
+                </v-expansion-panel-text>
+              </v-expansion-panel>
+            </v-expansion-panels>
+          </div>
+
+          <!-- PASO 2: Preview -->
+          <div v-if="importacion.paso === 2 && importacion.preview">
+            <v-alert type="info" variant="tonal" density="comfortable" class="mb-4">
+              Vista previa generada. Revisa los totales antes de confirmar la importación.
+            </v-alert>
+
+            <div class="resumen-grid mb-4">
+              <div class="resumen-card">
+                <div class="resumen-label">Total filas</div>
+                <div class="resumen-valor">{{ importacion.preview.total_filas }}</div>
+              </div>
+              <div class="resumen-card resumen-card--green">
+                <div class="resumen-label">A importar</div>
+                <div class="resumen-valor">{{ importacion.preview.total_filas - contarSinAsesor }}</div>
+              </div>
+              <div class="resumen-card resumen-card--orange">
+                <div class="resumen-label">Sin asesor</div>
+                <div class="resumen-valor">{{ contarSinAsesor }}</div>
+              </div>
+              <div class="resumen-card resumen-card--red">
+                <div class="resumen-label">Errores parseo</div>
+                <div class="resumen-valor">{{ importacion.preview.errores_parseo }}</div>
+              </div>
+            </div>
+
+            <p class="text-caption text-medium-emphasis mb-2 font-weight-bold">DESGLOSE POR HOJA</p>
+            <v-table density="compact" class="rounded-lg tabla-borde mb-4">
+              <thead>
+                <tr>
+                  <th>Hoja</th>
+                  <th class="text-center">Total</th>
+                  <th class="text-center">Continuidad</th>
+                  <th class="text-center">Recurrente</th>
+                  <th class="text-center">Sin asesor</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="(stats, hoja) in importacion.preview.por_hoja" :key="hoja">
+                  <td class="font-weight-medium">{{ hoja }}</td>
+                  <td class="text-center">{{ stats.total }}</td>
+                  <td class="text-center">
+                    <v-chip size="x-small" color="blue" variant="tonal">{{ stats.aprobado }}</v-chip>
+                  </td>
+                  <td class="text-center">
+                    <v-chip size="x-small" color="orange" variant="tonal">{{ stats.dateo }}</v-chip>
+                  </td>
+                  <td class="text-center">
+                    <v-chip
+                      size="x-small"
+                      :color="stats.sinAsesor > 0 ? 'error' : 'success'"
+                      variant="tonal"
+                    >
+                      {{ stats.sinAsesor }}
+                    </v-chip>
+                  </td>
+                </tr>
+              </tbody>
+            </v-table>
+
+            <v-alert
+              v-if="importacion.dryRun"
+              type="warning"
+              variant="tonal"
+              density="comfortable"
+              prepend-icon="mdi-test-tube"
+            >
+              Modo simulación activo. No se guardará nada en la base de datos.
+            </v-alert>
+          </div>
+
+          <!-- PASO 3: Resultado final -->
+          <div v-if="importacion.paso === 3 && importacion.resultado">
+            <v-alert
+              :type="importacion.resultado.resumen.errores_proceso > 0 ? 'warning' : 'success'"
+              variant="tonal"
+              density="comfortable"
+              class="mb-4"
+            >
+              {{ importacion.dryRun ? 'Simulación completada.' : 'Importación completada.' }}
+            </v-alert>
+
+            <div class="resumen-grid mb-4">
+              <div class="resumen-card resumen-card--green">
+                <div class="resumen-label">{{ importacion.dryRun ? 'A crear' : 'Creados' }}</div>
+                <div class="resumen-valor">{{ importacion.resultado.resumen.creados }}</div>
+              </div>
+              <div class="resumen-card">
+                <div class="resumen-label">Duplicados</div>
+                <div class="resumen-valor">{{ importacion.resultado.resumen.skipped_duplicado }}</div>
+              </div>
+              <div class="resumen-card resumen-card--orange">
+                <div class="resumen-label">Sin asesor</div>
+                <div class="resumen-valor">{{ importacion.resultado.resumen.skipped_sin_asesor }}</div>
+              </div>
+              <div class="resumen-card resumen-card--red">
+                <div class="resumen-label">Errores</div>
+                <div class="resumen-valor">{{ importacion.resultado.resumen.errores_proceso }}</div>
+              </div>
+            </div>
+
+            <div v-if="importacion.resultado.errores_detalle?.length">
+              <p class="text-caption text-medium-emphasis mb-2 font-weight-bold">ERRORES DETALLE</p>
+              <v-table density="compact" class="rounded-lg tabla-borde">
+                <thead>
+                  <tr>
+                    <th>Hoja</th>
+                    <th>Fila</th>
+                    <th>Placa</th>
+                    <th>Motivo</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr
+                    v-for="(e, i) in importacion.resultado.errores_detalle.slice(0, 20)"
+                    :key="i"
+                  >
+                    <td>{{ e.hoja }}</td>
+                    <td>{{ e.fila }}</td>
+                    <td class="font-weight-medium">{{ e.placa }}</td>
+                    <td class="text-caption text-error">{{ e.motivo }}</td>
+                  </tr>
+                </tbody>
+              </v-table>
+              <p
+                v-if="importacion.resultado.errores_detalle.length > 20"
+                class="text-caption text-medium-emphasis mt-1"
+              >
+                ... y {{ importacion.resultado.errores_detalle.length - 20 }} errores más.
+              </p>
+            </div>
+          </div>
+
+          <!-- Loading -->
+          <div v-if="importacion.loading" class="d-flex flex-column align-center py-6 gap-3">
+            <v-progress-circular indeterminate color="teal-darken-1" size="48" />
+            <p class="text-body-2 text-medium-emphasis">{{ importacion.loadingMsg }}</p>
+          </div>
+
+        </v-card-text>
+
+        <v-divider />
+
+        <v-card-actions class="px-6 py-4">
+          <v-btn variant="text" :disabled="importacion.loading" @click="cerrarImportacion">
+            {{ importacion.paso === 3 ? 'Cerrar' : 'Cancelar' }}
+          </v-btn>
+
+          <v-spacer />
+
+          <!-- Paso 1 → Vista previa -->
+          <v-btn
+            v-if="importacion.paso === 1"
+            color="teal-darken-1"
+            variant="tonal"
+            prepend-icon="mdi-eye-outline"
+            :loading="importacion.loading"
+            @click="hacerPreview"
+          >
+            Vista previa
+          </v-btn>
+
+          <!-- Paso 2 → Volver + Confirmar -->
+          <template v-if="importacion.paso === 2">
+            <v-btn
+              variant="text"
+              prepend-icon="mdi-arrow-left"
+              :disabled="importacion.loading"
+              @click="importacion.paso = 1"
+            >
+              Volver
+            </v-btn>
+            <v-btn
+              color="teal-darken-1"
+              variant="flat"
+              prepend-icon="mdi-check"
+              :loading="importacion.loading"
+              @click="confirmarImportacion"
+            >
+              {{ importacion.dryRun ? 'Simular' : 'Importar' }}
+            </v-btn>
+          </template>
+
+          <!-- Paso 3 → Nueva importación -->
+          <v-btn
+            v-if="importacion.paso === 3"
+            color="teal-darken-1"
+            variant="tonal"
+            prepend-icon="mdi-refresh"
+            @click="resetImportacion"
+          >
+            Nueva importación
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
 
     <!-- Visor de imagen -->
     <v-dialog v-model="viewer.visible" max-width="720">
@@ -441,14 +602,18 @@ import {
   listAgentesCaptacion,
   listConveniosLight,
   formatDateTime,
+  previewHistoricoRtm,
+  importarHistoricoRtm,
   type Dateo,
   type ResultadoDateo,
+  type HistoricoPreviewResponse,
+  type HistoricoImportarResponse,
 } from '@/services/dateosService'
 import { listConveniosAsignados } from '@/services/conveniosService'
 
 const router = useRouter()
 
-/* Filtros */
+/* ── Filtros ── */
 const filters = ref<{
   placa: string
   telefono: string
@@ -473,7 +638,6 @@ const filters = ref<{
 
 const canalItems = [{ title: 'Asesor', value: 'ASESOR' as const }]
 
-/* Tipo de asesor */
 const tipoAgenteItems = [
   { title: 'Todos', value: '' },
   { title: 'Comercial', value: 'COMERCIAL' },
@@ -488,7 +652,6 @@ const resultadoItems: { title: string; value: ResultadoDateo }[] = [
   { title: 'Re-datear', value: 'RE_DATEAR' },
 ]
 
-/* Tabla */
 const headers = [
   { title: 'ID', key: 'id', sortable: true },
   { title: 'Foto', key: 'imagen_url', sortable: false },
@@ -500,7 +663,7 @@ const headers = [
   { title: 'Creado', key: 'created_at', sortable: true },
   { title: 'Estado', key: 'resultado', sortable: true },
   { title: 'Descuento', key: 'descuento', sortable: false },
-  { title: 'Avance', key: 'es_avance', sortable: false },  // ++ AVANCE ++
+  { title: 'Avance', key: 'es_avance', sortable: false },
   { title: 'Turno', key: 'turnoInfo', sortable: false, align: 'center' as const },
   { title: 'Acciones', key: 'acciones', sortable: false, align: 'end' as const },
 ]
@@ -513,13 +676,13 @@ const sortBy = ref<{ key: string; order: 'asc' | 'desc' }[]>([{ key: 'id', order
 const loading = ref(false)
 const errorMsg = ref<string | null>(null)
 
-/* Visor de imagen */
+/* ── Visor ── */
 const viewer = ref<{ visible: boolean; url: string | null }>({ visible: false, url: null })
 function openViewer(url: string) {
   viewer.value = { visible: true, url }
 }
 
-/* Catálogo asesores */
+/* ── Asesores ── */
 const asesoresItems = ref<{ id: number; nombre: string; tipo: string }[]>([])
 const asesoresLoading = ref(false)
 async function loadAsesores() {
@@ -531,7 +694,7 @@ async function loadAsesores() {
   }
 }
 
-/* Catálogo convenios */
+/* ── Convenios ── */
 const conveniosAll = ref<{ id: number; nombre: string }[]>([])
 const conveniosAsignados = ref<{ id: number; nombre: string }[]>([])
 const conveniosLoading = ref(false)
@@ -546,10 +709,7 @@ async function loadConveniosAll() {
 }
 
 async function loadConveniosAsignadosByAsesor(asesorId: number) {
-  if (!asesorId) {
-    conveniosAsignados.value = []
-    return
-  }
+  if (!asesorId) { conveniosAsignados.value = []; return }
   conveniosLoading.value = true
   try {
     conveniosAsignados.value = await listConveniosAsignados(asesorId)
@@ -560,7 +720,7 @@ async function loadConveniosAsignadosByAsesor(asesorId: number) {
   }
 }
 
-/* Helpers */
+/* ── Helpers ── */
 function mapTipoCorto(t?: string) {
   const u = String(t || '').toUpperCase()
   if (u.includes('CONVENIO')) return 'Convenio'
@@ -572,11 +732,9 @@ function safe(val?: string | number | null) {
   return val === null || val === undefined || val === '' ? '' : String(val)
 }
 
-/* Agentes visibles según tipo */
 const agentesVisibles = computed(() => {
   const tipo = filters.value.tipoAgente
   if (!tipo) return asesoresItems.value
-
   return asesoresItems.value.filter((a) => {
     const u = String(a.tipo || '').toUpperCase()
     if (tipo === 'COMERCIAL') return u.includes('COMERCIAL')
@@ -585,28 +743,20 @@ const agentesVisibles = computed(() => {
   })
 })
 
-/* Convenios visibles según tipo + agente */
 const conveniosVisibles = computed(() => {
   const tipo = filters.value.tipoAgente
   const agenteId = filters.value.agenteId
-
-  if (!tipo || !agenteId) {
-    return conveniosAll.value
-  }
-
+  if (!tipo || !agenteId) return conveniosAll.value
   if (tipo === 'CONVENIO') {
     const conv = conveniosAll.value.find((c) => c.id === filters.value.convenioId)
     return conv ? [conv] : []
   }
-
   if (tipo === 'COMERCIAL') {
     return conveniosAsignados.value.length ? conveniosAsignados.value : conveniosAll.value
   }
-
   return conveniosAll.value
 })
 
-/* Cuando cambias el tipo de asesor, limpio agente y convenio */
 watch(
   () => filters.value.tipoAgente,
   () => {
@@ -616,38 +766,30 @@ watch(
   }
 )
 
-/* Helper: auto-vincular convenio del asesor CONVENIO */
 function autoVincularConvenioDeAsesorConvenio() {
   if (!filters.value.agenteId) return
   const asesor = asesoresItems.value.find((a) => a.id === filters.value.agenteId)
   if (!asesor) return
   const conv = conveniosAll.value.find((c) => c.nombre === asesor.nombre)
-  if (conv) {
-    filters.value.convenioId = conv.id
-  }
+  if (conv) filters.value.convenioId = conv.id
 }
 
-/* Cuando cambia el agente */
 watch(
   () => filters.value.agenteId,
   async (nuevo) => {
     filters.value.convenioId = null
     conveniosAsignados.value = []
-
     if (!nuevo) return
-
     if (filters.value.tipoAgente === 'CONVENIO') {
       autoVincularConvenioDeAsesorConvenio()
       return
     }
-
     if (filters.value.tipoAgente === 'COMERCIAL') {
       await loadConveniosAsignadosByAsesor(nuevo)
     }
   }
 )
 
-/* Si luego de cargar conveniosAll ya había un asesor CONVENIO seleccionado */
 watch(
   () => conveniosAll.value,
   () => {
@@ -657,7 +799,7 @@ watch(
   }
 )
 
-/* Texto/Color chips */
+/* ── Chips ── */
 function chipColorResultado(r?: string) {
   if (r === 'EXITOSO') return 'success'
   if (r === 'NO_EXITOSO') return 'error'
@@ -693,7 +835,7 @@ function formatDateOnly(iso: string) {
   return `${d}/${m}/${y}`
 }
 
-/* CRUD */
+/* ── Tabla ── */
 async function loadItems() {
   loading.value = true
   errorMsg.value = null
@@ -731,6 +873,7 @@ function reload() {
   page.value = 1
   loadItems()
 }
+
 function resetFilters() {
   filters.value = {
     placa: '',
@@ -747,7 +890,6 @@ function resetFilters() {
   reload()
 }
 
-/* Acciones */
 function irCrear() {
   router.push({ name: 'ComercialDateosNuevo' })
 }
@@ -764,7 +906,6 @@ async function marcarResultado(id: number, resultado: ResultadoDateo) {
   }
 }
 
-/* Eliminar */
 const dlgEliminar = ref<{ visible: boolean; id: number | null; loading: boolean }>({
   visible: false,
   id: null,
@@ -787,7 +928,115 @@ async function doEliminar() {
   }
 }
 
-/* Init */
+/* ══════════════════════════════════════════════════
+   IMPORTACIÓN HISTÓRICO RTM
+══════════════════════════════════════════════════ */
+
+const importacion = ref<{
+  visible: boolean
+  paso: 1 | 2 | 3
+  archivo: File | null
+  archivoError: string
+  hojas: string
+  dryRun: boolean
+  loading: boolean
+  loadingMsg: string
+  preview: HistoricoPreviewResponse | null
+  resultado: HistoricoImportarResponse | null
+}>({
+  visible: false,
+  paso: 1,
+  archivo: null,
+  archivoError: '',
+  hojas: '',
+  dryRun: false,
+  loading: false,
+  loadingMsg: '',
+  preview: null,
+  resultado: null,
+})
+
+const contarSinAsesor = computed(() => {
+  if (!importacion.value.preview) return 0
+  return Object.values(importacion.value.preview.por_hoja).reduce(
+    (acc, h) => acc + h.sinAsesor,
+    0
+  )
+})
+
+function abrirImportacion() {
+  resetImportacion()
+  importacion.value.visible = true
+}
+
+function cerrarImportacion() {
+  if (importacion.value.loading) return
+  importacion.value.visible = false
+  if (importacion.value.paso === 3 && (importacion.value.resultado?.resumen.creados ?? 0) > 0) {
+    reload()
+  }
+}
+
+function resetImportacion() {
+  importacion.value = {
+    visible: false,
+    paso: 1,
+    archivo: null,
+    archivoError: '',
+    hojas: '',
+    dryRun: false,
+    loading: false,
+    loadingMsg: '',
+    preview: null,
+    resultado: null,
+  }
+}
+
+async function hacerPreview() {
+  if (!importacion.value.archivo) {
+    importacion.value.archivoError = 'Debes seleccionar un archivo Excel'
+    return
+  }
+  importacion.value.loading = true
+  importacion.value.loadingMsg = 'Leyendo el archivo y analizando filas...'
+  try {
+    const data = await previewHistoricoRtm(
+      importacion.value.archivo,
+      importacion.value.hojas
+    )
+    importacion.value.preview = data
+    importacion.value.paso = 2
+  } catch (e) {
+    errorMsg.value = e instanceof Error ? e.message : 'Error al generar la vista previa'
+  } finally {
+    importacion.value.loading = false
+    importacion.value.loadingMsg = ''
+  }
+}
+
+async function confirmarImportacion() {
+  if (!importacion.value.archivo) return
+  importacion.value.loading = true
+  importacion.value.loadingMsg = importacion.value.dryRun
+    ? 'Simulando importación...'
+    : 'Importando dateos y turnos históricos...'
+  try {
+    const data = await importarHistoricoRtm(
+      importacion.value.archivo,
+      importacion.value.dryRun,
+      importacion.value.hojas
+    )
+    importacion.value.resultado = data
+    importacion.value.paso = 3
+  } catch (e) {
+    errorMsg.value = e instanceof Error ? e.message : 'Error durante la importación'
+  } finally {
+    importacion.value.loading = false
+    importacion.value.loadingMsg = ''
+  }
+}
+
+/* ── Init ── */
 loadAsesores()
 loadConveniosAll()
 loadItems()
@@ -814,8 +1063,37 @@ loadItems()
   overflow: visible;
   border-radius: 9999px;
 }
-
 .agent-type--comercial { background: #E3F2FD; color: #0D47A1; }
 .agent-type--convenio  { background: #E8F5E9; color: #1B5E20; }
 .agent-type--tele      { background: #FFF3E0; color: #E65100; }
+
+/* Tarjetas resumen del modal */
+.resumen-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+}
+.resumen-card {
+  background: #F5F5F5;
+  border-radius: 10px;
+  padding: 12px;
+  text-align: center;
+}
+.resumen-card--green  { background: #E8F5E9; }
+.resumen-card--orange { background: #FFF3E0; }
+.resumen-card--red    { background: #FFEBEE; }
+.resumen-label {
+  font-size: 11px;
+  color: #757575;
+  margin-bottom: 4px;
+  font-weight: 500;
+}
+.resumen-valor {
+  font-size: 22px;
+  font-weight: 700;
+  color: #212121;
+}
+.tabla-borde {
+  border: 1px solid rgba(0, 0, 0, 0.12);
+}
 </style>

@@ -170,88 +170,81 @@
                 📌 Etapas:
               </p>
 
-              <v-list density="compact" class="py-0 bg-transparent">
-                <v-list-item
+              <div class="etapas-lista">
+                <div
                   v-for="(etapa, i) in getEtapas(turno)"
                   :key="etapa.key || i"
-                  class="py-0 px-0"
-                  :min-height="$vuetify.display.xs ? 32 : 40"
+                  class="etapa-item"
                 >
-                  <template #prepend>
-                    <v-icon
-                      :size="$vuetify.display.xs ? 18 : 20"
-                      :color="iconColor(etapa, turno)"
-                      :class="{
-                        'etapa-icon-completed-finalizado':
-                          etapa.completed && turno.estado === 'finalizado',
-                      }"
-                    >
-                      {{
-                        etapa.completed
-                          ? 'mdi-check-circle'
-                          : 'mdi-circle-outline'
-                      }}
-                    </v-icon>
-                  </template>
+                  <v-icon
+                    :size="$vuetify.display.xs ? 18 : 20"
+                    :color="iconColor(etapa, turno)"
+                    :class="{
+                      'etapa-icon-completed-finalizado':
+                        etapa.completed && turno.estado === 'finalizado',
+                    }"
+                    class="etapa-icono"
+                  >
+                    {{ etapa.completed ? 'mdi-check-circle' : 'mdi-circle-outline' }}
+                  </v-icon>
 
-                  <div class="etapa-row">
-                    <div class="etapa-label">
-                      <template v-if="etapa.name === 'Facturación'">
-                        <v-btn
-                          variant="text"
-                          color="button-text-light-secondary"
-                          class="pa-0 text-capitalize text-on-primary-text"
-                          :size="$vuetify.display.xs ? 'x-small' : 'small'"
-                          @click.stop="goToFacturacion(turno)"
-                        >
-                          Facturación
-                        </v-btn>
-                      </template>
+                  <div class="etapa-contenido">
+                    <div class="etapa-row">
+                      <div class="etapa-label">
+                        <template v-if="etapa.name === 'Facturación'">
+                          <v-btn
+                            variant="text"
+                            color="button-text-light-secondary"
+                            class="pa-0 text-capitalize text-on-primary-text"
+                            :size="$vuetify.display.xs ? 'x-small' : 'small'"
+                            @click.stop="goToFacturacion(turno)"
+                          >
+                            Facturación
+                          </v-btn>
+                        </template>
 
-                      <template v-else-if="etapa.name === 'Certificación'">
-                        <v-btn
-                          variant="text"
-                          color="button-text-light-secondary"
-                          class="pa-0 text-capitalize text-on-primary-text"
-                          :size="$vuetify.display.xs ? 'x-small' : 'small'"
-                          @click.stop="goToCertificacion(turno)"
+                        <template v-else-if="etapa.name === 'Certificación'">
+                          <v-btn
+                            variant="text"
+                            color="button-text-light-secondary"
+                            class="pa-0 text-capitalize text-on-primary-text"
+                            :size="$vuetify.display.xs ? 'x-small' : 'small'"
+                            @click.stop="goToCertificacion(turno)"
+                          >
+                            Certificación
+                          </v-btn>
+                        </template>
+
+                        <span
+                          v-else
+                          :class="{
+                            'text-decoration-line-through text-on-primary-text-faded':
+                              etapa.completed && etapa.name !== 'Puerta',
+                          }"
+                          class="text-caption text-sm-body-2 text-on-primary-text"
                         >
-                          Certificación
-                        </v-btn>
-                      </template>
+                          {{ etapa.name }}
+                        </span>
+                      </div>
 
                       <span
-                        v-else
-                        :class="{
-                          'text-decoration-line-through text-on-primary-text-faded':
-                            etapa.completed && etapa.name !== 'Puerta',
-                        }"
-                        class="text-caption text-sm-body-2 text-on-primary-text"
+                        v-if="etapa.time"
+                        class="text-on-primary-text-faded etapa-time"
                       >
-                        {{ etapa.name }}
+                        {{ formatTime(etapa.time) }}
                       </span>
                     </div>
 
-                    <span
-                      v-if="etapa.time"
-                      class="text-on-primary-text-faded etapa-time"
-                      :class="$vuetify.display.xs ? 'text-caption' : ''"
+                    <div
+                      v-if="etapa.funcionario && etapa.completed"
+                      class="etapa-funcionario text-on-primary-text-faded"
                     >
-                      {{ formatTime(etapa.time) }}
-                    </span>
+                      <v-icon size="x-small" class="mr-1">mdi-account</v-icon>
+                      {{ etapa.funcionario }}
+                    </div>
                   </div>
-                    <!-- 👇 AGREGAR ESTE BLOQUE COMPLETO AQUÍ -->
-                  <div
-                    v-if="etapa.funcionario && etapa.completed"
-                    class="etapa-funcionario text-caption text-on-primary-text-faded mt-1"
-                  >
-                    <v-icon size="x-small" class="mr-1">mdi-account</v-icon>
-                    {{ etapa.funcionario }}
-                  </div>
-                  <!-- 👆 FIN DEL BLOQUE -->
-                </v-list-item>
-              </v-list>
-
+                </div>
+              </div>
               <!-- 👇 CHIPS DE OBSERVACIONES CON HOVER + CLICK -->
               <div class="mt-2 mt-sm-3 d-flex flex-wrap" style="gap:6px">
                 <!-- Observaciones del dateo - HOVER + CLICK -->
@@ -1511,18 +1504,35 @@ onMounted(() => {
   min-width: 0;
 }
 
+.etapas-lista {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.etapa-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.etapa-icono {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.etapa-contenido {
+  flex: 1;
+  min-width: 0;
+}
+
 .etapa-time {
   text-align: right;
   font-family: monospace;
-  font-size: 0.75rem;
-  min-width: 70px;
+  font-size: 0.72rem;
+  white-space: nowrap;
   flex-shrink: 0;
-}
-
-@media (min-width: 600px) {
-  .etapa-time {
-    min-width: 78px;
-  }
 }
 
 .etapa-icon-completed-finalizado {
@@ -1579,16 +1589,19 @@ onMounted(() => {
 
 /* Estilo para mostrar el funcionario de cada etapa */
 .etapa-funcionario {
-  font-size: 0.7rem;
+  font-size: 0.68rem;
   display: flex;
   align-items: center;
-  padding-left: 28px;
+  padding-left: 0;
   font-style: italic;
+  opacity: 0.85;
+  margin-top: 2px;
+  line-height: 1.3;
 }
 
 @media (min-width: 600px) {
   .etapa-funcionario {
-    font-size: 0.75rem;
+    font-size: 0.72rem;
   }
 }
 </style>

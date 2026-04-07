@@ -202,7 +202,6 @@
 </template>
 
 <script setup lang="ts">
-/* === SCRIPT SIN CAMBIOS === */
 import { useRouter } from 'vue-router'
 import { useDashboardDatos } from '@/composables/dashboard/useDashboardDatos'
 import { useAvisos } from '@/composables/dashboard/useAvisos'
@@ -236,7 +235,6 @@ cargarDashboard().catch((e) => {
 </script>
 
 <style scoped>
-/* Paleta corporativa local al dashboard */
 .dashboard-shell {
   max-width: 1200px;
   margin: 0 auto;
@@ -246,10 +244,9 @@ cargarDashboard().catch((e) => {
   --brand-yellow-soft: #fff6cc;
 }
 
-/* Fondo del card y sensación más empresarial */
 .welcome-card {
   width: 100%;
-  padding: 24px 32px 32px;
+  padding: 16px 16px 24px;
   border-radius: 16px;
   text-align: left;
   background: radial-gradient(circle at top left, #ffffff 0, #f3f4f6 55%, #e5e7eb 100%);
@@ -259,7 +256,6 @@ cargarDashboard().catch((e) => {
   overflow: hidden;
 }
 
-/* Franja superior azul → amarillo */
 .welcome-card__accent {
   position: absolute;
   inset: 0 0 auto 0;
@@ -267,10 +263,10 @@ cargarDashboard().catch((e) => {
   background: linear-gradient(90deg, var(--brand-blue), #2563eb, var(--brand-yellow));
 }
 
-/* Encabezado */
 .card-header {
   padding-top: 20px;
   padding-bottom: 4px;
+  gap: 8px;
 }
 
 .card-header__icon {
@@ -282,36 +278,58 @@ cargarDashboard().catch((e) => {
   align-items: center;
   justify-content: center;
   color: var(--brand-blue);
+  flex-shrink: 0;
 }
 
 .card-header__title {
-  font-size: 1.35rem;
+  font-size: 1rem;
   font-weight: 700;
   color: #0f172a;
+  line-height: 1.3;
+  word-break: break-word;
+}
+
+@media (min-width: 600px) {
+  .card-header__title {
+    font-size: 1.35rem;
+  }
 }
 
 .card-header__subtitle {
-  font-size: 0.78rem;
-  letter-spacing: 0.18em;
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   margin-top: 3px;
+}
+
+@media (min-width: 600px) {
+  .card-header__subtitle {
+    font-size: 0.78rem;
+    letter-spacing: 0.18em;
+  }
 }
 
 .brand-name {
   color: var(--brand-blue);
 }
 
-/* Lado derecho del header */
 .card-header__date-pill {
   display: inline-flex;
   align-items: center;
-  padding: 4px 12px;
+  padding: 3px 10px;
   border-radius: 999px;
   background: var(--brand-yellow-soft);
   color: #92400e;
-  font-size: 0.78rem;
+  font-size: 0.72rem;
   font-weight: 600;
   border: 1px solid var(--brand-yellow);
+}
+
+@media (min-width: 600px) {
+  .card-header__date-pill {
+    padding: 4px 12px;
+    font-size: 0.78rem;
+  }
 }
 
 .card-header__date-helper {
@@ -324,7 +342,6 @@ cargarDashboard().catch((e) => {
   color: #4b5563;
 }
 
-/* Encabezados de sección */
 .section-header {
   display: flex;
   align-items: center;
@@ -336,24 +353,32 @@ cargarDashboard().catch((e) => {
   height: 20px;
   border-radius: 999px;
   background: linear-gradient(180deg, var(--brand-blue), var(--brand-yellow));
+  flex-shrink: 0;
 }
 
 .section-header__title {
-  font-size: 0.9rem;
+  font-size: 0.78rem;
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.06em;
   color: #374151;
+  line-height: 1.3;
 }
 
-/* Helpers */
+@media (min-width: 600px) {
+  .section-header__title {
+    font-size: 0.9rem;
+    letter-spacing: 0.12em;
+    white-space: nowrap;
+  }
+}
+
 .mb-3 { margin-bottom: 12px !important; }
 .mb-4 { margin-bottom: 16px !important; }
 .mb-6 { margin-bottom: 24px !important; }
 .mt-1 { margin-top: 4px !important; }
 .mt-2 { margin-top: 8px !important; }
 
-/* Cards de indicadores: más sobrios pero con presencia */
 .indicador-card :deep(.v-card) {
   min-width: 0;
   width: 100%;
@@ -363,12 +388,22 @@ cargarDashboard().catch((e) => {
   box-shadow: 0 4px 10px rgba(15, 23, 42, 0.06);
 }
 
-/* Mini tarjetas */
 .indicador-mini :deep(.v-card) {
   min-width: 0;
   background: #f9fafb !important;
   border-radius: 10px;
   border: 1px solid #e5e7eb;
   box-shadow: none;
+}
+
+@media (max-width: 599px) {
+  .welcome-card {
+    padding: 12px 12px 20px;
+  }
+
+  .dashboard-shell {
+    padding-top: 16px !important;
+    padding-bottom: 16px !important;
+  }
 }
 </style>

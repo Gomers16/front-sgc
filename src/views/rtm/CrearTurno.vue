@@ -474,8 +474,7 @@
     <!-- Confirmación -->
     <v-dialog
       v-model="showConfirmDialog"
-      :max-width="$vuetify.display.xs ? '100%' : '500'"
-      :fullscreen="$vuetify.display.xs"
+      max-width="340"
     >
       <v-card class="rounded-xl">
         <v-card-title class="headline text-center text-primary font-weight-bold pa-3 pa-sm-4 text-subtitle-1 text-sm-h6">

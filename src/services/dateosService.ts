@@ -33,9 +33,9 @@ export interface TurnoInfo {
   numeroServicio?: number
   servicioCodigo?: string
   estado?: string
-  es_recurrente?: boolean | null              // 🆕 para clasificar tipo de cliente
-  es_recuperacion?: boolean | null            // 🆕 para clasificar tipo de cliente
-  meses_desde_ultima_visita?: number | null   // 🆕 para mostrar en tooltip
+  es_recurrente?: boolean | null
+  es_recuperacion?: boolean | null
+  meses_desde_ultima_visita?: number | null
 }
 
 export interface Dateo extends DateoImagenMeta {
@@ -57,8 +57,7 @@ export interface Dateo extends DateoImagenMeta {
   origen?: OrigenDateo
   turnoInfo?: TurnoInfo | null
   descuento_id?: number | null
-  descuento?: { id: number; codigo: string; nombre: string } | null  // ++ codigo para detectar AVANCE
-  // ++ AVANCE ++
+  descuento?: { id: number; codigo: string; nombre: string } | null
   es_avance?: boolean
   comprobante_avance_url?: string | null
 }
@@ -131,7 +130,7 @@ export async function listDateos(params: ListParams) {
       data.length
     ) || 0
 
-  const page  = Number(
+  const page = Number(
     ('page' in r && r.page) ??
     meta?.current_page ??
     params.page ??
@@ -164,13 +163,6 @@ export function deleteDateo(id: number) {
   return del<{ ok: boolean }>(`/api/captacion-dateos/${id}`)
 }
 
-/**
- * Activa o desactiva el avance de un dateo.
- * PATCH /api/captacion-dateos/:id/avance
- *
- * - Si es_avance = true y el agente es COMERCIAL → comprobante_avance_url obligatorio
- * - Si es_avance = false → comprobante_avance_url se limpia en backend automáticamente
- */
 export function toggleAvance(
   id: number,
   esAvance: boolean,
@@ -182,7 +174,6 @@ export function toggleAvance(
   )
 }
 
-/** Helper: detecta si un descuento es de tipo AVANCE por su código */
 export function esDescuentoAvance(codigo?: string | null): boolean {
   return String(codigo || '').toUpperCase().includes('AVANCE')
 }
@@ -198,21 +189,85 @@ export async function listAgentesCaptacion() {
   }
 }
 
-/** Catálogo ligero de convenios para selects */
 export async function listConveniosLight() {
   try {
     const r = await get<{ data: ConvenioLight[] }>(`/api/convenios`, {
       params: { activos: 1, select: 'id,nombre' },
     })
     const arr = Array.isArray(r?.data) ? r.data : []
-    // Orden alfabético por UX
     return [...arr].sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'))
   } catch {
     return []
   }
 }
 
-/** Utilidad "auto desde convenio" (si lo usas en otro flujo) */
-export function crearDateoAutoPorConvenio(payload: { placa?: string; telefono?: string; convenioId: number }) {
+export function crearDateoAutoPorConvenio(payload: {
+  placa?: string
+  telefono?: string
+  convenioId: number
+}) {
   return post<unknown, typeof payload>('/api/captacion-dateos/auto-convenio', payload)
+}
+
+/* ══════════════════════════════════════════════════
+   IMPORTACIÓN HISTÓRICO RTM
+══════════════════════════════════════════════════ */
+
+export interface HistoricoPreviewResponse {
+  total_filas: number
+  errores_parseo: number
+  por_hoja: Record<string, {
+    total: number
+    aprobado: number
+    dateo: number
+    sinAsesor: number
+  }>
+}
+
+export interface HistoricoImportarResponse {
+  dry_run: boolean
+  resumen: {
+    total_filas: number
+    creados: number
+    skipped_duplicado: number
+    skipped_sin_asesor: number
+    errores_proceso: number
+    errores_parseo: number
+  }
+  errores_detalle: Array<{
+    hoja: string
+    fila: number
+    placa: string
+    motivo: string
+  }>
+}
+
+export async function previewHistoricoRtm(
+  archivo: File,
+  hojas?: string
+): Promise<HistoricoPreviewResponse> {
+  const form = new FormData()
+  form.append('archivo', archivo)
+  if (hojas?.trim()) form.append('hojas', hojas.trim())
+
+  return post<HistoricoPreviewResponse, FormData>(
+    '/api/historico-rtm/preview',
+    form
+  )
+}
+
+export async function importarHistoricoRtm(
+  archivo: File,
+  dryRun: boolean,
+  hojas?: string
+): Promise<HistoricoImportarResponse> {
+  const form = new FormData()
+  form.append('archivo', archivo)
+  form.append('dry_run', dryRun ? 'true' : 'false')
+  if (hojas?.trim()) form.append('hojas', hojas.trim())
+
+  return post<HistoricoImportarResponse, FormData>(
+    '/api/historico-rtm/importar',
+    form
+  )
 }

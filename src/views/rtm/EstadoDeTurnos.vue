@@ -1,5 +1,5 @@
 <template>
-  <v-container class="mt-6">
+  <v-container class="mt-6 px-2 px-sm-4">
     <v-card elevation="8" class="pa-4 pa-sm-6 pa-md-8 rounded-xl">
       <v-card-title
         class="text-h5 text-sm-h4 mb-4 mb-sm-6 font-weight-bold d-flex justify-center title-full-bordered-container"
@@ -166,6 +166,14 @@
           class="elevation-1"
           :sort-by="defaultSort"
           :density="$vuetify.display.xs ? 'compact' : 'default'"
+          :items-per-page="10"
+          :items-per-page-options="[
+            { value: 5, title: '5' },
+            { value: 10, title: '10' },
+            { value: 15, title: '15' },
+            { value: 20, title: '20' },
+          ]"
+          items-per-page-text="Placas por página:"
         >
           <!-- Turno # global -->
           <template #item.turnoNumero="{ item }">
@@ -307,8 +315,8 @@
 <!-- 👇 MODAL DETALLE CON TABS -->
     <v-dialog
       v-model="detailsDialog"
-      :max-width="$vuetify.display.xs ? '100%' : '900'"
-      :fullscreen="$vuetify.display.xs"
+      :max-width="$vuetify.display.xs ? '95%' : '900'"
+      :max-height="$vuetify.display.xs ? '88vh' : undefined"
       scrollable
     >
       <v-card v-if="selectedTurno">
@@ -329,14 +337,19 @@
         <v-divider />
 
         <!-- 👇 TABS -->
-        <v-tabs v-model="currentTab" bg-color="grey-lighten-4" grow>
+        <v-tabs
+          v-model="currentTab"
+          bg-color="grey-lighten-4"
+          grow
+          style="flex-shrink: 0; position: sticky; top: 0; z-index: 1;"
+        >
           <v-tab value="detalles">
-            <v-icon start>mdi-text-box-outline</v-icon>
-            Detalles
+            <v-icon start size="18">mdi-text-box-outline</v-icon>
+            <span class="text-caption text-sm-body-2">Detalles</span>
           </v-tab>
           <v-tab value="tarjeta">
-            <v-icon start>mdi-card-account-details-outline</v-icon>
-            Tarjeta Visual
+            <v-icon start size="18">mdi-card-account-details-outline</v-icon>
+            <span class="text-caption text-sm-body-2">Tarjeta Visual</span>
           </v-tab>
         </v-tabs>
 
@@ -543,57 +556,55 @@
                     📌 Etapas:
                   </p>
 
-                  <v-list density="compact" class="py-0 bg-transparent">
-                    <v-list-item
+                  <div class="etapas-lista">
+                    <div
                       v-for="(etapa, i) in getEtapas(selectedTurno)"
                       :key="etapa.key || i"
-                      class="py-0 px-0"
-                      :min-height="$vuetify.display.xs ? 32 : 40"
+                      class="etapa-item"
                     >
-                      <template #prepend>
-                        <v-icon
-                          :size="$vuetify.display.xs ? 18 : 20"
-                          :color="iconColor(etapa, selectedTurno)"
-                          :class="{
-                            'etapa-icon-completed-finalizado':
-                              etapa.completed && selectedTurno.estado === 'finalizado',
-                          }"
-                        >
-                          {{ etapa.completed ? 'mdi-check-circle' : 'mdi-circle-outline' }}
-                        </v-icon>
-                      </template>
+                      <v-icon
+                        :size="$vuetify.display.xs ? 18 : 20"
+                        :color="iconColor(etapa, selectedTurno)"
+                        :class="{
+                          'etapa-icon-completed-finalizado':
+                            etapa.completed && selectedTurno.estado === 'finalizado',
+                        }"
+                        class="etapa-icono"
+                      >
+                        {{ etapa.completed ? 'mdi-check-circle' : 'mdi-circle-outline' }}
+                      </v-icon>
 
-                      <div class="etapa-row">
-                        <div class="etapa-label">
+                      <div class="etapa-contenido">
+                        <div class="etapa-row">
+                          <div class="etapa-label">
+                            <span
+                              :class="{
+                                'text-decoration-line-through text-on-primary-text-faded':
+                                  etapa.completed && etapa.name !== 'Puerta',
+                              }"
+                              class="text-caption text-sm-body-2 text-on-primary-text"
+                            >
+                              {{ etapa.name }}
+                            </span>
+                          </div>
                           <span
-                            :class="{
-                              'text-decoration-line-through text-on-primary-text-faded':
-                                etapa.completed && etapa.name !== 'Puerta',
-                            }"
-                            class="text-caption text-sm-body-2 text-on-primary-text"
+                            v-if="etapa.time"
+                            class="text-on-primary-text-faded etapa-time"
                           >
-                            {{ etapa.name }}
+                            {{ formatTime(etapa.time) }}
                           </span>
                         </div>
 
-                        <span
-                          v-if="etapa.time"
-                          class="text-on-primary-text-faded etapa-time"
-                          :class="$vuetify.display.xs ? 'text-caption' : ''"
+                        <div
+                          v-if="etapa.funcionario && etapa.completed"
+                          class="etapa-funcionario text-on-primary-text-faded"
                         >
-                          {{ formatTime(etapa.time) }}
-                        </span>
+                          <v-icon size="x-small" class="mr-1">mdi-account</v-icon>
+                          {{ etapa.funcionario }}
+                        </div>
                       </div>
-
-                      <div
-                        v-if="etapa.funcionario && etapa.completed"
-                        class="etapa-funcionario text-caption text-on-primary-text-faded mt-1"
-                      >
-                        <v-icon size="x-small" class="mr-1">mdi-account</v-icon>
-                        {{ etapa.funcionario }}
-                      </div>
-                    </v-list-item>
-                  </v-list>
+                    </div>
+                  </div>
                 </v-card-text>
               </v-card>
             </v-card-text>
@@ -1469,15 +1480,29 @@ onMounted(async () => {
 
 .title-text-with-border {
   border: 2px solid black;
-  padding: 8px 16px;
+  padding: 6px 10px;
   border-radius: 12px;
   background-color: rgba(255, 255, 255, 0.9);
   margin-bottom: 16px;
   display: inline-block;
   font-weight: bold;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.02em;
   color: var(--v-theme-primary);
-  font-size: 1.1rem;
+  font-size: 0.85rem;
+  white-space: nowrap;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+@media (min-width: 600px) {
+  .title-text-with-border {
+    padding: 10px 20px;
+    margin-bottom: 24px;
+    font-size: 1.5rem;
+    letter-spacing: 0.05em;
+    white-space: normal;
+  }
 }
 
 @media (min-width: 600px) {
@@ -1628,18 +1653,35 @@ onMounted(async () => {
   min-width: 0;
 }
 
+.etapas-lista {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.etapa-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.etapa-icono {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.etapa-contenido {
+  flex: 1;
+  min-width: 0;
+}
+
 .etapa-time {
   text-align: right;
   font-family: monospace;
-  font-size: 0.75rem;
-  min-width: 70px;
+  font-size: 0.72rem;
+  white-space: nowrap;
   flex-shrink: 0;
-}
-
-@media (min-width: 600px) {
-  .etapa-time {
-    min-width: 78px;
-  }
 }
 
 .etapa-icon-completed-finalizado {
@@ -1667,4 +1709,6 @@ onMounted(async () => {
     font-size: 0.75rem;
   }
 }
+
+
 </style>
