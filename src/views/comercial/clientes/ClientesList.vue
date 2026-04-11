@@ -1,34 +1,38 @@
 <template>
   <v-container class="py-6">
     <v-card elevation="8" class="rounded-xl">
-      <v-card-title class="py-5 d-flex align-center justify-space-between flex-wrap">
-        <div class="text-h5 font-weight-bold">👥 Clientes</div>
-
-        <!-- 🔎 Filtros CON AUTO-MAYÚSCULAS -->
-        <div class="d-flex gap-2 flex-wrap">
-          <v-text-field
-            v-model="q"
-            label="🔍 Buscar por nombre, teléfono, documento o PLACA"
-            variant="outlined"
-            density="comfortable"
-            hide-details
-            clearable
-            style="min-width: 400px"
-            class="text-uppercase-input"
-            @input="toUpperCase"
-            @keyup.enter="reload"
-          >
-            <template #prepend-inner>
-              <v-icon size="small" color="primary">mdi-magnify</v-icon>
-            </template>
-          </v-text-field>
-          <v-btn color="primary" :loading="loading" @click="reload">
-            <v-icon left>mdi-magnify</v-icon>
-            Buscar
-          </v-btn>
-          <v-btn variant="text" :disabled="loading" @click="clear">Limpiar</v-btn>
-        </div>
+      <v-card-title class="py-4 px-4 px-sm-6">
+        <div class="text-h5 font-weight-bold mb-4">👥 Clientes</div>
       </v-card-title>
+
+      <v-card-text class="px-4 px-sm-6 pt-0">
+        <v-row dense>
+          <v-col cols="12" sm="8" md="9">
+            <v-text-field
+              v-model="q"
+              label="Buscar por nombre, teléfono, documento o placa"
+              variant="outlined"
+              density="compact"
+              hide-details
+              clearable
+              class="text-uppercase-input"
+              @input="toUpperCase"
+              @keyup.enter="reload"
+              prepend-inner-icon="mdi-magnify"
+            />
+          </v-col>
+          <v-col cols="6" sm="2" md="2">
+            <v-btn color="primary" :loading="loading" @click="reload" block>
+              Buscar
+            </v-btn>
+          </v-col>
+          <v-col cols="6" sm="2" md="1">
+            <v-btn variant="outlined" :disabled="loading" @click="clear" block>
+              Limpiar
+            </v-btn>
+          </v-col>
+        </v-row>
+      </v-card-text>
 
       <!-- 💡 Hint de búsqueda -->
       <v-card-subtitle v-if="q" class="pb-0">

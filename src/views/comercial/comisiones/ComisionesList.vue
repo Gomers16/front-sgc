@@ -3,11 +3,11 @@
     <v-card elevation="8" class="rounded-xl">
 
       <!-- ── CABECERA ─────────────────────────────────────────── -->
-      <v-card-title class="py-5 px-6 d-flex align-center justify-space-between flex-wrap gap-2">
+      <v-card-title class="py-4 px-4 px-sm-6 d-flex align-center justify-space-between flex-wrap gap-2">
         <div class="text-h5 font-weight-bold d-flex align-center gap-2">
           💸 Comisiones
         </div>
-        <div class="d-flex gap-2">
+        <div class="d-flex gap-2 flex-wrap">
           <v-btn
             variant="outlined"
             size="small"
@@ -20,8 +20,8 @@
           <v-btn variant="text" size="small" :disabled="loading || metaLoading" @click="resetFilters">
             Limpiar
           </v-btn>
-          <v-btn color="primary" :loading="loading || metaLoading" @click="reload" prepend-icon="mdi-refresh">
-            Actualizar
+          <v-btn color="primary" size="small" :loading="loading || metaLoading" @click="reload" prepend-icon="mdi-refresh">
+            <span class="d-none d-sm-inline">Actualizar</span>
           </v-btn>
         </div>
       </v-card-title>
@@ -30,10 +30,10 @@
       <v-expand-transition>
         <div v-show="showFilters">
           <v-divider />
-          <v-card-text class="pt-4 pb-2 px-6">
+          <v-card-text class="pt-4 pb-2 px-4 px-sm-6">
             <v-row dense>
               <!-- Desde -->
-              <v-col cols="12" sm="6" md="2" lg="2">
+              <v-col cols="6" sm="6" md="2" lg="2">
                 <v-text-field
                   v-model="filters.desde"
                   label="Desde"
@@ -45,7 +45,7 @@
               </v-col>
 
               <!-- Hasta -->
-              <v-col cols="12" sm="6" md="2" lg="2">
+              <v-col cols="6" sm="6" md="2" lg="2">
                 <v-text-field
                   v-model="filters.hasta"
                   label="Hasta"
@@ -57,7 +57,7 @@
               </v-col>
 
               <!-- Estado -->
-              <v-col cols="12" sm="6" md="3" lg="2">
+              <v-col cols="6" sm="6" md="3" lg="2">
                 <v-select
                   v-model="filters.estado"
                   :items="estadoItems"
@@ -72,7 +72,7 @@
               </v-col>
 
               <!-- Tipo Vehículo -->
-              <v-col cols="12" sm="6" md="3" lg="2">
+              <v-col cols="6" sm="6" md="3" lg="2">
                 <v-select
                   v-model="filters.tipoVehiculo"
                   :items="tipoVehiculoItems"

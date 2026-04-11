@@ -1,100 +1,71 @@
 <template>
   <v-container class="py-6">
     <v-card elevation="8" class="rounded-xl">
-      <v-card-title class="py-5 d-flex align-center justify-space-between flex-wrap">
-        <div class="text-h5 font-weight-bold">👤 Prospectos</div>
-
-        <!-- 🔎 FILTROS -->
-        <div class="d-flex gap-2 flex-wrap">
-          <v-text-field
-            v-model="filters.placa"
-            label="Placa"
-            variant="outlined"
-            density="comfortable"
-            hide-details
-            clearable
-            style="min-width: 130px"
-          />
-          <v-text-field
-            v-model="filters.telefono"
-            label="Teléfono"
-            variant="outlined"
-            density="comfortable"
-            hide-details
-            clearable
-            style="min-width: 160px"
-          />
-          <v-text-field
-            v-model="filters.nombre"
-            label="Nombre"
-            variant="outlined"
-            density="comfortable"
-            hide-details
-            clearable
-            style="min-width: 200px"
-          />
-          <v-text-field
-            v-model="filters.cedula"
-            label="Cédula"
-            variant="outlined"
-            density="comfortable"
-            hide-details
-            clearable
-            style="min-width: 140px"
-          />
-
-          <v-autocomplete
-            v-model="filters.convenioId"
-            :items="conveniosItems"
-            item-title="nombre"
-            item-value="id"
-            label="Convenio (asesor convenio)"
-            variant="outlined"
-            density="comfortable"
-            hide-details
-            clearable
-            :loading="conveniosLoading"
-            style="min-width: 220px"
-          />
-
-          <v-autocomplete
-            v-model="filters.asesorId"
-            :items="asesoresItems"
-            item-title="nombre"
-            item-value="id"
-            label="Asesor comercial"
-            variant="outlined"
-            density="comfortable"
-            hide-details
-            clearable
-            :loading="asesoresLoading"
-            style="min-width: 220px"
-          />
-
-          <v-text-field
-            v-model="filters.desde"
-            type="date"
-            label="Desde"
-            variant="outlined"
-            density="comfortable"
-            hide-details
-            style="min-width: 150px"
-          />
-          <v-text-field
-            v-model="filters.hasta"
-            type="date"
-            label="Hasta"
-            variant="outlined"
-            density="comfortable"
-            hide-details
-            style="min-width: 150px"
-          />
-
-          <v-btn color="primary" :loading="loading" @click="reload">Aplicar</v-btn>
-          <v-btn variant="text" :disabled="loading" @click="resetFilters">Limpiar</v-btn>
-          <v-btn color="secondary" prepend-icon="mdi-plus" @click="irCrear">Nuevo</v-btn>
-        </div>
+      <v-card-title class="py-4 px-4 px-sm-6">
+        <div class="text-h5 font-weight-bold mb-4">👤 Prospectos</div>
       </v-card-title>
+
+      <v-card-text class="px-4 px-sm-6 pt-0">
+        <v-row dense>
+          <v-col cols="6" sm="4" md="2">
+            <v-text-field v-model="filters.placa" label="Placa" variant="outlined" density="compact" hide-details clearable />
+          </v-col>
+          <v-col cols="6" sm="4" md="2">
+            <v-text-field v-model="filters.telefono" label="Teléfono" variant="outlined" density="compact" hide-details clearable />
+          </v-col>
+          <v-col cols="6" sm="4" md="2">
+            <v-text-field v-model="filters.nombre" label="Nombre" variant="outlined" density="compact" hide-details clearable />
+          </v-col>
+          <v-col cols="6" sm="4" md="2">
+            <v-text-field v-model="filters.cedula" label="Cédula" variant="outlined" density="compact" hide-details clearable />
+          </v-col>
+          <v-col cols="12" sm="6" md="4">
+            <v-autocomplete
+              v-model="filters.convenioId"
+              :items="conveniosItems"
+              item-title="nombre"
+              item-value="id"
+              label="Convenio"
+              variant="outlined"
+              density="compact"
+              hide-details
+              clearable
+              :loading="conveniosLoading"
+            />
+          </v-col>
+          <v-col cols="12" sm="6" md="4">
+            <v-autocomplete
+              v-model="filters.asesorId"
+              :items="asesoresItems"
+              item-title="nombre"
+              item-value="id"
+              label="Asesor comercial"
+              variant="outlined"
+              density="compact"
+              hide-details
+              clearable
+              :loading="asesoresLoading"
+            />
+          </v-col>
+          <v-col cols="6" sm="4" md="2">
+            <v-text-field v-model="filters.desde" type="date" label="Desde" variant="outlined" density="compact" hide-details />
+          </v-col>
+          <v-col cols="6" sm="4" md="2">
+            <v-text-field v-model="filters.hasta" type="date" label="Hasta" variant="outlined" density="compact" hide-details />
+          </v-col>
+
+          <!-- Botones -->
+          <v-col cols="12" sm="9" md="3" class="d-flex gap-2">
+            <v-btn color="primary" :loading="loading" @click="reload" style="flex:1">
+              Aplicar
+            </v-btn>
+            <v-btn variant="outlined" :disabled="loading" @click="resetFilters" style="flex:1">
+              Limpiar
+            </v-btn>
+            <v-btn color="secondary" icon="mdi-plus" @click="irCrear" />
+          </v-col>
+        </v-row>
+      </v-card-text>
 
       <!-- 📋 TABLA -->
       <v-data-table-server

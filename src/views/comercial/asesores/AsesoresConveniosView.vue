@@ -1,47 +1,57 @@
 <template>
   <v-container class="py-6">
     <v-card elevation="8" class="rounded-xl">
-      <v-card-title class="d-flex align-center justify-space-between flex-wrap py-5">
-        <div class="text-h5 font-weight-bold">👥 Asesores</div>
-
-        <div class="d-flex gap-2 flex-wrap">
-          <v-text-field
-            v-model="filters.q"
-            label="Buscar por nombre, tel o doc"
-            prepend-inner-icon="mdi-magnify"
-            variant="outlined"
-            density="comfortable"
-            hide-details
-            clearable
-            style="min-width: 280px"
-          />
-
-          <v-select
-            v-model="filters.tipo"
-            :items="tipoItems"
-            label="Tipo"
-            variant="outlined"
-            density="comfortable"
-            hide-details
-            clearable
-            style="min-width: 220px"
-          />
-
-          <v-select
-            v-model="filters.activo"
-            :items="estadoItems"
-            label="Estado"
-            variant="outlined"
-            density="comfortable"
-            hide-details
-            clearable
-            style="min-width: 160px"
-          />
-
-          <v-btn color="primary" :loading="loading" @click="reload">Aplicar</v-btn>
-          <v-btn variant="text" :disabled="loading" @click="resetFilters">Limpiar</v-btn>
-        </div>
+      <v-card-title class="py-4 px-4 px-sm-6">
+        <div class="text-h5 font-weight-bold mb-4">👥 Asesores</div>
       </v-card-title>
+
+      <v-card-text class="px-4 px-sm-6 pt-0">
+        <v-row dense>
+          <v-col cols="12" sm="6" md="4">
+            <v-text-field
+              v-model="filters.q"
+              label="Buscar por nombre, tel o doc"
+              prepend-inner-icon="mdi-magnify"
+              variant="outlined"
+              density="compact"
+              hide-details
+              clearable
+            />
+          </v-col>
+          <v-col cols="6" sm="4" md="3">
+            <v-select
+              v-model="filters.tipo"
+              :items="tipoItems"
+              label="Tipo"
+              variant="outlined"
+              density="compact"
+              hide-details
+              clearable
+            />
+          </v-col>
+          <v-col cols="6" sm="4" md="3">
+            <v-select
+              v-model="filters.activo"
+              :items="estadoItems"
+              label="Estado"
+              variant="outlined"
+              density="compact"
+              hide-details
+              clearable
+            />
+          </v-col>
+          <v-col cols="6" sm="4" md="1">
+            <v-btn color="primary" :loading="loading" @click="reload" block>
+              Aplicar
+            </v-btn>
+          </v-col>
+          <v-col cols="6" sm="4" md="1">
+            <v-btn variant="outlined" :disabled="loading" @click="resetFilters" block>
+              Limpiar
+            </v-btn>
+          </v-col>
+        </v-row>
+      </v-card-text>
 
       <v-expand-transition>
         <v-alert

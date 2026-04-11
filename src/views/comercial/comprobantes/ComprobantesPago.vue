@@ -3,7 +3,7 @@
     <v-card elevation="8" class="rounded-xl">
 
       <!-- ── CABECERA ── -->
-      <v-card-title class="py-5 px-6 d-flex align-center justify-space-between flex-wrap gap-2">
+      <v-card-title class="py-4 px-4 px-sm-6 d-flex align-center justify-space-between flex-wrap gap-2">
         <div class="text-h5 font-weight-bold d-flex align-center gap-2">
           🧾 Comprobantes de pago
         </div>
@@ -24,12 +24,11 @@
           </v-btn>
           <v-btn
             color="primary"
-            prepend-icon="mdi-refresh"
+            size="small"
+            icon="mdi-refresh"
             :loading="loading"
             @click="cargar"
-          >
-            Actualizar
-          </v-btn>
+          />
         </div>
       </v-card-title>
 
@@ -37,9 +36,9 @@
       <v-expand-transition>
         <div v-show="showFilters">
           <v-divider />
-          <v-card-text class="pt-4 pb-2 px-6">
+          <v-card-text class="pt-4 pb-2 px-4 px-sm-6">
             <v-row dense>
-              <v-col cols="12" sm="6" md="2">
+              <v-col cols="6" sm="6" md="2">
                 <v-text-field
                   v-model="filters.numero"
                   label="N° comprobante"
@@ -51,7 +50,7 @@
                   prepend-inner-icon="mdi-pound"
                 />
               </v-col>
-              <v-col cols="12" sm="6" md="3">
+              <v-col cols="6" sm="6" md="3">
                 <v-text-field
                   v-model="filters.q"
                   label="Placa / Beneficiario"
@@ -63,7 +62,7 @@
                   @keyup.enter="applyFilters"
                 />
               </v-col>
-              <v-col cols="12" sm="6" md="2">
+              <v-col cols="6" sm="6" md="2">
                 <v-text-field
                   v-model="filters.desde"
                   label="Desde"
@@ -73,7 +72,7 @@
                   hide-details
                 />
               </v-col>
-              <v-col cols="12" sm="6" md="2">
+              <v-col cols="6" sm="6" md="2">
                 <v-text-field
                   v-model="filters.hasta"
                   label="Hasta"
@@ -83,11 +82,13 @@
                   hide-details
                 />
               </v-col>
-              <v-col cols="12" sm="6" md="3" class="d-flex align-center gap-2">
-                <v-btn color="primary" size="small" :loading="loading" @click="applyFilters">
+              <v-col cols="6" sm="6" md="2">
+                <v-btn color="primary" size="small" :loading="loading" @click="applyFilters" block>
                   Buscar
                 </v-btn>
-                <v-btn variant="text" size="small" @click="limpiarFiltros">
+              </v-col>
+              <v-col cols="6" sm="6" md="1">
+                <v-btn variant="outlined" size="small" @click="limpiarFiltros" block>
                   Limpiar
                 </v-btn>
               </v-col>

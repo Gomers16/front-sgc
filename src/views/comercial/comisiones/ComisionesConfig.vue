@@ -18,7 +18,7 @@
       <v-divider class="my-3" />
 
       <!-- Toggle secciones (3 pestañas) -->
-      <v-card-text class="pt-0 pb-0">
+      <v-card-text class="pt-0 pb-0 px-4 px-sm-6">
         <v-row class="mb-2">
           <v-col cols="12">
             <v-btn-toggle
@@ -26,15 +26,19 @@
               mandatory
               rounded="xl"
               divided
+              style="width: 100%"
             >
-              <v-btn value="REGLAS" size="small">
-                Reglas de comisión
+              <v-btn value="REGLAS" size="small" style="flex: 1">
+                <span class="d-none d-sm-inline">Reglas de comisión</span>
+                <span class="d-sm-none">Reglas</span>
               </v-btn>
-              <v-btn value="METAS" size="small">
-                Metas mensuales
+              <v-btn value="METAS" size="small" style="flex: 1">
+                <span class="d-none d-sm-inline">Metas mensuales</span>
+                <span class="d-sm-none">Metas</span>
               </v-btn>
-              <v-btn value="RECURRENCIA" size="small">
-                🔄 Recurrencia
+              <v-btn value="RECURRENCIA" size="small" style="flex: 1">
+                <span class="d-none d-sm-inline">🔄 Recurrencia</span>
+                <span class="d-sm-none">🔄</span>
               </v-btn>
             </v-btn-toggle>
           </v-col>
@@ -45,7 +49,7 @@
       <v-card-text v-if="activeSection === 'REGLAS'" class="pt-4">
         <v-row class="mb-2" dense>
           <!-- Alcance -->
-          <v-col cols="12" md="3">
+          <v-col cols="12" sm="6" md="3">
             <div class="mb-1 text-subtitle-2 text-medium-emphasis">
               Alcance
             </div>
@@ -54,18 +58,20 @@
               mandatory
               rounded="xl"
               divided
+              style="width: 100%"
             >
-              <v-btn value="GLOBAL" size="small">
+              <v-btn value="GLOBAL" size="small" style="flex: 1">
                 Global
               </v-btn>
-              <v-btn value="ASESOR" size="small">
-                Por asesor / convenio
+              <v-btn value="ASESOR" size="small" style="flex: 1">
+                <span class="d-none d-sm-inline">Por asesor</span>
+                <span class="d-sm-none">Asesor</span>
               </v-btn>
             </v-btn-toggle>
           </v-col>
 
           <!-- Tipo asesor -->
-          <v-col cols="12" md="3">
+          <v-col cols="6" sm="6" md="3">
             <v-select
               v-if="scope === 'ASESOR'"
               v-model="tipoAsesor"
@@ -80,7 +86,7 @@
           </v-col>
 
           <!-- Asesor / Convenio -->
-          <v-col cols="12" md="3">
+          <v-col cols="6" sm="6" md="3">
             <v-autocomplete
               v-if="scope === 'ASESOR'"
               v-model="form.asesorId"

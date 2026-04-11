@@ -5,65 +5,71 @@
       <!-- ══════════════════════════════════
            HEADER + FILTROS
       ═══════════════════════════════════ -->
-      <v-card-title class="d-flex align-center justify-space-between flex-wrap gap-3 py-5 px-5">
-        <div class="text-h5 font-weight-bold">🤝 Convenios</div>
-
-        <div class="d-flex gap-2 flex-wrap align-center">
-          <!-- Búsqueda texto -->
-          <v-text-field
-            v-model="filters.texto"
-            label="Buscar por nombre, doc, email…"
-            prepend-inner-icon="mdi-magnify"
-            variant="outlined"
-            density="comfortable"
-            hide-details
-            clearable
-            style="min-width: 260px"
-            @keyup.enter="reload"
-          />
-
-          <!-- Filtro estado activo -->
-          <v-select
-            v-model="filters.activo"
-            :items="estadoItems"
-            item-title="label"
-            item-value="value"
-            label="Activo"
-            variant="outlined"
-            density="comfortable"
-            hide-details
-            clearable
-            style="min-width: 140px"
-          />
-
-          <!-- Filtro estado detallado -->
-          <v-select
-            v-model="filters.estado"
-            :items="estadoDetalladoItems"
-            label="Estado"
-            variant="outlined"
-            density="comfortable"
-            hide-details
-            clearable
-            style="min-width: 140px"
-          />
-
-          <!-- Filtro ruta -->
-          <v-select
-            v-model="filters.ruta"
-            :items="rutasItems"
-            label="Ruta"
-            variant="outlined"
-            density="comfortable"
-            hide-details
-            clearable
-            style="min-width: 120px"
-          />
-
-          <v-btn color="primary" :loading="loading" @click="reload">Aplicar</v-btn>
-          <v-btn variant="text" :disabled="loading" @click="resetFilters">Limpiar</v-btn>
-        </div>
+      <v-card-title class="py-4 px-4 px-sm-6">
+        <div class="text-h5 font-weight-bold mb-4">🤝 Convenios</div>
       </v-card-title>
+
+      <v-card-text class="px-4 px-sm-6 pt-0">
+        <v-row dense>
+          <v-col cols="12" sm="6" md="4">
+            <v-text-field
+              v-model="filters.texto"
+              label="Buscar por nombre, doc, email…"
+              prepend-inner-icon="mdi-magnify"
+              variant="outlined"
+              density="compact"
+              hide-details
+              clearable
+              @keyup.enter="reload"
+            />
+          </v-col>
+          <v-col cols="6" sm="4" md="2">
+            <v-select
+              v-model="filters.activo"
+              :items="estadoItems"
+              item-title="label"
+              item-value="value"
+              label="Activo"
+              variant="outlined"
+              density="compact"
+              hide-details
+              clearable
+            />
+          </v-col>
+          <v-col cols="6" sm="4" md="2">
+            <v-select
+              v-model="filters.estado"
+              :items="estadoDetalladoItems"
+              label="Estado"
+              variant="outlined"
+              density="compact"
+              hide-details
+              clearable
+            />
+          </v-col>
+          <v-col cols="6" sm="4" md="2">
+            <v-select
+              v-model="filters.ruta"
+              :items="rutasItems"
+              label="Ruta"
+              variant="outlined"
+              density="compact"
+              hide-details
+              clearable
+            />
+          </v-col>
+          <v-col cols="6" sm="3" md="1">
+            <v-btn color="primary" :loading="loading" @click="reload" block>
+              Aplicar
+            </v-btn>
+          </v-col>
+          <v-col cols="6" sm="3" md="1">
+            <v-btn variant="outlined" :disabled="loading" @click="resetFilters" block>
+              Limpiar
+            </v-btn>
+          </v-col>
+        </v-row>
+      </v-card-text>
 
       <!-- ══════════════════════════════════
            TABLA
