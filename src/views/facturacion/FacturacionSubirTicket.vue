@@ -66,7 +66,7 @@
               <div class="text-center">
                 <div class="text-subtitle-1 font-weight-bold">Suelta el ticket o pega (Ctrl+V)</div>
                 <div class="text-medium-emphasis">JPG o PNG (hasta 8 MB)</div>
-                <input ref="fileInput" type="file" accept="image/*" class="d-none" @change="onFileChange" />
+                <input ref="fileInput" type="file" accept="image/jpeg,image/png,image/webp,.jfif" class="d-none" @change="onFileChange" />
               </div>
             </div>
 
@@ -740,12 +740,12 @@
                     @click="docPoliciaInputEls[tipo]?.click()"
                   >
                     <input
-                      :ref="(el) => setDocPoliciaRef(tipo, el)"
-                      type="file"
-                      accept="image/jpeg,image/png"
-                      class="d-none"
-                      @change="onDocPoliciaFile(tipo, $event)"
-                    />
+  :ref="(el) => setDocPoliciaRef(tipo, el)"
+  type="file"
+  accept="image/jpeg,image/png,.jfif"
+  class="d-none"
+  @change="onDocPoliciaFile(tipo, $event)"
+/>
 
                     <!-- Preview si existe -->
                     <div v-if="docPoliciaPreview[tipo]" class="mb-1">
@@ -2072,8 +2072,22 @@ async function getRotatedBlob(file: File, deg: number): Promise<Blob> {
 }
 
 async function handleFile(file: File) {
-  previewBlob.value = file
-  previewUrl.value = URL.createObjectURL(file)
+  // Normalizar JFIF → JPEG (WhatsApp guarda fotos como .jfif)
+  let fileToProcess = file
+  if (
+    file.name.toLowerCase().endsWith('.jfif') ||
+    file.type === 'image/jfif' ||
+    file.type === ''
+  ) {
+    fileToProcess = new File(
+      [file],
+      file.name.replace(/\.jfif$/i, '.jpg'),
+      { type: 'image/jpeg' }
+    )
+  }
+
+  previewBlob.value = fileToProcess
+  previewUrl.value = URL.createObjectURL(fileToProcess)
   imageRotation.value = 0
   imageScale.value = 1
 
@@ -2084,7 +2098,7 @@ async function handleFile(file: File) {
 
     // Solo crear el ticket en backend (sin OCR)
     try {
-      await ensureTicketForTurnoWithFile(file)
+      await ensureTicketForTurnoWithFile(fileToProcess)
     } catch (err: unknown) {
       const errorMsg = err instanceof Error ? err.message : 'Error'
       console.error('Error creando ticket simplificado:', err)
@@ -2095,10 +2109,10 @@ async function handleFile(file: File) {
   }
 
   // Para otros servicios: ejecutar OCR normal
-  await startLocalOCR(file)
+  await startLocalOCR(fileToProcess)
 
   try {
-    const createdOrExisting = await ensureTicketForTurnoWithFile(file)
+    const createdOrExisting = await ensureTicketForTurnoWithFile(fileToProcess)
     if (createdOrExisting?.id) {
       if (imageRotation.value) {
         await FacturacionService.update(createdOrExisting.id, { image_rotation: imageRotation.value })

@@ -117,6 +117,8 @@ export interface TurnoLight {
   ultimo_turno_id?: number | null
   fecha_ultima_visita?: string | null
 
+  rep_general_verificado?: boolean | null
+
   // Detalle de la visita anterior (solo viene en show(), no en list())
   ultima_visita?: {
     placa: string | null
@@ -161,7 +163,8 @@ export interface ComisionListItem {
   descuento?: DescuentoLight | null
   /** 'dateo' = pre-marcado por el comercial al crear el dateo
    *  'caja'  = aplicado manualmente por el cajero al confirmar el ticket */
-  descuento_origen?: 'dateo' | 'caja' | null
+ descuento_origen?: 'dateo' | 'caja' | null
+  dateo_observacion?: string | null
 }
 
 export interface ComisionDetail extends ComisionListItem {
@@ -190,6 +193,7 @@ export interface ListParams {
   sortBy?: string
   order?: 'asc' | 'desc'
   tipoVehiculo?: 'MOTO' | 'VEHICULO' | ''
+  placa?: string
 }
 
 export interface ListResponse<T> {
@@ -333,7 +337,11 @@ function mapTurno(api: unknown): TurnoLight | null {
     meses_desde_ultima_visita: t.meses_desde_ultima_visita != null ? Number(t.meses_desde_ultima_visita) : null,
     ultimo_turno_id: t.ultimo_turno_id != null ? Number(t.ultimo_turno_id) : null,
     fecha_ultima_visita: (t.fecha_ultima_visita as string) ?? null,
-
+rep_general_verificado: t.rep_general_verificado != null
+      ? Boolean(t.rep_general_verificado)
+      : t.repGeneralVerificado != null
+      ? Boolean(t.repGeneralVerificado)
+      : false,
     // Detalle de la visita anterior
     ultima_visita: ultimaVisita,
   }
@@ -485,7 +493,8 @@ function mapComisionToListItem(api: unknown): ComisionListItem {
       : null,
     turno,
     descuento,
-    descuento_origen,
+ descuento_origen,
+    dateo_observacion: (a.dateo_observacion ?? a.dateoObservacion ?? null) as string | null,
   }
 }
 
@@ -752,37 +761,30 @@ export async function deleteConfigComision(id: number) {
 
 /* ===== Catálogo de agentes (asesores + convenios) ===== */
 
-export async function listAgentesCaptacion() {
+export async function listAgentesCaptacion(): Promise<AgenteLight[]> {
   try {
-    // Usar endpoint /light con parámetros correctos
-    const res = await apiFetch<{ data?: unknown[] } | unknown[]>('/agentes-captacion/light', {
-      query: {
-        activos: 1,
-        select: 'id,nombre,tipo'
-      },
-    })
+    const PAGE_SIZE = 100
+    let page = 1
+    let allAgentes: AgenteLight[] = []
 
-    const r = res as Record<string, unknown>
-    const rows: unknown[] = Array.isArray(r?.data)
-      ? r.data
-      : Array.isArray(res)
-      ? res as unknown[]
-      : []
+    while (true) {
+      const res = await apiFetch<{ data?: unknown[]; total?: number; lastPage?: number }>(
+        '/agentes-captacion',
+        { query: { activos: 1, select: 'id,nombre,tipo', perPage: PAGE_SIZE, page } }
+      )
+      const r = res as Record<string, unknown>
+      const chunk: unknown[] = Array.isArray(r?.data) ? (r.data as unknown[]) : []
 
-    if (rows.length > 0) {
-      return rows
-        .map(mapAgenteCaptacion)
-        .filter((a): a is AgenteLight => !!a)
+      allAgentes = allAgentes.concat(
+        chunk.map(mapAgenteCaptacion).filter((a): a is AgenteLight => !!a)
+      )
+
+      const lastPage = (r?.lastPage as number) ?? Math.ceil(((r?.total as number) ?? 0) / PAGE_SIZE)
+      if (page >= lastPage || chunk.length === 0) break
+      page++
     }
 
-    // Fallback: si viene vacío, probar /me (asesor comercial con acceso limitado)
-    const me = await apiFetch<unknown>('/agentes-captacion/me')
-    const agente = mapAgenteCaptacion(me)
-    if (agente) {
-      return [agente]
-    }
-
-    return []
+    return allAgentes
   } catch (err) {
     console.error('Error cargando agentes de captación:', err)
     return []
@@ -1089,7 +1091,95 @@ export async function deleteConfigRecurrenciaAsesor(id: number) {
 }
 
 /* ========================= Helpers generales ========================= */
+export async function patchComisionEditar(
+  id: number,
+  payload: {
+    asesor_id?: number | null
+    convenio_id?: number | null
+    monto_asesor?: number | null
+    monto_convenio?: number | null
+    tipo_cliente?: 'NUEVO' | 'RECURRENTE' | 'RECUPERACION' | null
+    descuento_id?: number | null
+    dateo_observacion?: string | null
+  }
+) {
+  const raw = await apiFetch<unknown>(`/comisiones/${id}/editar`, {
+    method: 'PATCH',
+    body: payload,
+  })
+  return mapComisionToDetail(raw)
+}
+export async function listConveniosDeAsesor(asesorId: number): Promise<{ id: number; nombre: string }[]> {
+  try {
+    const raw = await apiFetch<{ data?: unknown[] } | unknown[]>(
+      `/agentes-captacion/${asesorId}/convenios`
+    )
+    const r = raw as Record<string, unknown>
+    const rows: unknown[] = Array.isArray(r?.data) ? r.data : Array.isArray(raw) ? (raw as unknown[]) : []
+    return rows.map((row) => {
+      const a = row as Record<string, unknown>
+      const convenio = (a.convenio ?? a) as Record<string, unknown>
+      return { id: convenio.id as number, nombre: String(convenio.nombre ?? '—') }
+    })
+  } catch {
+    return []
+  }
+}
+export interface TurnoParaComision {
+  id: number
+  turnoNumero?: number | null
+  turno_numero?: number | null
+  placa: string
+  tipoVehiculo?: string
+  tipo_vehiculo?: string
+  fecha: string
+  estado: string
+  servicio?: { id?: number; codigoServicio?: string; codigo_servicio?: string } | null
+  captacionDateoId?: number | null
+  captacion_dateo_id?: number | null
+  esRecurrente?: boolean
+  esRecuperacion?: boolean
+  es_recurrente?: boolean
+  es_recuperacion?: boolean
+}
 
+export async function buscarTurnosParaComision(params: {
+  placa?: string
+  fechaInicio?: string
+  fechaFin?: string
+}): Promise<TurnoParaComision[]> {
+  try {
+    const res = await apiFetch<unknown>('/turnos-rtm', {
+      query: {
+        perPage: 30,
+        ...(params.placa ? { placa: params.placa } : {}),
+        ...(params.fechaInicio ? { fechaInicio: params.fechaInicio } : {}),
+        ...(params.fechaFin ? { fechaFin: params.fechaFin } : {}),
+      },
+    })
+    return Array.isArray(res) ? (res as TurnoParaComision[]) : []
+  } catch {
+    return []
+  }
+}
+
+export async function createComision(payload: {
+  turno_id: number
+  asesor_id?: number | null
+  convenio_id?: number | null
+  monto_asesor: number
+  monto_convenio: number
+  tipo_cliente?: 'NUEVO' | 'RECURRENTE' | 'RECUPERACION'
+  descuento_id?: number | null
+  dateo_observacion?: string | null
+  es_avance?: boolean
+}): Promise<ComisionDetail> {
+  const raw = await apiFetch<unknown>('/comisiones', {
+    method: 'POST',
+    body: payload,
+  })
+  return mapComisionToDetail(raw)
+}
 export function formatCOP(value: number | string) {
   const n = typeof value === 'string' ? Number(value) : value
   if (Number.isNaN(n)) return '—'

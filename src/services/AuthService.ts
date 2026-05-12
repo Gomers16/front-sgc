@@ -58,7 +58,7 @@ export default class AuthService {
    * GET /api/auth/me
    */
   async me(): Promise<MeResponse> {
-    const token = sessionStorage.getItem('token')
+    const token = localStorage.getItem('token')
 
     if (!token) {
       throw new Error('No hay token de autenticación disponible')

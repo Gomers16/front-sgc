@@ -657,19 +657,10 @@ const router = useRouter()
 const authStore = authSetStore()
 
 /** === Modo sin auth (parche temporal) === */
-const DEV_NO_AUTH = true
-const tmpUsuarioId = ref<number>(1)
-
 /** Usuario a enviar siempre a backend (crear, actualizar, cancelar, etc.) */
 const usuarioIdForActions = computed<number>(() => {
-  if (!DEV_NO_AUTH && authStore.user) {
-    const user = authStore.user as UserObject
-    if (typeof user.id === 'number') {
-      return user.id
-    }
-  }
-  const tmp = Number(tmpUsuarioId.value)
-  return Number.isFinite(tmp) && tmp > 0 ? tmp : 1
+  const user = authStore.user as UserObject
+  return typeof user?.id === 'number' ? user.id : 0
 })
 
 /** ===== Form ===== **/

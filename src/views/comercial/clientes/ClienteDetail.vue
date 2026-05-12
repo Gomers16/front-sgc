@@ -73,28 +73,38 @@
                       <thead>
                         <tr>
                           <th class="text-left">Placa</th>
-                          <th class="text-left">Fecha</th>
-                          <th class="text-left">Servicio</th>
-                          <th class="text-left">Sede</th>
-                          <th class="text-left">Estado</th>
+<th class="text-left">Fecha</th>
+<th class="text-left">Servicio</th>
+<th class="text-left">Sede</th>
+<th class="text-left">Asesor / Convenio</th>
+<th class="text-left">Estado</th>
                         </tr>
                       </thead>
                       <tbody>
                         <tr v-for="u in detalle.ultimas_por_vehiculo" :key="u.vehiculoId">
                           <td>{{ u.placa }}</td>
-                          <td>{{ formatDate(u.fecha) }}</td>
-                          <td>{{ u.servicioNombre ?? '—' }}</td>
-                          <td>{{ u.sedeNombre ?? '—' }}</td>
-                          <td>
-                            <v-chip
-                              v-if="u.estado"
-                              :color="u.estado === 'finalizado' ? 'success' : u.estado === 'cancelado' ? 'error' : 'warning'"
-                              size="small" label class="text-capitalize"
-                            >
-                              {{ u.estado }}
-                            </v-chip>
-                            <span v-else>—</span>
-                          </td>
+<td>{{ formatDate(u.fecha) }}</td>
+<td>{{ u.servicioNombre ?? '—' }}</td>
+<td>{{ u.sedeNombre ?? '—' }}</td>
+<td>
+  <v-chip v-if="(u as any).convenioNombre" size="x-small" color="green-darken-1" variant="tonal">
+    {{ (u as any).convenioNombre }}
+  </v-chip>
+  <v-chip v-else-if="(u as any).asesorNombre" size="x-small" color="blue-darken-1" variant="tonal">
+    {{ (u as any).asesorNombre }}
+  </v-chip>
+  <span v-else class="text-medium-emphasis">—</span>
+</td>
+<td>
+  <v-chip
+    v-if="u.estado"
+    :color="u.estado === 'finalizado' ? 'success' : u.estado === 'cancelado' ? 'error' : 'warning'"
+    size="small" label class="text-capitalize"
+  >
+    {{ u.estado }}
+  </v-chip>
+  <span v-else>—</span>
+</td>
                         </tr>
                       </tbody>
                     </v-table>
@@ -110,16 +120,32 @@
                       v-for="row in visitas"
                       :key="row.id"
                       :title="`${formatDate(row.fecha)} — ${row.servicioNombre ?? '—'}`"
-                      :subtitle="`Sede: ${row.sedeNombre ?? '—'} · Placa: ${row.placa}`"
+                      :subtitle="`Sede: ${row.sedeNombre ?? '—'} · Placa: ${row.placa}${row.asesorNombre ? ' · ' + row.asesorNombre : ''}${row.convenioNombre ? ' · ' + row.convenioNombre : ''}`"
                     >
                       <template #append>
-                        <v-chip
-                          :color="row.estado === 'finalizado' ? 'success' : row.estado === 'cancelado' ? 'error' : 'warning'"
-                          size="small" label class="text-capitalize"
-                        >
-                          {{ row.estado }}
-                        </v-chip>
-                      </template>
+  <div class="d-flex align-center gap-1">
+    <v-chip
+      v-if="row.esRecurrente === true"
+      size="x-small" color="orange-darken-1" variant="flat" class="font-weight-600">
+      Recurrente
+    </v-chip>
+    <v-chip
+  v-else-if="row.asesorNombre || row.convenioNombre"
+  size="x-small" color="blue-darken-1" variant="flat" class="font-weight-600">
+  Continuidad
+</v-chip>
+<v-chip
+  v-else-if="row.estado === 'finalizado'"
+  size="x-small" color="grey-darken-1" variant="flat" class="font-weight-600">
+  Fachada
+</v-chip>
+<v-chip
+  :color="row.estado === 'finalizado' ? 'success' : row.estado === 'cancelado' ? 'error' : 'warning'"
+      size="small" label class="text-capitalize">
+      {{ row.estado }}
+    </v-chip>
+  </div>
+</template>
                     </v-list-item>
                   </v-list>
                 </v-card-text>
@@ -188,6 +214,10 @@ type UltimaVisitaPorVehiculo = {
   servicioNombre: string | null
   estado: string | null
   sedeNombre: string | null
+  asesorNombre?: string | null
+  convenioNombre?: string | null
+  esRecurrente?: boolean | null
+  esRecuperacion?: boolean | null
 }
 
 type VisitaReciente = {
@@ -197,8 +227,11 @@ type VisitaReciente = {
   estado: string
   servicioNombre: string | null
   sedeNombre: string | null
+  asesorNombre?: string | null
+  convenioNombre?: string | null
+  esRecurrente?: boolean | null
+  esRecuperacion?: boolean | null
 }
-
 type ClienteDetalleExtendido = ClienteDetalle & {
   ultimas_por_vehiculo?: UltimaVisitaPorVehiculo[]
   visitas_recientes?: VisitaReciente[]

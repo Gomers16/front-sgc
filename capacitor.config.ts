@@ -2,7 +2,7 @@ import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
   appId: 'org.activautossgc.app',
-  appName: 'Activautos',
+  appName: 'Ventas-Pro',
   webDir: 'dist',
   server: {
     url: 'https://activautossgc.org',

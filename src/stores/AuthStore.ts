@@ -70,15 +70,15 @@ export const useAuthStore = defineStore('auth', {
   state: () => {
     let user: User | null = null
     try {
-      const storedUser = sessionStorage.getItem('user')
+      const storedUser = localStorage.getItem('user')
       if (storedUser) user = JSON.parse(storedUser)
     } catch (error: unknown) {
-      console.error('Error al parsear el usuario desde sessionStorage:', error)
+      console.error('Error al parsear el usuario desde localStorage:', error)
     }
 
     return {
       user,
-      token: sessionStorage.getItem('token') || null,
+      token: localStorage.getItem('token') || null,
     }
   },
 
@@ -135,7 +135,7 @@ export const useAuthStore = defineStore('auth', {
 
       // ✅ Guardar token
       this.token = loginResponse.token
-      sessionStorage.setItem('token', loginResponse.token)
+      localStorage.setItem('token', loginResponse.token)
 
       // 🚀 Cargar usuario completo desde /me
       await this.checkAuth()
@@ -145,8 +145,8 @@ export const useAuthStore = defineStore('auth', {
     async logout() {
       this.user = null
       this.token = null
-      sessionStorage.removeItem('user')
-      sessionStorage.removeItem('token')
+      localStorage.removeItem('user')
+      localStorage.removeItem('token')
       router.push('/login')
     },
 
@@ -164,7 +164,7 @@ export const useAuthStore = defineStore('auth', {
         }
 
         this.user = response.user as User
-        sessionStorage.setItem('user', JSON.stringify(this.user))
+        localStorage.setItem('user', JSON.stringify(this.user))
 
         const currentPath = router.currentRoute.value.path
         const rol = this.user.rol.nombre

@@ -136,6 +136,45 @@
               />
             </v-col>
 
+            <!-- Alerta RTM — solo si el servicio seleccionado es RTM -->
+            <v-col v-if="rtmInfo?.rtm_vigente && servicioSeleccionadoEsRtm" cols="12">
+              <v-alert
+                :type="rtmBloqueado ? 'error' : 'warning'"
+                :icon="rtmBloqueado ? 'mdi-lock' : 'mdi-clock-alert'"
+                variant="tonal"
+                density="comfortable"
+                class="rounded-lg"
+              >
+                <template v-if="rtmBloqueado">
+                  <strong>RTM vigente — No puede datear aún</strong><br />
+                  Esta placa tiene RTM vigente hasta el <strong>{{ rtmInfo?.valido_hasta }}</strong>.<br />
+                  Podrá datear a partir del <strong>{{ rtmInfo?.puede_datear_desde }}</strong>
+                  ({{ diasVentanaPreRtm }} días antes del vencimiento).
+                </template>
+                <template v-else>
+                  <strong>⚠️ RTM próxima a vencer</strong><br />
+                  Esta placa tiene RTM vigente hasta el <strong>{{ rtmInfo?.valido_hasta }}</strong>.<br />
+                  Estás dentro de la ventana permitida de {{ diasVentanaPreRtm }} días previos al vencimiento.
+                </template>
+              </v-alert>
+            </v-col>
+<!-- Servicio a datear -->
+            <v-col cols="12" md="6">
+              <v-autocomplete
+                v-model="form.servicio_id"
+                :items="servicios"
+                item-title="nombre"
+                item-value="id"
+                label="Servicio a datear"
+                variant="outlined"
+                :density="$vuetify.display.xs ? 'compact' : 'comfortable'"
+                prepend-inner-icon="mdi-wrench"
+                :rules="[rules.required]"
+                :loading="serviciosLoading"
+                hint="RTM preseleccionado. Cambia si es para otro servicio."
+                persistent-hint
+              />
+            </v-col>
             <!-- Teléfono -->
             <v-col cols="12" md="6">
               <v-text-field
@@ -209,12 +248,12 @@
             <v-col cols="12">
               <v-file-input
                 v-model="imageFile"
-                label="Evidencia fotográfica (opcional)"
+                label="Evidencia fotográfica *"
                 variant="outlined"
                 :density="$vuetify.display.xs ? 'compact' : 'comfortable'"
                 accept="image/*"
                 prepend-icon="mdi-camera"
-                :rules="[maxSizeRule]"
+                :rules="[rules.imagenRequerida, maxSizeRule]"
                 show-size
                 :multiple="false"
                 @change="handleImageChange"
@@ -228,7 +267,7 @@
               </v-file-input>
 
               <small class="text-caption text-medium-emphasis">
-                Tamaño máx. {{ MAX_IMAGE_MB }}MB. Formatos: JPG/PNG/WEBP/HEIC…
+                Obligatoria. Tamaño máx. {{ MAX_IMAGE_MB }}MB. Formatos: JPG/PNG/WEBP/HEIC…
               </small>
 
               <div v-if="imagePreview" class="mt-2">
@@ -289,6 +328,19 @@
           <div class="text-caption text-sm-body-1 text-medium-emphasis">
             ¿Deseas crear este dateo con los datos ingresados?
           </div>
+          <!-- Advertencia RTM en ventana -->
+          <v-alert
+            v-if="rtmEnVentana"
+            type="warning"
+            icon="mdi-clock-alert"
+            variant="tonal"
+            density="comfortable"
+            class="rounded-lg mt-3 text-left"
+          >
+            <strong>RTM próxima a vencer</strong><br />
+            Esta placa tiene RTM vigente hasta el <strong>{{ rtmInfo?.valido_hasta }}</strong>.<br />
+            Estás dentro de la ventana de {{ diasVentanaPreRtm }} días antes del vencimiento.
+          </v-alert>
         </v-card-text>
         <v-card-actions class="justify-center pb-4 pb-sm-6 gap-2">
           <v-btn
@@ -354,15 +406,19 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { createDateo, esDescuentoAvance } from '@/services/dateosService'
+import { createDateo, esDescuentoAvance, verificarPlacaRtm, type RtmVerificacion } from '@/services/dateosService'
 import { listAgentesCaptacion, listConveniosAsignados } from '@/services/conveniosService'
 import { uploadImage, type UploadImageResponse } from '@/services/uploadsService'
 import { listConveniosLight } from '@/services/dateosService'
 import descuentosService from '@/services/descuentosService'
 import type { Descuento } from '@/services/descuentosService'
+import serviciosService from '@/services/Servicios_service'
+import { useAuthStore } from '@/stores/AuthStore'
 
 const router = useRouter()
 const route = useRoute()
+const authStore = useAuthStore()
+const esPrivilegiado = computed(() => authStore.isSuperAdmin || authStore.isGerencia)
 
 interface AgenteItem {
   id: number
@@ -390,6 +446,7 @@ interface CreateDateoPayload {
   imagen_tamano_bytes?: number | null
   imagen_hash?: string | null
   imagen_origen_id?: string | number | null
+   servicio_id?: number | null  // 🆕 agregar esta línea
 }
 
 /* ===== Contexto desde ficha ===== */
@@ -411,6 +468,17 @@ const snackbar = ref<{ show: boolean; text: string; color: 'success' | 'error' }
   color: 'success',
 })
 
+/* ===== RTM verificación ===== */
+const rtmInfo = ref<RtmVerificacion | null>(null)
+const rtmChecking = ref(false)
+
+const rtmBloqueado = computed(() =>
+  !!(rtmInfo.value?.rtm_vigente && !rtmInfo.value?.dentro_de_ventana)
+)
+const rtmEnVentana = computed(() =>
+  !!(rtmInfo.value?.rtm_vigente && rtmInfo.value?.dentro_de_ventana)
+)
+
 const form = ref({
   canal: 'ASESOR' as 'FACHADA' | 'ASESOR' | 'TELE' | 'REDES',
   agente_id: null as number | null,
@@ -427,13 +495,59 @@ const form = ref({
   imagen_tamano_bytes: null as number | null,
   imagen_hash: null as string | null,
   imagen_origen_id: null as string | number | null,
+  servicio_id: null as number | null, // 🆕
 })
 
+// 🆕 Servicios disponibles para datear
+const servicios = ref<{ id: number; codigoServicio: string; nombre: string }[]>([])
+const serviciosLoading = ref(false)
+
+const servicioSeleccionadoEsRtm = computed(() => {
+  if (!form.value.servicio_id) return true
+  const s = servicios.value.find((x) => x.id === form.value.servicio_id)
+  return !s || s.codigoServicio?.toUpperCase() === 'RTM'
+})
+
+async function loadServicios() {
+  serviciosLoading.value = true
+  try {
+    const data = await serviciosService.getActivos() // ajusta según tu servicio
+    servicios.value = data
+    // Preseleccionar RTM
+    const rtm = data.find((s: any) => s.codigoServicio?.toUpperCase() === 'RTM')
+    if (rtm) form.value.servicio_id = rtm.id
+  } catch (e) {
+    console.error('Error cargando servicios:', e)
+  } finally {
+    serviciosLoading.value = false
+  }
+}
+
 /* ===== Normalización reactiva ===== */
+let rtmCheckTimer: ReturnType<typeof setTimeout> | null = null
+
 watch(() => form.value.placa, (val) => {
   if (!val) return
   const normalizada = val.toUpperCase().replace(/[\s-]/g, '').slice(0, 6)
   if (normalizada !== val) form.value.placa = normalizada
+
+  // Limpiar resultado anterior
+  rtmInfo.value = null
+
+  // Verificar RTM cuando tenga 6 caracteres (con debounce)
+  if (rtmCheckTimer) clearTimeout(rtmCheckTimer)
+  if (normalizada.length === 6) {
+    rtmCheckTimer = setTimeout(async () => {
+      rtmChecking.value = true
+      try {
+        rtmInfo.value = await verificarPlacaRtm(normalizada)
+      } catch {
+        rtmInfo.value = null
+      } finally {
+        rtmChecking.value = false
+      }
+    }, 500)
+  }
 })
 
 watch(() => form.value.telefono, (val) => {
@@ -640,6 +754,8 @@ async function subirComprobante(): Promise<boolean> {
 const imageFile = ref<File | File[] | null>(null)
 const imagePreview = ref('')
 const MAX_IMAGE_MB = 8
+const diasVentanaPreRtm = 10
+
 
 function maxSizeRule(v: File | File[] | null) {
   const f = Array.isArray(v) ? v?.[0] : v
@@ -694,6 +810,10 @@ const rules = {
     const trimmed = v.toString().trim()
     return trimmed.length === 6 || 'La placa debe tener exactamente 6 caracteres'
   },
+  imagenRequerida: (v: unknown) => {
+    const f = Array.isArray(v) ? v[0] : v
+    return !!f || 'La evidencia fotográfica es obligatoria'
+  },
   comprobanteRequerido: (v: unknown) => {
     if (!debeSubirComprobante.value) return true
     const f = Array.isArray(v) ? v[0] : v
@@ -710,10 +830,16 @@ const mostrarAgente = computed(() => {
   return form.value.canal === 'ASESOR' || form.value.canal === 'TELE'
 })
 
-const canSubmit = computed(() => {
-  return !!form.value.placa?.trim() && form.value.placa.trim().length === 6
-})
 
+
+const canSubmit = computed(() => {
+  return (
+    !!form.value.placa?.trim() &&
+    form.value.placa.trim().length === 6 &&
+    !(rtmBloqueado.value && servicioSeleccionadoEsRtm.value && !esPrivilegiado.value) &&
+    !rtmChecking.value
+  )
+})
 /* ===== Convenios por asesor ===== */
 async function loadConveniosAsignadosByAsesor(asesorId: number) {
   if (!asesorId) {
@@ -856,6 +982,7 @@ async function handleSubmit() {
       descuento_id: puedeSeleccionarDescuento.value ? (form.value.descuento_id || null) : null,
       es_avance: form.value.es_avance || false,
       comprobante_avance_url: form.value.es_avance ? (form.value.comprobante_avance_url || null) : null,
+      servicio_id: form.value.servicio_id || null, // 🆕
     }
 
     if (form.value.imagen_url) {
@@ -941,6 +1068,7 @@ onMounted(() => {
   fromAsesor.value = q ? Number(q) : null
   loadCatalogos()
   loadDescuentos()
+  loadServicios() // 🆕
 })
 </script>
 

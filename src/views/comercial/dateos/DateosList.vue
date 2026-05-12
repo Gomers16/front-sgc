@@ -17,41 +17,63 @@
           <v-col cols="6" sm="4" md="2">
             <v-select v-model="filters.canal" :items="canalItems" label="Canal" variant="outlined" density="compact" hide-details />
           </v-col>
-          <v-col cols="6" sm="4" md="2">
-            <v-select v-model="filters.tipoAgente" :items="tipoAgenteItems" label="Tipo asesor" variant="outlined" density="compact" hide-details clearable />
-          </v-col>
-          <v-col cols="12" sm="6" md="4">
-            <v-autocomplete
-              v-model="filters.agenteId"
-              :items="agentesVisibles"
-              item-title="nombre"
-              item-value="id"
-              label="Agente"
-              variant="outlined"
-              density="compact"
-              hide-details
-              clearable
-              :loading="asesoresLoading"
-            >
-              <template #item="{ props, item }">
-                <v-list-item v-bind="props" :title="item?.raw?.nombre">
-                  <template #append>
-                    <v-chip size="small" class="agent-type-chip" :class="{ 'agent-type--comercial': /COMERCIAL/i.test(item?.raw?.tipo), 'agent-type--convenio': /CONVENIO/i.test(item?.raw?.tipo), 'agent-type--tele': /TELE/i.test(item?.raw?.tipo) }">
-                      {{ mapTipoCorto(item?.raw?.tipo) }}
-                    </v-chip>
-                  </template>
-                </v-list-item>
-              </template>
-              <template #selection="{ item }">
-                <div class="d-flex align-center gap-1">
-                  <span>{{ safe(item?.raw?.nombre) }}</span>
-                  <v-chip size="small" class="agent-type-chip" :class="{ 'agent-type--comercial': /COMERCIAL/i.test(item?.raw?.tipo), 'agent-type--convenio': /CONVENIO/i.test(item?.raw?.tipo), 'agent-type--tele': /TELE/i.test(item?.raw?.tipo) }">
-                    {{ mapTipoCorto(item?.raw?.tipo) }}
-                  </v-chip>
-                </div>
-              </template>
-            </v-autocomplete>
-          </v-col>
+         <v-col cols="12" sm="4" md="3">
+  <div class="d-flex align-center gap-1" style="flex-wrap:wrap; padding: 4px 0">
+    <v-chip
+      v-for="opt in tipoAgenteItems"
+      :key="opt.value"
+      :color="filters.tipoAgente === opt.value ? 'primary' : undefined"
+      :variant="filters.tipoAgente === opt.value ? 'flat' : 'outlined'"
+      size="small"
+      class="font-weight-600"
+      style="cursor:pointer"
+      @click="filters.tipoAgente = opt.value as '' | 'COMERCIAL' | 'CONVENIO'"
+    >
+      {{ opt.title }}
+    </v-chip>
+  </div>
+</v-col>
+
+<v-col cols="12" sm="8" md="5">
+  <v-autocomplete
+    v-model="filters.agenteId"
+    :items="agentesVisibles"
+    item-title="nombre"
+    item-value="id"
+    :label="filters.tipoAgente === 'COMERCIAL' ? 'Buscar comercial…' : filters.tipoAgente === 'CONVENIO' ? 'Buscar convenio…' : 'Buscar asesor…'"
+    variant="outlined"
+    density="compact"
+    hide-details
+    clearable
+    :loading="asesoresLoading"
+    auto-select-first
+  >
+    <template #prepend-item>
+      <v-list-item density="compact" class="text-caption text-medium-emphasis px-4">
+        {{ agentesVisibles.length }} asesor{{ agentesVisibles.length !== 1 ? 'es' : '' }}
+        {{ filters.tipoAgente ? `· solo ${filters.tipoAgente.toLowerCase()}` : '· todos' }}
+      </v-list-item>
+      <v-divider />
+    </template>
+    <template #item="{ props, item }">
+      <v-list-item v-bind="props" :title="item?.raw?.nombre">
+        <template #append>
+          <v-chip size="small" class="agent-type-chip" :class="{ 'agent-type--comercial': /COMERCIAL/i.test(item?.raw?.tipo), 'agent-type--convenio': /CONVENIO/i.test(item?.raw?.tipo), 'agent-type--tele': /TELE/i.test(item?.raw?.tipo) }">
+            {{ mapTipoCorto(item?.raw?.tipo) }}
+          </v-chip>
+        </template>
+      </v-list-item>
+    </template>
+    <template #selection="{ item }">
+      <div class="d-flex align-center gap-1">
+        <span>{{ safe(item?.raw?.nombre) }}</span>
+        <v-chip size="small" class="agent-type-chip" :class="{ 'agent-type--comercial': /COMERCIAL/i.test(item?.raw?.tipo), 'agent-type--convenio': /CONVENIO/i.test(item?.raw?.tipo), 'agent-type--tele': /TELE/i.test(item?.raw?.tipo) }">
+          {{ mapTipoCorto(item?.raw?.tipo) }}
+        </v-chip>
+      </div>
+    </template>
+  </v-autocomplete>
+</v-col>
           <v-col cols="12" sm="6" md="4">
             <v-autocomplete v-model="filters.convenioId" :items="conveniosVisibles" item-title="nombre" item-value="id" label="Convenio" variant="outlined" density="compact" hide-details clearable :loading="conveniosLoading" />
           </v-col>
@@ -178,6 +200,29 @@
           {{ item.created_at_fmt || formatDateTime(item.created_at) }}
         </template>
 
+<!-- Tipo dateo -->
+<template #item.tipo_dateo="{ item }">
+  <div class="d-flex align-center gap-1">
+    <template v-if="item.turnoInfo">
+      <v-chip v-if="item.turnoInfo.es_recurrente" size="x-small"
+        color="orange-darken-1" variant="flat" class="font-weight-600">
+        Recurrente
+      </v-chip>
+      <v-chip v-else size="x-small"
+        color="blue-darken-1" variant="flat" class="font-weight-600">
+        Continuidad
+      </v-chip>
+    </template>
+    <span v-else class="text-medium-emphasis">—</span>
+    <v-tooltip text="Ver detalle del cliente">
+      <template #activator="{ props }">
+        <v-btn v-bind="props" icon="mdi-account-eye" size="x-small"
+          variant="text" color="teal" @click.stop="item.placa && abrirDetalleCliente(item.placa)" />
+      </template>
+    </v-tooltip>
+  </div>
+</template>
+
         <!-- Estado (resultado del dateo) -->
         <template #item.resultado="{ item }">
           <v-chip
@@ -205,20 +250,6 @@
           <span v-else class="text-medium-emphasis">—</span>
         </template>
 
-        <!-- Avance -->
-        <template #item.es_avance="{ item }">
-          <v-chip
-            v-if="item.es_avance"
-            size="x-small"
-            color="warning"
-            variant="flat"
-            prepend-icon="mdi-cash-fast"
-            class="font-weight-600"
-          >
-            AVANCE
-          </v-chip>
-          <span v-else class="text-medium-emphasis">—</span>
-        </template>
 
         <!-- Turno -->
         <template #item.turnoInfo="{ item }">
@@ -589,6 +620,103 @@
         </v-card-actions>
       </v-card>
     </v-dialog>
+    <!-- Modal detalle cliente -->
+    <v-dialog v-model="modalCliente.visible" max-width="580" scrollable>
+      <v-card class="rounded-xl">
+        <v-card-title class="pt-5 pb-2 px-6 d-flex align-center gap-2">
+          <v-icon color="teal">mdi-account-circle</v-icon>
+          <span class="text-h6 font-weight-bold">Cliente — {{ modalCliente.placa }}</span>
+          <v-spacer />
+          <v-btn icon="mdi-close" variant="text" size="small" @click="modalCliente.visible = false" />
+        </v-card-title>
+        <v-divider />
+        <v-card-text class="px-6 pt-4">
+
+          <div v-if="modalCliente.loading" class="d-flex justify-center py-8">
+            <v-progress-circular indeterminate color="teal" />
+          </div>
+
+          <v-alert v-else-if="!modalCliente.data" type="warning" variant="tonal">
+            No se encontró información del cliente para esta placa.
+          </v-alert>
+
+          <template v-else>
+            <p class="text-caption text-medium-emphasis font-weight-bold mb-2">PROPIETARIO</p>
+            <v-card variant="tonal" color="teal" class="mb-4 pa-3 rounded-lg">
+              <div class="d-flex flex-wrap gap-3">
+                <div>
+                  <div class="text-caption text-medium-emphasis">Nombre</div>
+                  <div class="font-weight-600">{{ modalCliente.data.cliente?.nombre ?? '—' }}</div>
+                </div>
+                <div>
+                  <div class="text-caption text-medium-emphasis">Cédula</div>
+                  <div class="font-weight-600">{{ modalCliente.data.cliente?.docNumero ?? '—' }}</div>
+                </div>
+                <div>
+                  <div class="text-caption text-medium-emphasis">Teléfono</div>
+                  <div class="font-weight-600">{{ modalCliente.data.cliente?.telefono ?? '—' }}</div>
+                </div>
+              </div>
+            </v-card>
+
+            <p class="text-caption text-medium-emphasis font-weight-bold mb-2">HISTORIAL RTM</p>
+            <div class="d-flex gap-3 mb-4">
+              <v-card variant="outlined" class="pa-3 rounded-lg text-center flex-1">
+                <div class="text-h6 font-weight-bold">{{ (modalCliente.data.metricas ?? modalCliente.data.kpis)?.visitas_count ?? 0 }}</div>
+                <div class="text-caption text-medium-emphasis">Visitas totales</div>
+              </v-card>
+              <v-card variant="outlined" class="pa-3 rounded-lg text-center flex-1">
+                <div class="text-h6 font-weight-bold">{{ (modalCliente.data.metricas ?? modalCliente.data.kpis)?.ultima_visita_at ?? '—' }}</div>
+                <div class="text-caption text-medium-emphasis">Última visita</div>
+              </v-card>
+              <v-card variant="outlined" class="pa-3 rounded-lg text-center flex-1">
+                <div class="text-h6 font-weight-bold">{{ (modalCliente.data.metricas ?? modalCliente.data.kpis)?.dias_desde_ultima_visita ?? '—' }}</div>
+                <div class="text-caption text-medium-emphasis">Días desde última</div>
+              </v-card>
+            </div>
+
+            <p class="text-caption text-medium-emphasis font-weight-bold mb-2">VEHÍCULOS</p>
+            <div class="d-flex flex-wrap gap-2 mb-4">
+              <v-chip v-for="v in modalCliente.data.vehiculos" :key="v.id"
+                size="small" variant="tonal" color="indigo" prepend-icon="mdi-car">
+                {{ v.placa }}{{ v.marca ? ` · ${v.marca}` : '' }}{{ v.modelo ? ` ${v.modelo}` : '' }}
+              </v-chip>
+              <span v-if="!modalCliente.data.vehiculos?.length" class="text-medium-emphasis">Sin vehículos</span>
+            </div>
+
+            <p class="text-caption text-medium-emphasis font-weight-bold mb-2">VISITAS RECIENTES</p>
+            <v-table density="compact" class="rounded-lg tabla-borde">
+              <thead>
+                <tr>
+                  <th>Fecha</th>
+                  <th>Placa</th>
+                  <th>Servicio</th>
+                  <th>Estado</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="v in modalCliente.data.visitas_recientes" :key="v.id">
+                  <td>{{ v.fecha ? formatDateOnly(v.fecha) : '—' }}</td>
+                  <td class="font-weight-medium">{{ v.placa }}</td>
+                  <td>{{ v.servicioNombre ?? '—' }}</td>
+                  <td>
+                    <v-chip size="x-small"
+                      :color="v.estado === 'finalizado' ? 'success' : 'warning'"
+                      variant="flat">
+                      {{ v.estado }}
+                    </v-chip>
+                  </td>
+                </tr>
+                <tr v-if="!modalCliente.data.visitas_recientes?.length">
+                  <td colspan="4" class="text-center text-medium-emphasis py-3">Sin visitas registradas</td>
+                </tr>
+              </tbody>
+            </v-table>
+          </template>
+
+        </v-card-text>
+      </v-card>
+    </v-dialog>
   </v-container>
 </template>
 
@@ -610,6 +738,7 @@ import {
   type HistoricoImportarResponse,
 } from '@/services/dateosService'
 import { listConveniosAsignados } from '@/services/conveniosService'
+import { ClientesService } from '@/services/clientes_service'
 
 const router = useRouter()
 
@@ -661,9 +790,9 @@ const headers = [
   { title: 'Placa', key: 'placa', sortable: true },
   { title: 'Teléfono cliente', key: 'telefono', sortable: true },
   { title: 'Creado', key: 'created_at', sortable: true },
+  { title: 'Tipo', key: 'tipo_dateo', sortable: false },  // ← AGREGAR ESTA LÍNEA
   { title: 'Estado', key: 'resultado', sortable: true },
   { title: 'Descuento', key: 'descuento', sortable: false },
-  { title: 'Avance', key: 'es_avance', sortable: false },
   { title: 'Turno', key: 'turnoInfo', sortable: false, align: 'center' as const },
   { title: 'Acciones', key: 'acciones', sortable: false, align: 'end' as const },
 ]
@@ -1033,6 +1162,59 @@ async function confirmarImportacion() {
   } finally {
     importacion.value.loading = false
     importacion.value.loadingMsg = ''
+  }
+}
+
+/* ── Modal detalle cliente ── */
+interface ClienteDetalleModal {
+  cliente: {
+    nombre: string | null
+    docNumero: string | null
+    telefono: string | null
+  }
+  vehiculos: Array<{
+    id: number
+    placa: string
+    marca?: string | null
+    modelo?: number | null
+  }>
+  metricas?: {
+    visitas_count: number
+    ultima_visita_at: string | null
+    dias_desde_ultima_visita: string | null
+  }
+  kpis?: {
+    visitas_count: number
+    ultima_visita_at: string | null
+    dias_desde_ultima_visita: string | null
+  }
+  visitas_recientes: Array<{
+    id: number
+    fecha: string
+    placa: string
+    estado: string
+    servicioNombre?: string | null
+  }>
+}
+
+const modalCliente = ref<{
+  visible: boolean
+  loading: boolean
+  placa: string | null
+  data: ClienteDetalleModal | null
+}>({ visible: false, loading: false, placa: null, data: null })
+
+async function abrirDetalleCliente(placa: string) {
+  modalCliente.value = { visible: true, loading: true, placa, data: null }
+  try {
+    const res = await ClientesService.list({ q: placa, perPage: 1 })
+    const cliente = (res as { data?: { id: number }[] }).data?.[0]
+    if (!cliente) { modalCliente.value.loading = false; return }
+    modalCliente.value.data = await ClientesService.detalle(cliente.id) as ClienteDetalleModal
+  } catch {
+    modalCliente.value.data = null
+  } finally {
+    modalCliente.value.loading = false
   }
 }
 

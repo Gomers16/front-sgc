@@ -47,6 +47,18 @@ export type ClienteDetalle = {
   metricas?: ResumenMetricas
   /** compat: backend viejo */
   kpis?: ResumenMetricas
+  visitas_recientes?: Array<{
+    id: number
+    fecha: string
+    placa: string
+    estado: string
+    servicioNombre?: string | null
+    sedeNombre?: string | null
+    asesorNombre?: string | null
+convenioNombre?: string | null
+esRecurrente?: boolean | null
+esRecuperacion?: boolean | null
+  }>
 }
 
 export type ClienteHistorialItem = {
@@ -67,6 +79,10 @@ export type ClienteHistorialItem = {
   servicioCodigo: string | null
   servicioNombre: string | null
   sedeNombre: string | null
+  asesorNombre?: string | null
+  convenioNombre?: string | null
+  esRecurrente?: boolean | null
+esRecuperacion?: boolean | null
 }
 
 export type Paginated<T> = {

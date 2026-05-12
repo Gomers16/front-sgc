@@ -8,10 +8,20 @@
 
     <v-skeleton-loader v-if="loading" type="table" />
 
+    <v-text-field
+    v-if="!loading"
+  v-model="search"
+  label="🔍 Buscar usuario, cargo o contrato"
+  prepend-inner-icon="mdi-magnify"
+  variant="outlined"
+  density="comfortable"
+  class="mb-4"
+/>
+
     <v-data-table
-      v-else
+  v-if="!loading"
       :headers="headers"
-      :items="usuarios"
+      :items="usuariosFiltrados"
       item-value="id"
       class="elevation-1"
       :items-per-page="10"
@@ -503,6 +513,7 @@ interface UsuarioConContratos extends Usuario {
   rol?: Rol;
   contratos?: Contrato[];
   nombreCompleto: string;
+  searchText: string; // 👈 YA NO opcional
 }
 
 interface NamedRelation {
@@ -519,6 +530,7 @@ const razonSocialId = ref(route.params.id as string);
 const razonSocialNombre = ref('');
 const loading = ref(true);
 const usuarios = ref<UsuarioConContratos[]>([]);
+const search = ref('');
 
 const mostrarModalPerfil = ref(false);
 const usuarioIdParaPerfil = ref<number | null>(null);
@@ -556,12 +568,12 @@ const contratosDelUsuarioSeleccionado = computed<Contrato[]>(() => {
   if (!modalContratosUsuario.value.usuarioId) {
     return [];
   }
-  
+
   const list = contratoStore
     .getContratosByUsuarioId(modalContratosUsuario.value.usuarioId)
     .slice()
     .sort((a, b) => new Date(b.fechaInicio).getTime() - new Date(a.fechaInicio).getTime());
-  
+
   return list as Contrato[];
 });
 
@@ -580,15 +592,41 @@ const selectedTimeline = computed<TimelineItem[]>(() =>
   selectedContrato.value ? buildTimeline(selectedContrato.value) : []
 );
 
+const usuariosFiltrados = computed(() => {
+  if (!search.value) return usuarios.value;
+
+  return usuarios.value.filter(u =>
+    u.searchText.includes(search.value.toLowerCase())
+  );
+});
+
+
 /* ========= Carga de usuarios ========= */
 async function cargarUsuarios() {
   loading.value = true;
   try {
-    const data = await fetchUsuariosPorRazonSocial(razonSocialId.value);
-    usuarios.value = data.map((u) => ({
-      ...u,
-      nombreCompleto: `${u.nombres} ${u.apellidos}`,
-    })) as UsuarioConContratos[];
+    const data = await fetchUsuariosPorRazonSocial(razonSocialId.value) as UsuarioConContratos[];
+   usuarios.value = data.map((u) => {
+  const cargos = ((u.contratos || []) as Contrato[])
+    .map(c => c.cargo?.nombre)
+    .filter(Boolean)
+    .join(' ');
+
+  const contratos = ((u.contratos || []) as Contrato[])
+    .map(c => c.tipoContrato)
+    .join(' ');
+
+  return {
+    ...u,
+    nombreCompleto: `${u.nombres} ${u.apellidos}`,
+    searchText: `
+      ${u.nombres}
+      ${u.apellidos}
+      ${cargos}
+      ${contratos}
+    `.toLowerCase()
+  };
+}) as UsuarioConContratos[];
   } catch (error) {
     console.error('Error al cargar usuarios:', error);
     usuarios.value = [];
@@ -635,7 +673,7 @@ function irAContratoEnPerfilDesdeModal() {
   // Mapeo modal → perfil
   let tab: 'detalles' | 'eventos' | 'fin' | 'historial' = 'eventos';
   let subtab: 'inicio' | 'desarrollo' | undefined = 'inicio';
-  
+
   switch (modalContratosUsuario.value.tab) {
     case 'inicio':
       tab = 'eventos';
@@ -654,7 +692,7 @@ function irAContratoEnPerfilDesdeModal() {
       subtab = undefined;
       break;
   }
-  
+
   const query: Record<string, string> = { contratoId: String(c.id), tab };
   if (subtab) query.subtab = subtab;
 
@@ -779,61 +817,61 @@ const toBoolLoose = (v: unknown): boolean | null => {
 const equalForField = (campo: string, a: unknown, b: unknown): boolean => {
   const va = parseMaybeJson(a as string | number | boolean | null);
   const vb = parseMaybeJson(b as string | number | boolean | null);
-  
+
   if (campo === 'tieneRecomendacionesMedicas') {
     const ba = toBoolLoose(va);
     const bb = toBoolLoose(vb);
     return ba === bb;
   }
-  
+
   if (['salarioBasico', 'bonoSalarial', 'auxilioTransporte', 'auxilioNoSalarial'].includes(campo)) {
     const na = toNumberLoose(va);
     const nb = toNumberLoose(vb);
     return na === nb;
   }
-  
+
   if (campo.endsWith('Id')) {
     const idA = isNamedRel(va) ? Number(va.id) : Number(va);
     const idB = isNamedRel(vb) ? Number(vb.id) : Number(vb);
     if (!Number.isNaN(idA) && !Number.isNaN(idB)) return idA === idB;
     return JSON.stringify(va) === JSON.stringify(vb);
   }
-  
+
   return (va ?? null) === (vb ?? null);
 };
 
 const renderValor = (campo: string, raw: string | number | boolean | null): string => {
   const v = parseMaybeJson(raw);
-  
+
   if (v === null || v === undefined || v === '') return 'N/A';
-  
+
   if (campo.endsWith('Id') && isNamedRel(v)) {
     return v.nombre ?? `#${v.id ?? ''}`;
   }
-  
+
   if (campo.startsWith('fecha')) return formatDate(v as string);
-  
+
   if (campo === 'estado') {
     return v === 'activo' ? 'Activo' : (v === 'inactivo' ? 'Inactivo' : String(v));
   }
-  
+
   if (typeof v === 'boolean') return v ? 'Sí' : 'No';
   if (typeof v === 'number') return new Intl.NumberFormat('es-CO').format(v);
   if (typeof v === 'object') return JSON.stringify(v);
-  
+
   return String(v);
 };
 
 function buildTimeline(c: Contrato): TimelineItem[] {
   const items: TimelineItem[] = [];
-  
-  (c.historialEstados || []).forEach((h: HistEstado) => 
+
+  (c.historialEstados || []).forEach((h: HistEstado) =>
     items.push({ ...h, kind: 'estado' })
   );
-  
+
   (c.cambios || [])
     .filter((chg: CambioContrato) => !equalForField(chg.campo, chg.oldValue, chg.newValue))
-    .forEach((chg: CambioContrato) => 
+    .forEach((chg: CambioContrato) =>
       items.push({
         ...chg,
         oldValue: parseMaybeJson(chg.oldValue) as string | number | boolean | null,
@@ -841,7 +879,7 @@ function buildTimeline(c: Contrato): TimelineItem[] {
         kind: 'cambio'
       })
     );
-  
+
   return items.sort((a, b) => {
     const da = new Date(a.kind === 'estado' ? (a.fechaCambio || '') : (a.createdAt || '')).getTime();
     const db = new Date(b.kind === 'estado' ? (b.fechaCambio || '') : (b.createdAt || '')).getTime();
@@ -849,22 +887,22 @@ function buildTimeline(c: Contrato): TimelineItem[] {
   });
 }
 
-const getEstadoNombre = (estado: 'activo' | 'inactivo'): string => 
+const getEstadoNombre = (estado: 'activo' | 'inactivo'): string =>
   estado === 'activo' ? 'Activo' : 'Inactivo';
 
 function cargosDelUsuario(user: UsuarioConContratos): string[] {
   const contratos = user.contratos || [];
-  
+
   if (!contratos.length) {
     return user.cargo?.nombre ? [user.cargo.nombre] : [];
   }
-  
+
   const cargosContratos = contratos
     .map(c => c.cargo?.nombre)
     .filter((n): n is string => !!n && n.trim() !== '');
-  
-  return cargosContratos.length 
-    ? [...new Set(cargosContratos)] 
+
+  return cargosContratos.length
+    ? [...new Set(cargosContratos)]
     : (user.cargo?.nombre ? [user.cargo.nombre] : []);
 }
 

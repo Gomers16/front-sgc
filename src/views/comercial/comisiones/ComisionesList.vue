@@ -9,6 +9,14 @@
         </div>
         <div class="d-flex gap-2 flex-wrap">
           <v-btn
+            color="success"
+            size="small"
+            prepend-icon="mdi-plus"
+            @click="abrirCrear"
+          >
+            Nueva comisión
+          </v-btn>
+          <v-btn
             variant="outlined"
             size="small"
             prepend-icon="mdi-filter-variant"
@@ -104,39 +112,76 @@
                 />
               </v-col>
 
-              <!-- Asesor Comercial -->
-              <v-col cols="12" sm="6" md="4" lg="3">
-                <v-autocomplete
-                  v-model="filters.asesorId"
-                  :items="asesoresComerciales"
-                  item-title="nombre"
-                  item-value="id"
-                  label="Asesor comercial"
-                  density="comfortable"
-                  variant="outlined"
-                  hide-details
-                  clearable
-                  :loading="asesoresLoading"
-                  prepend-inner-icon="mdi-account-tie"
-                />
-              </v-col>
+              <!-- Placa -->
+<v-col cols="6" sm="4" md="2">
+  <v-text-field
+    v-model="filters.placa"
+    label="Placa"
+    variant="outlined"
+    density="comfortable"
+    hide-details
+    clearable
+    prepend-inner-icon="mdi-car"
+  />
+</v-col>
 
-              <!-- Convenio -->
-              <v-col cols="12" sm="6" md="4" lg="3">
-                <v-autocomplete
-                  v-model="filters.convenioId"
-                  :items="conveniosItems"
-                  item-title="nombre"
-                  item-value="id"
-                  label="Convenio"
-                  density="comfortable"
-                  variant="outlined"
-                  hide-details
-                  clearable
-                  :loading="conveniosLoading"
-                  prepend-inner-icon="mdi-handshake"
-                />
-              </v-col>
+<!-- Chips tipo asesor -->
+<v-col cols="12" md="10">
+  <div class="d-flex align-center gap-1 mb-2" style="flex-wrap:wrap">
+    <v-chip
+      v-for="opt in [{ title: 'Todos', value: '' }, { title: 'Comercial', value: 'COMERCIAL' }, { title: 'Convenio', value: 'CONVENIO' }]"
+      :key="opt.value"
+      :color="filters.tipoAsesor === opt.value ? 'primary' : undefined"
+      :variant="filters.tipoAsesor === opt.value ? 'flat' : 'outlined'"
+      size="small"
+      class="font-weight-600"
+      style="cursor:pointer"
+      @click="filters.tipoAsesor = opt.value as '' | 'COMERCIAL' | 'CONVENIO'; filters.asesorId = null; filters.convenioId = null"
+    >
+      {{ opt.title }}
+    </v-chip>
+  </div>
+
+  <v-row dense>
+    <!-- Autocomplete asesor -->
+    <v-col cols="12" :md="filters.tipoAsesor === 'COMERCIAL' ? 6 : 12">
+      <v-autocomplete
+        v-model="filters.asesorId"
+        :items="agentesVisiblesFiltro"
+        item-title="nombre"
+        item-value="id"
+        :label="filters.tipoAsesor === 'COMERCIAL' ? 'Buscar comercial…' : filters.tipoAsesor === 'CONVENIO' ? 'Buscar convenio…' : 'Buscar asesor…'"
+        density="comfortable"
+        variant="outlined"
+        hide-details
+        clearable
+        :loading="asesoresLoading"
+        :prepend-inner-icon="filters.tipoAsesor === 'CONVENIO' ? 'mdi-handshake' : 'mdi-account-tie'"
+        auto-select-first
+        @update:model-value="onFiltroAsesorChange"
+      />
+    </v-col>
+
+    <!-- Convenios asignados al comercial seleccionado -->
+    <v-col cols="12" md="6" v-if="filters.tipoAsesor === 'COMERCIAL'">
+      <v-autocomplete
+        v-model="filters.convenioId"
+        :items="conveniosFiltroComercial"
+        item-title="nombre"
+        item-value="id"
+        label="Convenio del comercial"
+        density="comfortable"
+        variant="outlined"
+        hide-details
+        clearable
+        :loading="conveniosFiltroLoading"
+        prepend-inner-icon="mdi-handshake"
+        :disabled="!filters.asesorId"
+        :placeholder="!filters.asesorId ? 'Selecciona primero un comercial' : 'Todos sus convenios'"
+      />
+    </v-col>
+  </v-row>
+</v-col>
             </v-row>
 
             <div class="d-flex justify-end mt-3 gap-2">
@@ -279,6 +324,9 @@
               {{ tipoClienteLabel(item.turno) }}
             </v-chip>
           </template>
+          <template #item.placa="{ item }">
+  <span class="font-weight-medium">{{ item.turno?.placa || '—' }}</span>
+</template>
 
           <template #item.turno="{ item }">
             <div class="d-flex flex-column">
@@ -322,13 +370,39 @@
           <template #item.asesor="{ item }">{{ item.asesor?.nombre || '—' }}</template>
           <template #item.convenio="{ item }">{{ item.convenio?.nombre || '—' }}</template>
           <template #item.generado_at="{ item }">{{ formatDate(item.generado_at) }}</template>
+          <template #item.rep_general="{ item }">
+            <v-chip
+             v-if="item.turno?.rep_general_verificado"
+              size="x-small"
+              color="success"
+              variant="tonal"
+              prepend-icon="mdi-check-circle"
+            >
+              Verificado
+            </v-chip>
+            <v-chip
+              v-else
+              size="x-small"
+              color="warning"
+              variant="tonal"
+              prepend-icon="mdi-clock-outline"
+            >
+              Sin Rep
+            </v-chip>
+          </template>
 
           <template #item.acciones="{ item }">
-            <div class="d-flex gap-1">
-              <v-btn size="small" variant="text" icon="mdi-eye" @click="verDetalle(item)" />
-              <v-btn
-                v-if="item.estado === 'PENDIENTE'"
-                size="small" variant="text" color="warning"
+  <div class="d-flex gap-1">
+    <v-btn size="small" variant="text" icon="mdi-eye" @click="verDetalle(item)" />
+    <v-btn
+      v-if="item.estado === 'PENDIENTE'"
+      size="small" variant="text" color="primary"
+      icon="mdi-pencil"
+      @click="abrirEditar(item)"
+    />
+    <v-btn
+      v-if="item.estado === 'PENDIENTE'"
+      size="small" variant="text" color="warning"
                 icon="mdi-check-decagram"
                 @click="confirmAprobar(item.id)"
               />
@@ -427,186 +501,316 @@
     </v-dialog>
 
     <!-- ══════════════════════════════════════════════════════════
-         DIÁLOGO: Detalle comisión
-    ══════════════════════════════════════════════════════════ -->
-    <v-dialog v-model="detailDialog.visible" max-width="760" scrollable>
-      <v-card v-if="detailDialog.item">
-        <v-card-title class="text-h6 d-flex align-center justify-space-between">
-          <span>Detalle comisión #{{ detailDialog.item.id }}</span>
-          <v-chip :color="estadoColor(detailDialog.item.estado)" size="small" variant="flat">
-            {{ detailDialog.item.estado }}
-          </v-chip>
-        </v-card-title>
-        <v-divider />
+     DIÁLOGO: Detalle comisión
+══════════════════════════════════════════════════════════ -->
+<v-dialog v-model="detailDialog.visible" max-width="820" scrollable>
+  <v-card v-if="detailDialog.item">
+    <v-card-title class="text-h6 d-flex align-center justify-space-between py-3 px-5">
+      <span>Detalle comisión #{{ detailDialog.item.id }}</span>
+      <div class="d-flex align-center gap-2">
+        <v-chip
+          v-if="detailDialog.item.tipo_vehiculo"
+          size="x-small"
+          :color="detailDialog.item.tipo_vehiculo === 'MOTO' ? 'deep-purple' : 'teal'"
+          variant="tonal"
+          :prepend-icon="detailDialog.item.tipo_vehiculo === 'MOTO' ? 'mdi-motorbike' : 'mdi-car'"
+        >
+          {{ detailDialog.item.tipo_vehiculo === 'MOTO' ? 'Moto' : 'Vehículo' }}
+        </v-chip>
+        <v-chip :color="estadoColor(detailDialog.item.estado)" size="small" variant="flat">
+          {{ detailDialog.item.estado }}
+        </v-chip>
+      </div>
+    </v-card-title>
+    <v-divider />
 
-        <v-card-text class="pt-4">
-          <v-skeleton-loader v-if="detailDialog.loading" type="card, card" />
+    <v-card-text class="pt-4 px-5">
+      <v-skeleton-loader v-if="detailDialog.loading" type="card, card, card" />
 
-          <template v-else>
-            <!-- Tipo cliente / recurrencia -->
-            <v-card
-              v-if="detailDialog.item.turno"
-              class="mb-4"
-              variant="tonal"
-              :color="tipoClienteColor(detailDialog.item.turno)"
-            >
-              <v-card-title class="d-flex align-center gap-2 text-subtitle-1">
-                <v-icon>{{ tipoClienteIcono(detailDialog.item.turno) }}</v-icon>
-                {{ tipoClienteLabel(detailDialog.item.turno) }}
-              </v-card-title>
-              <v-card-text>
-                <template v-if="detailDialog.item.turno.es_recurrente && !detailDialog.item.turno.es_recuperacion">
-                  <v-row dense>
-                    <v-col cols="12" md="4">
-                      <strong>Última visita:</strong><br />
-                      {{ formatDate(detailDialog.item.turno.fecha_ultima_visita) }}
-                    </v-col>
-                    <v-col cols="12" md="4">
-                      <strong>Meses transcurridos:</strong><br />
-                      {{ detailDialog.item.turno.meses_desde_ultima_visita || '—' }} meses
-                    </v-col>
-                    <v-col cols="12" md="4">
-                      <strong>Turno anterior:</strong><br />
-                      #{{ detailDialog.item.turno.ultimo_turno_id || '—' }}
-                    </v-col>
-                  </v-row>
-                </template>
-                <template v-else-if="detailDialog.item.turno.es_recuperacion">
-                  <v-row dense>
-                    <v-col cols="12" md="4">
-                      <strong>Última visita:</strong><br />
-                      {{ formatDate(detailDialog.item.turno.fecha_ultima_visita) }}
-                    </v-col>
-                    <v-col cols="12" md="4">
-                      <strong>Meses transcurridos:</strong><br />
-                      {{ detailDialog.item.turno.meses_desde_ultima_visita || '—' }} meses
-                    </v-col>
-                    <v-col cols="12" md="4">
-                      <strong>Turno anterior:</strong><br />
-                      #{{ detailDialog.item.turno.ultimo_turno_id || '—' }}
-                    </v-col>
-                  </v-row>
-                </template>
-                <template v-else>
-                  <div class="text-caption">
-                    ✨ <strong>Cliente nuevo:</strong> Primera visita. Comisión estándar de dateo.
+      <template v-else>
+
+        <!-- ══ SECCIÓN: INFO DEL CLIENTE ══ -->
+        <div class="mb-4">
+          <div class="text-caption font-weight-bold text-medium-emphasis mb-2 d-flex align-center gap-1">
+            <v-icon size="14" color="teal">mdi-account-circle</v-icon>
+            INFORMACIÓN DEL CLIENTE
+          </div>
+
+          <v-skeleton-loader v-if="detailDialog.clienteLoading" type="list-item-two-line" />
+
+          <v-card v-else-if="detailDialog.clienteData" variant="tonal" color="teal" class="rounded-lg">
+            <v-card-text class="py-3 px-4">
+              <v-row dense>
+                <!-- Nombre y doc -->
+                <v-col cols="12" md="5">
+                  <div class="text-caption text-medium-emphasis">Propietario</div>
+                  <div class="font-weight-bold text-body-2">
+                    {{ detailDialog.clienteData.cliente?.nombre ?? '—' }}
                   </div>
-                </template>
-              </v-card-text>
-            </v-card>
+                  <div class="text-caption text-medium-emphasis">
+                    {{ detailDialog.clienteData.cliente?.docTipo ?? '' }}
+                    {{ detailDialog.clienteData.cliente?.docNumero ?? '' }}
+                    <template v-if="detailDialog.clienteData.cliente?.telefono">
+                      · 📞 {{ detailDialog.clienteData.cliente.telefono }}
+                    </template>
+                  </div>
+                </v-col>
 
-            <!-- Descuento informativo -->
+                <!-- Métricas -->
+                <v-col cols="4" md="2" class="text-center">
+                  <div class="text-h6 font-weight-bold">
+                    {{ (detailDialog.clienteData.metricas ?? detailDialog.clienteData.kpis)?.visitas_count ?? 0 }}
+                  </div>
+                  <div class="text-caption text-medium-emphasis">Visitas totales</div>
+                </v-col>
+                <v-col cols="4" md="3" class="text-center">
+                  <div class="text-body-2 font-weight-bold">
+                    {{ (detailDialog.clienteData.metricas ?? detailDialog.clienteData.kpis)?.ultima_visita_at ?? '—' }}
+                  </div>
+                  <div class="text-caption text-medium-emphasis">Última visita</div>
+                </v-col>
+                <v-col cols="4" md="2" class="text-center">
+                  <div class="text-h6 font-weight-bold">
+                    {{ (detailDialog.clienteData.metricas ?? detailDialog.clienteData.kpis)?.dias_desde_ultima_visita ?? '—' }}
+                  </div>
+                  <div class="text-caption text-medium-emphasis">Días desde última</div>
+                </v-col>
+
+                <!-- Vehículos -->
+                <v-col cols="12" class="pt-1">
+                  <div class="d-flex flex-wrap gap-1">
+                    <v-chip
+                      v-for="v in detailDialog.clienteData.vehiculos"
+                      :key="v.id"
+                      size="x-small"
+                      variant="tonal"
+                      color="indigo"
+                      prepend-icon="mdi-car"
+                    >
+                      {{ v.placa }}{{ v.marca ? ` · ${v.marca}` : '' }}{{ v.modelo ? ` ${v.modelo}` : '' }}
+                    </v-chip>
+                  </div>
+                </v-col>
+              </v-row>
+            </v-card-text>
+          </v-card>
+
+          <v-alert v-else type="info" variant="tonal" density="compact" class="text-caption">
+            No se encontró información del cliente para la placa
+            <strong>{{ detailDialog.item.turno?.placa ?? '—' }}</strong>.
+          </v-alert>
+        </div>
+
+        <!-- ══ SECCIÓN: POR QUÉ SE PAGA ESTO ══ -->
+        <div class="mb-4">
+          <div class="text-caption font-weight-bold text-medium-emphasis mb-2 d-flex align-center gap-1">
+            <v-icon size="14" color="primary">mdi-lightbulb</v-icon>
+            ¿POR QUÉ SE PAGA ESTO?
+          </div>
+
+          <template v-if="detailDialog.item">
             <v-card
-              v-if="detailDialog.item.descuento"
-              class="mb-4"
+              :color="buildJustificacion(detailDialog.item).color"
               variant="tonal"
-              color="orange-darken-2"
+              class="rounded-lg"
             >
-              <v-card-title class="d-flex align-center gap-2 text-subtitle-1">
-                <v-icon>mdi-tag-check</v-icon>
-                Descuento informativo aplicado
-                <v-chip
-                  size="x-small" class="ms-2"
-                  :color="detailDialog.item.descuento_origen === 'dateo' ? 'blue' : 'purple'"
-                  variant="flat"
-                >
-                  {{ detailDialog.item.descuento_origen === 'dateo' ? 'Pre-marcado' : 'En caja' }}
-                </v-chip>
+              <v-card-title class="d-flex align-center gap-2 text-subtitle-2 py-2 px-4">
+                <v-icon size="18">{{ buildJustificacion(detailDialog.item).icono }}</v-icon>
+                {{ buildJustificacion(detailDialog.item).titulo }}
               </v-card-title>
-              <v-card-text>
-                <v-row dense>
-                  <v-col cols="12" md="4">
-                    <strong>Descuento:</strong>
-                    {{ detailDialog.item.descuento.nombre }}
-                    <span class="text-caption">({{ detailDialog.item.descuento.codigo }})</span>
-                  </v-col>
-                  <v-col cols="12" md="4" v-if="detailDialog.item.descuento_aplicado_at">
-                    <strong>Aplicado el:</strong><br />
-                    {{ formatDate(detailDialog.item.descuento_aplicado_at) }}
-                  </v-col>
-                  <v-col cols="12" md="4" v-if="detailDialog.item.descuento_aplicado_por">
-                    <strong>Confirmado por:</strong><br />
-                    {{ detailDialog.item.descuento_aplicado_por.nombre }}
-                  </v-col>
-                </v-row>
-                <v-divider class="my-2" />
-                <div class="text-caption text-medium-emphasis">
-                  <template v-if="detailDialog.item.es_avance">
-                    <strong>🏷️ AVANCE:</strong>
-                    Incentivo base: <strong>{{ formatCOP(Number(detailDialog.item.base ?? 0)) }}</strong>
-                    − Avance cobrado: <strong style="color:#e53935">{{ formatCOP(Number(detailDialog.item.descuento_monto_aplicado ?? 0)) }}</strong>
-                    = Incentivo final: <strong>{{ formatCOP(Number(detailDialog.item.monto_convenio ?? 0)) }}</strong>
-                  </template>
-                  <template v-else>
-                    <strong>🏷️ Efecto:</strong> Valor recurrente aplicado en lugar del valor nuevo directo.
-                  </template>
+              <v-card-text class="py-2 px-4">
+                <p class="text-caption text-medium-emphasis mb-2">
+                  {{ buildJustificacion(detailDialog.item).descripcion }}
+                </p>
+                <v-divider class="mb-2" />
+                <div class="d-flex flex-wrap gap-3">
+                  <div
+                    v-for="linea in buildJustificacion(detailDialog.item).lineas"
+                    :key="linea.label"
+                    class="text-caption"
+                  >
+                    <span class="text-medium-emphasis">{{ linea.label }}:</span>
+                    <strong class="ms-1">{{ linea.valor }}</strong>
+                  </div>
                 </div>
               </v-card-text>
             </v-card>
+          </template>
+        </div>
 
-            <!-- Info general -->
+        <!-- ══ SECCIÓN: DESCUENTO INFORMATIVO ══ -->
+        <v-card
+          v-if="detailDialog.item.descuento"
+          class="mb-4"
+          variant="tonal"
+          color="orange-darken-2"
+        >
+          <v-card-title class="d-flex align-center gap-2 text-subtitle-2 py-2 px-4">
+            <v-icon size="16">mdi-tag-check</v-icon>
+            Descuento informativo aplicado
+            <v-chip
+              size="x-small" class="ms-2"
+              :color="detailDialog.item.descuento_origen === 'dateo' ? 'blue' : 'purple'"
+              variant="flat"
+            >
+              {{ detailDialog.item.descuento_origen === 'dateo' ? 'Pre-marcado' : 'En caja' }}
+            </v-chip>
+          </v-card-title>
+          <v-card-text class="py-2 px-4">
             <v-row dense>
-              <v-col cols="12" md="6">
-                <strong>Generado:</strong>
-                <div>{{ formatDate(detailDialog.item.generado_at) }}</div>
-              </v-col>
-              <v-col cols="12" md="6">
-                <strong>Asesor:</strong>
-                <div>{{ detailDialog.item.asesor?.nombre || '—' }}</div>
-                <div class="text-caption text-medium-emphasis">
-                  Dateo: <strong>{{ formatCOP(Number(detailDialog.item.monto_asesor ?? detailDialog.item.valor_unitario ?? 0)) }}</strong>
-                </div>
-              </v-col>
-              <v-col cols="12" md="6">
-                <strong>Convenio:</strong>
-                <div>{{ detailDialog.item.convenio?.nombre || '—' }}</div>
-                <div v-if="Number(detailDialog.item.monto_convenio ?? detailDialog.item.valor_cliente ?? 0) > 0" class="text-caption text-medium-emphasis">
-                  Incentivo: <strong>{{ formatCOP(Number(detailDialog.item.monto_convenio ?? detailDialog.item.valor_cliente ?? 0)) }}</strong>
-                </div>
-              </v-col>
-              <v-col cols="12" md="6">
-                <strong>Turno:</strong>
-                <div>#{{ detailDialog.item.turno?.numero_global || detailDialog.item.turno?.id || '—' }}</div>
-                <div class="text-caption text-medium-emphasis">
-                  Placa: {{ detailDialog.item.turno?.placa || '—' }}
-                  · {{ detailDialog.item.turno?.servicio?.nombre || '—' }}
-                </div>
-              </v-col>
-
-              <v-col cols="12" class="mt-2"><v-divider /></v-col>
-
               <v-col cols="12" md="4">
-                <strong>Tipo vehículo:</strong>
-                <div>{{ detailDialog.item.tipo_vehiculo === 'MOTO' ? '🏍️ Moto' : detailDialog.item.tipo_vehiculo === 'VEHICULO' ? '🚗 Vehículo' : '—' }}</div>
+                <strong>Descuento:</strong>
+                {{ detailDialog.item.descuento.nombre }}
+                <span class="text-caption">({{ detailDialog.item.descuento.codigo }})</span>
               </v-col>
-              <v-col cols="12" md="4">
-                <strong>Valor dateo (asesor):</strong>
-                <div>{{ formatCOP(Number(detailDialog.item.monto_asesor ?? detailDialog.item.valor_unitario ?? 0)) }}</div>
+              <v-col cols="12" md="4" v-if="detailDialog.item.descuento_aplicado_at">
+                <strong>Aplicado el:</strong><br />
+                {{ formatDate(detailDialog.item.descuento_aplicado_at) }}
               </v-col>
-              <v-col cols="12" md="4">
-                <strong>Incentivo (convenio):</strong>
-                <div>{{ formatCOP(Number(detailDialog.item.monto_convenio ?? detailDialog.item.valor_cliente ?? 0)) }}</div>
-              </v-col>
-
-              <v-col cols="12" class="mt-2"><v-divider /></v-col>
-              <v-col cols="12" class="text-right">
-                <strong>Total comisión:</strong>
-                <div class="text-h6">{{ formatCOP(calcTotalDetalle(detailDialog.item)) }}</div>
+              <v-col cols="12" md="4" v-if="detailDialog.item.descuento_aplicado_por">
+                <strong>Confirmado por:</strong><br />
+                {{ detailDialog.item.descuento_aplicado_por.nombre }}
               </v-col>
             </v-row>
-          </template>
-        </v-card-text>
+            <template v-if="detailDialog.item.es_avance">
+              <v-divider class="my-2" />
+              <div class="text-caption text-medium-emphasis">
+                <strong>🏷️ AVANCE:</strong>
+                Incentivo base: <strong>{{ formatCOP(Number(detailDialog.item.base ?? 0)) }}</strong>
+                − Avance cobrado: <strong style="color:#e53935">{{ formatCOP(Number(detailDialog.item.descuento_monto_aplicado ?? 0)) }}</strong>
+                = Incentivo final: <strong>{{ formatCOP(Number(detailDialog.item.monto_convenio ?? 0)) }}</strong>
+              </div>
+            </template>
+          </v-card-text>
+        </v-card>
 
-        <v-card-actions>
-          <v-spacer />
-          <v-btn variant="text" @click="detailDialog.visible = false">Cerrar</v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
+        <!-- ══ SECCIÓN: RESUMEN FINANCIERO ══ -->
+        <div class="text-caption font-weight-bold text-medium-emphasis mb-2 d-flex align-center gap-1">
+          <v-icon size="14" color="green">mdi-cash-multiple</v-icon>
+          RESUMEN FINANCIERO
+        </div>
+
+        <v-row dense class="mb-2">
+          <v-col cols="12" md="6">
+            <v-card variant="outlined" class="rounded-lg pa-3">
+              <div class="text-caption text-medium-emphasis">Asesor</div>
+              <div class="font-weight-medium">{{ detailDialog.item.asesor?.nombre || '—' }}</div>
+              <div class="text-caption text-medium-emphasis mt-1">Tipo: {{ detailDialog.item.asesor?.tipo || '—' }}</div>
+              <v-divider class="my-2" />
+              <div class="d-flex justify-space-between align-center">
+                <span class="text-caption text-medium-emphasis">💼 Dateo</span>
+                <strong>{{ formatCOP(Number(detailDialog.item.monto_asesor ?? detailDialog.item.valor_unitario ?? 0)) }}</strong>
+              </div>
+            </v-card>
+          </v-col>
+
+          <v-col cols="12" md="6">
+            <v-card variant="outlined" class="rounded-lg pa-3" :class="{ 'border-opacity-0 bg-grey-lighten-4': !detailDialog.item.convenio }">
+              <div class="text-caption text-medium-emphasis">Convenio</div>
+              <div class="font-weight-medium">{{ detailDialog.item.convenio?.nombre || '—' }}</div>
+              <div class="text-caption text-medium-emphasis mt-1">
+                Turno #{{ detailDialog.item.turno?.numero_global || detailDialog.item.turno?.id || '—' }}
+                · Placa: {{ detailDialog.item.turno?.placa || '—' }}
+              </div>
+              <v-divider class="my-2" />
+              <div class="d-flex justify-space-between align-center">
+                <span class="text-caption text-medium-emphasis">🏢 Incentivo</span>
+                <strong>{{ formatCOP(Number(detailDialog.item.monto_convenio ?? detailDialog.item.valor_cliente ?? 0)) }}</strong>
+              </div>
+            </v-card>
+          </v-col>
+
+          <v-col cols="12">
+            <v-card color="success" variant="tonal" class="rounded-lg pa-3">
+              <div class="d-flex justify-space-between align-center">
+                <div>
+                  <div class="text-caption text-medium-emphasis">Total comisión</div>
+                  <div class="text-caption text-medium-emphasis">
+                    Generado: {{ formatDate(detailDialog.item.generado_at) }}
+                  </div>
+                </div>
+                <div class="text-h5 font-weight-bold text-success">
+                  {{ formatCOP(calcTotalDetalle(detailDialog.item)) }}
+                </div>
+              </div>
+            </v-card>
+          </v-col>
+        </v-row>
+<!-- ══ SECCIÓN: HISTORIAL DE VISITAS ══ -->
+<div class="mb-4">
+  <div class="text-caption font-weight-bold text-medium-emphasis mb-2 d-flex align-center gap-1">
+    <v-icon size="14" color="indigo">mdi-history</v-icon>
+    HISTORIAL DE VISITAS
+  </div>
+
+  <v-skeleton-loader v-if="detailDialog.clienteLoading" type="list-item-two-line" />
+
+  <template v-else-if="detailDialog.clienteData">
+    <v-table density="compact" class="rounded-lg" style="border:1px solid rgba(0,0,0,0.12)">
+      <thead>
+        <tr>
+          <th>Fecha</th>
+          <th>Placa</th>
+          <th>Servicio</th>
+          <th>Estado</th>
+          <th>Rep General</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr
+          v-for="v in (detailDialog.clienteData as any).visitas_recientes"
+          :key="v.id"
+        >
+          <td class="text-caption">{{ v.fecha ? formatDate(v.fecha) : '—' }}</td>
+          <td class="text-caption font-weight-medium">{{ v.placa ?? '—' }}</td>
+          <td class="text-caption">{{ v.servicioNombre ?? 'RTM' }}</td>
+          <td>
+            <v-chip
+              size="x-small"
+              :color="v.estado === 'finalizado' ? 'success' : 'warning'"
+              variant="flat"
+            >
+              {{ v.estado }}
+            </v-chip>
+          </td>
+          <td>
+            <v-chip
+              v-if="v.rep_general_verificado"
+              size="x-small" color="success" variant="tonal"
+            >
+              ✅ Verificado
+            </v-chip>
+            <v-chip v-else size="x-small" color="warning" variant="tonal">
+              ⏳ Sin Rep
+            </v-chip>
+          </td>
+        </tr>
+        <tr v-if="!(detailDialog.clienteData as any).visitas_recientes?.length">
+          <td colspan="5" class="text-center text-medium-emphasis py-3 text-caption">
+            Sin visitas registradas
+          </td>
+        </tr>
+      </tbody>
+    </v-table>
+  </template>
+
+ <v-alert v-else type="info" variant="tonal" density="compact" class="text-caption">
+    Sin historial disponible para esta placa.
+  </v-alert>
+</div>
+        </template>
+      </v-card-text>
+
+      <v-card-actions>
+        <v-spacer />
+        <v-btn variant="text" @click="detailDialog.visible = false">Cerrar</v-btn>
+      </v-card-actions>
+    </v-card>
+  </v-dialog>
 
     <!-- ══════════════════════════════════════════════════════════
-         DIÁLOGO: Vista previa del comprobante
-    ══════════════════════════════════════════════════════════ -->
+     DIÁLOGO: Vista previa del comprobante
+══════════════════════════════════════════════════════════ -->
     <v-dialog v-model="printDialog.visible" max-width="880" scrollable>
       <v-card>
         <v-card-title class="d-flex align-center justify-space-between py-4 px-6">
@@ -799,10 +1003,658 @@
         </v-card-actions>
       </v-card>
     </v-dialog>
+<!-- Diálogo editar comisión -->
+   <!-- Diálogo editar comisión -->
+    <v-dialog v-model="editDialog.visible" max-width="760">
+      <v-card v-if="editDialog.item">
 
-  </v-container>
+        <!-- ── Cabecera ── -->
+        <v-card-title class="d-flex align-center gap-2 py-3 px-5">
+          <v-icon color="primary" size="20">mdi-pencil-box</v-icon>
+          <span class="text-subtitle-1 font-weight-bold">
+            Editar comisión #{{ editDialog.item.id }}
+          </span>
+          <v-spacer />
+          <v-chip :color="estadoColor(editDialog.item.estado)" size="small" variant="flat">
+            {{ editDialog.item.estado }}
+          </v-chip>
+        </v-card-title>
+
+        <!-- ── Strip de datos actuales (solo lectura) ── -->
+        <div class="px-5 pb-3 pt-0">
+          <v-card variant="tonal" color="grey" class="rounded-lg px-4 py-2">
+            <div class="d-flex flex-wrap align-center gap-3 text-caption">
+              <v-chip
+                size="x-small"
+                :color="editDialog.item.tipo_vehiculo === 'MOTO' ? 'deep-purple' : 'teal'"
+                variant="tonal"
+                :prepend-icon="editDialog.item.tipo_vehiculo === 'MOTO' ? 'mdi-motorbike' : 'mdi-car'"
+              >
+                {{ editDialog.item.tipo_vehiculo === 'MOTO' ? 'Moto' : 'Vehículo' }}
+              </v-chip>
+              <span class="font-weight-medium">
+                {{ editDialog.item.turno?.placa || '—' }}
+              </span>
+              <span class="text-medium-emphasis">
+                Turno #{{ editDialog.item.turno?.numero_global || editDialog.item.turno?.id || '—' }}
+              </span>
+              <span class="text-medium-emphasis">
+                {{ editDialog.item.turno?.servicio?.nombre || editDialog.item.turno?.servicio?.codigo || '—' }}
+              </span>
+              <v-spacer />
+              <span class="text-medium-emphasis">
+                {{ formatDate(editDialog.item.generado_at) }}
+              </span>
+            </div>
+          </v-card>
+        </div>
+
+        <v-divider />
+
+        <v-card-text class="px-5 py-4">
+          <v-row dense>
+
+            <!-- ── Fila 1: Tipo cliente ── -->
+            <v-col cols="12">
+              <div class="text-caption text-medium-emphasis mb-1 font-weight-medium">
+                TIPO DE CLIENTE
+              </div>
+              <v-btn-toggle
+                v-model="editDialog.form.tipoCliente"
+                mandatory rounded="lg" divided
+                style="width:100%"
+                density="compact"
+              >
+                <v-btn value="NUEVO" style="flex:1" size="small">
+                  🆕 Nuevo
+                </v-btn>
+                <v-btn value="RECURRENTE" style="flex:1" size="small">
+                  🔄 Recurrente
+                </v-btn>
+                <v-btn value="RECUPERACION" style="flex:1" size="small">
+                  💛 Recuperación
+                </v-btn>
+              </v-btn-toggle>
+            </v-col>
+
+            <!-- ── Fila 2: Tipo asesor ── -->
+            <v-col cols="12" class="mt-3">
+              <div class="text-caption text-medium-emphasis mb-1 font-weight-medium">
+                TIPO DE ASESOR
+              </div>
+              <v-btn-toggle
+                v-model="editDialog.form.tipoAsesor"
+                rounded="lg" divided
+                style="width:100%"
+                density="compact"
+                @update:model-value="onTipoAsesorChange"
+              >
+                <v-btn value="" style="flex:1" size="small">
+                  Sin asesor
+                </v-btn>
+                <v-btn value="COMERCIAL" style="flex:1" size="small">
+                  <v-icon start size="13">mdi-account-tie</v-icon>
+                  Comercial
+                </v-btn>
+                <v-btn value="CONVENIO" style="flex:1" size="small">
+                  <v-icon start size="13">mdi-handshake</v-icon>
+                  Convenio
+                </v-btn>
+              </v-btn-toggle>
+            </v-col>
+
+            <!-- ── Fila 3: Asesor + Convenio ── -->
+            <v-col
+              cols="12"
+              :md="editDialog.form.tipoAsesor === 'COMERCIAL' ? 6 : 12"
+              v-if="editDialog.form.tipoAsesor"
+              class="mt-1"
+            >
+              <v-autocomplete
+                v-if="editDialog.form.tipoAsesor === 'COMERCIAL'"
+                v-model="editDialog.form.asesorId"
+                :items="asesoresComerciales2"
+                item-title="nombre" item-value="id"
+                label="Asesor comercial"
+                density="compact" variant="outlined" clearable
+                :loading="asesoresLoading"
+                prepend-inner-icon="mdi-account-tie"
+                @update:model-value="onAsesorEditChange"
+              />
+              <v-autocomplete
+                v-else-if="editDialog.form.tipoAsesor === 'CONVENIO'"
+                v-model="editDialog.form.asesorId"
+                :items="asesoresConvenio2"
+                item-title="nombre" item-value="id"
+                label="Asesor convenio"
+                density="compact" variant="outlined" clearable
+                :loading="asesoresLoading"
+                prepend-inner-icon="mdi-handshake"
+                @update:model-value="onAsesorEditChange"
+              />
+            </v-col>
+
+            <!-- Convenio del comercial -->
+            <v-col cols="12" md="6"
+              v-if="editDialog.form.tipoAsesor === 'COMERCIAL'"
+              class="mt-1"
+            >
+              <v-autocomplete
+                v-model="editDialog.form.convenioId"
+                :items="conveniosParaEdicion"
+                item-title="nombre" item-value="id"
+                label="Convenio (opcional)"
+                density="compact" variant="outlined" clearable
+                :loading="conveniosEditLoading"
+                prepend-inner-icon="mdi-handshake"
+                :disabled="!editDialog.form.asesorId"
+                :hint="!editDialog.form.asesorId
+                  ? 'Selecciona primero el asesor'
+                  : conveniosParaEdicion.length === 0
+                  ? 'Sin convenios asignados'
+                  : ''"
+                persistent-hint
+              />
+            </v-col>
+
+            <!-- Info convenio automático para CONVENIO -->
+            <v-col cols="12" v-if="editDialog.form.tipoAsesor === 'CONVENIO'" class="mt-0">
+              <v-alert type="info" variant="tonal" density="compact" class="text-caption py-1">
+                El convenio se asigna automáticamente por el nombre del asesor.
+              </v-alert>
+            </v-col>
+
+            <!-- ── Fila 4: Dateo + Incentivo + Total ── -->
+            <v-col cols="12" class="mt-2">
+              <div class="text-caption text-medium-emphasis mb-1 font-weight-medium">
+                VALORES
+              </div>
+            </v-col>
+            <v-col cols="5">
+              <v-text-field
+                v-model="editDialog.form.montoAsesor"
+                label="💼 Dateo (asesor)"
+                type="number" min="0"
+                density="compact" variant="outlined" prefix="$"
+              />
+            </v-col>
+            <v-col cols="5">
+              <v-text-field
+                v-model="editDialog.form.montoConvenio"
+                label="🏢 Incentivo (convenio)"
+                type="number" min="0"
+                density="compact" variant="outlined" prefix="$"
+              />
+            </v-col>
+            <v-col cols="2" class="d-flex align-center justify-center">
+              <div class="text-center">
+                <div class="text-caption text-medium-emphasis">Total</div>
+                <div class="text-body-2 font-weight-bold text-primary">
+                  {{ formatCOP(
+                    (Number(editDialog.form.montoAsesor) || 0) +
+                    (Number(editDialog.form.montoConvenio) || 0)
+                  ) }}
+                </div>
+              </div>
+            </v-col>
+
+            <!-- ── Fila 5: Descuento ── -->
+            <v-col cols="12" class="mt-1">
+              <v-autocomplete
+                v-model="editDialog.form.descuentoId"
+                :items="allDescuentos"
+                item-title="nombre" item-value="id"
+                label="🏷️ Descuento aplicado"
+                density="compact" variant="outlined"
+                clearable :loading="descuentosLoading"
+                prepend-inner-icon="mdi-tag-text"
+                hint="Dejar vacío para quitar el descuento"
+                persistent-hint
+              >
+                <template #item="{ props, item }">
+                  <v-list-item v-bind="props">
+                    <template #append>
+                      <v-chip size="x-small" variant="tonal" color="orange">
+                        {{ item.raw.codigo }}
+                      </v-chip>
+                    </template>
+                  </v-list-item>
+                </template>
+                <template #selection="{ item }">
+                  {{ item.raw.nombre }}
+                  <v-chip size="x-small" class="ml-2" variant="tonal" color="orange">
+                    {{ item.raw.codigo }}
+                  </v-chip>
+                </template>
+              </v-autocomplete>
+              <v-alert
+                v-if="editDialog.item.descuento && !editDialog.form.descuentoId"
+                type="warning" variant="tonal" density="compact" class="mt-1 text-caption"
+              >
+                Se eliminará el descuento
+                <strong>{{ editDialog.item.descuento.nombre }}</strong>.
+              </v-alert>
+            </v-col>
+
+            <!-- ── Fila 6: Observación ── -->
+            <v-col cols="12" class="mt-1">
+              <div class="d-flex align-center gap-2 mb-1">
+                <div class="text-caption text-medium-emphasis font-weight-medium">
+                  OBSERVACIÓN DEL DATEO
+                </div>
+                <v-tooltip
+                  v-if="editDialog.observacionOriginal"
+                  location="top" max-width="280"
+                >
+                  <template #activator="{ props }">
+                    <v-icon
+                      v-bind="props" size="15" style="cursor:pointer"
+                      :color="editDialog.form.observacionDateo !== editDialog.observacionOriginal
+                        ? 'warning' : 'primary'"
+                    >mdi-eye</v-icon>
+                  </template>
+                  <div class="text-caption">
+                    <strong>Original:</strong><br>
+                    {{ editDialog.observacionOriginal }}
+                    <div
+                      v-if="editDialog.form.observacionDateo !== editDialog.observacionOriginal"
+                      class="mt-1"
+                    >
+                      ⚠️ Modificado.
+                    </div>
+                  </div>
+                </v-tooltip>
+                <v-chip v-else size="x-small" variant="tonal" color="grey">
+                  Sin observación
+                </v-chip>
+              </div>
+              <v-textarea
+                v-model="editDialog.form.observacionDateo"
+                :placeholder="editDialog.observacionOriginal || 'Escribe una observación...'"
+                variant="outlined" density="compact" rows="2"
+                prepend-inner-icon="mdi-note-text" clearable
+                hide-details
+              />
+            </v-col>
+
+          </v-row>
+        </v-card-text>
+
+        <v-divider />
+
+        <v-card-actions class="px-5 py-3">
+          <v-btn
+            variant="text" size="small"
+            :disabled="editDialog.loading"
+            @click="editDialog.visible = false"
+          >
+            Cancelar
+          </v-btn>
+          <v-spacer />
+          <v-btn
+            color="primary" variant="elevated" size="small"
+            prepend-icon="mdi-content-save"
+            :loading="editDialog.loading"
+            @click="guardarEdicion"
+          >
+            Guardar cambios
+          </v-btn>
+        </v-card-actions>
+
+      </v-card>
+    </v-dialog>
+    <!-- ══ DIÁLOGO: Crear comisión ══ -->
+    <v-dialog v-model="crearDialog.visible" max-width="780" scrollable persistent>
+      <v-card>
+        <v-card-title class="d-flex align-center gap-2 py-3 px-5">
+          <v-icon color="success" size="20">mdi-plus-circle</v-icon>
+          <span class="text-subtitle-1 font-weight-bold">Nueva comisión</span>
+          <v-spacer />
+          <div class="d-flex align-center gap-2 text-caption text-medium-emphasis">
+            <v-chip
+              :color="crearDialog.step === 1 ? 'success' : 'grey'"
+              :variant="crearDialog.step === 1 ? 'flat' : 'outlined'"
+              size="x-small"
+            >1 · Buscar turno</v-chip>
+            <v-icon size="12">mdi-chevron-right</v-icon>
+            <v-chip
+              :color="crearDialog.step === 2 ? 'success' : 'grey'"
+              :variant="crearDialog.step === 2 ? 'flat' : 'outlined'"
+              size="x-small"
+            >2 · Configurar comisión</v-chip>
+          </div>
+        </v-card-title>
+        <v-divider />
+
+        <v-card-text class="px-5 py-4" style="min-height:420px">
+
+          <!-- PASO 1: BUSCAR TURNO -->
+          <template v-if="crearDialog.step === 1">
+            <v-row dense class="mb-3">
+              <v-col cols="12" sm="7">
+                <v-text-field
+                  v-model="crearDialog.searchPlaca"
+                  label="Buscar por placa"
+                  variant="outlined" density="compact" clearable
+                  prepend-inner-icon="mdi-magnify" hide-details
+                  placeholder="Ej: ABC123"
+                  @keyup.enter="buscarTurnosPorPlacaCrear"
+                  @click:clear="cargarTurnosHoy"
+                />
+              </v-col>
+              <v-col cols="6" sm="3">
+                <v-btn block color="primary" variant="elevated" density="comfortable"
+                  prepend-icon="mdi-magnify" :loading="crearDialog.searchLoading"
+                  @click="buscarTurnosPorPlacaCrear">
+                  Buscar
+                </v-btn>
+              </v-col>
+              <v-col cols="6" sm="2">
+                <v-btn block variant="outlined" density="comfortable"
+                  prepend-icon="mdi-calendar-today" :loading="crearDialog.searchLoading"
+                  @click="crearDialog.searchPlaca = ''; cargarTurnosHoy()">
+                  Hoy
+                </v-btn>
+              </v-col>
+            </v-row>
+
+            <div class="text-caption text-medium-emphasis mb-2">
+              <v-icon size="13" class="mr-1">mdi-information-outline</v-icon>
+              {{ crearDialog.searchPlaca
+                  ? `Resultados para placa "${crearDialog.searchPlaca}"`
+                  : 'Turnos de hoy — haz clic en Seleccionar para continuar' }}
+            </div>
+
+            <v-skeleton-loader
+              v-if="crearDialog.searchLoading"
+              type="table-row-divider,table-row-divider,table-row-divider"
+            />
+
+            <template v-else>
+              <v-alert v-if="crearDialog.searchResults.length === 0"
+                type="info" variant="tonal" density="compact" class="text-caption">
+                No se encontraron turnos. Prueba buscando por placa o cambia la fecha.
+              </v-alert>
+
+              <v-table v-else density="compact" class="rounded-lg"
+                style="border:1px solid rgba(0,0,0,0.12)">
+                <thead>
+                  <tr>
+                    <th># Turno</th>
+                    <th>Placa</th>
+                    <th>Tipo</th>
+                    <th>Servicio</th>
+                    <th>Fecha</th>
+                    <th>Estado</th>
+                    <th>Dateo</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr
+                    v-for="t in crearDialog.searchResults"
+                    :key="t.id"
+                    style="cursor:pointer"
+                    :style="crearDialog.turnoSeleccionado?.id === t.id
+                      ? 'background:rgba(76,175,80,0.08)' : ''"
+                  >
+                    <td class="text-caption font-weight-medium">
+                      #{{ (t as any).turnoNumero ?? (t as any).turno_numero ?? t.id }}
+                    </td>
+                    <td class="text-caption font-weight-bold">{{ t.placa }}</td>
+                    <td>
+                      <v-chip size="x-small"
+                        :color="turnoTipoVehiculoColor((t as any).tipoVehiculo ?? (t as any).tipo_vehiculo ?? '')"
+                        variant="tonal"
+                        :prepend-icon="turnoTipoVehiculoIcon((t as any).tipoVehiculo ?? (t as any).tipo_vehiculo ?? '')">
+                        {{ turnoTipoVehiculoLabel((t as any).tipoVehiculo ?? (t as any).tipo_vehiculo ?? '') }}
+                      </v-chip>
+                    </td>
+                    <td class="text-caption">
+                      {{ (t.servicio as any)?.codigoServicio ?? (t.servicio as any)?.codigo_servicio ?? '—' }}
+                    </td>
+                    <td class="text-caption">{{ t.fecha ? String(t.fecha).substring(0,10) : '—' }}</td>
+                    <td>
+                      <v-chip size="x-small"
+                        :color="t.estado === 'finalizado' ? 'success' : t.estado === 'activo' ? 'info' : 'grey'"
+                        variant="flat">
+                        {{ t.estado }}
+                      </v-chip>
+                    </td>
+                    <td>
+                      <v-icon size="16"
+                        :color="(t as any).captacionDateoId || (t as any).captacion_dateo_id ? 'success' : 'grey'">
+                        {{ (t as any).captacionDateoId || (t as any).captacion_dateo_id
+                            ? 'mdi-check-circle' : 'mdi-circle-outline' }}
+                      </v-icon>
+                    </td>
+                    <td>
+                      <v-btn size="x-small" color="success" variant="tonal"
+                        @click.stop="seleccionarTurnoParaComision(t)">
+                        Seleccionar
+                      </v-btn>
+                    </td>
+                  </tr>
+                </tbody>
+              </v-table>
+            </template>
+          </template>
+
+          <!-- PASO 2: CONFIGURAR COMISIÓN -->
+          <template v-else-if="crearDialog.step === 2 && crearDialog.turnoSeleccionado">
+
+            <v-card variant="tonal" color="success" class="rounded-lg px-4 py-2 mb-4">
+              <div class="d-flex align-center flex-wrap gap-3">
+                <v-btn size="x-small" variant="text" icon="mdi-arrow-left"
+                  @click="volverABuscarTurno" />
+                <v-chip size="x-small"
+                  :color="turnoTipoVehiculoColor(
+                    (crearDialog.turnoSeleccionado as any).tipoVehiculo
+                    ?? (crearDialog.turnoSeleccionado as any).tipo_vehiculo ?? '')"
+                  variant="tonal"
+                  :prepend-icon="turnoTipoVehiculoIcon(
+                    (crearDialog.turnoSeleccionado as any).tipoVehiculo
+                    ?? (crearDialog.turnoSeleccionado as any).tipo_vehiculo ?? '')">
+                  {{ turnoTipoVehiculoLabel(
+                    (crearDialog.turnoSeleccionado as any).tipoVehiculo
+                    ?? (crearDialog.turnoSeleccionado as any).tipo_vehiculo ?? '') }}
+                </v-chip>
+                <span class="font-weight-bold text-caption">
+                  {{ crearDialog.turnoSeleccionado.placa }}
+                </span>
+                <span class="text-caption text-medium-emphasis">
+                  Turno #{{
+                    (crearDialog.turnoSeleccionado as any).turnoNumero
+                    ?? (crearDialog.turnoSeleccionado as any).turno_numero
+                    ?? crearDialog.turnoSeleccionado.id
+                  }}
+                </span>
+                <span class="text-caption text-medium-emphasis">
+                  {{ (crearDialog.turnoSeleccionado.servicio as any)?.codigoServicio
+                    ?? (crearDialog.turnoSeleccionado.servicio as any)?.codigo_servicio
+                    ?? '—' }}
+                </span>
+                <v-chip size="x-small" color="success" variant="flat">Seleccionado ✓</v-chip>
+              </div>
+            </v-card>
+
+            <v-row dense>
+
+              <v-col cols="12">
+                <div class="text-caption text-medium-emphasis mb-1 font-weight-medium">TIPO DE CLIENTE</div>
+                <v-btn-toggle v-model="crearDialog.form.tipoCliente"
+                  mandatory rounded="lg" divided style="width:100%" density="compact">
+                  <v-btn value="NUEVO" style="flex:1" size="small">🆕 Nuevo</v-btn>
+                  <v-btn value="RECURRENTE" style="flex:1" size="small">🔄 Recurrente</v-btn>
+                  <v-btn value="RECUPERACION" style="flex:1" size="small">💛 Recuperación</v-btn>
+                </v-btn-toggle>
+              </v-col>
+
+              <v-col cols="12" class="mt-3">
+                <div class="text-caption text-medium-emphasis mb-1 font-weight-medium">TIPO DE ASESOR</div>
+                <v-btn-toggle v-model="crearDialog.form.tipoAsesor"
+                  rounded="lg" divided style="width:100%" density="compact"
+                  @update:model-value="onTipoAsesorCrearChange">
+                  <v-btn value="" style="flex:1" size="small">Sin asesor</v-btn>
+                  <v-btn value="COMERCIAL" style="flex:1" size="small">
+                    <v-icon start size="13">mdi-account-tie</v-icon>Comercial
+                  </v-btn>
+                  <v-btn value="CONVENIO" style="flex:1" size="small">
+                    <v-icon start size="13">mdi-handshake</v-icon>Convenio
+                  </v-btn>
+                </v-btn-toggle>
+              </v-col>
+
+              <v-col cols="12"
+                :md="crearDialog.form.tipoAsesor === 'COMERCIAL' ? 6 : 12"
+                v-if="crearDialog.form.tipoAsesor"
+                class="mt-1">
+                <v-autocomplete
+                  v-if="crearDialog.form.tipoAsesor === 'COMERCIAL'"
+                  v-model="crearDialog.form.asesorId"
+                  :items="asesoresComerciales3" item-title="nombre" item-value="id"
+                  label="Asesor comercial" density="compact" variant="outlined" clearable
+                  :loading="asesoresLoading" prepend-inner-icon="mdi-account-tie"
+                  @update:model-value="onAsesorCrearChange"
+                />
+                <v-autocomplete
+                  v-else-if="crearDialog.form.tipoAsesor === 'CONVENIO'"
+                  v-model="crearDialog.form.asesorId"
+                  :items="asesoresConvenio3" item-title="nombre" item-value="id"
+                  label="Asesor convenio" density="compact" variant="outlined" clearable
+                  :loading="asesoresLoading" prepend-inner-icon="mdi-handshake"
+                />
+              </v-col>
+
+              <v-col cols="12" md="6"
+                v-if="crearDialog.form.tipoAsesor === 'COMERCIAL'"
+                class="mt-1">
+                <v-autocomplete
+                  v-model="crearDialog.form.convenioId"
+                  :items="crearDialog.conveniosParaCrear"
+                  item-title="nombre" item-value="id"
+                  label="Convenio (opcional)"
+                  density="compact" variant="outlined" clearable
+                  :loading="crearDialog.conveniosCrearLoading"
+                  prepend-inner-icon="mdi-handshake"
+                  :disabled="!crearDialog.form.asesorId"
+                  :placeholder="!crearDialog.form.asesorId
+                    ? 'Selecciona primero el asesor'
+                    : crearDialog.conveniosParaCrear.length === 0
+                    ? 'Sin convenios asignados'
+                    : 'Todos sus convenios'"
+                />
+              </v-col>
+
+              <v-col cols="12" class="mt-2">
+                <div class="text-caption text-medium-emphasis mb-1 font-weight-medium">VALORES</div>
+              </v-col>
+              <v-col cols="5">
+                <v-text-field
+                  v-model="crearDialog.form.montoAsesor"
+                  label="💼 Dateo (asesor)"
+                  type="number" min="0"
+                  density="compact" variant="outlined" prefix="$"
+                />
+              </v-col>
+              <v-col cols="5">
+                <v-text-field
+                  v-model="crearDialog.form.montoConvenio"
+                  label="🏢 Incentivo (convenio)"
+                  type="number" min="0"
+                  density="compact" variant="outlined" prefix="$"
+                />
+              </v-col>
+              <v-col cols="2" class="d-flex align-center justify-center">
+                <div class="text-center">
+                  <div class="text-caption text-medium-emphasis">Total</div>
+                  <div class="text-body-2 font-weight-bold text-primary">
+                    {{ formatCOP(
+                      (Number(crearDialog.form.montoAsesor) || 0) +
+                      (Number(crearDialog.form.montoConvenio) || 0)
+                    ) }}
+                  </div>
+                </div>
+              </v-col>
+
+              <v-col cols="12" class="mt-0 pt-0">
+                <v-checkbox
+                  v-model="crearDialog.form.esAvance"
+                  label="🏷️ Es avance (incentivo cobrado como descuento en factura)"
+                  density="compact" hide-details color="purple"
+                />
+              </v-col>
+
+              <v-col cols="12" class="mt-1">
+                <v-autocomplete
+                  v-model="crearDialog.form.descuentoId"
+                  :items="allDescuentos" item-title="nombre" item-value="id"
+                  label="🏷️ Descuento aplicado (opcional)"
+                  density="compact" variant="outlined" clearable
+                  :loading="descuentosLoading"
+                  prepend-inner-icon="mdi-tag-text" hide-details
+                >
+                  <template #item="{ props, item }">
+                    <v-list-item v-bind="props">
+                      <template #append>
+                        <v-chip size="x-small" variant="tonal" color="orange">
+                          {{ item.raw.codigo }}
+                        </v-chip>
+                      </template>
+                    </v-list-item>
+                  </template>
+                  <template #selection="{ item }">
+                    {{ item.raw.nombre }}
+                    <v-chip size="x-small" class="ml-2" variant="tonal" color="orange">
+                      {{ item.raw.codigo }}
+                    </v-chip>
+                  </template>
+                </v-autocomplete>
+              </v-col>
+
+              <v-col cols="12" class="mt-2">
+                <v-textarea
+                  v-model="crearDialog.form.observacionDateo"
+                  label="Observación del dateo (opcional)"
+                  variant="outlined" density="compact" rows="2"
+                  prepend-inner-icon="mdi-note-text" clearable hide-details
+                  placeholder="Escribe una observación..."
+                />
+              </v-col>
+
+            </v-row>
+          </template>
+
+        </v-card-text>
+
+        <v-divider />
+        <v-card-actions class="px-5 py-3">
+          <v-btn variant="text" size="small" :disabled="crearDialog.loading"
+            @click="crearDialog.visible = false">
+            Cancelar
+          </v-btn>
+          <v-btn v-if="crearDialog.step === 2" variant="text" size="small"
+            :disabled="crearDialog.loading" prepend-icon="mdi-arrow-left"
+            @click="volverABuscarTurno">
+            Volver
+          </v-btn>
+          <v-spacer />
+          <v-btn
+            v-if="crearDialog.step === 2"
+            color="success" variant="elevated" size="small"
+            prepend-icon="mdi-content-save"
+            :loading="crearDialog.loading"
+            :disabled="!crearDialog.turnoSeleccionado"
+            @click="guardarCreacion"
+          >
+            Crear comisión
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+</v-container>
 </template>
-
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 import {
@@ -811,19 +1663,25 @@ import {
   aprobarComision,
   pagarComision,
   anularComision,
+  patchComisionEditar,
+  listConveniosDeAsesor,
   listAgentesCaptacion,
   listConvenios,
   listDescuentos,
   formatCOP,
   listMetasMensuales,
+  buscarTurnosParaComision,
+  createComision,
   type ComisionListItem,
   type ComisionDetail,
   type ComisionEstado,
   type MetaMensualRow,
   type TurnoLight,
   type ConvenioItem,
+  type TurnoParaComision,
 } from '@/services/comisionesService'
 import { createComprobantes, type ComprobantePago as ComprobantePagoDto } from '@/services/comprobantesService'
+import { ClientesService, type ClienteDetalle } from '@/services/clientes_service'
 
 /* ── Extended types ── */
 interface ComisionListItemExtended extends ComisionListItem {
@@ -887,6 +1745,8 @@ const filters = ref<{
   estado: ComisionEstado | ''
   tipoVehiculo: 'MOTO' | 'VEHICULO' | ''
   descuentoCodigo: string
+  tipoAsesor: '' | 'COMERCIAL' | 'CONVENIO'
+  placa: string
 }>({
   desde: '',
   hasta: '',
@@ -895,6 +1755,8 @@ const filters = ref<{
   estado: '',
   tipoVehiculo: '',
   descuentoCodigo: '',
+  tipoAsesor: '',
+  placa: '',
 })
 
 const activeFiltersCount = computed(() =>
@@ -910,6 +1772,7 @@ const headers = [
   { title: 'Vehículo', key: 'tipo_vehiculo', sortable: false },
   { title: 'Tipo cliente', key: 'tipo_cliente', sortable: false },
   { title: 'Turno', key: 'turno', sortable: false },
+{ title: 'Placa', key: 'placa', sortable: false },
   { title: 'Asesor', key: 'asesor', sortable: false },
   { title: 'Convenio', key: 'convenio', sortable: false },
   { title: 'Descuento', key: 'descuento', sortable: false },
@@ -917,6 +1780,7 @@ const headers = [
   { title: 'Incentivo (convenio)', key: 'valor_cliente', sortable: false },
   { title: 'Total', key: 'valor_total', sortable: true },
   { title: 'Fecha', key: 'generado_at', sortable: true },
+  { title: 'Rep General', key: 'rep_general', sortable: false },
   { title: 'Acciones', key: 'acciones', sortable: false, align: 'end' as const },
 ]
 
@@ -971,12 +1835,39 @@ const conveniosLoading = ref(false)
 const allAsesores = ref<{ id: number; nombre: string; tipo: string; medioPago?: string | null; telefono?: string | null }[]>([])
 const conveniosItems = ref<ConvenioItem[]>([])
 
-const asesoresComerciales = computed(() =>
-  allAsesores.value.filter((a) => a.tipo?.toUpperCase() !== 'CONVENIO')
-)
+
+
+const agentesVisiblesFiltro = computed(() => {
+  const tipo = filters.value.tipoAsesor
+  if (!tipo) return allAsesores.value
+  return allAsesores.value.filter((a) => {
+    const u = (a.tipo ?? '').toUpperCase()
+    if (tipo === 'COMERCIAL') return !u.includes('CONVENIO')
+    if (tipo === 'CONVENIO') return u.includes('CONVENIO')
+    return true
+  })
+})
+
+const conveniosFiltroComercial = ref<{ id: number; nombre: string }[]>([])
+const conveniosFiltroLoading = ref(false)
+
+async function onFiltroAsesorChange(asesorId: number | null) {
+  filters.value.convenioId = null
+  conveniosFiltroComercial.value = []
+  if (!asesorId || filters.value.tipoAsesor !== 'COMERCIAL') return
+  conveniosFiltroLoading.value = true
+  try {
+    conveniosFiltroComercial.value = await listConveniosDeAsesor(asesorId)
+  } finally {
+    conveniosFiltroLoading.value = false
+  }
+}
 
 const descuentosLoading = ref(false)
 const descuentosItems = ref<{ codigo: string; label: string }[]>([])
+const allDescuentos = ref<{ id: number; codigo: string; nombre: string }[]>([])
+const conveniosAsignadosEdit = ref<{ id: number; nombre: string }[]>([])
+const conveniosEditLoading = ref(false)
 
 const estadoItems = [
   { label: 'Pendiente', value: 'PENDIENTE' },
@@ -1055,12 +1946,7 @@ function tipoClienteColor(turno?: TurnoLight | null): string {
   return 'success'
 }
 
-function tipoClienteIcono(turno?: TurnoLight | null): string {
-  if (!turno) return 'mdi-help-circle'
-  if (turno.es_recuperacion) return 'mdi-account-reactivate'
-  if (turno.es_recurrente) return 'mdi-account-clock'
-  return 'mdi-account-star'
-}
+
 
 function calcTotalItem(item: ComisionListItemExtended): number {
   if (item.monto_asesor != null && item.monto_convenio != null) {
@@ -1096,7 +1982,161 @@ function formatDate(value?: string | null) {
     hour: '2-digit', minute: '2-digit', hour12: true,
   }).format(d)
 }
+/* ── Editar comisión ── */
+const editDialog = ref<{
+  visible: boolean
+  loading: boolean
+  item: ComisionListItemExtended | null
+  observacionOriginal: string
+  form: {
+    tipoAsesor: '' | 'COMERCIAL' | 'CONVENIO'
+    asesorId: number | null
+    convenioId: number | null
+    montoAsesor: string
+    montoConvenio: string
+    tipoCliente: 'NUEVO' | 'RECURRENTE' | 'RECUPERACION'
+    descuentoId: number | null
+    observacionDateo: string
+  }
+}>({
+  visible: false,
+  loading: false,
+  item: null,
+  observacionOriginal: '',
+  form: {
+    tipoAsesor: '',
+    asesorId: null,
+    convenioId: null,
+    montoAsesor: '',
+    montoConvenio: '',
+    tipoCliente: 'NUEVO',
+    descuentoId: null,
+    observacionDateo: '',
+  },
+})
 
+// Asesores comerciales para el select del diálogo
+const asesoresComerciales2 = computed(() =>
+  allAsesores.value.filter(a => {
+    const t = (a.tipo ?? '').toUpperCase()
+    return !t.includes('CONVENIO')
+  })
+)
+
+// Asesores convenio para el select del diálogo
+const asesoresConvenio2 = computed(() =>
+  allAsesores.value.filter(a => {
+    const t = (a.tipo ?? '').toUpperCase()
+    return t.includes('CONVENIO')
+  })
+)
+
+// Convenios disponibles en el diálogo según tipo
+const conveniosParaEdicion = computed(() => {
+  if (editDialog.value.form.tipoAsesor === 'COMERCIAL') return conveniosAsignadosEdit.value
+  if (editDialog.value.form.tipoAsesor === 'CONVENIO') return conveniosItems.value
+  return []
+})
+
+function inferTipoAsesor(item: ComisionListItemExtended): '' | 'COMERCIAL' | 'CONVENIO' {
+  if (!item.asesor) return ''
+  const t = (item.asesor.tipo ?? '').toUpperCase()
+  if (t.includes('CONVENIO')) return 'CONVENIO'
+  return 'COMERCIAL'
+}
+
+function inferTipoCliente(
+  turno?: { es_recurrente?: boolean; es_recuperacion?: boolean } | null
+): 'NUEVO' | 'RECURRENTE' | 'RECUPERACION' {
+  if (turno?.es_recuperacion) return 'RECUPERACION'
+  if (turno?.es_recurrente) return 'RECURRENTE'
+  return 'NUEVO'
+}
+
+async function cargarConveniosDeAsesor(asesorId: number | null) {
+  conveniosAsignadosEdit.value = []
+  if (!asesorId) return
+  conveniosEditLoading.value = true
+  try {
+    conveniosAsignadosEdit.value = await listConveniosDeAsesor(asesorId)
+  } finally {
+    conveniosEditLoading.value = false
+  }
+}
+
+function onTipoAsesorChange() {
+  // Al cambiar tipo, resetear asesor y convenio
+  editDialog.value.form.asesorId = null
+  editDialog.value.form.convenioId = null
+  conveniosAsignadosEdit.value = []
+}
+
+async function onAsesorEditChange(asesorId: number | null) {
+  editDialog.value.form.convenioId = null
+  conveniosAsignadosEdit.value = []
+  if (!asesorId) return
+
+  if (editDialog.value.form.tipoAsesor === 'COMERCIAL') {
+    // Cargar convenios asignados a este comercial
+    await cargarConveniosDeAsesor(asesorId)
+  } else if (editDialog.value.form.tipoAsesor === 'CONVENIO') {
+    // Para asesor convenio el backend asigna el convenio por nombre,
+    // no se muestra al usuario ni se envía desde el frontend
+    editDialog.value.form.convenioId = null
+  }
+}
+
+async function abrirEditar(item: ComisionListItemExtended) {
+  const tipoAsesor = inferTipoAsesor(item)
+  const obsOriginal = (item as any).dateo_observacion ?? ''
+
+  const descuentoActual = item.descuento?.id
+    ?? allDescuentos.value.find(d => d.codigo === item.descuento?.codigo)?.id
+    ?? null
+
+  editDialog.value = {
+    visible: true,
+    loading: false,
+    item,
+    observacionOriginal: obsOriginal,
+    form: {
+      tipoAsesor,
+      asesorId: item.asesor?.id ?? null,
+      convenioId: item.convenio?.id ?? null,
+      montoAsesor: String(item.monto_asesor ?? item.valor_unitario ?? 0),
+      montoConvenio: String(item.monto_convenio ?? item.valor_cliente ?? 0),
+      tipoCliente: inferTipoCliente(item.turno),
+      descuentoId: descuentoActual,
+      observacionDateo: obsOriginal,
+    },
+  }
+
+  // Cargar convenios si es comercial con asesor ya asignado
+  if (tipoAsesor === 'COMERCIAL' && item.asesor?.id) {
+    await cargarConveniosDeAsesor(item.asesor.id)
+  }
+}
+
+async function guardarEdicion() {
+  const { item, form } = editDialog.value
+  if (!item) return
+  editDialog.value.loading = true
+  try {
+    await patchComisionEditar(item.id, {
+      asesor_id: form.asesorId,
+      convenio_id: form.convenioId,
+      monto_asesor: Number(form.montoAsesor) || 0,
+      monto_convenio: Number(form.montoConvenio) || 0,
+      tipo_cliente: form.tipoCliente,
+      descuento_id: form.descuentoId,
+      dateo_observacion: form.observacionDateo.trim() || null,
+    })
+    editDialog.value.visible = false
+    await loadItems()
+  } finally {
+    editDialog.value.loading = false
+  }
+}
 /* ── Carga de datos ── */
 async function loadCatalogos() {
   asesoresLoading.value = true
@@ -1111,6 +2151,7 @@ async function loadCatalogos() {
     allAsesores.value = asesores
     conveniosItems.value = convenios
     descuentosItems.value = descuentos.map((d) => ({ codigo: d.codigo, label: d.nombre }))
+    allDescuentos.value = descuentos.map((d) => ({ id: d.id, codigo: d.codigo, nombre: d.nombre }))
   } finally {
     asesoresLoading.value = false
     conveniosLoading.value = false
@@ -1126,17 +2167,18 @@ async function loadItems() {
       : { key: 'id', order: 'desc' as const }
 
     const res = await listComisiones({
-      page: page.value,
-      perPage: itemsPerPage.value,
-      desde: filters.value.desde || undefined,
-      hasta: filters.value.hasta || undefined,
-      asesorId: filters.value.asesorId || undefined,
-      convenioId: filters.value.convenioId || undefined,
-      estado: filters.value.estado || undefined,
-      tipoVehiculo: (filters.value.tipoVehiculo as 'MOTO' | 'VEHICULO') || undefined,
-      sortBy: sort.key,
-      order: sort.order,
-    })
+  page: page.value,
+  perPage: itemsPerPage.value,
+  desde: filters.value.desde || undefined,
+  hasta: filters.value.hasta || undefined,
+  asesorId: filters.value.asesorId || undefined,
+  convenioId: filters.value.convenioId || undefined,
+  estado: filters.value.estado || undefined,
+  tipoVehiculo: (filters.value.tipoVehiculo as 'MOTO' | 'VEHICULO') || undefined,
+  placa: filters.value.placa || undefined,
+  sortBy: sort.key,
+  order: sort.order,
+})
     rows.value = res.data as ComisionListItemExtended[]
     totalItems.value = res.total
   } catch {
@@ -1185,7 +2227,8 @@ function reload() {
 }
 
 function resetFilters() {
-  filters.value = { desde: '', hasta: '', asesorId: null, convenioId: null, estado: '', tipoVehiculo: '', descuentoCodigo: '' }
+  filters.value = { desde: '', hasta: '', asesorId: null, convenioId: null, estado: '', tipoVehiculo: '', descuentoCodigo: '', tipoAsesor: '', placa: '' }
+  conveniosFiltroComercial.value = []
   selectedIds.value = []
   reload()
 }
@@ -1263,19 +2306,53 @@ function confirmAnular(id: number) {
 }
 
 /* ── Detalle ── */
-const detailDialog = ref<{ visible: boolean; item: ComisionDetailExtended | null; loading: boolean }>({
+const detailDialog = ref<{
+  visible: boolean
+  item: ComisionDetailExtended | null
+  loading: boolean
+  clienteData: ClienteDetalle | null
+  clienteLoading: boolean
+}>({
   visible: false,
   item: null,
   loading: false,
+  clienteData: null,
+  clienteLoading: false,
 })
-
 async function verDetalle(item: ComisionListItem) {
-  detailDialog.value = { visible: true, item: item as ComisionDetailExtended, loading: true }
+  detailDialog.value = {
+    visible: true,
+    item: item as ComisionDetailExtended,
+    loading: true,
+    clienteData: null,
+    clienteLoading: false,
+  }
+
+  // Cargar comisión completa y cliente en paralelo
+  const placa = (item as any).turno?.placa ?? null
+
+  const [full] = await Promise.all([
+    getComision(item.id),
+    placa ? cargarClientePorPlaca(placa) : Promise.resolve(),
+  ])
+
+  detailDialog.value.item = full as ComisionDetailExtended
+  detailDialog.value.loading = false
+}
+
+async function cargarClientePorPlaca(placa: string) {
+  detailDialog.value.clienteLoading = true
   try {
-    const full = await getComision(item.id)
-    detailDialog.value.item = full as ComisionDetailExtended
+    const res = await ClientesService.list({ q: placa, perPage: 1 }) as any
+    const clientes = res?.data ?? res ?? []
+    const cliente = Array.isArray(clientes) ? clientes[0] : null
+    if (cliente?.id) {
+      detailDialog.value.clienteData = await ClientesService.detalle(cliente.id) as ClienteDetalle
+    }
+  } catch {
+    detailDialog.value.clienteData = null
   } finally {
-    detailDialog.value.loading = false
+    detailDialog.value.clienteLoading = false
   }
 }
 
@@ -1676,7 +2753,357 @@ function doPrint() {
   w.document.close()
   w.focus()
 }
+/* ── Justificación del pago ── */
+interface JustificacionPago {
+  icono: string
+  titulo: string
+  color: string
+  descripcion: string
+  lineas: Array<{ label: string; valor: string }>
+}
 
+function buildJustificacion(item: ComisionDetailExtended): JustificacionPago {
+  const turno = item.turno
+  const esRecurrente = turno?.es_recurrente ?? false
+  const esRecuperacion = turno?.es_recuperacion ?? false
+  const esNuevo = !esRecurrente && !esRecuperacion
+  const tieneConvenio = !!item.convenio
+  const montoAsesor = Number(item.monto_asesor ?? item.valor_unitario ?? 0)
+  const montoConvenio = Number(item.monto_convenio ?? item.valor_cliente ?? 0)
+  const tieneDescuento = !!item.descuento
+  const esAvance = item.es_avance ?? false
+
+  // ── CASO: AVANCE ──
+  if (esAvance) {
+    const base = Number(item.base ?? 0)
+    const descMonto = Number(item.descuento_monto_aplicado ?? 0)
+    return {
+      icono: 'mdi-cash-fast',
+      titulo: 'Avance aplicado en factura',
+      color: 'purple',
+      descripcion: 'El propietario recibió un descuento en la factura equivalente al incentivo. El convenio cobra solo la diferencia pendiente.',
+      lineas: [
+        { label: 'Incentivo base', valor: formatCOP(base) },
+        { label: 'Avance cobrado en factura', valor: formatCOP(descMonto) },
+        { label: 'Incentivo final para convenio', valor: formatCOP(montoConvenio) },
+        { label: 'Dateo asesor comercial', valor: formatCOP(montoAsesor) },
+      ],
+    }
+  }
+
+  // ── CASO: NUEVO + INFORMATIVO ──
+  if (esNuevo && tieneDescuento && montoConvenio === 0 && montoAsesor > 0 && montoAsesor < 10000) {
+    return {
+      icono: 'mdi-tag-check',
+      titulo: 'Cliente nuevo con descuento informativo',
+      color: 'orange-darken-2',
+      descripcion: `Se aplicó el descuento "${item.descuento!.nombre}". El asesor cobra el valor de dateo recurrente en lugar del valor nuevo directo. El convenio no recibe incentivo.`,
+      lineas: [
+        { label: 'Descuento aplicado', valor: item.descuento!.nombre },
+        { label: 'Origen descuento', valor: item.descuento_origen === 'caja' ? 'En caja' : 'Pre-marcado' },
+        { label: 'Asesor cobra (reducido)', valor: formatCOP(montoAsesor) },
+        { label: 'Convenio cobra', valor: formatCOP(montoConvenio) },
+      ],
+    }
+  }
+
+  // ── CASO: NUEVO con convenio (descuento caja → convenio $0) ──
+  if (esNuevo && tieneDescuento && montoConvenio === 0 && montoAsesor === 0) {
+    return {
+      icono: 'mdi-tag-off',
+      titulo: 'Cliente nuevo — descuento aplicado en caja',
+      color: 'orange-darken-2',
+      descripcion: `El descuento "${item.descuento!.nombre}" fue aplicado en caja. Ni el asesor ni el convenio reciben comisión en este caso.`,
+      lineas: [
+        { label: 'Descuento', valor: item.descuento!.nombre },
+        { label: 'Dateo asesor', valor: formatCOP(montoAsesor) },
+        { label: 'Incentivo convenio', valor: formatCOP(montoConvenio) },
+      ],
+    }
+  }
+
+  // ── CASO: NUEVO sin convenio ──
+  if (esNuevo && !tieneConvenio) {
+    return {
+      icono: 'mdi-account-star',
+      titulo: 'Cliente nuevo — asesor directo',
+      color: 'success',
+      descripcion: 'Primera visita del cliente. El asesor comercial lo dató directamente sin convenio, por lo que cobra el valor nuevo directo completo.',
+      lineas: [
+        { label: 'Tipo visita', valor: 'Primera visita' },
+        { label: 'Canal', valor: 'Sin convenio (directo)' },
+        { label: 'Asesor cobra', valor: formatCOP(montoAsesor) },
+      ],
+    }
+  }
+
+  // ── CASO: NUEVO con convenio — convenio datea ──
+  // Con el fix: montoAsesor tiene el valor, montoConvenio siempre es $0
+  if (esNuevo && tieneConvenio && montoConvenio === 0 && !tieneDescuento && !esAvance) {
+    return {
+      icono: 'mdi-account-star',
+      titulo: 'Cliente nuevo — asesor convenio datea',
+      color: 'success',
+      descripcion: 'Primera visita del cliente. El propio asesor del convenio realizó el dateo, por lo que recibe el incentivo completo configurado para este tipo de vehículo.',
+      lineas: [
+        { label: 'Tipo visita', valor: 'Primera visita' },
+        { label: 'Convenio', valor: item.convenio!.nombre },
+        { label: 'Incentivo convenio cobra', valor: formatCOP(montoConvenio) },
+      ],
+    }
+  }
+
+  // ── CASO: NUEVO con convenio — comercial datea ──
+  if (esNuevo && tieneConvenio && montoAsesor > 0 && montoConvenio > 0) {
+    return {
+      icono: 'mdi-account-star',
+      titulo: 'Cliente nuevo — comercial datea con convenio',
+      color: 'success',
+      descripcion: 'Primera visita del cliente. Un asesor comercial realizó el dateo y existe un convenio activo, por lo que ambos reciben comisión.',
+      lineas: [
+        { label: 'Tipo visita', valor: 'Primera visita' },
+        { label: 'Asesor comercial cobra', valor: formatCOP(montoAsesor) },
+        { label: `Convenio "${item.convenio!.nombre}" cobra`, valor: formatCOP(montoConvenio) },
+      ],
+    }
+  }
+
+  // ── CASO: RECURRENTE con continuidad ──
+  // Con el fix: montoAsesor tiene el valor (él es asesor Y convenio)
+  if (esRecurrente && tieneConvenio && montoConvenio === 0 && montoAsesor > 0 && !esAvance) {
+    const meses = turno?.meses_desde_ultima_visita ?? null
+    return {
+      icono: 'mdi-account-clock',
+      titulo: 'Recurrente con continuidad de asesor',
+      color: 'warning',
+      descripcion: 'El cliente ya visitó antes y el mismo convenio lo dató en la visita anterior. Por continuidad, el convenio recibe el incentivo completo.',
+      lineas: [
+        { label: 'Meses desde última visita', valor: meses ? `${meses} meses` : '—' },
+        { label: 'Turno anterior', valor: turno?.ultimo_turno_id ? `#${turno.ultimo_turno_id}` : '—' },
+        { label: 'Continuidad', valor: '✅ Sí — mismo asesor/convenio' },
+        { label: 'Asesor convenio cobra (él mismo dateó)', valor: formatCOP(montoAsesor) },
+      ],
+    }
+  }
+
+  // ── CASO: RECURRENTE sin continuidad ──
+  if (esRecurrente && (montoAsesor > 0 || montoConvenio === 0)) {
+    const meses = turno?.meses_desde_ultima_visita ?? null
+    return {
+      icono: 'mdi-account-clock',
+      titulo: 'Recurrente sin continuidad',
+      color: 'warning',
+      descripcion: 'El cliente ya visitó antes, pero la visita anterior fue datada por un asesor distinto. Por eso el asesor actual solo cobra el valor de dateo recurrente, no el incentivo completo.',
+      lineas: [
+        { label: 'Meses desde última visita', valor: meses ? `${meses} meses` : '—' },
+        { label: 'Turno anterior', valor: turno?.ultimo_turno_id ? `#${turno.ultimo_turno_id}` : '—' },
+        { label: 'Continuidad', valor: '❌ No — diferente asesor en visita anterior' },
+        { label: 'Asesor cobra (recurrente)', valor: formatCOP(montoAsesor) },
+        { label: 'Convenio cobra', valor: formatCOP(montoConvenio) },
+      ],
+    }
+  }
+
+  // ── CASO: RECUPERACIÓN ──
+  if (esRecuperacion) {
+    const meses = turno?.meses_desde_ultima_visita ?? null
+    return {
+      icono: 'mdi-account-reactivate',
+      titulo: 'Recuperación de cliente',
+      color: 'amber-darken-2',
+      descripcion: `El cliente llevaba ${meses ? `${meses} meses` : 'mucho tiempo'} sin visitar. Se aplica el valor de recuperación, mayor al recurrente normal, para incentivar la reactivación.`,
+      lineas: [
+        { label: 'Meses sin visitar', valor: meses ? `${meses} meses` : '—' },
+        { label: 'Turno anterior', valor: turno?.ultimo_turno_id ? `#${turno.ultimo_turno_id}` : '—' },
+        { label: 'Asesor cobra (recuperación)', valor: formatCOP(montoAsesor) },
+        ...(montoConvenio > 0 ? [{ label: 'Convenio cobra', valor: formatCOP(montoConvenio) }] : []),
+      ],
+    }
+  }
+
+  // Fallback genérico
+  return {
+    icono: 'mdi-information',
+    titulo: 'Comisión generada',
+    color: 'grey',
+    descripcion: 'Comisión calculada según las reglas de configuración vigentes.',
+    lineas: [
+      { label: 'Dateo asesor', valor: formatCOP(montoAsesor) },
+      { label: 'Incentivo convenio', valor: formatCOP(montoConvenio) },
+    ],
+  }
+}
+/* ══════════════════════════════════════════════════════════
+   CREAR COMISIÓN
+══════════════════════════════════════════════════════════ */
+const crearDialog = ref<{
+  visible: boolean
+  loading: boolean
+  step: 1 | 2
+  searchPlaca: string
+  searchLoading: boolean
+  searchResults: TurnoParaComision[]
+  turnoSeleccionado: TurnoParaComision | null
+  conveniosParaCrear: { id: number; nombre: string }[]
+  conveniosCrearLoading: boolean
+  form: {
+    tipoAsesor: '' | 'COMERCIAL' | 'CONVENIO'
+    asesorId: number | null
+    convenioId: number | null
+    montoAsesor: string
+    montoConvenio: string
+    tipoCliente: 'NUEVO' | 'RECURRENTE' | 'RECUPERACION'
+    descuentoId: number | null
+    observacionDateo: string
+    esAvance: boolean
+  }
+}>({
+  visible: false,
+  loading: false,
+  step: 1,
+  searchPlaca: '',
+  searchLoading: false,
+  searchResults: [],
+  turnoSeleccionado: null,
+  conveniosParaCrear: [],
+  conveniosCrearLoading: false,
+  form: {
+    tipoAsesor: '',
+    asesorId: null,
+    convenioId: null,
+    montoAsesor: '0',
+    montoConvenio: '0',
+    tipoCliente: 'NUEVO',
+    descuentoId: null,
+    observacionDateo: '',
+    esAvance: false,
+  },
+})
+
+function turnoTipoVehiculoIcon(tv: string) {
+  return (tv ?? '').includes('Moto') ? 'mdi-motorbike' : 'mdi-car'
+}
+function turnoTipoVehiculoColor(tv: string) {
+  return (tv ?? '').includes('Moto') ? 'deep-purple' : 'teal'
+}
+function turnoTipoVehiculoLabel(tv: string) {
+  return (tv ?? '').includes('Moto') ? 'Moto' : 'Vehículo'
+}
+
+async function abrirCrear() {
+  crearDialog.value = {
+    visible: true,
+    loading: false,
+    step: 1,
+    searchPlaca: '',
+    searchLoading: false,
+    searchResults: [],
+    turnoSeleccionado: null,
+    conveniosParaCrear: [],
+    conveniosCrearLoading: false,
+    form: {
+      tipoAsesor: '',
+      asesorId: null,
+      convenioId: null,
+      montoAsesor: '0',
+      montoConvenio: '0',
+      tipoCliente: 'NUEVO',
+      descuentoId: null,
+      observacionDateo: '',
+      esAvance: false,
+    },
+  }
+  await cargarTurnosHoy()
+}
+
+async function cargarTurnosHoy() {
+  crearDialog.value.searchLoading = true
+  try {
+    const hoy = new Date().toISOString().substring(0, 10)
+    crearDialog.value.searchResults = await buscarTurnosParaComision({
+      fechaInicio: hoy,
+      fechaFin: hoy,
+    })
+  } finally {
+    crearDialog.value.searchLoading = false
+  }
+}
+
+async function buscarTurnosPorPlacaCrear() {
+  const placa = crearDialog.value.searchPlaca.trim()
+  if (!placa) { await cargarTurnosHoy(); return }
+  crearDialog.value.searchLoading = true
+  try {
+    crearDialog.value.searchResults = await buscarTurnosParaComision({ placa })
+  } finally {
+    crearDialog.value.searchLoading = false
+  }
+}
+
+function seleccionarTurnoParaComision(turno: TurnoParaComision) {
+  crearDialog.value.turnoSeleccionado = turno
+  crearDialog.value.step = 2
+  const t = turno as any
+  crearDialog.value.form.tipoCliente =
+    (t.esRecuperacion ?? t.es_recuperacion)
+      ? 'RECUPERACION'
+      : (t.esRecurrente ?? t.es_recurrente)
+      ? 'RECURRENTE'
+      : 'NUEVO'
+}
+
+function volverABuscarTurno() {
+  crearDialog.value.step = 1
+  crearDialog.value.turnoSeleccionado = null
+}
+
+async function onTipoAsesorCrearChange() {
+  crearDialog.value.form.asesorId = null
+  crearDialog.value.form.convenioId = null
+  crearDialog.value.conveniosParaCrear = []
+}
+
+async function onAsesorCrearChange(asesorId: number | null) {
+  crearDialog.value.form.convenioId = null
+  crearDialog.value.conveniosParaCrear = []
+  if (!asesorId || crearDialog.value.form.tipoAsesor !== 'COMERCIAL') return
+  crearDialog.value.conveniosCrearLoading = true
+  try {
+    crearDialog.value.conveniosParaCrear = await listConveniosDeAsesor(asesorId)
+  } finally {
+    crearDialog.value.conveniosCrearLoading = false
+  }
+}
+
+async function guardarCreacion() {
+  const { turnoSeleccionado, form } = crearDialog.value
+  if (!turnoSeleccionado) return
+  crearDialog.value.loading = true
+  try {
+    await createComision({
+      turno_id: turnoSeleccionado.id,
+      asesor_id: form.asesorId,
+      convenio_id: form.convenioId,
+      monto_asesor: Number(form.montoAsesor) || 0,
+      monto_convenio: Number(form.montoConvenio) || 0,
+      tipo_cliente: form.tipoCliente,
+      descuento_id: form.descuentoId,
+      dateo_observacion: form.observacionDateo.trim() || null,
+      es_avance: form.esAvance,
+    })
+    crearDialog.value.visible = false
+    await loadItems()
+  } finally {
+    crearDialog.value.loading = false
+  }
+}
+
+const asesoresComerciales3 = computed(() =>
+  allAsesores.value.filter((a) => !String(a.tipo ?? '').toUpperCase().includes('CONVENIO'))
+)
+const asesoresConvenio3 = computed(() =>
+  allAsesores.value.filter((a) => String(a.tipo ?? '').toUpperCase().includes('CONVENIO'))
+)
 /* ── Watchers ── */
 watch(activeTab, (val) => {
   if (val === 'metas' && metaRows.value.length === 0) loadMetas()

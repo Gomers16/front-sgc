@@ -53,9 +53,33 @@
           <v-divider />
 
           <v-card-text class="pa-3 pa-sm-4">
-            <!-- Dropzone -->
-            <div
-              class="dropzone rounded-lg mb-3 mb-sm-4"
+
+  <!-- ✅ Certificación ya registrada -->
+  <template v-if="certificacionExistente">
+    <v-alert type="success" variant="tonal" density="compact" class="mb-3">
+      <v-icon class="mr-1">mdi-check-circle</v-icon>
+      Certificación registrada el {{ formatFecha(certificacionExistente.createdAt) }}
+    </v-alert>
+
+    <div class="preview-canvas mb-3">
+      <img
+        :src="`/api/${certificacionExistente.imagenPath}`"
+        alt="Evidencia certificación"
+        style="max-width: 100%; border-radius: 8px"
+      />
+    </div>
+
+    <div v-if="certificacionExistente.observaciones" class="text-caption mt-2">
+      <strong>Notas:</strong> {{ certificacionExistente.observaciones }}
+    </div>
+  </template>
+
+  <!-- 📤 Sin certificación: mostrar formulario -->
+  <template v-else>
+
+  <!-- Dropzone -->
+  <div
+    class="dropzone rounded-lg mb-3 mb-sm-4"
               :class="{ 'dropzone--active': dragging }"
               @dragover.prevent="dragging = true"
               @dragleave.prevent="dragging = false"
@@ -64,8 +88,8 @@
             >
               <div class="text-center">
                 <div class="text-caption text-sm-subtitle-1 font-weight-bold">
-                  <span class="d-none d-sm-inline">Suelta el pantallazo aquí o haz clic para seleccionar</span>
-                  <span class="d-sm-none">Toca para seleccionar imagen</span>
+                  <span class="d-none d-sm-inline">Suelta el pantallazo aquí, pega con Ctrl+V o haz clic</span>
+<span class="d-sm-none">Toca para seleccionar o pega (Ctrl+V)</span>
                 </div>
                 <div class="text-caption text-medium-emphasis">
                   <span class="d-none d-sm-inline">Imagen JPG o PNG (hasta 8 MB)</span>
@@ -150,10 +174,15 @@
               class="mt-3 mt-sm-4"
               :density="$vuetify.display.xs ? 'compact' : 'comfortable'"
               clearable
-            />
-          </v-card-text>
-        </v-card>
-      </v-col>
+        />
+
+  </template><!-- fin v-else sin certificación -->
+
+      </v-card-text>
+    </v-card>
+  </v-col>
+
+  <!-- DERECHA: Info del turno + acción -->
 
       <!-- DERECHA: Info del turno + acción -->
       <v-col cols="12" md="6">
@@ -367,7 +396,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { DateTime } from 'luxon'
 import TurnosDelDiaService from '@/services/turnosdeldiaService'
@@ -513,6 +542,20 @@ function onDrop(e: DragEvent) {
   const file = e.dataTransfer?.files?.[0]
   if (file) setFile(file)
 }
+function onPaste(e: ClipboardEvent) {
+  const items = e.clipboardData?.items
+  if (!items) return
+  for (const item of items) {
+    if (item.type.startsWith('image/')) {
+      const file = item.getAsFile()
+      if (file) {
+        setFile(file)
+        e.preventDefault()
+        break
+      }
+    }
+  }
+}
 function setFile(file: File) {
   previewBlob.value = file
   if (previewUrl.value) URL.revokeObjectURL(previewUrl.value)
@@ -649,9 +692,33 @@ async function fetchTurno() {
   }
 }
 
+/* ===== Certificación existente ===== */
+const certificacionExistente = ref<{
+  imagenPath: string
+  observaciones: string | null
+  createdAt: string
+} | null>(null)
+
+async function fetchCertificacion() {
+  const id = getTurnoId()
+  if (!id) return
+  try {
+    const res = await CertificacionService.getByTurno(id) as { data: { imagenPath: string; observaciones: string | null; createdAt: string } }
+    certificacionExistente.value = res?.data ?? null
+  } catch {
+    certificacionExistente.value = null
+  }
+}
+
 /* ===== Mounted ===== */
 onMounted(() => {
+  window.addEventListener('paste', onPaste)
   fetchTurno()
+  fetchCertificacion()
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('paste', onPaste)
 })
 </script>
 

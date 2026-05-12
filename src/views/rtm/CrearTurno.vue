@@ -425,6 +425,21 @@
               </v-card>
             </v-col>
 
+            <v-col cols="12" v-if="alertaVentanaServicio">
+              <v-alert
+                type="warning"
+                icon="mdi-clock-alert"
+                variant="tonal"
+                density="comfortable"
+                class="rounded-lg"
+              >
+                <strong>⚠️ {{ alertaVentanaServicio.servicio }} próxima a vencer</strong><br />
+                Estás dentro de los 5 días antes del vencimiento
+                ({{ alertaVentanaServicio.vencimiento }}).
+                El turno se puede crear con normalidad.
+              </v-alert>
+            </v-col>
+
             <v-col cols="12">
               <v-textarea
                 v-model="form.observaciones"
@@ -814,6 +829,7 @@ const lastSearched = ref<{ placa: string, tel: string }>({ placa: '', tel: '' })
 
 // 👇 NUEVA VARIABLE para el modal de observaciones
 const mostrarObservacionesDateo = ref(false)
+const alertaVentanaServicio = ref<{ servicio: string; vencimiento: string } | null>(null)
 
 const tipoVehiculoItems: ReadonlyArray<TipoVehiculoFrontend> = [
   'Liviano Particular',
@@ -1078,6 +1094,25 @@ async function doSearch(force: boolean = false) {
     clienteNombre.value   = resp?.cliente?.nombre   ?? ''
     clienteTelefono.value = resp?.cliente?.telefono ?? (telOk ? telRaw : '')
     clienteEmail.value    = resp?.cliente?.email    ?? ''
+
+    // Detectar ventana de 5 días para RTM/SOAT
+    alertaVentanaServicio.value = null
+    const uvCheck = resp?.ultimaVisita
+    if (uvCheck?.fecha && uvCheck?.servicioCodigo) {
+      const cod = uvCheck.servicioCodigo.toUpperCase()
+      if (cod === 'RTM' || cod === 'SOAT') {
+        const fechaUltima = DateTime.fromISO(uvCheck.fecha, { zone: 'America/Bogota' })
+        const vencimiento = fechaUltima.plus({ months: 12 })
+        const ventanaDesde = vencimiento.minus({ days: 5 })
+        const hoy = DateTime.now().setZone('America/Bogota').startOf('day')
+        if (hoy >= ventanaDesde && hoy < vencimiento) {
+          alertaVentanaServicio.value = {
+            servicio: cod,
+            vencimiento: vencimiento.toISODate()!,
+          }
+        }
+      }
+    }
 
     if (resp?.captacionSugerida) {
       const canal = resp.captacionSugerida.canal

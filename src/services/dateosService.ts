@@ -178,17 +178,32 @@ export function esDescuentoAvance(codigo?: string | null): boolean {
   return String(codigo || '').toUpperCase().includes('AVANCE')
 }
 
-export async function listAgentesCaptacion() {
+export async function listAgentesCaptacion(): Promise<AgenteLight[]> {
   try {
-    const r = await get<{ data: AgenteLight[] }>(`/api/agentes-captacion`, {
-      params: { activos: 1, select: 'id,nombre,tipo' },
-    })
-    return Array.isArray(r?.data) ? r.data : []
+    const PAGE_SIZE = 100
+    let page = 1
+    let allAgentes: AgenteLight[] = []
+
+    while (true) {
+      const r = await get<{ data: AgenteLight[]; total: number; lastPage?: number }>(
+        `/api/agentes-captacion`,
+        { params: { activos: 1, select: 'id,nombre,tipo', perPage: PAGE_SIZE, page } }
+      )
+
+      const chunk = Array.isArray(r?.data) ? r.data : []
+      allAgentes = allAgentes.concat(chunk)
+
+      const lastPage = r?.lastPage ?? Math.ceil((r?.total ?? 0) / PAGE_SIZE)
+
+      if (page >= lastPage || chunk.length === 0) break
+      page++
+    }
+
+    return allAgentes
   } catch {
     return []
   }
 }
-
 export async function listConveniosLight() {
   try {
     const r = await get<{ data: ConvenioLight[] }>(`/api/convenios`, {
@@ -270,4 +285,19 @@ export async function importarHistoricoRtm(
     '/api/historico-rtm/importar',
     form
   )
+}
+
+export interface RtmVerificacion {
+  rtm_vigente: boolean
+  valido_hasta?: string | null
+  puede_datear_desde?: string | null
+  dentro_de_ventana?: boolean
+  dias_restantes?: number
+  fecha_rtm?: string | null
+}
+
+export async function verificarPlacaRtm(placa: string): Promise<RtmVerificacion> {
+  return get<RtmVerificacion>('/api/captacion-dateos/verificar-placa', {
+    params: { placa },
+  })
 }

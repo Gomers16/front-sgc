@@ -119,51 +119,48 @@
 
         <!-- Fila 1: incentivo base + específicos por tipo 🆕 -->
         <v-row dense>
-          <v-col cols="12" md="4">
-            <v-text-field
-              v-model="form.valorPlaca"
-              label="💼 Incentivo base (fallback)"
-              hint="Se usa si no hay valor específico por tipo de vehículo"
-              persistent-hint
-              type="number"
-              min="0"
-              density="comfortable"
-              variant="outlined"
-              prefix="$"
-            />
-          </v-col>
+          <!-- Incentivo base -->
+<v-col cols="12" md="4">
+  <v-text-field
+    v-model="form.valorPlaca"
+    label="💼 Incentivo base (fallback)"
+    hint="Se usa si no hay valor específico"
+    persistent-hint
+    type="number"
+    min="0"
+    density="comfortable"
+    variant="outlined"
+    prefix="$"
+  />
+</v-col>
 
-          <!-- 🆕 -->
-          <v-col cols="12" md="4">
-            <v-text-field
-              v-model="form.valorPlacaVehiculo"
-              label="💼🚗 Incentivo específico vehículo"
-              hint="Si está vacío usa el incentivo base"
-              persistent-hint
-              type="number"
-              min="0"
-              density="comfortable"
-              variant="outlined"
-              prefix="$"
-              clearable
-            />
-          </v-col>
+<!-- SOLO VEHÍCULO -->
+<v-col cols="12" md="4" v-if="form.tipoVehiculo === 'VEHICULO' || form.tipoVehiculo === 'AMBOS'">
+  <v-text-field
+    v-model="form.valorPlacaVehiculo"
+    label="💼 Incentivo específico vehículo"
+    type="number"
+    min="0"
+    density="comfortable"
+    variant="outlined"
+    prefix="$"
+    clearable
+  />
+</v-col>
 
-          <!-- 🆕 -->
-          <v-col cols="12" md="4">
-            <v-text-field
-              v-model="form.valorPlacaMoto"
-              label="💼🏍️ Incentivo específico moto"
-              hint="Si está vacío usa el incentivo base"
-              persistent-hint
-              type="number"
-              min="0"
-              density="comfortable"
-              variant="outlined"
-              prefix="$"
-              clearable
-            />
-          </v-col>
+<!-- SOLO MOTO -->
+<v-col cols="12" md="4" v-if="form.tipoVehiculo === 'MOTO' || form.tipoVehiculo === 'AMBOS'">
+  <v-text-field
+    v-model="form.valorPlacaMoto"
+    label="💼 Incentivo específico moto"
+    type="number"
+    min="0"
+    density="comfortable"
+    variant="outlined"
+    prefix="$"
+    clearable
+  />
+</v-col>
         </v-row>
 
         <!-- Fila 2: dateo nuevo + nuevo directo -->
@@ -171,8 +168,8 @@
           <v-col cols="12" md="6">
             <v-text-field
               v-model="form.valorDateo"
-              label="📋 Comisión dateo nuevo (via convenio)"
-              hint="Comercial datea cliente nuevo CON convenio"
+              label="📋 Comisión dateo (via convenio)"
+hint="Comercial datea CON convenio — aplica siempre sin importar tipo de cliente"
               persistent-hint
               type="number"
               min="0"
@@ -879,7 +876,7 @@
               {{ formatCOP(deleteDialog.item.valor_placa_moto) }}
             </div>
             <div>
-              <strong>Dateo nuevo (convenio):</strong>
+              <strong>Dateo (via convenio):</strong>
               {{ formatCOP(deleteDialog.item.valor_dateo) }}
             </div>
             <div>
@@ -1043,8 +1040,8 @@ type MetaMensualPayload = {
   valor_rtm_vehiculo?: number
 }
 
-const DEFAULT_RTM_MOTO = 126100
-const DEFAULT_RTM_VEHICULO = 208738
+const DEFAULT_RTM_MOTO = 141339
+const DEFAULT_RTM_VEHICULO = 233680
 
 /* ===== Estado general ===== */
 const activeSection = ref<Section>('REGLAS')
@@ -1081,7 +1078,7 @@ const scope = ref<Scope>('GLOBAL')
 const form = ref<{
   id: number | null
   asesorId: number | null
-  tipoVehiculo: TipoVehiculoComision | ''
+  tipoVehiculo: TipoVehiculoComision | 'AMBOS' | ''
   valorPlaca: string
   valorPlacaVehiculo: string   // 🆕
   valorPlacaMoto: string       // 🆕
@@ -1090,7 +1087,7 @@ const form = ref<{
 }>({
   id: null,
   asesorId: null,
-  tipoVehiculo: '',
+  tipoVehiculo: '' as TipoVehiculoComision | 'AMBOS' | '',
   valorPlaca: '',
   valorPlacaVehiculo: '',      // 🆕
   valorPlacaMoto: '',          // 🆕
@@ -1108,10 +1105,10 @@ const tipoAsesorItems = [
 ]
 
 const tipoVehiculoItems = [
-  { label: 'Moto', value: 'MOTO' as TipoVehiculoComision },
-  { label: 'Vehículo', value: 'VEHICULO' as TipoVehiculoComision },
+  { label: 'Ambos (Moto + Vehículo)', value: 'AMBOS' },
+  { label: 'Solo Moto', value: 'MOTO' as TipoVehiculoComision },
+  { label: 'Solo Vehículo', value: 'VEHICULO' as TipoVehiculoComision },
 ]
-
 const headers = [
   { title: 'Alcance', key: 'alcance', sortable: false },
   { title: 'Asesor / Convenio', key: 'asesor', sortable: false },
@@ -1119,7 +1116,7 @@ const headers = [
   { title: '💼 Incentivo base', key: 'valor_placa', sortable: true },
   { title: '🚗 Incentivo vehículo', key: 'valor_placa_vehiculo', sortable: false },  // 🆕
   { title: '🏍️ Incentivo moto', key: 'valor_placa_moto', sortable: false },          // 🆕
-  { title: '📋 Dateo nuevo', key: 'valor_dateo', sortable: true },
+  { title: '📋 Dateo convenio', key: 'valor_dateo', sortable: true },
   { title: '🌟 Nuevo directo', key: 'valor_nuevo_directo', sortable: true },
   { title: 'Actualizado', key: 'fecha_calculo', sortable: true },
   { title: 'Acciones', key: 'acciones', sortable: false, align: 'end' as const },
@@ -1395,20 +1392,27 @@ async function submitForm() {
   if (!canSubmit.value) return
   saving.value = true
   try {
-    const payload: ComisionConfigPayload = {
-      tipo_vehiculo: form.value.tipoVehiculo as TipoVehiculoComision,
-      valor_placa: Number(form.value.valorPlaca || 0),
-      valor_placa_vehiculo: form.value.valorPlacaVehiculo !== '' ? Number(form.value.valorPlacaVehiculo) : null,  // 🆕
-      valor_placa_moto: form.value.valorPlacaMoto !== '' ? Number(form.value.valorPlacaMoto) : null,              // 🆕
-      valor_dateo: Number(form.value.valorDateo || 0),
-      valor_nuevo_directo: Number(form.value.valorNuevoDirecto || 0),
-      asesor_id: scope.value === 'ASESOR' ? form.value.asesorId ?? null : null,
-    }
+    const tipos: TipoVehiculoComision[] =
+      form.value.tipoVehiculo === 'AMBOS'
+        ? ['MOTO', 'VEHICULO']
+        : [form.value.tipoVehiculo as TipoVehiculoComision]
 
-    if (form.value.id) {
-      await updateConfigComision(form.value.id, payload)
-    } else {
-      await upsertConfigComision(payload)
+    for (const tipo of tipos) {
+      const payload: ComisionConfigPayload = {
+        tipo_vehiculo: tipo,
+        valor_placa: Number(form.value.valorPlaca || 0),
+        valor_placa_vehiculo: form.value.valorPlacaVehiculo !== '' ? Number(form.value.valorPlacaVehiculo) : null,
+        valor_placa_moto: form.value.valorPlacaMoto !== '' ? Number(form.value.valorPlacaMoto) : null,
+        valor_dateo: Number(form.value.valorDateo || 0),
+        valor_nuevo_directo: Number(form.value.valorNuevoDirecto || 0),
+        asesor_id: scope.value === 'ASESOR' ? form.value.asesorId ?? null : null,
+      }
+
+      if (form.value.id && tipos.length === 1) {
+        await updateConfigComision(form.value.id, payload)
+      } else {
+        await upsertConfigComision(payload)
+      }
     }
 
     await loadConfigs()

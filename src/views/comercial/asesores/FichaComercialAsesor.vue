@@ -290,7 +290,7 @@
           </v-tab>
         </v-tabs>
 
-        <v-window v-model="tab">
+        <v-window v-model="tab" :touch="false">
           <!-- ==================== TAB PROSPECTOS ==================== -->
           <v-window-item value="prospectos">
             <div class="d-flex flex-column flex-sm-row justify-space-between align-start align-sm-center mb-3 gap-2">
@@ -442,6 +442,17 @@
               </v-btn>
 
               <div class="d-flex flex-column flex-sm-row align-stretch align-sm-center w-100 w-sm-auto" style="gap:8px">
+                <v-text-field
+                  v-model="buscarPlaca"
+                  clearable
+                  density="compact"
+                  variant="outlined"
+                  hide-details
+                  prepend-inner-icon="mdi-magnify"
+                  label="Buscar placa"
+                  placeholder="Ej: ABC123"
+                  :style="$vuetify.display.xs ? 'width: 100%' : 'max-width: 180px'"
+                />
                 <v-switch
                   v-model="verTodosDateos"
                   color="primary"
@@ -1523,19 +1534,22 @@ const totalProspectosTodos = computed(() => prospectos.value.length)
 
 /* ===== Filtros Dateos (solo exitosos / ver todos) ===== */
 const filtrosDateo = ref<{ soloExitosos: boolean }>({ soloExitosos: false })
+const buscarPlaca = ref('')
 const verTodosDateos = ref(false)
 
 const dateosFiltrados = computed(() => {
   const desde = new Date(filtros.value.desde + 'T00:00:00')
   const hasta = new Date(filtros.value.hasta + 'T23:59:59')
+  const placaQuery = buscarPlaca.value.trim().toUpperCase()
   return dateos.value.filter((d) => {
     const tRaw = normalizeCreatedAt(d)
     const t = tRaw ? new Date(tRaw) : null
     const enRango = t ? t >= desde && t <= hasta : true
     const pasaRango = verTodosDateos.value ? true : enRango
     const pasaExito = filtrosDateo.value.soloExitosos ? isExitoso(d) : true
+    const pasaPlaca = placaQuery ? (d.placa || '').toUpperCase().includes(placaQuery) : true
     if (tRaw) d.created_at = tRaw
-    return pasaRango && pasaExito
+    return pasaRango && pasaExito && pasaPlaca
   })
 })
 

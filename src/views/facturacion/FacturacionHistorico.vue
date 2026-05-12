@@ -321,12 +321,20 @@
                     </v-col>
 
                     <!-- Monto descontado -->
-                    <v-col cols="12" md="6">
-                      <div class="label-desc">Monto descontado</div>
-                      <div class="value-desc text-orange-darken-2 font-weight-bold">
-                        - {{ fmtCOP(dialog.item?.descuentoAplicado?.montoAplicado ?? dialog.item?.descuento_monto_aplicado ?? 0) }}
-                      </div>
-                    </v-col>
+<v-col cols="12" md="6">
+  <div class="label-desc">Monto descontado</div>
+  <div class="value-desc text-orange-darken-2 font-weight-bold d-flex align-center" style="gap:8px">
+    - {{ fmtCOP(dialog.item?.descuentoAplicado?.montoAplicado ?? dialog.item?.descuento_monto_aplicado ?? 0) }}
+    <v-btn
+      size="x-small"
+      icon="mdi-pencil"
+      variant="text"
+      color="orange-darken-2"
+      :loading="editingDescuento"
+      @click="openEditDescuento"
+    />
+  </div>
+</v-col>
 
                     <!-- Total original -->
                     <v-col cols="12" md="6">
@@ -402,7 +410,58 @@
       </v-card>
     </v-dialog>
 
-    <v-snackbar v-model="snack.show" :timeout="3000">{{ snack.text }}</v-snackbar>
+    <!-- DIALOG EDITAR MONTO DESCUENTO -->
+<v-dialog v-model="editDescuentoDialog" max-width="420" persistent>
+  <v-card>
+    <v-card-title class="d-flex align-center" style="gap:8px">
+      <v-icon color="orange-darken-2">mdi-pencil</v-icon>
+      Editar monto de descuento
+    </v-card-title>
+    <v-divider />
+    <v-card-text>
+      <div class="text-body-2 text-medium-emphasis mb-3">
+        Ticket #{{ dialog.item?.id }} — {{ dialog.item?.placa }}
+      </div>
+      <v-text-field
+        v-model.number="editDescuentoMonto"
+        label="Nuevo monto de descuento (COP)"
+        type="number"
+        min="0"
+        prefix="$"
+        variant="outlined"
+        density="compact"
+        autofocus
+        hint="El total de la factura se recalculará automáticamente"
+        persistent-hint
+      />
+      <v-alert
+        v-if="editDescuentoMonto > 0"
+        type="info"
+        variant="tonal"
+        density="compact"
+        class="mt-3"
+      >
+        Total original: <strong>{{ fmtCOP(dialog.item?.totalSinDescuento ?? dialog.item?.total_sin_descuento ?? 0) }}</strong>
+        → Nuevo total: <strong>{{ fmtCOP(Math.max(0, (dialog.item?.totalSinDescuento ?? dialog.item?.total_sin_descuento ?? 0) - editDescuentoMonto)) }}</strong>
+      </v-alert>
+    </v-card-text>
+    <v-card-actions>
+      <v-spacer />
+      <v-btn variant="text" @click="editDescuentoDialog = false">Cancelar</v-btn>
+      <v-btn
+        color="orange-darken-2"
+        variant="tonal"
+        :loading="editingDescuento"
+        :disabled="editDescuentoMonto < 0"
+        @click="saveDescuentoMonto"
+      >
+        Guardar
+      </v-btn>
+    </v-card-actions>
+  </v-card>
+</v-dialog>
+
+<v-snackbar v-model="snack.show" :timeout="3000">{{ snack.text }}</v-snackbar>
   </v-container>
 </template>
 
@@ -781,6 +840,73 @@ function getServicioNombre(it: ExtendedFacturacionTicket | null) {
 function getSedeNombre(it: ExtendedFacturacionTicket | null) {
   if (!it) return '—'
   return it?.sede_nombre ?? it?.sedeNombre ?? it?.sede?.nombre ?? '—'
+}
+
+/* ===== Edición de monto de descuento ===== */
+const editDescuentoDialog = ref(false)
+const editDescuentoMonto = ref(0)
+const editingDescuento = ref(false)
+
+function openEditDescuento() {
+  editDescuentoMonto.value = Number(
+    dialog.item?.descuentoAplicado?.montoAplicado ??
+    dialog.item?.descuento_monto_aplicado ?? 0
+  )
+  editDescuentoDialog.value = true
+}
+
+async function saveDescuentoMonto() {
+  if (!dialog.item?.id) return
+  editingDescuento.value = true
+  try {
+    const token =
+      localStorage.getItem('auth_token') ||
+      localStorage.getItem('token') ||
+      sessionStorage.getItem('auth_token') ||
+      sessionStorage.getItem('token')
+
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+    if (token) headers['Authorization'] = `Bearer ${token}`
+
+    const montoAnterior = Number(
+      dialog.item?.descuentoAplicado?.montoAplicado ??
+      dialog.item?.descuento_monto_aplicado ?? 0
+    )
+    const totalActual = Number(
+      dialog.item?.totalFactura ?? dialog.item?.total_factura ?? dialog.item?.total ?? 0
+    )
+    const totalSinDesc = Number(
+      dialog.item?.totalSinDescuento ??
+      dialog.item?.total_sin_descuento ??
+      (totalActual + montoAnterior)
+    )
+
+    const resp = await fetch(`/api/facturacion/tickets/${dialog.item.id}`, {
+      method: 'PATCH',
+      headers,
+      credentials: 'include',
+      body: JSON.stringify({
+        descuento_monto_aplicado: editDescuentoMonto.value,
+        total_sin_descuento: totalSinDesc,
+      }),
+    })
+
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
+
+    editDescuentoDialog.value = false
+    snack.text = '✅ Monto de descuento actualizado'
+    snack.show = true
+
+    const updated = await FacturacionService.getById(dialog.item.id)
+    dialog.item = updated as ExtendedFacturacionTicket
+    await fetchList()
+  } catch (err) {
+    console.error('Error actualizando descuento:', err)
+    snack.text = '❌ No se pudo actualizar el monto'
+    snack.show = true
+  } finally {
+    editingDescuento.value = false
+  }
 }
 
 /* ===== Snack ===== */
