@@ -5,6 +5,7 @@ import { createPinia } from 'pinia' // Importa createPinia
 
 import App from './App.vue'
 import router from './router'
+import { useAuthStore } from './stores/AuthStore'
 
 import { createVuetify } from 'vuetify'
 import 'vuetify/styles'
@@ -31,4 +32,19 @@ const app = createApp(App)
 app.use(createPinia()) // Usa Pinia en tu aplicación
 app.use(router)
 app.use(vuetify) // Usa Vuetify
+
+router.beforeEach((to, _from, next) => {
+  const auth = useAuthStore()
+  if (to.meta.requiresAuth && !auth.isAuthenticated) {
+    next('/login')
+    return
+  }
+  const roles = to.meta.roles
+  if (roles?.length && !auth.hasAnyRole(roles)) {
+    next('/dashboard')
+    return
+  }
+  next()
+})
+
 app.mount('#app')

@@ -36,8 +36,8 @@
       <v-divider class="mx-4 mx-sm-6 divider-muted" />
 
       <div class="pa-4 pa-sm-6 pa-md-8">
-        <!-- 🔎 BARRA DE BÚSQUEDA -->
-        <v-row class="mb-3 mb-sm-4" align="end" dense>
+        <!-- 🔎 BARRA DE BÚSQUEDA — oculta en TRAMITES -->
+        <v-row v-if="!esTramites" class="mb-3 mb-sm-4" align="end" dense>
           <v-col cols="12" sm="4">
             <v-text-field
               v-model="form.placa"
@@ -93,7 +93,7 @@
 
         <!-- Mensaje cuando no hay resultados pero se ingresó algo -->
         <v-alert
-          v-if="noResultados"
+          v-if="noResultados && !esTramites"
           type="info"
           variant="tonal"
           class="mb-3 mb-sm-4"
@@ -142,8 +142,40 @@
               />
             </v-col>
 
-            <!-- Placa -->
-            <v-col cols="12" sm="6">
+            <!-- ========== CAMPOS TRAMITES ========== -->
+            <template v-if="esTramites">
+              <v-col cols="12">
+                <v-alert type="info" variant="tonal" density="comfortable" icon="mdi-information-outline" class="rounded-lg">
+                  Completa los datos del solicitante. El tipo de trámite se puede categorizar después.
+                </v-alert>
+              </v-col>
+              <v-col cols="12" sm="6">
+                <v-text-field v-model="tramiteForm.nombreCliente" label="Nombre completo *" variant="outlined" :density="$vuetify.display.xs ? 'compact' : 'comfortable'" prepend-inner-icon="mdi-account" :rules="[(v: any) => !!v || 'El nombre es requerido']" />
+              </v-col>
+              <v-col cols="12" sm="6">
+                <v-text-field v-model="tramiteForm.cedula" label="Cédula *" variant="outlined" :density="$vuetify.display.xs ? 'compact' : 'comfortable'" prepend-inner-icon="mdi-card-account-details-outline" :rules="[(v: any) => !!v || 'La cédula es requerida']" />
+              </v-col>
+              <v-col cols="12" sm="6">
+                <v-text-field v-model="tramiteForm.telefono" label="Teléfono *" variant="outlined" :density="$vuetify.display.xs ? 'compact' : 'comfortable'" prepend-inner-icon="mdi-phone-outline" :rules="[(v: any) => !!v || 'El teléfono es requerido']" />
+              </v-col>
+              <v-col cols="12" sm="6">
+                <v-text-field
+                  v-model="tramiteForm.placa"
+                  label="Placa del vehículo"
+                  @input="tramiteForm.placa = ($event.target as HTMLInputElement).value.toUpperCase().replace(/\s/g, '')"
+                  variant="outlined"
+                  :density="$vuetify.display.xs ? 'compact' : 'comfortable'"
+                  prepend-inner-icon="mdi-car"
+                  hint="Opcional · ej: ABC123"
+                  persistent-hint
+                  maxlength="10"
+                  clearable
+                />
+              </v-col>
+            </template>
+            <!-- ======================================= -->
+            <!-- Placa — oculta en TRAMITES -->
+            <v-col v-if="!esTramites" cols="12" sm="6">
               <v-text-field
                 v-model="form.placa"
                 label="Placa del Vehículo"
@@ -156,8 +188,8 @@
               />
             </v-col>
 
-            <!-- Tipo de Vehículo -->
-            <v-col cols="12" sm="6">
+            <!-- Tipo de Vehículo — oculto en TRAMITES -->
+            <v-col v-if="!esTramites" cols="12" sm="6">
               <v-select
                 v-model="form.tipoVehiculo"
                 :items="tipoVehiculoItems"
@@ -170,8 +202,8 @@
               />
             </v-col>
 
-            <!-- ¿Cómo nos conoció? -->
-            <v-col cols="12" sm="6">
+            <!-- ¿Cómo nos conoció? — oculto en TRAMITES -->
+            <v-col v-if="!esTramites" cols="12" sm="6">
               <v-select
                 v-model="form.medioEntero"
                 :items="medioEnteroItems"
@@ -198,8 +230,8 @@
               </v-col>
             </template>
 
-            <!-- 👇 Panel "Datos detectados" SOLO si hay resultados -->
-            <v-col cols="12" v-if="hasBusqueda">
+            <!-- 👇 Panel "Datos detectados" SOLO si hay resultados y NO es TRAMITES -->
+            <v-col cols="12" v-if="hasBusqueda && !esTramites">
               <v-card variant="tonal" class="pa-3 pa-sm-4 rounded-xl">
                 <div class="d-flex align-center justify-space-between mb-2 mb-sm-3">
                   <div class="d-flex align-center" style="gap:8px">
@@ -736,6 +768,7 @@ import { authSetStore } from '@/stores/AuthStore'
 import type { VForm } from 'vuetify/components'
 import TurnosDelDiaService from '@/services/turnosdeldiaService'
 import { BusquedasService } from '@/services/busquedas_service'
+import { TramitesService } from '@/services/tramitesService'
 
 /** ===== Parámetros de búsqueda ===== **/
 const PLACA_LEN = 6
@@ -875,7 +908,20 @@ const form = ref<TurnoForm>({
   _captacionAgenteId: null,
 })
 
+
+// ===== Formulario trámite =====
+interface TramiteForm {
+  nombreCliente: string; cedula: string; telefono: string; placa: string
+}
+const tramiteForm = ref<TramiteForm>({
+  nombreCliente: '', cedula: '', telefono: '', placa: '',
+})
 /** ===== Computed ===== **/
+const esTramites = computed<boolean>(() => {
+  const id = form.value.servicioId
+  if (!id) return false
+  return (serviciosMapById.value[id]?.codigo ?? '').toUpperCase() === 'TRAMITES'
+})
 const hasBusqueda = computed(() => !!busqueda.value)
 const busquedaVehiculo = computed(() => busqueda.value?.vehiculo ?? null)
 const busquedaCliente  = computed(() => busqueda.value?.cliente ?? null)
@@ -1167,11 +1213,15 @@ async function loadServicios() {
 async function fetchNextTurnNumbers() {
   try {
     if (!form.value.usuarioId) return
-    const resp = await TurnosDelDiaService.fetchNextTurnNumber(form.value.usuarioId, form.value.servicioId ?? undefined)
-    const nextGlobal = typeof resp?.siguiente === 'number' ? resp.siguiente : null
-    const nextServicio = typeof resp?.siguientePorServicio === 'number' ? resp.siguientePorServicio : null
-    turnoNumeroGlobalNext.value = nextGlobal
-    turnoNumeroServicioNext.value = nextServicio
+    if (esTramites.value) {
+      const resp = await TramitesService.siguienteNumero(form.value.usuarioId)
+      turnoNumeroGlobalNext.value   = resp?.siguiente ?? null
+      turnoNumeroServicioNext.value = null
+    } else {
+      const resp = await TurnosDelDiaService.fetchNextTurnNumber(form.value.usuarioId, form.value.servicioId ?? undefined)
+      turnoNumeroGlobalNext.value   = typeof resp?.siguiente === 'number' ? resp.siguiente : null
+      turnoNumeroServicioNext.value = typeof resp?.siguientePorServicio === 'number' ? resp.siguientePorServicio : null
+    }
   } catch (err) {
     console.error('Error al cargar consecutivos:', err)
     showSnackbar('Error al cargar consecutivos', 'error')
@@ -1201,6 +1251,7 @@ async function resetFormFields() {
   telefonoBusqueda.value = ''
   busqueda.value = null
   lastSearched.value = { placa: '', tel: '' }
+  tramiteForm.value = { nombreCliente: '', cedula: '', telefono: '', placa: '' }
   await fetchNextTurnNumbers()
   formRef.value?.resetValidation()
 }
@@ -1222,12 +1273,12 @@ onMounted(async () => {
 })
 
 watch(() => form.value.placa, () => {
-  if (!AUTO_SEARCH_ON_COMPLETE) return
+  if (!AUTO_SEARCH_ON_COMPLETE || esTramites.value) return
   const p = (form.value.placa || '').trim().toUpperCase()
   if (p.length === PLACA_LEN) doSearch(false)
 })
 watch(() => telefonoBusqueda.value, () => {
-  if (!AUTO_SEARCH_ON_COMPLETE) return
+  if (!AUTO_SEARCH_ON_COMPLETE || esTramites.value) return
   const t = normalizePhone(telefonoBusqueda.value || '')
   if (t.length === TEL_LEN) doSearch(false)
 })
@@ -1237,6 +1288,8 @@ watch(() => form.value.medioEntero, () => {
   }
 })
 watch(() => form.value.servicioId, async () => {
+  busqueda.value = null
+  tramiteForm.value = { nombreCliente: '', cedula: '', telefono: '', placa: '' }
   await fetchNextTurnNumbers()
 })
 
@@ -1246,7 +1299,7 @@ const confirmDialogTitle = ref('')
 const confirmDialogMessage = ref('')
 const confirmDialogConfirmText = ref('')
 const confirmDialogConfirmColor = ref('')
-type ActionType = 'create_turno'
+type ActionType = 'create_turno' | 'create_tramite'
 const currentAction = ref<ActionType | ''>('')
 
 async function openConfirmDialog() {
@@ -1263,17 +1316,25 @@ async function openConfirmDialog() {
     showSnackbar('Completa los campos requeridos.', 'warning')
     return
   }
-  if (form.value.medioEntero === 'asesor') {
-    if (!form.value.asesorNombre) {
-      showSnackbar('Indica el nombre del asesor.', 'warning')
-      return
+  if (esTramites.value) {
+    if (!tramiteForm.value.nombreCliente) { showSnackbar('El nombre es requerido.', 'warning'); return }
+    if (!tramiteForm.value.cedula)        { showSnackbar('La cédula es requerida.', 'warning'); return }
+    if (!tramiteForm.value.telefono)      { showSnackbar('El teléfono es requerido.', 'warning'); return }
+    confirmDialogTitle.value        = 'Confirmar Creación de Trámite'
+    confirmDialogMessage.value      = `¿Crear trámite para ${tramiteForm.value.nombreCliente}?`
+    confirmDialogConfirmText.value  = 'Crear Trámite'
+    confirmDialogConfirmColor.value = 'deep-purple'
+    currentAction.value = 'create_tramite'
+  } else {
+    if (form.value.medioEntero === 'asesor' && !form.value.asesorNombre) {
+      showSnackbar('Indica el nombre del asesor.', 'warning'); return
     }
+    confirmDialogTitle.value        = 'Confirmar Creación de Turno'
+    confirmDialogMessage.value      = '¿Estás seguro de que quieres crear este turno?'
+    confirmDialogConfirmText.value  = 'Crear Turno'
+    confirmDialogConfirmColor.value = 'primary'
+    currentAction.value = 'create_turno'
   }
-  confirmDialogTitle.value = 'Confirmar Creación de Turno'
-  confirmDialogMessage.value = '¿Estás seguro de que quieres crear este turno?'
-  confirmDialogConfirmText.value = 'Crear Turno'
-  confirmDialogConfirmColor.value = 'primary'
-  currentAction.value = 'create_turno'
   showConfirmDialog.value = true
 }
 
@@ -1281,9 +1342,8 @@ async function handleConfirmAction() {
   showConfirmDialog.value = false
   isSubmitting.value = true
   try {
-    if (currentAction.value === 'create_turno') {
-      await submitForm()
-    }
+   if (currentAction.value === 'create_tramite') await submitTramite()
+    else if (currentAction.value === 'create_turno') await submitForm()
   } finally {
     currentAction.value = ''
     isSubmitting.value = false
@@ -1296,6 +1356,28 @@ function handleCancelAction() {
   showSnackbar('Creación de turno cancelada.', 'info')
 }
 
+
+async function submitTramite() {
+  try {
+    await TramitesService.create({
+      usuarioId:     form.value.usuarioId,
+      servicioId:    form.value.servicioId!,
+      nombreCliente: tramiteForm.value.nombreCliente,
+      cedula:        tramiteForm.value.cedula,
+      telefono:      tramiteForm.value.telefono || undefined,
+      placa:         tramiteForm.value.placa    || null,
+      observaciones: form.value.observaciones   || undefined,
+      fecha:         form.value.fecha,
+      horaIngreso:   form.value.horaIngreso,
+    })
+    showSnackbar('✅ Trámite creado exitosamente', 'success')
+    await resetFormFields()
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Error desconocido al crear el trámite.'
+    console.error('Error al crear trámite:', err)
+    showSnackbar(`❌ ${message}`, 'error')
+  }
+}
 async function submitForm() {
   try {
     if (!form.value.servicioId) {

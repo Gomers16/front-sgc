@@ -64,6 +64,21 @@
         <v-list-item title="Estado turno" :to="{ path: '/rtm/estado-turnos' }" link />
       </v-list-group>
 
+      <!-- Trámites -->
+      <v-list-group
+        v-if="can.verTurnos()"
+        value="tramites"
+        prepend-icon="mdi-file-document-outline"
+        class="nav-item"
+        color="#FACC15"
+      >
+        <template #activator="{ props }">
+          <v-list-item v-bind="props" title="Trámites" />
+        </template>
+
+        <v-list-item title="Turnos Trámites" :to="{ path: '/tramites/turnos-tramites' }" link />
+      </v-list-group>
+
       <!-- Comercial -->
       <v-list-group
         v-if="can.verComercial()"

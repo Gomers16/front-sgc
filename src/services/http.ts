@@ -18,6 +18,13 @@ export interface RequestOptions<TBody = unknown> {
   signal?: AbortSignal
 }
 
+export class HttpError extends Error {
+  constructor(public readonly status: number, message: string) {
+    super(message)
+    this.name = 'HttpError'
+  }
+}
+
 // ===== Base URL desde .env (con fallback a same-origin) =====
 // Deja VITE_API_BASE_URL vacío para usar SIEMPRE el mismo origen (recomendado en dev con proxy).
 const ENV_BASE = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/+$/, '')
@@ -145,7 +152,7 @@ export async function http<TResp = unknown, TBody = unknown>(
       const data = await parseResponse(res, true)
       errMsg = extractMessage(data, errMsg)
     } catch { /* ignore */ }
-    throw new Error(errMsg)
+    throw new HttpError(res.status, errMsg)
   }
 
   return (await parseResponse(res, expectJson)) as TResp

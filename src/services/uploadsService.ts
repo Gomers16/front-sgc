@@ -30,7 +30,7 @@ export async function uploadImage(file: File, extra?: ExtraUploadFields) {
     })
   }
   // POST /api/uploads/images
-  return upload<UploadImageResponse>('/api/uploads/images', form)
+  return upload<UploadImageResponse>('/api/media/upload', form)
 }
 
 /** (Opcional) Obtener metadata de una imagen por filename.

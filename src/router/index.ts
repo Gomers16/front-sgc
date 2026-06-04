@@ -11,6 +11,15 @@ import {
   type RouteParamValueRaw,
 } from 'vue-router'
 
+declare module 'vue-router' {
+  interface RouteMeta {
+    layout?: string
+    title?: string
+    requiresAuth?: boolean
+    roles?: string[]
+  }
+}
+
 import LoginView from '@/views/LoginView.vue'
 import DashboardView from '@/views/dashboard/DashboardView.vue'
 import RTMView from '@/views/RtmView.vue'
@@ -77,6 +86,18 @@ const routes: RouteRecordRaw[] = [
     component: () => import('@/views/rtm/CertificacionTurnoView.vue'),
     props: true,
     meta: { layout: 'MainLayout', title: 'Certificación / Evidencia' },
+  },
+
+  // TRÁMITES
+  {
+    path: '/tramites',
+    redirect: '/tramites/turnos-tramites',
+  },
+  {
+    path: '/tramites/turnos-tramites',
+    name: 'TurnosTramites',
+    component: () => import('@/views/tramites/TramitesView.vue'),
+    meta: { layout: 'MainLayout', title: 'Turnos Trámites', requiresAuth: true, roles: ['SUPER_ADMIN', 'GERENCIA', 'OPERATIVO_TURNOS', 'TRAMITADOR'] },
   },
 
   // 🧾 FACTURACIÓN
