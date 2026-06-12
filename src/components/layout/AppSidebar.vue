@@ -66,7 +66,7 @@
 
       <!-- Trámites -->
       <v-list-group
-        v-if="can.verTurnos()"
+        v-if="can.verTramites()"
         value="tramites"
         prepend-icon="mdi-file-document-outline"
         class="nav-item"

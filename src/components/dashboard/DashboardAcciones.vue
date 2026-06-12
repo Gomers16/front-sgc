@@ -14,7 +14,7 @@
       </v-btn>
     </v-col>
 
-    <v-col cols="12" sm="6" md="4">
+    <v-col v-if="can.verTurnos()" cols="12" sm="6" md="4">
       <v-btn
         variant="elevated"
         :size="$vuetify.display.xs ? 'default' : 'large'"
@@ -27,7 +27,7 @@
       </v-btn>
     </v-col>
 
-    <v-col cols="12" sm="6" md="4">
+    <v-col v-if="can.verTurnos()" cols="12" sm="6" md="4">
       <v-btn
         variant="elevated"
         :size="$vuetify.display.xs ? 'default' : 'large'"
@@ -43,6 +43,10 @@
 </template>
 
 <script setup lang="ts">
+import { usePermissions } from '@/composables/usePermissions'
+
+const { can } = usePermissions()
+
 defineEmits<{
   (e: 'crear-turno'): void
   (e: 'ver-turnos-proceso'): void
