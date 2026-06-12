@@ -161,4 +161,8 @@ export const FormulariosRuntService = {
   exportExcel(tramiteId: number): Promise<Blob> {
     return download(`${BASE}/${tramiteId}/formulario-runt/export-excel`)
   },
+
+  exportMandatoExcel(tramiteId: number): Promise<Blob> {
+    return download(`${BASE}/${tramiteId}/mandato/export-excel`)
+  },
 }
