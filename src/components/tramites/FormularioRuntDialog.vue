@@ -1,0 +1,463 @@
+<template>
+  <v-dialog v-model="dialog" max-width="900" scrollable>
+    <v-card class="rounded-xl">
+
+      <!-- ── Header ─────────────────────────────────────────────────────── -->
+      <v-card-title
+        class="d-flex align-center justify-space-between pa-4"
+        style="background: linear-gradient(135deg, #ede7f6, #f3e5f5)"
+      >
+        <div class="d-flex align-center" style="gap: 10px">
+          <v-icon color="deep-purple" size="26">mdi-clipboard-list-outline</v-icon>
+          <div>
+            <div class="text-subtitle-1 font-weight-bold">Formulario RUNT</div>
+            <div class="text-caption text-medium-emphasis">Trámite #{{ tramiteNumero }}</div>
+          </div>
+        </div>
+        <v-btn icon="mdi-close" variant="text" @click="dialog = false" />
+      </v-card-title>
+
+      <v-divider />
+
+      <!-- ── Cargando ───────────────────────────────────────────────────── -->
+      <v-card-text v-if="cargando" class="d-flex justify-center align-center py-12">
+        <div class="text-center">
+          <v-progress-circular indeterminate color="deep-purple" size="48" />
+          <div class="mt-4 text-medium-emphasis">Cargando formulario...</div>
+        </div>
+      </v-card-text>
+
+      <!-- ── Formulario ─────────────────────────────────────────────────── -->
+      <v-card-text v-else class="pa-4">
+        <v-expansion-panels v-model="panelAbierto" multiple variant="accordion">
+
+          <!-- S1 — Datos del Vehículo ───────────────────────────────────── -->
+          <v-expansion-panel value="vehiculo" eager>
+            <v-expansion-panel-title class="font-weight-bold">
+              <v-icon class="mr-2" color="deep-purple" size="20">mdi-car</v-icon>
+              Datos del Vehículo
+            </v-expansion-panel-title>
+            <v-expansion-panel-text>
+              <v-row dense class="mt-1">
+                <v-col cols="12" sm="3">
+                  <v-text-field
+                    v-model="form.placa"
+                    label="Placa"
+                    variant="outlined"
+                    density="compact"
+                    @update:model-value="v => form.placa = v ? v.toUpperCase() : null"
+                  />
+                </v-col>
+                <v-col cols="12" sm="3">
+                  <v-text-field v-model="form.marca" label="Marca" variant="outlined" density="compact" />
+                </v-col>
+                <v-col cols="12" sm="3">
+                  <v-text-field v-model="form.linea" label="Línea" variant="outlined" density="compact" />
+                </v-col>
+                <v-col cols="12" sm="3">
+                  <v-text-field
+                    v-model="form.modelo"
+                    label="Modelo (año)"
+                    variant="outlined"
+                    density="compact"
+                    maxlength="4"
+                    :rules="[v => !v || /^\d{4}$/.test(v) || 'Debe ser un año de 4 dígitos']"
+                  />
+                </v-col>
+                <v-col cols="12" sm="3">
+                  <v-text-field v-model="form.color" label="Color" variant="outlined" density="compact" />
+                </v-col>
+                <v-col cols="12" sm="3">
+                  <v-select
+                    v-model="form.claseVehiculo"
+                    :items="CLASE_VEHICULO_ITEMS"
+                    label="Clase de vehículo"
+                    variant="outlined"
+                    density="compact"
+                    clearable
+                  />
+                </v-col>
+                <v-col cols="12" sm="3">
+                  <v-select
+                    v-model="form.combustible"
+                    :items="COMBUSTIBLE_ITEMS"
+                    label="Combustible"
+                    variant="outlined"
+                    density="compact"
+                    clearable
+                  />
+                </v-col>
+                <v-col cols="12" sm="3">
+                  <v-select
+                    v-model="form.tipoServicio"
+                    :items="TIPO_SERVICIO_ITEMS"
+                    label="Tipo de servicio"
+                    variant="outlined"
+                    density="compact"
+                    clearable
+                  />
+                </v-col>
+                <v-col cols="12" sm="4">
+                  <v-text-field v-model="form.noMotor"  label="No. Motor"  variant="outlined" density="compact" />
+                </v-col>
+                <v-col cols="12" sm="4">
+                  <v-text-field v-model="form.noChasis" label="No. Chasis" variant="outlined" density="compact" />
+                </v-col>
+                <v-col cols="12" sm="4">
+                  <v-text-field v-model="form.noSerie"  label="No. Serie"  variant="outlined" density="compact" />
+                </v-col>
+                <v-col cols="12" sm="4">
+                  <v-text-field v-model="form.noVin"       label="No. VIN"       variant="outlined" density="compact" />
+                </v-col>
+                <v-col cols="12" sm="2">
+                  <v-text-field v-model="form.capacidadKg" label="Capacidad Kg"  variant="outlined" density="compact" />
+                </v-col>
+                <v-col cols="12" sm="2">
+                  <v-text-field v-model="form.potenciaHp"  label="Potencia HP"   variant="outlined" density="compact" />
+                </v-col>
+                <v-col cols="12" sm="2">
+                  <v-text-field v-model="form.cilindrada"  label="Cilindrada"    variant="outlined" density="compact" />
+                </v-col>
+                <v-col cols="12" sm="2" class="d-flex align-center">
+                  <v-checkbox v-model="form.blindaje" label="Blindaje" density="compact" hide-details />
+                </v-col>
+              </v-row>
+            </v-expansion-panel-text>
+          </v-expansion-panel>
+
+          <!-- S2 — Datos del Propietario ──────────────────────────────── -->
+          <v-expansion-panel value="propietario" eager>
+            <v-expansion-panel-title class="font-weight-bold">
+              <v-icon class="mr-2" color="blue-darken-2" size="20">mdi-account</v-icon>
+              Datos del Propietario
+            </v-expansion-panel-title>
+            <v-expansion-panel-text>
+              <v-row dense class="mt-1">
+                <v-col cols="12" sm="4">
+                  <v-text-field v-model="form.propPrimerApellido"  label="Primer apellido"  variant="outlined" density="compact" />
+                </v-col>
+                <v-col cols="12" sm="4">
+                  <v-text-field v-model="form.propSegundoApellido" label="Segundo apellido" variant="outlined" density="compact" />
+                </v-col>
+                <v-col cols="12" sm="4">
+                  <v-text-field v-model="form.propNombres"         label="Nombres"          variant="outlined" density="compact" />
+                </v-col>
+                <v-col cols="12" sm="4">
+                  <v-select
+                    v-model="form.propTipoDocumento"
+                    :items="TIPO_DOCUMENTO_ITEMS"
+                    label="Tipo documento"
+                    variant="outlined"
+                    density="compact"
+                    clearable
+                  />
+                </v-col>
+                <v-col cols="12" sm="4">
+                  <v-text-field v-model="form.propNoDocumento" label="No. Documento" variant="outlined" density="compact" />
+                </v-col>
+                <v-col cols="12" sm="4">
+                  <v-text-field v-model="form.propTelefono"    label="Teléfono"      variant="outlined" density="compact" />
+                </v-col>
+                <v-col cols="12" sm="6">
+                  <v-text-field v-model="form.propDireccion" label="Dirección" variant="outlined" density="compact" />
+                </v-col>
+                <v-col cols="12" sm="6">
+                  <v-text-field v-model="form.propCiudad"    label="Ciudad"    variant="outlined" density="compact" />
+                </v-col>
+              </v-row>
+            </v-expansion-panel-text>
+          </v-expansion-panel>
+
+          <!-- S3 — Datos del Comprador (solo TRASPASO) ─────────────────── -->
+          <v-expansion-panel v-if="tipoTramite === 'TRASPASO'" value="comprador" eager>
+            <v-expansion-panel-title class="font-weight-bold">
+              <v-icon class="mr-2" color="orange-darken-2" size="20">mdi-account-arrow-right</v-icon>
+              Datos del Comprador
+              <v-chip class="ml-3" size="x-small" color="orange" variant="tonal">Solo Traspaso</v-chip>
+            </v-expansion-panel-title>
+            <v-expansion-panel-text>
+              <v-row dense class="mt-1">
+                <v-col cols="12" sm="4">
+                  <v-text-field v-model="form.compPrimerApellido"  label="Primer apellido"  variant="outlined" density="compact" />
+                </v-col>
+                <v-col cols="12" sm="4">
+                  <v-text-field v-model="form.compSegundoApellido" label="Segundo apellido" variant="outlined" density="compact" />
+                </v-col>
+                <v-col cols="12" sm="4">
+                  <v-text-field v-model="form.compNombres"         label="Nombres"          variant="outlined" density="compact" />
+                </v-col>
+                <v-col cols="12" sm="4">
+                  <v-select
+                    v-model="form.compTipoDocumento"
+                    :items="TIPO_DOCUMENTO_ITEMS"
+                    label="Tipo documento"
+                    variant="outlined"
+                    density="compact"
+                    clearable
+                  />
+                </v-col>
+                <v-col cols="12" sm="4">
+                  <v-text-field v-model="form.compNoDocumento" label="No. Documento" variant="outlined" density="compact" />
+                </v-col>
+                <v-col cols="12" sm="4">
+                  <v-text-field v-model="form.compTelefono"    label="Teléfono"      variant="outlined" density="compact" />
+                </v-col>
+                <v-col cols="12" sm="6">
+                  <v-text-field v-model="form.compDireccion" label="Dirección" variant="outlined" density="compact" />
+                </v-col>
+                <v-col cols="12" sm="6">
+                  <v-text-field v-model="form.compCiudad"    label="Ciudad"    variant="outlined" density="compact" />
+                </v-col>
+              </v-row>
+            </v-expansion-panel-text>
+          </v-expansion-panel>
+
+          <!-- S4 — Alertas e Importación ──────────────────────────────── -->
+          <v-expansion-panel value="alertas" eager>
+            <v-expansion-panel-title class="font-weight-bold">
+              <v-icon class="mr-2" color="red-darken-2" size="20">mdi-alert-circle-outline</v-icon>
+              Alertas e Importación
+            </v-expansion-panel-title>
+            <v-expansion-panel-text>
+              <v-row dense class="mt-1">
+                <v-col cols="12" sm="4" class="d-flex align-center">
+                  <v-checkbox v-model="form.alertaHurto"               label="Hurto"                   density="compact" hide-details />
+                </v-col>
+                <v-col cols="12" sm="4" class="d-flex align-center">
+                  <v-checkbox v-model="form.alertaLimitacionPropiedad" label="Limitación de propiedad" density="compact" hide-details />
+                </v-col>
+                <v-col cols="12" sm="4" class="d-flex align-center">
+                  <v-checkbox v-model="form.alertaEmbargo"             label="Embargo"                 density="compact" hide-details />
+                </v-col>
+                <v-col cols="12" sm="12">
+                  <v-text-field
+                    v-model="form.alertaOtro"
+                    label="Otra alerta (descripción)"
+                    variant="outlined"
+                    density="compact"
+                  />
+                </v-col>
+                <v-col cols="12" sm="4">
+                  <v-select
+                    v-model="form.tipoImportacion"
+                    :items="TIPO_IMPORTACION_ITEMS"
+                    label="Tipo importación"
+                    variant="outlined"
+                    density="compact"
+                    clearable
+                  />
+                </v-col>
+                <v-col cols="12" sm="4">
+                  <v-text-field
+                    v-model="form.noDocumentoImportacion"
+                    label="No. Documento importación"
+                    variant="outlined"
+                    density="compact"
+                  />
+                </v-col>
+                <v-col cols="12" sm="4">
+                  <v-text-field
+                    v-model="form.fechaImportacion"
+                    label="Fecha importación"
+                    variant="outlined"
+                    density="compact"
+                    type="date"
+                  />
+                </v-col>
+              </v-row>
+            </v-expansion-panel-text>
+          </v-expansion-panel>
+
+          <!-- S5 — Observaciones ──────────────────────────────────────── -->
+          <v-expansion-panel value="observaciones" eager>
+            <v-expansion-panel-title class="font-weight-bold">
+              <v-icon class="mr-2" color="grey-darken-2" size="20">mdi-comment-text-outline</v-icon>
+              Observaciones
+            </v-expansion-panel-title>
+            <v-expansion-panel-text>
+              <v-textarea
+                v-model="form.observacionesRunt"
+                variant="outlined"
+                density="compact"
+                rows="3"
+                auto-grow
+                class="mt-1"
+                placeholder="Observaciones del formulario RUNT..."
+              />
+            </v-expansion-panel-text>
+          </v-expansion-panel>
+
+        </v-expansion-panels>
+      </v-card-text>
+
+      <v-divider />
+
+      <!-- ── Acciones ───────────────────────────────────────────────────── -->
+      <v-card-actions class="pa-4 flex-wrap" style="gap: 8px">
+        <v-spacer />
+        <v-btn color="grey-darken-1" variant="outlined" @click="dialog = false">
+          Cerrar
+        </v-btn>
+        <v-btn
+          color="green-darken-1"
+          variant="tonal"
+          prepend-icon="mdi-microsoft-excel"
+          :loading="exportando"
+          :disabled="cargando || guardando"
+          @click="exportarExcel"
+        >
+          Exportar Excel
+        </v-btn>
+        <v-btn
+          color="deep-purple"
+          variant="elevated"
+          :loading="guardando"
+          :disabled="cargando"
+          @click="guardar"
+        >
+          Guardar
+        </v-btn>
+      </v-card-actions>
+
+      <!-- ── Snackbar local ─────────────────────────────────────────────── -->
+      <v-snackbar
+        v-model="snackbar.show"
+        :color="snackbar.color"
+        :timeout="3500"
+        location="top right"
+      >
+        {{ snackbar.message }}
+        <template #actions>
+          <v-btn color="white" variant="text" @click="snackbar.show = false">Cerrar</v-btn>
+        </template>
+      </v-snackbar>
+
+    </v-card>
+  </v-dialog>
+</template>
+
+<script setup lang="ts">
+import { ref, watch } from 'vue'
+import {
+  FormulariosRuntService,
+  CLASE_VEHICULO_ITEMS,
+  COMBUSTIBLE_ITEMS,
+  TIPO_SERVICIO_ITEMS,
+  TIPO_DOCUMENTO_ITEMS,
+  TIPO_IMPORTACION_ITEMS,
+} from '@/services/formulariosRuntService'
+import type { FormularioRunt } from '@/services/formulariosRuntService'
+import { HttpError } from '@/services/http'
+
+// ── Props / Emits ─────────────────────────────────────────────────────────────
+
+const props = defineProps<{
+  modelValue: boolean
+  tramiteId: number
+  tramiteNumero: number
+  tipoTramite: string | null
+}>()
+
+const emit = defineEmits<{
+  'update:modelValue': [value: boolean]
+}>()
+
+// ── Estado ────────────────────────────────────────────────────────────────────
+
+function makeForm(): FormularioRunt {
+  return {
+    tramiteId:              props.tramiteId,
+    placa:                  null, marca:      null, linea:     null, modelo:    null,
+    color:                  null, claseVehiculo: null, combustible: null,
+    noMotor:                null, noChasis:   null, noSerie:   null, noVin:     null,
+    tipoServicio:           null, capacidadKg: null, blindaje: false,
+    potenciaHp:             null, cilindrada:  null,
+    propPrimerApellido:     null, propSegundoApellido: null, propNombres:        null,
+    propTipoDocumento:      null, propNoDocumento:     null, propDireccion:      null,
+    propCiudad:             null, propTelefono:        null,
+    compPrimerApellido:     null, compSegundoApellido: null, compNombres:        null,
+    compTipoDocumento:      null, compNoDocumento:     null, compDireccion:      null,
+    compCiudad:             null, compTelefono:        null,
+    alertaHurto:            false, alertaLimitacionPropiedad: false, alertaEmbargo: false,
+    alertaOtro:             null, tipoImportacion: null, noDocumentoImportacion: null,
+    fechaImportacion:       null, observacionesRunt: null,
+  }
+}
+
+const dialog     = ref(props.modelValue)
+const cargando   = ref(false)
+const guardando  = ref(false)
+const exportando = ref(false)
+const form      = ref<FormularioRunt>(makeForm())
+const panelAbierto = ref<string[]>(['vehiculo', 'propietario'])
+const snackbar  = ref({ show: false, message: '', color: '' })
+
+function showSnackbar(message: string, color = 'info') {
+  snackbar.value = { show: true, message, color }
+}
+
+// ── Watchers ──────────────────────────────────────────────────────────────────
+
+watch(() => props.modelValue, async (val) => {
+  dialog.value = val
+  if (!val) return
+
+  form.value = makeForm()
+  cargando.value = true
+  try {
+    const datos = await FormulariosRuntService.getByTramite(props.tramiteId)
+    form.value = { ...makeForm(), ...datos }
+  } catch (err) {
+    if (!(err instanceof HttpError && err.status === 404)) {
+      showSnackbar('Error al cargar el formulario', 'error')
+    }
+    // 404 → formulario vacío ya establecido
+  } finally {
+    cargando.value = false
+  }
+})
+
+watch(dialog, (val) => {
+  emit('update:modelValue', val)
+})
+
+// ── Acciones ──────────────────────────────────────────────────────────────────
+
+async function guardar() {
+  guardando.value = true
+  try {
+    const resultado = await FormulariosRuntService.upsert(props.tramiteId, form.value)
+    form.value = { ...makeForm(), ...resultado }
+    showSnackbar('Formulario guardado correctamente', 'success')
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'Error al guardar'
+    showSnackbar(msg, 'error')
+  } finally {
+    guardando.value = false
+  }
+}
+
+async function exportarExcel() {
+  exportando.value = true
+  try {
+    const blob = await FormulariosRuntService.exportExcel(props.tramiteId)
+    const placa = form.value.placa
+    const filename = placa
+      ? `RUNT-${placa}-${props.tramiteNumero}.xlsx`
+      : `RUNT-SIN-PLACA-${props.tramiteNumero}.xlsx`
+    const url = window.URL.createObjectURL(new Blob([blob]))
+    const link = document.createElement('a')
+    link.href = url
+    link.setAttribute('download', filename)
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    window.URL.revokeObjectURL(url)
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'Error al exportar Excel'
+    showSnackbar(msg, 'error')
+  } finally {
+    exportando.value = false
+  }
+}
+</script>

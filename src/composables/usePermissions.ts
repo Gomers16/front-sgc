@@ -13,7 +13,8 @@ export function usePermissions() {
       verDashboard: () => auth.hasAnyRole([
         'SUPER_ADMIN',
         'GERENCIA',
-        'OPERATIVO_TURNOS'
+        'OPERATIVO_TURNOS',
+        'TRAMITADOR'
       ]),
 
       // ==================== TURNOS ====================
@@ -26,7 +27,8 @@ export function usePermissions() {
       crearTurno: () => auth.hasAnyRole([
         'SUPER_ADMIN',
         'OPERATIVO_TURNOS',
-        'GERENCIA'
+        'GERENCIA',
+        'TRAMITADOR'
       ]),
 
       editarTurno: () => auth.hasAnyRole([
@@ -39,6 +41,13 @@ export function usePermissions() {
         'SUPER_ADMIN',
         'GERENCIA',
         'OPERATIVO_TURNOS'
+      ]),
+
+      // ==================== TRÁMITES ====================
+      verTramites: () => auth.hasAnyRole([
+        'SUPER_ADMIN',
+        'GERENCIA',
+        'TRAMITADOR'
       ]),
 
       // ==================== FACTURACIÓN ====================
