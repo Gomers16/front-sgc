@@ -372,6 +372,7 @@
 
 <script setup lang="ts">
 import { ref, watch } from 'vue'
+import { useAuthStore } from '@/stores/AuthStore'
 import {
   FormulariosRuntService,
   CLASE_VEHICULO_ITEMS,
@@ -420,6 +421,8 @@ function makeForm(): FormularioRunt {
   }
 }
 
+const authStore  = useAuthStore()
+
 const dialog     = ref(props.modelValue)
 const cargando   = ref(false)
 const guardando  = ref(false)
@@ -450,6 +453,15 @@ watch(() => props.modelValue, async (val) => {
     // 404 → formulario vacío ya establecido
   } finally {
     cargando.value = false
+    const user = authStore.user
+    if (user) {
+      if (!form.value.mandatarioNombre) {
+        form.value.mandatarioNombre = `${user.nombres} ${user.apellidos}`
+      }
+      if (!form.value.mandatarioDocumento) {
+        form.value.mandatarioDocumento = user.numeroDocumento ?? null
+      }
+    }
   }
 })
 
