@@ -29,6 +29,14 @@
 
       <!-- ── Formulario ─────────────────────────────────────────────────── -->
       <v-card-text v-else class="pa-4">
+        <v-switch
+          v-model="form.incluyeCompraventa"
+          label="¿Incluye compraventa de este vehículo?"
+          color="orange"
+          density="compact"
+          class="mb-2"
+        />
+
         <v-expansion-panels v-model="panelAbierto" multiple variant="accordion">
 
           <!-- S1 — Datos del Vehículo ───────────────────────────────────── -->
@@ -118,6 +126,9 @@
                 <v-col cols="12" sm="2">
                   <v-text-field v-model="form.cilindrada"  label="Cilindrada"    variant="outlined" density="compact" />
                 </v-col>
+                <v-col cols="12" sm="2">
+                  <v-text-field v-model="form.puertas" label="Puertas" variant="outlined" density="compact" type="number" />
+                </v-col>
                 <v-col cols="12" sm="2" class="d-flex align-center">
                   <v-checkbox v-model="form.blindaje" label="Blindaje" density="compact" hide-details />
                 </v-col>
@@ -159,6 +170,9 @@
                   <v-text-field v-model="form.propTelefono"    label="Teléfono"      variant="outlined" density="compact" />
                 </v-col>
                 <v-col cols="12" sm="6">
+                  <v-text-field v-model="form.propCorreo" label="Correo electrónico" variant="outlined" density="compact" type="email" />
+                </v-col>
+                <v-col cols="12" sm="6">
                   <v-text-field v-model="form.propDireccion" label="Dirección" variant="outlined" density="compact" />
                 </v-col>
                 <v-col cols="12" sm="6">
@@ -168,12 +182,11 @@
             </v-expansion-panel-text>
           </v-expansion-panel>
 
-          <!-- S3 — Datos del Comprador (solo TRASPASO) ─────────────────── -->
-          <v-expansion-panel v-if="tipoTramite === 'TRASPASO'" value="comprador" eager>
+          <!-- S3 — Datos del Comprador ─────────────────────────────────── -->
+          <v-expansion-panel v-if="form.incluyeCompraventa" value="comprador" eager>
             <v-expansion-panel-title class="font-weight-bold">
               <v-icon class="mr-2" color="orange-darken-2" size="20">mdi-account-arrow-right</v-icon>
               Datos del Comprador
-              <v-chip class="ml-3" size="x-small" color="orange" variant="tonal">Solo Traspaso</v-chip>
             </v-expansion-panel-title>
             <v-expansion-panel-text>
               <v-row dense class="mt-1">
@@ -203,6 +216,9 @@
                   <v-text-field v-model="form.compTelefono"    label="Teléfono"      variant="outlined" density="compact" />
                 </v-col>
                 <v-col cols="12" sm="6">
+                  <v-text-field v-model="form.compCorreo" label="Correo electrónico" variant="outlined" density="compact" type="email" />
+                </v-col>
+                <v-col cols="12" sm="6">
                   <v-text-field v-model="form.compDireccion" label="Dirección" variant="outlined" density="compact" />
                 </v-col>
                 <v-col cols="12" sm="6">
@@ -212,7 +228,25 @@
             </v-expansion-panel-text>
           </v-expansion-panel>
 
-          <!-- S4 — Alertas e Importación ──────────────────────────────── -->
+          <!-- S4 — Datos del Mandatario ───────────────────────────────── -->
+          <v-expansion-panel value="mandatario" eager>
+            <v-expansion-panel-title class="font-weight-bold">
+              <v-icon class="mr-2" color="teal-darken-2" size="20">mdi-account-tie</v-icon>
+              Datos del Mandatario
+            </v-expansion-panel-title>
+            <v-expansion-panel-text>
+              <v-row dense class="mt-1">
+                <v-col cols="12" sm="6">
+                  <v-text-field v-model="form.mandatarioNombre"    label="Nombre del mandatario"   variant="outlined" density="compact" />
+                </v-col>
+                <v-col cols="12" sm="6">
+                  <v-text-field v-model="form.mandatarioDocumento" label="Documento del mandatario" variant="outlined" density="compact" />
+                </v-col>
+              </v-row>
+            </v-expansion-panel-text>
+          </v-expansion-panel>
+
+          <!-- S5 — Alertas e Importación ──────────────────────────────── -->
           <v-expansion-panel value="alertas" eager>
             <v-expansion-panel-title class="font-weight-bold">
               <v-icon class="mr-2" color="red-darken-2" size="20">mdi-alert-circle-outline</v-icon>
@@ -268,7 +302,7 @@
             </v-expansion-panel-text>
           </v-expansion-panel>
 
-          <!-- S5 — Observaciones ──────────────────────────────────────── -->
+          <!-- S6 — Observaciones ──────────────────────────────────────── -->
           <v-expansion-panel value="observaciones" eager>
             <v-expansion-panel-title class="font-weight-bold">
               <v-icon class="mr-2" color="grey-darken-2" size="20">mdi-comment-text-outline</v-icon>
@@ -371,13 +405,15 @@ function makeForm(): FormularioRunt {
     color:                  null, claseVehiculo: null, combustible: null,
     noMotor:                null, noChasis:   null, noSerie:   null, noVin:     null,
     tipoServicio:           null, capacidadKg: null, blindaje: false,
-    potenciaHp:             null, cilindrada:  null,
+    potenciaHp:             null, cilindrada:  null, puertas:  null,
     propPrimerApellido:     null, propSegundoApellido: null, propNombres:        null,
     propTipoDocumento:      null, propNoDocumento:     null, propDireccion:      null,
-    propCiudad:             null, propTelefono:        null,
+    propCiudad:             null, propTelefono:        null, propCorreo:         null,
     compPrimerApellido:     null, compSegundoApellido: null, compNombres:        null,
     compTipoDocumento:      null, compNoDocumento:     null, compDireccion:      null,
-    compCiudad:             null, compTelefono:        null,
+    compCiudad:             null, compTelefono:        null, compCorreo:         null,
+    incluyeCompraventa:     false,
+    mandatarioNombre:       null, mandatarioDocumento: null,
     alertaHurto:            false, alertaLimitacionPropiedad: false, alertaEmbargo: false,
     alertaOtro:             null, tipoImportacion: null, noDocumentoImportacion: null,
     fechaImportacion:       null, observacionesRunt: null,

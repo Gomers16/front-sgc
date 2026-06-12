@@ -42,6 +42,7 @@ export interface FormularioRunt {
   blindaje: boolean
   potenciaHp: string | null
   cilindrada: string | null
+  puertas: string | null
 
   // Sección 2 — Datos del Propietario
   propPrimerApellido: string | null
@@ -52,8 +53,10 @@ export interface FormularioRunt {
   propDireccion: string | null
   propCiudad: string | null
   propTelefono: string | null
+  propCorreo: string | null
 
-  // Sección 3 — Datos del Comprador (solo TRASPASO)
+  // Sección 3 — Datos del Comprador
+  incluyeCompraventa: boolean
   compPrimerApellido: string | null
   compSegundoApellido: string | null
   compNombres: string | null
@@ -62,8 +65,13 @@ export interface FormularioRunt {
   compDireccion: string | null
   compCiudad: string | null
   compTelefono: string | null
+  compCorreo: string | null
 
-  // Sección 4 — Alertas e Importación
+  // Sección 4 — Datos del Mandatario
+  mandatarioNombre: string | null
+  mandatarioDocumento: string | null
+
+  // Sección 5 — Alertas e Importación
   alertaHurto: boolean
   alertaLimitacionPropiedad: boolean
   alertaEmbargo: boolean
@@ -72,7 +80,7 @@ export interface FormularioRunt {
   noDocumentoImportacion: string | null
   fechaImportacion: string | null
 
-  // Sección 5 — Observaciones
+  // Sección 6 — Observaciones
   observacionesRunt: string | null
 }
 
