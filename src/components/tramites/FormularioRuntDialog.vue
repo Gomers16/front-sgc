@@ -355,6 +355,16 @@
         <v-btn
           color="deep-purple"
           variant="elevated"
+          prepend-icon="mdi-file-multiple"
+          :loading="empaquetando"
+          :disabled="cargando || guardando"
+          @click="exportarPaquete"
+        >
+          Generar Paquete Completo
+        </v-btn>
+        <v-btn
+          color="deep-purple"
+          variant="elevated"
           :loading="guardando"
           :disabled="cargando"
           @click="guardar"
@@ -437,7 +447,8 @@ const dialog     = ref(props.modelValue)
 const cargando   = ref(false)
 const guardando  = ref(false)
 const exportando = ref(false)
-const mandando   = ref(false)
+const mandando     = ref(false)
+const empaquetando = ref(false)
 const form      = ref<FormularioRunt>(makeForm())
 const panelAbierto = ref<string[]>(['vehiculo', 'propietario'])
 const snackbar  = ref({ show: false, message: '', color: '' })
@@ -541,6 +552,30 @@ async function exportarMandato() {
     showSnackbar(msg, 'error')
   } finally {
     mandando.value = false
+  }
+}
+
+async function exportarPaquete() {
+  empaquetando.value = true
+  try {
+    const blob = await FormulariosRuntService.exportPaqueteCompleto(props.tramiteId)
+    const placa = form.value.placa
+    const filename = placa
+      ? `PAQUETE-${placa}-${props.tramiteNumero}.xlsx`
+      : `PAQUETE-SIN-PLACA-${props.tramiteNumero}.xlsx`
+    const url = window.URL.createObjectURL(new Blob([blob]))
+    const link = document.createElement('a')
+    link.href = url
+    link.setAttribute('download', filename)
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    window.URL.revokeObjectURL(url)
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'Error al generar el paquete'
+    showSnackbar(msg, 'error')
+  } finally {
+    empaquetando.value = false
   }
 }
 </script>
