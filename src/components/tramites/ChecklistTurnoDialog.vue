@@ -198,7 +198,7 @@ watch(() => props.modelValue, async (val) => {
         normalizado[k] = datos[k] === null ? null : !!datos[k]
       }
     })
-    form.value = { ...makeForm(), ...(normalizado as typeof datos) }
+    form.value = { ...makeForm(), ...(normalizado as unknown as typeof datos) }
   } catch (err) {
     if (!(err instanceof HttpError && err.status === 404)) {
       showSnackbar('Error al cargar el checklist', 'error')
