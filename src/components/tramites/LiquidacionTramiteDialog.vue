@@ -39,7 +39,6 @@
               type="number"
               variant="outlined"
               density="compact"
-              prefix="$"
               min="0"
               @update:model-value="v => setField(item.key, String(v))"
             />
