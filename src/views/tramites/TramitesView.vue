@@ -85,9 +85,11 @@
     <v-card elevation="8" class="rounded-xl rounded-sm-2xl card-surface">
       <v-data-table
         :headers="headers"
-        :items="tramitesFiltrados"
+        :items="turnosAgrupados"
         :loading="cargando"
         :items-per-page="20"
+        item-value="turnoNumero"
+        show-expand
         class="tramites-table"
         :mobile-breakpoint="0"
       >
@@ -107,60 +109,81 @@
           <div class="text-caption text-medium-emphasis">CC: {{ item.cedula }}</div>
         </template>
 
-        <!-- Tipo -->
-        <template #item.tipoTramite="{ item }">
+        <!-- Cantidad de trámites -->
+        <template #item.cantidadTramites="{ item }">
+          <span v-if="item.tramites.length === 1" class="text-caption">
+            1 trámite
+          </span>
           <v-chip
-            v-if="item.tipoTramite"
-            :size="$vuetify.display.xs ? 'x-small' : 'small'"
-            variant="tonal"
+            v-else
             color="deep-purple"
+            variant="tonal"
+            size="small"
           >
-            {{ formatTipoTramite(item.tipoTramite) }}
-          </v-chip>
-          <span v-else class="text-caption text-medium-emphasis">Sin categorizar</span>
-        </template>
-
-        <!-- Estado -->
-        <template #item.estado="{ item }">
-          <v-chip
-            :size="$vuetify.display.xs ? 'x-small' : 'small'"
-            :color="estadoConfig[item.estado].color"
-            :prepend-icon="estadoConfig[item.estado].icon"
-            variant="elevated"
-          >
-            {{ estadoConfig[item.estado].label }}
+            {{ item.tramites.length }} trámites
           </v-chip>
         </template>
 
         <!-- Hora -->
         <template #item.horaIngreso="{ item }">
-          <div class="d-flex flex-column">
-            <span class="text-caption">{{ item.horaIngreso }}</span>
-            <span v-if="item.horaAtencion" class="text-caption text-success">
-              Atención: {{ item.horaAtencion }}
-            </span>
-          </div>
+          <span class="text-caption">{{ item.horaIngreso }}</span>
         </template>
 
-        <!-- Acciones -->
-        <template #item.acciones="{ item }">
-          <div class="d-flex align-center flex-nowrap" style="gap: 4px">
-            <v-btn size="x-small" color="primary" variant="tonal" @click="abrirDetalle(item)">
-              <v-icon size="small">mdi-eye</v-icon> Ver
-            </v-btn>
-            <v-btn size="x-small" color="deep-purple" variant="tonal" @click="abrirFormularioDirecto(item)">
-              <v-icon size="small">mdi-file-document</v-icon> Formulario
-            </v-btn>
-            <v-btn size="x-small" color="teal" variant="tonal" @click="abrirChecklistDirecto(item)">
-              <v-icon size="small">mdi-checkbox-multiple-marked-outline</v-icon> Checklist
-            </v-btn>
-            <v-btn size="x-small" color="orange-darken-2" variant="tonal" @click="abrirLiquidacionDirecto(item)">
-              <v-icon size="small">mdi-calculator</v-icon> Liquidación
-            </v-btn>
-            <v-btn size="x-small" color="green-darken-2" variant="tonal" @click="abrirHistorialPagosDirecto(item)">
-              <v-icon size="small">mdi-cash-clock</v-icon> Pagos
-            </v-btn>
-          </div>
+        <!-- Fila expandida -->
+        <template #expanded-row="{ columns, item }">
+          <tr>
+            <td :colspan="columns.length" class="pa-0">
+              <div class="pa-3" style="background: #f8f9fb">
+                <v-card
+                  v-for="tramite in item.tramites"
+                  :key="tramite.id"
+                  variant="outlined"
+                  class="mb-2 rounded-lg"
+                >
+                  <v-card-text class="pa-3">
+                    <div class="d-flex align-center justify-space-between flex-wrap mb-2" style="gap: 8px">
+                      <div class="d-flex align-center" style="gap: 10px">
+                        <v-chip
+                          v-if="tramite.tipoTramite"
+                          size="small"
+                          variant="tonal"
+                          color="deep-purple"
+                        >
+                          {{ formatTipoTramite(tramite.tipoTramite) }}
+                        </v-chip>
+                        <span v-else class="text-caption text-medium-emphasis">Sin categorizar</span>
+                      </div>
+                      <v-chip
+                        size="small"
+                        :color="estadoConfig[tramite.estado].color"
+                        :prepend-icon="estadoConfig[tramite.estado].icon"
+                        variant="elevated"
+                      >
+                        {{ estadoConfig[tramite.estado].label }}
+                      </v-chip>
+                    </div>
+                    <div class="d-flex align-center flex-wrap" style="gap: 6px">
+                      <v-btn size="x-small" color="primary" variant="tonal" @click="abrirDetalle(tramite)">
+                        <v-icon size="small">mdi-eye</v-icon> Ver
+                      </v-btn>
+                      <v-btn size="x-small" color="deep-purple" variant="tonal" @click="abrirFormularioDirecto(tramite)">
+                        <v-icon size="small">mdi-file-document</v-icon> Formulario
+                      </v-btn>
+                      <v-btn size="x-small" color="teal" variant="tonal" @click="abrirChecklistDirecto(tramite)">
+                        <v-icon size="small">mdi-checkbox-multiple-marked-outline</v-icon> Checklist
+                      </v-btn>
+                      <v-btn size="x-small" color="orange-darken-2" variant="tonal" @click="abrirLiquidacionDirecto(tramite)">
+                        <v-icon size="small">mdi-calculator</v-icon> Liquidación
+                      </v-btn>
+                      <v-btn size="x-small" color="green-darken-2" variant="tonal" @click="abrirHistorialPagosDirecto(tramite)">
+                        <v-icon size="small">mdi-cash-clock</v-icon> Pagos
+                      </v-btn>
+                    </div>
+                  </v-card-text>
+                </v-card>
+              </div>
+            </td>
+          </tr>
         </template>
       </v-data-table>
     </v-card>
@@ -594,12 +617,11 @@ const tiposFilter = computed(() =>
 )
 
 const headers = [
-  { title: 'Turno', key: 'turnoNumero', sortable: true },
-  { title: 'Cliente', key: 'nombreCliente', sortable: true },
-  { title: 'Tipo', key: 'tipoTramite', sortable: false },
-  { title: 'Estado', key: 'estado', sortable: true },
-  { title: 'Hora', key: 'horaIngreso', sortable: true },
-  { title: 'Acciones', key: 'acciones', sortable: false, align: 'center' as const },
+  { title: '', key: 'data-table-expand', width: '40px' },
+  { title: 'Turno',    key: 'turnoNumero',      sortable: true },
+  { title: 'Cliente',  key: 'nombreCliente',     sortable: true },
+  { title: 'Trámites', key: 'cantidadTramites',  sortable: false },
+  { title: 'Hora',     key: 'horaIngreso',       sortable: true },
 ]
 
 // Stats
@@ -643,6 +665,37 @@ const tramitesFiltrados = computed(() => {
   }
 
   return resultado
+})
+
+interface TurnoAgrupado {
+  turnoNumero:   number
+  turnoCodigo:   string
+  nombreCliente: string
+  cedula:        string
+  horaIngreso:   string
+  fecha:         string
+  sede:          { id: number; nombre: string } | undefined
+  tramites:      Tramite[]
+}
+
+const turnosAgrupados = computed((): TurnoAgrupado[] => {
+  const map = new Map<number, TurnoAgrupado>()
+  for (const t of tramitesFiltrados.value) {
+    if (!map.has(t.turnoNumero)) {
+      map.set(t.turnoNumero, {
+        turnoNumero:   t.turnoNumero,
+        turnoCodigo:   t.turnoCodigo,
+        nombreCliente: t.nombreCliente,
+        cedula:        t.cedula,
+        horaIngreso:   t.horaIngreso,
+        fecha:         t.fecha,
+        sede:          t.sede,
+        tramites:      [],
+      })
+    }
+    map.get(t.turnoNumero)!.tramites.push(t)
+  }
+  return [...map.values()]
 })
 
 // Snackbar
