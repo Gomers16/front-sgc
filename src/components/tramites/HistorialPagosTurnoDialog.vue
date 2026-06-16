@@ -153,7 +153,7 @@
                 Registrar pago
               </v-btn>
 
-              <v-card v-else variant="tonal" color="green-lighten-5" class="mt-2 pa-3 rounded-lg">
+              <v-card v-else variant="outlined" class="mt-2 pa-3 rounded-lg bg-white">
                 <div class="text-body-2 font-weight-bold mb-3">Nuevo pago</div>
                 <v-row dense>
                   <v-col cols="12" sm="6">
