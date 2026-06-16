@@ -233,17 +233,9 @@ async function generarPdf() {
   generando.value = true
   try {
     const blob = await TramiteLiquidacionService.exportPdf(props.tramiteId)
-    const filename = props.placa
-      ? `LIQUIDACION-${props.placa}-${props.turnoNumero}.pdf`
-      : `LIQUIDACION-SIN-PLACA-${props.turnoNumero}.pdf`
-    const url = window.URL.createObjectURL(new Blob([blob]))
-    const link = document.createElement('a')
-    link.href = url
-    link.setAttribute('download', filename)
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-    window.URL.revokeObjectURL(url)
+    const url = window.URL.createObjectURL(new Blob([blob], { type: 'application/pdf' }))
+    window.open(url, '_blank')
+    setTimeout(() => window.URL.revokeObjectURL(url), 60000)
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Error al generar PDF'
     showSnackbar(msg, 'error')
