@@ -510,6 +510,14 @@
         <v-card-actions class="pa-4 d-flex flex-wrap" style="gap: 8px">
           <v-spacer />
           <v-btn
+            color="green-darken-2"
+            variant="tonal"
+            prepend-icon="mdi-cash-clock"
+            @click="showHistorialPagos = true"
+          >
+            Pagos
+          </v-btn>
+          <v-btn
             color="teal"
             variant="tonal"
             prepend-icon="mdi-checkbox-multiple-marked-outline"
@@ -696,6 +704,15 @@
       :tipo-tramite="tramiteSeleccionado.tipoTramite"
     />
 
+    <!-- Historial de Pagos -->
+    <HistorialPagosTurnoDialog
+      v-if="tramiteSeleccionado"
+      v-model="showHistorialPagos"
+      :sede-id="tramiteSeleccionado.sede?.id ?? 0"
+      :fecha="tramiteSeleccionado.fecha"
+      :turno-numero="tramiteSeleccionado.turnoNumero"
+    />
+
     <!-- Checklist de Documentos -->
     <ChecklistTurnoDialog
       v-if="tramiteSeleccionado"
@@ -784,6 +801,7 @@ import ConfirmarDialogo from '@/components/UI/ConfirmarDialogo.vue'
 import FormularioRuntDialog from '@/components/tramites/FormularioRuntDialog.vue'
 import ChecklistTurnoDialog from '@/components/tramites/ChecklistTurnoDialog.vue'
 import LiquidacionTramiteDialog from '@/components/tramites/LiquidacionTramiteDialog.vue'
+import HistorialPagosTurnoDialog from '@/components/tramites/HistorialPagosTurnoDialog.vue'
 
 const authStore = authSetStore()
 const cargando = ref(false)
@@ -794,9 +812,10 @@ const tramiteSeleccionado = ref<Tramite | null>(null)
 const showDetalle = ref(false)
 const tramiteOriginalSnapshot = ref<{ tipoTramite: Tramite['tipoTramite']; observaciones: Tramite['observaciones']; resultado: Tramite['resultado'] } | null>(null)
 const showCancelConfirm = ref(false)
-const showFormularioRunt = ref(false)
-const showChecklist    = ref(false)
-const showLiquidacion  = ref(false)
+const showFormularioRunt   = ref(false)
+const showChecklist        = ref(false)
+const showLiquidacion      = ref(false)
+const showHistorialPagos   = ref(false)
 
 // Pago
 const showPagoDialog = ref(false)
