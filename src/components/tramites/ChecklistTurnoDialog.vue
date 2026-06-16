@@ -192,7 +192,13 @@ watch(() => props.modelValue, async (val) => {
   cargando.value = true
   try {
     const datos = await TramiteChecklistService.getByTurno(props.sedeId, props.fecha, props.turnoNumero)
-    form.value = { ...makeForm(), ...datos }
+    const normalizado = { ...datos } as Record<string, unknown>
+    ;(Object.keys(normalizado) as (keyof typeof datos)[]).forEach(k => {
+      if (k in makeForm() && k !== 'observaciones') {
+        normalizado[k] = datos[k] === null ? null : !!datos[k]
+      }
+    })
+    form.value = { ...makeForm(), ...(normalizado as typeof datos) }
   } catch (err) {
     if (!(err instanceof HttpError && err.status === 404)) {
       showSnackbar('Error al cargar el checklist', 'error')
