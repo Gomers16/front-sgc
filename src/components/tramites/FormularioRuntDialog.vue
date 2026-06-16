@@ -333,26 +333,6 @@
           Cerrar
         </v-btn>
         <v-btn
-          color="green-darken-1"
-          variant="tonal"
-          prepend-icon="mdi-microsoft-excel"
-          :loading="exportando"
-          :disabled="cargando || guardando"
-          @click="exportarExcel"
-        >
-          Exportar Excel
-        </v-btn>
-        <v-btn
-          color="teal"
-          variant="tonal"
-          prepend-icon="mdi-file-certificate"
-          :loading="mandando"
-          :disabled="cargando || guardando"
-          @click="exportarMandato"
-        >
-          Generar Mandato
-        </v-btn>
-        <v-btn
           color="deep-purple"
           variant="elevated"
           prepend-icon="mdi-file-multiple"
@@ -360,7 +340,10 @@
           :disabled="cargando || guardando"
           @click="exportarPaquete"
         >
-          Generar Paquete Completo
+          Generar documentos del trámite
+          <v-tooltip activator="parent" location="top" max-width="320">
+            Descarga un solo archivo Excel con: Formulario RUNT, Contrato de Mandato, Contrato de Compraventa, Hoja de Datos y Check List de liquidación.
+          </v-tooltip>
         </v-btn>
         <v-btn
           color="deep-purple"
@@ -446,8 +429,6 @@ const authStore  = useAuthStore()
 const dialog     = ref(props.modelValue)
 const cargando   = ref(false)
 const guardando  = ref(false)
-const exportando = ref(false)
-const mandando     = ref(false)
 const empaquetando = ref(false)
 const form      = ref<FormularioRunt>(makeForm())
 const panelAbierto = ref<string[]>(['vehiculo', 'propietario'])
@@ -504,54 +485,6 @@ async function guardar() {
     showSnackbar(msg, 'error')
   } finally {
     guardando.value = false
-  }
-}
-
-async function exportarExcel() {
-  exportando.value = true
-  try {
-    const blob = await FormulariosRuntService.exportExcel(props.tramiteId)
-    const placa = form.value.placa
-    const filename = placa
-      ? `RUNT-${placa}-${props.tramiteNumero}.xlsx`
-      : `RUNT-SIN-PLACA-${props.tramiteNumero}.xlsx`
-    const url = window.URL.createObjectURL(new Blob([blob]))
-    const link = document.createElement('a')
-    link.href = url
-    link.setAttribute('download', filename)
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-    window.URL.revokeObjectURL(url)
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : 'Error al exportar Excel'
-    showSnackbar(msg, 'error')
-  } finally {
-    exportando.value = false
-  }
-}
-
-async function exportarMandato() {
-  mandando.value = true
-  try {
-    const blob = await FormulariosRuntService.exportMandatoExcel(props.tramiteId)
-    const placa = form.value.placa
-    const filename = placa
-      ? `MANDATO-${placa}-${props.tramiteNumero}.xlsx`
-      : `MANDATO-SIN-PLACA-${props.tramiteNumero}.xlsx`
-    const url = window.URL.createObjectURL(new Blob([blob]))
-    const link = document.createElement('a')
-    link.href = url
-    link.setAttribute('download', filename)
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-    window.URL.revokeObjectURL(url)
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : 'Error al generar mandato'
-    showSnackbar(msg, 'error')
-  } finally {
-    mandando.value = false
   }
 }
 

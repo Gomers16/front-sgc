@@ -50,6 +50,7 @@
     "jiti": "^2.4.2",
     "jsdom": "^26.0.0",
     "npm-run-all2": "^7.0.2",
+    "playwright": "^1.61.0",
     "prettier": "^3.5.1",
     "start-server-and-test": "^2.0.10",
     "typescript": "~5.7.3",
