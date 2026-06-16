@@ -341,8 +341,12 @@
           @click="exportarPaquete"
         >
           Generar documentos del trámite
-          <v-tooltip activator="parent" location="top" max-width="320">
-            Descarga un solo archivo Excel con: Formulario RUNT, Contrato de Mandato, Contrato de Compraventa, Hoja de Datos y Check List de liquidación.
+          <v-tooltip activator="parent" location="top" max-width="260">
+            <div>Descarga un solo archivo Excel con:</div>
+            <div>- Formulario RUNT</div>
+            <div>- Contrato de Mandato</div>
+            <div>- Contrato de Compraventa</div>
+            <div>- Hoja de Datos</div>
           </v-tooltip>
         </v-btn>
         <v-btn
