@@ -151,6 +151,9 @@
             <v-btn size="x-small" color="deep-purple" variant="tonal" @click="abrirFormularioDirecto(item)">
               <v-icon size="small">mdi-file-document</v-icon> Formulario
             </v-btn>
+            <v-btn size="x-small" color="teal" variant="tonal" @click="abrirChecklistDirecto(item)">
+              <v-icon size="small">mdi-checkbox-multiple-marked-outline</v-icon> Checklist
+            </v-btn>
             <template v-if="item.tipoTramite">
               <v-btn
                 v-if="!item.estadoPago || item.estadoPago === 'pendiente'"
@@ -504,6 +507,14 @@
         <v-card-actions class="pa-4 d-flex flex-wrap" style="gap: 8px">
           <v-spacer />
           <v-btn
+            color="teal"
+            variant="tonal"
+            prepend-icon="mdi-checkbox-multiple-marked-outline"
+            @click="showChecklist = true"
+          >
+            Checklist
+          </v-btn>
+          <v-btn
             color="deep-purple"
             variant="tonal"
             prepend-icon="mdi-clipboard-list-outline"
@@ -674,6 +685,15 @@
       :tipo-tramite="tramiteSeleccionado.tipoTramite"
     />
 
+    <!-- Checklist de Documentos -->
+    <ChecklistTurnoDialog
+      v-if="tramiteSeleccionado"
+      v-model="showChecklist"
+      :sede-id="tramiteSeleccionado.sede?.id ?? 0"
+      :fecha="tramiteSeleccionado.fecha"
+      :turno-numero="tramiteSeleccionado.turnoNumero"
+    />
+
     <!-- Confirmación cancelar trámite -->
     <ConfirmarDialogo
       v-model="showCancelConfirm"
@@ -742,6 +762,7 @@ import type { Tramite, EstadoTramite, FormaPagoCobro, PaginatedMeta } from '@/se
 import { authSetStore } from '@/stores/AuthStore'
 import ConfirmarDialogo from '@/components/UI/ConfirmarDialogo.vue'
 import FormularioRuntDialog from '@/components/tramites/FormularioRuntDialog.vue'
+import ChecklistTurnoDialog from '@/components/tramites/ChecklistTurnoDialog.vue'
 
 const authStore = authSetStore()
 const cargando = ref(false)
@@ -753,6 +774,7 @@ const showDetalle = ref(false)
 const tramiteOriginalSnapshot = ref<{ tipoTramite: Tramite['tipoTramite']; observaciones: Tramite['observaciones']; resultado: Tramite['resultado'] } | null>(null)
 const showCancelConfirm = ref(false)
 const showFormularioRunt = ref(false)
+const showChecklist = ref(false)
 
 // Pago
 const showPagoDialog = ref(false)
@@ -906,6 +928,11 @@ function abrirDetalle(tramite: Tramite) {
   }
   showDetalle.value = true
   cargarTarifa()
+}
+
+function abrirChecklistDirecto(tramite: Tramite) {
+  tramiteSeleccionado.value = { ...tramite }
+  showChecklist.value = true
 }
 
 async function abrirFormularioDirecto(tramite: Tramite) {
