@@ -710,7 +710,7 @@
       v-if="tramiteSeleccionado"
       v-model="showLiquidacion"
       :tramite-id="tramiteSeleccionado.id"
-      :placa="null"
+      :placa="tramiteSeleccionado.placa"
       :turno-numero="tramiteSeleccionado.turnoNumero"
     />
 

@@ -47,6 +47,7 @@ export interface Tramite {
   email: string | null
   tipoTramite: TipoTramite | null
   tipoVehiculo: 'automovil' | 'motocicleta' | null
+  placa: string | null
   estado: EstadoTramite
   fecha: string
   horaIngreso: string
