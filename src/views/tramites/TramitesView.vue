@@ -695,13 +695,15 @@ function abrirDetalle(tramite: Tramite) {
   cargarTarifa()
 }
 
-function abrirChecklistDirecto(tramite: Tramite) {
+async function abrirChecklistDirecto(tramite: Tramite) {
   tramiteSeleccionado.value = { ...tramite }
+  await nextTick()
   showChecklist.value = true
 }
 
-function abrirLiquidacionDirecto(tramite: Tramite) {
+async function abrirLiquidacionDirecto(tramite: Tramite) {
   tramiteSeleccionado.value = { ...tramite }
+  await nextTick()
   showLiquidacion.value = true
 }
 
@@ -716,8 +718,9 @@ async function abrirFormularioDirecto(tramite: Tramite) {
   showFormularioRunt.value = true
 }
 
-function abrirHistorialPagosDirecto(tramite: Tramite) {
+async function abrirHistorialPagosDirecto(tramite: Tramite) {
   tramiteSeleccionado.value = { ...tramite }
+  await nextTick()
   showHistorialPagos.value = true
 }
 
