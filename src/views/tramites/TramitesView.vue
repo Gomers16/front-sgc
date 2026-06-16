@@ -154,6 +154,9 @@
             <v-btn size="x-small" color="teal" variant="tonal" @click="abrirChecklistDirecto(item)">
               <v-icon size="small">mdi-checkbox-multiple-marked-outline</v-icon> Checklist
             </v-btn>
+            <v-btn size="x-small" color="orange-darken-2" variant="tonal" @click="abrirLiquidacionDirecto(item)">
+              <v-icon size="small">mdi-calculator</v-icon> Liquidación
+            </v-btn>
             <template v-if="item.tipoTramite">
               <v-btn
                 v-if="!item.estadoPago || item.estadoPago === 'pendiente'"
@@ -515,6 +518,14 @@
             Checklist
           </v-btn>
           <v-btn
+            color="orange-darken-2"
+            variant="tonal"
+            prepend-icon="mdi-calculator"
+            @click="showLiquidacion = true"
+          >
+            Liquidación
+          </v-btn>
+          <v-btn
             color="deep-purple"
             variant="tonal"
             prepend-icon="mdi-clipboard-list-outline"
@@ -694,6 +705,15 @@
       :turno-numero="tramiteSeleccionado.turnoNumero"
     />
 
+    <!-- Liquidación de Trámite -->
+    <LiquidacionTramiteDialog
+      v-if="tramiteSeleccionado"
+      v-model="showLiquidacion"
+      :tramite-id="tramiteSeleccionado.id"
+      :placa="null"
+      :turno-numero="tramiteSeleccionado.turnoNumero"
+    />
+
     <!-- Confirmación cancelar trámite -->
     <ConfirmarDialogo
       v-model="showCancelConfirm"
@@ -763,6 +783,7 @@ import { authSetStore } from '@/stores/AuthStore'
 import ConfirmarDialogo from '@/components/UI/ConfirmarDialogo.vue'
 import FormularioRuntDialog from '@/components/tramites/FormularioRuntDialog.vue'
 import ChecklistTurnoDialog from '@/components/tramites/ChecklistTurnoDialog.vue'
+import LiquidacionTramiteDialog from '@/components/tramites/LiquidacionTramiteDialog.vue'
 
 const authStore = authSetStore()
 const cargando = ref(false)
@@ -774,7 +795,8 @@ const showDetalle = ref(false)
 const tramiteOriginalSnapshot = ref<{ tipoTramite: Tramite['tipoTramite']; observaciones: Tramite['observaciones']; resultado: Tramite['resultado'] } | null>(null)
 const showCancelConfirm = ref(false)
 const showFormularioRunt = ref(false)
-const showChecklist = ref(false)
+const showChecklist    = ref(false)
+const showLiquidacion  = ref(false)
 
 // Pago
 const showPagoDialog = ref(false)
@@ -933,6 +955,11 @@ function abrirDetalle(tramite: Tramite) {
 function abrirChecklistDirecto(tramite: Tramite) {
   tramiteSeleccionado.value = { ...tramite }
   showChecklist.value = true
+}
+
+function abrirLiquidacionDirecto(tramite: Tramite) {
+  tramiteSeleccionado.value = { ...tramite }
+  showLiquidacion.value = true
 }
 
 async function abrirFormularioDirecto(tramite: Tramite) {
