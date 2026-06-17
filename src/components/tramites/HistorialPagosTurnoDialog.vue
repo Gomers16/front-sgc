@@ -319,8 +319,16 @@ function showSnackbar(message: string, color = 'info') {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function abrirPdf(pagoId: number) {
-  window.open(LiquidacionPagoService.getPagoPdfUrl(pagoId), '_blank')
+async function abrirPdf(pagoId: number) {
+  try {
+    const blob = await LiquidacionPagoService.getPagoPdf(pagoId)
+    const url = window.URL.createObjectURL(new Blob([blob], { type: 'application/pdf' }))
+    window.open(url, '_blank')
+    setTimeout(() => window.URL.revokeObjectURL(url), 60000)
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'Error al abrir el PDF'
+    showSnackbar(msg, 'error')
+  }
 }
 
 function abrirEvidencia(url: string) {

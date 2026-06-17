@@ -1,4 +1,4 @@
-import { get, upload } from './http'
+import { get, upload, download } from './http'
 
 export interface LiquidacionPago {
   id:             number
@@ -22,8 +22,6 @@ export interface TramiteConLiquidacion {
   estado:           'pendiente' | 'parcial' | 'pagado'
 }
 
-const BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:3333').replace(/\/$/, '')
-
 export const LiquidacionPagoService = {
   getHistorialTurno(sedeId: number, fecha: string, turnoNumero: number) {
     const params = new URLSearchParams({
@@ -38,7 +36,7 @@ export const LiquidacionPagoService = {
     return upload<LiquidacionPago>(`/api/tramites/liquidacion/${tramiteLiquidacionId}/pago`, formData)
   },
 
-  getPagoPdfUrl(liquidacionPagoId: number): string {
-    return `${BASE_URL}/api/tramites/liquidacion-pago/${liquidacionPagoId}/pdf`
+  getPagoPdf(liquidacionPagoId: number): Promise<Blob> {
+    return download(`/api/tramites/liquidacion-pago/${liquidacionPagoId}/pdf`)
   },
 }
