@@ -27,6 +27,15 @@
           <v-chip :size="$vuetify.display.xs ? 'small' : 'default'" variant="tonal" color="success" prepend-icon="mdi-check-circle">
             Completados: {{ tramitesCompletados }}
           </v-chip>
+          <v-btn
+            size="small"
+            variant="tonal"
+            color="green-darken-2"
+            prepend-icon="mdi-cash-register"
+            @click="$router.push({ name: 'ReporteCaja' })"
+          >
+            Reporte de Caja
+          </v-btn>
         </div>
       </div>
 
