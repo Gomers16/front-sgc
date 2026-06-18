@@ -11,6 +11,7 @@ export interface PagoEnPeriodo {
 export interface LiquidacionReporte {
   tramiteLiquidacionId: number
   tramiteId:            number
+  turnoNumero:          number
   placa:                string | null
   tipoTramite:          string | null
   nombreCliente:        string | null

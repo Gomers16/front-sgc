@@ -122,6 +122,7 @@
             <!-- Info -->
             <div>
               <div class="d-flex align-center flex-wrap" style="gap:8px">
+                <v-chip size="x-small" variant="tonal" color="indigo">Turno #{{ liq.turnoNumero }}</v-chip>
                 <span class="text-body-1 font-weight-bold">{{ liq.placa ?? '—' }}</span>
                 <v-chip size="x-small" variant="tonal" color="grey">{{ liq.tipoTramite ?? '—' }}</v-chip>
                 <v-chip size="small" variant="tonal" :color="estadoColor[liq.estado]">
