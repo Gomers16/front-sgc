@@ -83,8 +83,7 @@
             :size="$vuetify.display.xs ? 'default' : 'large'"
             :block="$vuetify.display.xs"
           >
-            <span v-if="$vuetify.display.smAndUp">Ver estadísticas del día</span>
-            <span v-else>Estadísticas</span>
+            Estadísticas
           </v-btn>
         </v-col>
 
@@ -99,8 +98,7 @@
             :size="$vuetify.display.xs ? 'default' : 'large'"
             :block="$vuetify.display.xs"
           >
-            <span v-if="$vuetify.display.smAndUp">Crear Nuevo Turno</span>
-            <span v-else>Crear Turno</span>
+            Nuevo Turno
           </v-btn>
         </v-col>
       </v-row>
