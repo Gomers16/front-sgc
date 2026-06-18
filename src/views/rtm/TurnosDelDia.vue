@@ -54,7 +54,6 @@
             label="Fecha"
             variant="outlined"
             density="comfortable"
-            prepend-inner-icon="mdi-calendar"
             hide-details
           />
         </v-col>
