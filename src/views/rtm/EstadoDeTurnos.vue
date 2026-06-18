@@ -536,6 +536,16 @@
                     {{ estadoChipLabel(selectedTurno.estado) }}
                   </v-chip>
 
+                  <div
+                    v-if="selectedTurno.reasignadoDeTurnoId"
+                    class="d-flex align-center mb-2"
+                  >
+                    <v-icon size="x-small" color="amber-darken-2" class="mr-1">mdi-recycle</v-icon>
+                    <span class="text-caption font-weight-medium" style="color: #f59e0b;">
+                      Reasignado — turno cancelado anteriormente
+                    </span>
+                  </div>
+
                   <p class="text-caption text-sm-subtitle-1 text-on-primary-text mb-1">
                     📅 Fecha: <span class="font-weight-medium">{{ formatDate(selectedTurno.fecha) }}</span>
                   </p>
@@ -936,6 +946,8 @@ interface Turno {
     nombres: string
     apellidos: string
   } | null
+
+  reasignadoDeTurnoId?: number | null
 
   createdAt: string
   updatedAt: string

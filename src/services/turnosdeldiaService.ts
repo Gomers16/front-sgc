@@ -161,6 +161,8 @@ export interface Turno {
 
   // 👇 NUEVO: conductor asociado al turno
   conductor?: ConductorLite | null
+
+  reasignadoDeTurnoId?: number | null
 }
 
 /* ========== Filtros exportación ========== */
