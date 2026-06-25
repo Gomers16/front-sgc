@@ -99,6 +99,12 @@ const routes: RouteRecordRaw[] = [
     component: () => import('@/views/tramites/TramitesView.vue'),
     meta: { layout: 'MainLayout', title: 'Turnos Trámites', requiresAuth: true, roles: ['SUPER_ADMIN', 'GERENCIA', 'OPERATIVO_TURNOS', 'TRAMITADOR'] },
   },
+  {
+    path: '/tramites/reporte-caja',
+    name: 'ReporteCaja',
+    component: () => import('@/views/tramites/ReporteCajaView.vue'),
+    meta: { layout: 'MainLayout', title: 'Reporte de Caja', requiresAuth: true, roles: ['SUPER_ADMIN', 'GERENCIA', 'OPERATIVO_TURNOS', 'TRAMITADOR'] },
+  },
 
   // 🧾 FACTURACIÓN
   {

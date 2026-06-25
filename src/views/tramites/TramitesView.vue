@@ -27,6 +27,15 @@
           <v-chip :size="$vuetify.display.xs ? 'small' : 'default'" variant="tonal" color="success" prepend-icon="mdi-check-circle">
             Completados: {{ tramitesCompletados }}
           </v-chip>
+          <v-btn
+            size="small"
+            variant="tonal"
+            color="green-darken-2"
+            prepend-icon="mdi-cash-register"
+            @click="$router.push({ name: 'ReporteCaja' })"
+          >
+            Reporte de Caja
+          </v-btn>
         </div>
       </div>
 
@@ -85,9 +94,11 @@
     <v-card elevation="8" class="rounded-xl rounded-sm-2xl card-surface">
       <v-data-table
         :headers="headers"
-        :items="tramitesFiltrados"
+        :items="turnosAgrupados"
         :loading="cargando"
         :items-per-page="20"
+        item-value="turnoNumero"
+        show-expand
         class="tramites-table"
         :mobile-breakpoint="0"
       >
@@ -107,80 +118,91 @@
           <div class="text-caption text-medium-emphasis">CC: {{ item.cedula }}</div>
         </template>
 
-        <!-- Tipo -->
-        <template #item.tipoTramite="{ item }">
+        <!-- Cantidad de trámites -->
+        <template #item.cantidadTramites="{ item }">
+          <span v-if="item.tramites.length === 1" class="text-caption">
+            1 trámite
+          </span>
           <v-chip
-            v-if="item.tipoTramite"
-            :size="$vuetify.display.xs ? 'x-small' : 'small'"
-            variant="tonal"
+            v-else
             color="deep-purple"
+            variant="tonal"
+            size="small"
           >
-            {{ formatTipoTramite(item.tipoTramite) }}
-          </v-chip>
-          <span v-else class="text-caption text-medium-emphasis">Sin categorizar</span>
-        </template>
-
-        <!-- Estado -->
-        <template #item.estado="{ item }">
-          <v-chip
-            :size="$vuetify.display.xs ? 'x-small' : 'small'"
-            :color="estadoConfig[item.estado].color"
-            :prepend-icon="estadoConfig[item.estado].icon"
-            variant="elevated"
-          >
-            {{ estadoConfig[item.estado].label }}
+            {{ item.tramites.length }} trámites
           </v-chip>
         </template>
 
         <!-- Hora -->
         <template #item.horaIngreso="{ item }">
-          <div class="d-flex flex-column">
-            <span class="text-caption">{{ item.horaIngreso }}</span>
-            <span v-if="item.horaAtencion" class="text-caption text-success">
-              Atención: {{ item.horaAtencion }}
-            </span>
-          </div>
+          <span class="text-caption">{{ item.horaIngreso }}</span>
         </template>
 
-        <!-- Acciones -->
-        <template #item.acciones="{ item }">
-          <div class="d-flex align-center flex-nowrap" style="gap: 4px">
-            <v-btn size="x-small" color="primary" variant="tonal" @click="abrirDetalle(item)">
-              <v-icon size="small">mdi-eye</v-icon> Ver
-            </v-btn>
-            <v-btn size="x-small" color="deep-purple" variant="tonal" @click="abrirFormularioDirecto(item)">
-              <v-icon size="small">mdi-file-document</v-icon> Formulario
-            </v-btn>
-            <template v-if="item.tipoTramite">
-              <v-btn
-                v-if="!item.estadoPago || item.estadoPago === 'pendiente'"
-                size="x-small"
-                color="orange"
-                variant="tonal"
-                @click="abrirPagoDirecto(item)"
-              >
-                <v-icon size="small">mdi-cash-clock</v-icon> Registrar Pago
-              </v-btn>
-              <v-chip
-                v-else-if="item.estadoPago === 'pagado'"
-                size="x-small"
-                color="green"
-                variant="tonal"
-                style="cursor: pointer"
-                @click="abrirDetallePago(item)"
-              >
-                ✅ Pagado
-              </v-chip>
-              <v-chip
-                v-else-if="item.estadoPago === 'exento'"
-                size="x-small"
-                color="grey"
-                variant="tonal"
-              >
-                Exento
-              </v-chip>
-            </template>
-          </div>
+        <!-- Fila expandida -->
+        <template #expanded-row="{ columns, item }">
+          <tr>
+            <td :colspan="columns.length" class="pa-0">
+              <div class="pa-3" style="background: #f8f9fb">
+                <v-btn
+                  size="small"
+                  color="deep-purple"
+                  variant="tonal"
+                  prepend-icon="mdi-plus"
+                  class="mb-3"
+                  @click="abrirAgregarTramite(item)"
+                >
+                  Agregar trámite
+                </v-btn>
+                <v-card
+                  v-for="tramite in item.tramites"
+                  :key="tramite.id"
+                  variant="outlined"
+                  class="mb-2 rounded-lg"
+                >
+                  <v-card-text class="pa-3">
+                    <div class="d-flex align-center justify-space-between flex-wrap mb-2" style="gap: 8px">
+                      <div class="d-flex align-center" style="gap: 10px">
+                        <v-chip
+                          v-if="tramite.tipoTramite"
+                          size="small"
+                          variant="tonal"
+                          color="deep-purple"
+                        >
+                          {{ formatTipoTramite(tramite.tipoTramite) }}
+                        </v-chip>
+                        <span v-else class="text-caption text-medium-emphasis">Sin categorizar</span>
+                      </div>
+                      <v-chip
+                        size="small"
+                        :color="estadoConfig[tramite.estado].color"
+                        :prepend-icon="estadoConfig[tramite.estado].icon"
+                        variant="elevated"
+                      >
+                        {{ estadoConfig[tramite.estado].label }}
+                      </v-chip>
+                    </div>
+                    <div class="d-flex align-center flex-wrap" style="gap: 6px">
+                      <v-btn size="x-small" color="primary" variant="tonal" @click="abrirDetalle(tramite)">
+                        <v-icon size="small">mdi-eye</v-icon> Ver
+                      </v-btn>
+                      <v-btn size="x-small" color="deep-purple" variant="tonal" @click="abrirFormularioDirecto(tramite)">
+                        <v-icon size="small">mdi-file-document</v-icon> Formulario
+                      </v-btn>
+                      <v-btn size="x-small" color="teal" variant="tonal" @click="abrirChecklistDirecto(tramite)">
+                        <v-icon size="small">mdi-checkbox-multiple-marked-outline</v-icon> Checklist
+                      </v-btn>
+                      <v-btn size="x-small" color="orange-darken-2" variant="tonal" @click="abrirLiquidacionDirecto(tramite)">
+                        <v-icon size="small">mdi-calculator</v-icon> Liquidación
+                      </v-btn>
+                      <v-btn size="x-small" color="green-darken-2" variant="tonal" @click="abrirHistorialPagosDirecto(tramite)">
+                        <v-icon size="small">mdi-cash-clock</v-icon> Pagos
+                      </v-btn>
+                    </div>
+                  </v-card-text>
+                </v-card>
+              </div>
+            </td>
+          </tr>
         </template>
       </v-data-table>
     </v-card>
@@ -403,79 +425,6 @@
               </v-row>
             </v-col>
 
-            <!-- Liquidación y Pago -->
-            <v-col cols="12">
-              <div class="text-subtitle-1 font-weight-bold mb-3">
-                <v-icon size="20" class="mr-2" color="amber-darken-2">mdi-cash-register</v-icon>
-                Liquidación y Pago
-              </div>
-              <v-row dense align="center">
-                <v-col cols="12" sm="4">
-                  <v-text-field
-                    v-model.number="tramiteSeleccionado.valorLiquidado"
-                    label="Valor liquidado"
-                    variant="outlined"
-                    :density="$vuetify.display.xs ? 'compact' : 'comfortable'"
-                    prepend-inner-icon="mdi-currency-usd"
-                    type="number"
-                    step="1"
-                    :loading="cargandoTarifa"
-                    @blur="onValorLiquidadoBlur"
-                  />
-                </v-col>
-                <v-col cols="12" sm="4" class="d-flex align-center" style="gap: 8px">
-                  <v-chip
-                    :color="ESTADO_PAGO_CONFIG[tramiteSeleccionado.estadoPago ?? 'pendiente'].color"
-                    variant="elevated"
-                    prepend-icon="mdi-circle-small"
-                  >
-                    {{ ESTADO_PAGO_CONFIG[tramiteSeleccionado.estadoPago ?? 'pendiente'].label }}
-                  </v-chip>
-                </v-col>
-                <v-col cols="12" sm="4" class="d-flex flex-wrap" style="gap: 8px">
-                  <template v-if="tramiteSeleccionado.estadoPago !== 'pagado' && tramiteSeleccionado.estadoPago !== 'exento'">
-                    <v-btn
-                      color="success"
-                      variant="elevated"
-                      size="small"
-                      prepend-icon="mdi-cash-check"
-                      @click="showPagoDialog = true"
-                    >
-                      Registrar Pago
-                    </v-btn>
-                    <v-btn
-                      color="grey-darken-1"
-                      variant="outlined"
-                      size="small"
-                      prepend-icon="mdi-tag-off-outline"
-                      :loading="guardando"
-                      @click="marcarExento"
-                    >
-                      Marcar Exento
-                    </v-btn>
-                  </template>
-                </v-col>
-                <v-col cols="12" v-if="tramiteSeleccionado.estadoPago === 'pagado'">
-                  <v-card variant="tonal" class="pa-3 rounded-lg bg-green-lighten-5">
-                    <v-row dense>
-                      <v-col cols="12" sm="4">
-                        <div class="text-caption text-medium-emphasis">Forma de pago</div>
-                        <div class="font-weight-medium">{{ tramiteSeleccionado.formaPagoCobro ?? '—' }}</div>
-                      </v-col>
-                      <v-col cols="12" sm="4">
-                        <div class="text-caption text-medium-emphasis">Referencia</div>
-                        <div class="font-weight-medium">{{ tramiteSeleccionado.referenciaPago ?? '—' }}</div>
-                      </v-col>
-                      <v-col cols="12" sm="4">
-                        <div class="text-caption text-medium-emphasis">Fecha de pago</div>
-                        <div class="font-weight-medium">{{ tramiteSeleccionado.fechaPago ?? '—' }}</div>
-                      </v-col>
-                    </v-row>
-                  </v-card>
-                </v-col>
-              </v-row>
-            </v-col>
-
             <!-- Tiempos -->
             <v-col cols="12">
               <v-card variant="outlined" class="pa-3 rounded-lg">
@@ -504,6 +453,30 @@
         <v-card-actions class="pa-4 d-flex flex-wrap" style="gap: 8px">
           <v-spacer />
           <v-btn
+            color="green-darken-2"
+            variant="tonal"
+            prepend-icon="mdi-cash-clock"
+            @click="showHistorialPagos = true"
+          >
+            Pagos
+          </v-btn>
+          <v-btn
+            color="teal"
+            variant="tonal"
+            prepend-icon="mdi-checkbox-multiple-marked-outline"
+            @click="showChecklist = true"
+          >
+            Checklist
+          </v-btn>
+          <v-btn
+            color="orange-darken-2"
+            variant="tonal"
+            prepend-icon="mdi-calculator"
+            @click="showLiquidacion = true"
+          >
+            Liquidación
+          </v-btn>
+          <v-btn
             color="deep-purple"
             variant="tonal"
             prepend-icon="mdi-clipboard-list-outline"
@@ -518,153 +491,6 @@
       </v-card>
     </v-dialog>
 
-    <!-- Dialog Registrar Pago -->
-    <v-dialog v-model="showPagoDialog" max-width="480">
-      <v-card class="rounded-xl">
-        <v-card-title class="d-flex align-center justify-space-between pa-4 bg-green-lighten-5">
-          <div class="d-flex align-center" style="gap:8px">
-            <v-icon color="green-darken-2" size="24">mdi-cash-check</v-icon>
-            <span class="text-subtitle-1 font-weight-bold">Registrar Pago</span>
-          </div>
-          <v-btn icon variant="text" @click="showPagoDialog = false">
-            <v-icon>mdi-close</v-icon>
-          </v-btn>
-        </v-card-title>
-        <v-divider />
-        <v-card-text class="pa-4">
-          <v-row dense>
-            <v-col cols="12">
-              <v-select
-                v-model="pagoForm.formaPagoCobro"
-                :items="['Efectivo', 'Transferencia', 'Datáfono']"
-                label="Forma de pago *"
-                variant="outlined"
-                density="comfortable"
-                prepend-inner-icon="mdi-credit-card-outline"
-              />
-            </v-col>
-            <v-col cols="12">
-              <v-text-field
-                v-model="pagoForm.referenciaPago"
-                label="Referencia de pago"
-                variant="outlined"
-                density="comfortable"
-                prepend-inner-icon="mdi-pound"
-                hint="Opcional"
-                persistent-hint
-              />
-            </v-col>
-            <v-col cols="12">
-              <v-text-field
-                v-model="pagoForm.fechaPago"
-                label="Fecha de pago"
-                variant="outlined"
-                density="comfortable"
-                type="date"
-                prepend-inner-icon="mdi-calendar"
-              />
-            </v-col>
-            <v-col cols="12">
-              <v-file-input
-                v-model="pagoForm.evidencia"
-                label="Evidencia de pago"
-                variant="outlined"
-                density="comfortable"
-                prepend-icon=""
-                prepend-inner-icon="mdi-paperclip"
-                accept="image/*,.pdf"
-                hint="Opcional"
-                persistent-hint
-              />
-            </v-col>
-          </v-row>
-        </v-card-text>
-        <v-divider />
-        <v-card-actions class="pa-4 justify-end" style="gap: 8px">
-          <v-btn color="grey-darken-1" variant="outlined" @click="showPagoDialog = false">Cancelar</v-btn>
-          <v-btn
-            color="success"
-            variant="elevated"
-            prepend-icon="mdi-check"
-            :loading="subiendoPago"
-            :disabled="!pagoForm.formaPagoCobro"
-            @click="confirmarPago"
-          >
-            Confirmar Pago
-          </v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
-
-    <!-- Dialog Detalle de Pago -->
-    <v-dialog v-model="showDetallePagoDialog" max-width="480">
-      <v-card v-if="tramiteSeleccionado" class="rounded-xl">
-        <v-card-title class="d-flex align-center justify-space-between pa-4 bg-green-lighten-5">
-          <div class="d-flex align-center" style="gap: 8px">
-            <v-icon color="green-darken-2" size="24">mdi-cash-check</v-icon>
-            <span class="text-subtitle-1 font-weight-bold">Detalle del Pago</span>
-          </div>
-          <v-btn icon variant="text" @click="showDetallePagoDialog = false">
-            <v-icon>mdi-close</v-icon>
-          </v-btn>
-        </v-card-title>
-        <v-divider />
-        <v-card-text class="pa-4">
-          <v-row dense>
-            <v-col cols="12" sm="6">
-              <div class="text-caption text-medium-emphasis">Forma de pago</div>
-              <div class="font-weight-medium">{{ tramiteSeleccionado.formaPagoCobro ?? '—' }}</div>
-            </v-col>
-            <v-col cols="12" sm="6">
-              <div class="text-caption text-medium-emphasis">Fecha de pago</div>
-              <div class="font-weight-medium">
-                {{ tramiteSeleccionado.fechaPago ? new Date(tramiteSeleccionado.fechaPago).toLocaleDateString('es-CO') : '—' }}
-              </div>
-            </v-col>
-            <v-col cols="12" sm="6">
-              <div class="text-caption text-medium-emphasis">Valor liquidado</div>
-              <div class="font-weight-medium">
-                {{ tramiteSeleccionado.valorLiquidado != null ? `$ ${tramiteSeleccionado.valorLiquidado.toLocaleString('es-CO')}` : '—' }}
-              </div>
-            </v-col>
-            <v-col cols="12" sm="6">
-              <div class="text-caption text-medium-emphasis">Referencia</div>
-              <div class="font-weight-medium">{{ tramiteSeleccionado.referenciaPago ?? '—' }}</div>
-            </v-col>
-            <v-col cols="12" class="mt-2">
-              <div class="text-caption text-medium-emphasis mb-1">Evidencia</div>
-              <v-img
-                v-if="evidenciaUrl"
-                :src="evidenciaUrl"
-                max-height="300"
-                class="rounded-lg mt-3"
-                style="cursor: zoom-in"
-                cover
-                @click="showImagenCompleta = true"
-              />
-              <div v-else class="text-caption text-medium-emphasis mt-2">Sin evidencia adjunta</div>
-            </v-col>
-          </v-row>
-        </v-card-text>
-        <v-divider />
-        <v-card-actions class="pa-4 justify-end">
-          <v-btn color="grey-darken-1" variant="outlined" @click="showDetallePagoDialog = false">Cerrar</v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
-
-    <!-- Dialog imagen completa de evidencia -->
-    <v-dialog v-model="showImagenCompleta" max-width="90vw" :scrim="false" content-class="elevation-0 pa-0" @click:outside="showImagenCompleta = false">
-      <v-img
-        :src="evidenciaUrl ?? undefined"
-        max-height="90vh"
-        contain
-        class="rounded-lg"
-        style="cursor: pointer"
-        @click="showImagenCompleta = false"
-      />
-    </v-dialog>
-
     <!-- Formulario RUNT -->
     <FormularioRuntDialog
       v-if="tramiteSeleccionado"
@@ -672,6 +498,48 @@
       :tramite-id="tramiteSeleccionado.id"
       :tramite-numero="tramiteSeleccionado.turnoNumero"
       :tipo-tramite="tramiteSeleccionado.tipoTramite"
+      :incluye-compraventa="tramiteSeleccionado.incluyeCompraventa ?? false"
+      @tramite-actualizado="onFormularioRuntActualizado"
+    />
+
+    <!-- Historial de Pagos -->
+    <HistorialPagosTurnoDialog
+      v-if="tramiteSeleccionado"
+      v-model="showHistorialPagos"
+      :sede-id="tramiteSeleccionado.sede?.id ?? 0"
+      :fecha="tramiteSeleccionado.fecha"
+      :turno-numero="tramiteSeleccionado.turnoNumero"
+    />
+
+    <!-- Checklist de Documentos -->
+    <ChecklistTurnoDialog
+      v-if="tramiteSeleccionado"
+      v-model="showChecklist"
+      :sede-id="tramiteSeleccionado.sede?.id ?? 0"
+      :fecha="tramiteSeleccionado.fecha"
+      :turno-numero="tramiteSeleccionado.turnoNumero"
+    />
+
+    <!-- Liquidación de Trámite -->
+    <LiquidacionTramiteDialog
+      v-if="tramiteSeleccionado"
+      v-model="showLiquidacion"
+      :tramite-id="tramiteSeleccionado.id"
+      :placa="tramiteSeleccionado.placa"
+      :turno-numero="tramiteSeleccionado.turnoNumero"
+    />
+
+    <!-- Agregar trámite al turno -->
+    <AgregarTramiteDialog
+      v-if="turnoParaAgregar"
+      v-model="showAgregarTramite"
+      :turno-numero="turnoParaAgregar.turnoNumero"
+      :turno-ref="{
+        nombreCliente: turnoParaAgregar.nombreCliente,
+        cedula:        turnoParaAgregar.cedula,
+        servicioId:    turnoParaAgregar.tramites[0]?.servicio?.id ?? 0,
+      }"
+      @tramite-agregado="onTramiteAgregado"
     />
 
     <!-- Confirmación cancelar trámite -->
@@ -738,10 +606,14 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch, nextTick } from 'vue'
 import { TramitesService, TIPOS_TRAMITE_ITEMS, ESTADO_CONFIG } from '@/services/tramitesService'
-import type { Tramite, EstadoTramite, FormaPagoCobro, PaginatedMeta } from '@/services/tramitesService'
+import type { Tramite, EstadoTramite, PaginatedMeta } from '@/services/tramitesService'
 import { authSetStore } from '@/stores/AuthStore'
 import ConfirmarDialogo from '@/components/UI/ConfirmarDialogo.vue'
 import FormularioRuntDialog from '@/components/tramites/FormularioRuntDialog.vue'
+import ChecklistTurnoDialog from '@/components/tramites/ChecklistTurnoDialog.vue'
+import LiquidacionTramiteDialog from '@/components/tramites/LiquidacionTramiteDialog.vue'
+import HistorialPagosTurnoDialog from '@/components/tramites/HistorialPagosTurnoDialog.vue'
+import AgregarTramiteDialog from '@/components/tramites/AgregarTramiteDialog.vue'
 
 const authStore = authSetStore()
 const cargando = ref(false)
@@ -752,42 +624,17 @@ const tramiteSeleccionado = ref<Tramite | null>(null)
 const showDetalle = ref(false)
 const tramiteOriginalSnapshot = ref<{ tipoTramite: Tramite['tipoTramite']; observaciones: Tramite['observaciones']; resultado: Tramite['resultado'] } | null>(null)
 const showCancelConfirm = ref(false)
-const showFormularioRunt = ref(false)
+const showFormularioRunt   = ref(false)
+const showChecklist        = ref(false)
+const showLiquidacion      = ref(false)
+const showHistorialPagos   = ref(false)
+const showAgregarTramite   = ref(false)
+const turnoParaAgregar     = ref<TurnoAgrupado | null>(null)
 
-// Pago
-const showPagoDialog = ref(false)
-const showDetallePagoDialog = ref(false)
-const showImagenCompleta = ref(false)
 const cargandoTarifa = ref(false)
-const subiendoPago = ref(false)
-const pagoForm = ref<{
-  formaPagoCobro: FormaPagoCobro | null
-  referenciaPago: string
-  fechaPago: string
-  evidencia: File[]
-}>({
-  formaPagoCobro: null,
-  referenciaPago: '',
-  fechaPago: new Date().toISOString().split('T')[0],
-  evidencia: [],
-})
-
-const ESTADO_PAGO_CONFIG: Record<string, { color: string; label: string }> = {
-  pendiente: { color: 'orange', label: 'Pendiente' },
-  pagado:    { color: 'green',  label: 'Pagado' },
-  exento:    { color: 'grey',   label: 'Exento' },
-}
-
-const evidenciaUrl = computed(() => {
-  const url = tramiteSeleccionado.value?.evidenciaPagoUrl
-  if (!url) return null
-  if (url.startsWith('http')) return url
-  const base = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:3333').replace(/\/$/, '')
-  return `${base}${url}`
-})
 
 // Filtros
-const fechaFiltro = ref(new Date().toISOString().split('T')[0])
+const fechaFiltro = ref(new Date().toLocaleDateString('en-CA', { timeZone: 'America/Bogota' }))
 const filtroEstado = ref<EstadoTramite | null>(null)
 const filtroTipo = ref<string | null>(null)
 const busqueda = ref('')
@@ -807,12 +654,11 @@ const tiposFilter = computed(() =>
 )
 
 const headers = [
-  { title: 'Turno', key: 'turnoNumero', sortable: true },
-  { title: 'Cliente', key: 'nombreCliente', sortable: true },
-  { title: 'Tipo', key: 'tipoTramite', sortable: false },
-  { title: 'Estado', key: 'estado', sortable: true },
-  { title: 'Hora', key: 'horaIngreso', sortable: true },
-  { title: 'Acciones', key: 'acciones', sortable: false, align: 'center' as const },
+  { title: '', key: 'data-table-expand', width: '40px' },
+  { title: 'Turno',    key: 'turnoNumero',      sortable: true },
+  { title: 'Cliente',  key: 'nombreCliente',     sortable: true },
+  { title: 'Trámites', key: 'cantidadTramites',  sortable: false },
+  { title: 'Hora',     key: 'horaIngreso',       sortable: true },
 ]
 
 // Stats
@@ -856,6 +702,37 @@ const tramitesFiltrados = computed(() => {
   }
 
   return resultado
+})
+
+interface TurnoAgrupado {
+  turnoNumero:   number
+  turnoCodigo:   string
+  nombreCliente: string
+  cedula:        string
+  horaIngreso:   string
+  fecha:         string
+  sede:          { id: number; nombre: string } | undefined
+  tramites:      Tramite[]
+}
+
+const turnosAgrupados = computed((): TurnoAgrupado[] => {
+  const map = new Map<number, TurnoAgrupado>()
+  for (const t of tramitesFiltrados.value) {
+    if (!map.has(t.turnoNumero)) {
+      map.set(t.turnoNumero, {
+        turnoNumero:   t.turnoNumero,
+        turnoCodigo:   t.turnoCodigo,
+        nombreCliente: t.nombreCliente,
+        cedula:        t.cedula,
+        horaIngreso:   t.horaIngreso,
+        fecha:         t.fecha,
+        sede:          t.sede,
+        tramites:      [],
+      })
+    }
+    map.get(t.turnoNumero)!.tramites.push(t)
+  }
+  return [...map.values()]
 })
 
 // Snackbar
@@ -908,6 +785,18 @@ function abrirDetalle(tramite: Tramite) {
   cargarTarifa()
 }
 
+async function abrirChecklistDirecto(tramite: Tramite) {
+  tramiteSeleccionado.value = { ...tramite }
+  await nextTick()
+  showChecklist.value = true
+}
+
+async function abrirLiquidacionDirecto(tramite: Tramite) {
+  tramiteSeleccionado.value = { ...tramite }
+  await nextTick()
+  showLiquidacion.value = true
+}
+
 async function abrirFormularioDirecto(tramite: Tramite) {
   tramiteSeleccionado.value = { ...tramite }
   tramiteOriginalSnapshot.value = {
@@ -919,24 +808,17 @@ async function abrirFormularioDirecto(tramite: Tramite) {
   showFormularioRunt.value = true
 }
 
-async function abrirPagoDirecto(tramite: Tramite) {
-  tramiteSeleccionado.value = { ...tramite }
-  await nextTick()
-  if (!tramiteSeleccionado.value.valorLiquidado && tramite.tipoTramite) {
-    try {
-      const resp = await TramitesService.getTarifa(
-        tramite.tipoTramite,
-        tramite.tipoVehiculo ?? undefined,
-      )
-      tramiteSeleccionado.value.valorLiquidado = Math.round(resp.valor ?? 0)
-    } catch {}
-  }
-  showPagoDialog.value = true
+function onFormularioRuntActualizado(incluyeCompraventa: boolean) {
+  if (!tramiteSeleccionado.value) return
+  tramiteSeleccionado.value.incluyeCompraventa = incluyeCompraventa
+  const idx = tramites.value.findIndex((t) => t.id === tramiteSeleccionado.value!.id)
+  if (idx !== -1) tramites.value[idx] = { ...tramites.value[idx], incluyeCompraventa }
 }
 
-function abrirDetallePago(tramite: Tramite) {
+async function abrirHistorialPagosDirecto(tramite: Tramite) {
   tramiteSeleccionado.value = { ...tramite }
-  showDetallePagoDialog.value = true
+  await nextTick()
+  showHistorialPagos.value = true
 }
 
 watch(showFormularioRunt, (val) => {
@@ -951,15 +833,6 @@ function cerrarDetalle() {
   showFormularioRunt.value = false
   tramiteSeleccionado.value = null
   tramiteOriginalSnapshot.value = null
-}
-
-function getAuthUserId(): number {
-  const u: unknown = authStore.user
-  if (typeof u === 'object' && u !== null) {
-    const id = (u as Record<string, unknown>).id
-    if (typeof id === 'number') return id
-  }
-  throw new Error('Usuario no autenticado')
 }
 
 async function guardarCambios(): Promise<boolean> {
@@ -1010,12 +883,6 @@ async function guardarCambios(): Promise<boolean> {
   }
 }
 
-function onValorLiquidadoBlur() {
-  if (tramiteSeleccionado.value?.valorLiquidado != null)
-    tramiteSeleccionado.value.valorLiquidado = Math.round(tramiteSeleccionado.value.valorLiquidado)
-  guardarCambios()
-}
-
 async function recalcularTarifa() {
   if (!tramiteSeleccionado.value?.tipoTramite) return
   cargandoTarifa.value = true
@@ -1044,57 +911,6 @@ async function onTipoTramiteChange() {
 async function onTipoVehiculoChange() {
   await guardarCambios()
   await recalcularTarifa()
-}
-
-async function confirmarPago() {
-  if (!tramiteSeleccionado.value || !pagoForm.value.formaPagoCobro) return
-  subiendoPago.value = true
-  try {
-    const fd = new FormData()
-    fd.append('formaPagoCobro', pagoForm.value.formaPagoCobro)
-    fd.append('fechaPago', pagoForm.value.fechaPago)
-    if (pagoForm.value.referenciaPago) fd.append('referenciaPago', pagoForm.value.referenciaPago)
-    fd.append('valorLiquidado', String(tramiteSeleccionado.value?.valorLiquidado ?? ''))
-    const archivo = pagoForm.value.evidencia
-    if (archivo instanceof File) {
-      fd.append('evidencia', archivo)
-    } else if (Array.isArray(archivo) && archivo.length > 0) {
-      fd.append('evidencia', archivo[0])
-    }
-    const updated = await TramitesService.registrarPago(tramiteSeleccionado.value.id, fd)
-    tramiteSeleccionado.value = { ...tramiteSeleccionado.value, ...updated }
-    const idx = tramites.value.findIndex(t => t.id === tramiteSeleccionado.value!.id)
-    if (idx !== -1) tramites.value[idx] = { ...tramiteSeleccionado.value }
-    showPagoDialog.value = false
-    pagoForm.value = { formaPagoCobro: null, referenciaPago: '', fechaPago: new Date().toISOString().split('T')[0], evidencia: [] }
-    showSnackbar('Pago registrado correctamente', 'success')
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : 'Error al registrar el pago'
-    showSnackbar(msg, 'error')
-  } finally {
-    subiendoPago.value = false
-  }
-}
-
-async function marcarExento() {
-  if (!tramiteSeleccionado.value) return
-  guardando.value = true
-  try {
-    const userId = getAuthUserId()
-    const updated = await TramitesService.update(tramiteSeleccionado.value.id, {
-      usuarioId: userId,
-      estadoPago: 'exento',
-    })
-    tramiteSeleccionado.value = { ...tramiteSeleccionado.value, ...updated }
-    const idx = tramites.value.findIndex(t => t.id === tramiteSeleccionado.value!.id)
-    if (idx !== -1) tramites.value[idx] = { ...tramiteSeleccionado.value }
-    showSnackbar('Trámite marcado como exento', 'success')
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : 'Error al marcar como exento'
-    showSnackbar(msg, 'error')
-  } finally {
-    guardando.value = false
-  }
 }
 
 async function cambiarEstado(nuevoEstado: EstadoTramite) {
@@ -1133,6 +949,15 @@ async function cambiarEstado(nuevoEstado: EstadoTramite) {
   } finally {
     guardando.value = false
   }
+}
+
+function abrirAgregarTramite(turno: TurnoAgrupado) {
+  turnoParaAgregar.value = turno
+  showAgregarTramite.value = true
+}
+
+function onTramiteAgregado(nuevo: Tramite) {
+  tramites.value.push(nuevo)
 }
 
 onMounted(async () => {
