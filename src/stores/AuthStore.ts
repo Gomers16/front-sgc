@@ -19,6 +19,7 @@ export interface User {
   nombres: string
   apellidos: string
   correo: string
+  numeroDocumento: string | null
   fotoPerfil: string
   sede: string
   direccion: string

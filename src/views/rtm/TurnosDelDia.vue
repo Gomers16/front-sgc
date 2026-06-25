@@ -8,15 +8,17 @@
         class="text-h5 text-sm-h4 mb-4 mb-sm-6 font-weight-bold d-flex justify-center title-full-bordered-container"
       >
         <span class="title-text-with-border">
-          📋 Turnos de Hoy
-          <span class="text-secondary d-none d-sm-inline">(HOY - {{ todayDate }})</span>
+          📋 Turnos del Día
+          <span class="text-secondary d-none d-sm-inline">
+            {{ fechaSeleccionada === todayDateISO ? '(HOY)' : fechaSeleccionada }}
+          </span>
         </span>
       </v-card-title>
 
       <!-- Filtros y acciones - Responsive -->
       <v-row class="mb-4 align-center">
         <!-- Botón Refrescar -->
-        <v-col cols="12" sm="6" md="3">
+        <v-col cols="12" sm="6" md="2">
           <v-btn
             color="primary"
             variant="elevated"
@@ -32,7 +34,7 @@
         </v-col>
 
         <!-- Filtro por servicio -->
-        <v-col cols="12" sm="6" md="3">
+        <v-col cols="12" sm="6" md="2">
           <v-select
             v-model="servicioFiltro"
             :items="servicioFiltroItems"
@@ -44,8 +46,33 @@
           />
         </v-col>
 
+        <!-- Filtro por fecha -->
+        <v-col cols="12" sm="6" md="2">
+          <v-text-field
+            v-model="fechaSeleccionada"
+            type="date"
+            label="Fecha"
+            variant="outlined"
+            density="comfortable"
+            hide-details
+          />
+        </v-col>
+
+        <!-- Búsqueda por placa -->
+        <v-col cols="12" sm="6" md="2">
+          <v-text-field
+            v-model="busquedaPlaca"
+            label="Buscar por placa"
+            variant="outlined"
+            density="comfortable"
+            prepend-inner-icon="mdi-car-search"
+            hide-details
+            clearable
+          />
+        </v-col>
+
         <!-- Botón Ver estadísticas -->
-        <v-col cols="12" sm="6" md="3">
+        <v-col cols="12" sm="6" md="2">
           <v-btn
             color="info"
             variant="outlined"
@@ -55,13 +82,12 @@
             :size="$vuetify.display.xs ? 'default' : 'large'"
             :block="$vuetify.display.xs"
           >
-            <span v-if="$vuetify.display.smAndUp">Ver estadísticas del día</span>
-            <span v-else>Estadísticas</span>
+            Estadísticas
           </v-btn>
         </v-col>
 
         <!-- Botón Crear Nuevo Turno -->
-        <v-col cols="12" sm="6" md="3">
+        <v-col cols="12" sm="6" md="2">
           <v-btn
             color="success"
             variant="elevated"
@@ -71,8 +97,7 @@
             :size="$vuetify.display.xs ? 'default' : 'large'"
             :block="$vuetify.display.xs"
           >
-            <span v-if="$vuetify.display.smAndUp">Crear Nuevo Turno</span>
-            <span v-else>Crear Turno</span>
+            Nuevo Turno
           </v-btn>
         </v-col>
       </v-row>
@@ -748,7 +773,7 @@
 <!-- Copia desde <script setup lang="ts"> hasta </script> -->
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { DateTime } from 'luxon'
 import TurnosDelDiaService from '@/services/turnosdeldiaService'
@@ -878,6 +903,9 @@ const router = useRouter()
 const turnos = ref<Turno[]>([])
 const isLoading = ref(true)
 const todayDate = ref('')
+const todayDateISO = ref('')
+const fechaSeleccionada = ref('')
+const busquedaPlaca = ref('')
 
 const snackbar = ref({
   show: false,
@@ -902,9 +930,15 @@ const servicioFiltroItems = [
 
 const turnosFiltrados = computed(() => {
   return turnos.value.filter((t) => {
-    if (servicioFiltro.value === 'TODOS') return true
-    const codigo = getServicioCodigo(t).toUpperCase()
-    return codigo === servicioFiltro.value.toUpperCase()
+    const pasaServicio =
+      servicioFiltro.value === 'TODOS' ||
+      getServicioCodigo(t).toUpperCase() === servicioFiltro.value.toUpperCase()
+
+    const pasaPlaca =
+      !busquedaPlaca.value ||
+      t.placa.toUpperCase().includes(busquedaPlaca.value.toUpperCase())
+
+    return pasaServicio && pasaPlaca
   })
 })
 
@@ -1164,33 +1198,21 @@ const iconColor = (etapa: Etapa, turno: Turno) => {
 const loadTurnosHoy = async () => {
   isLoading.value = true
   try {
-    const today = new Date()
-    const options: Intl.DateTimeFormatOptions = {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      timeZone: 'America/Bogota',
-    }
-    const formatter = new Intl.DateTimeFormat('es-CO', options)
-    const parts = formatter.formatToParts(today)
-    const year = parts.find((p) => p.type === 'year')?.value
-    const month = parts.find((p) => p.type === 'month')?.value
-    const day = parts.find((p) => p.type === 'day')?.value
-    const todayISO = `${year}-${month}-${day}`
+    const fechaISO = fechaSeleccionada.value
 
-    const filters = { fecha: todayISO }
+    const filters = { fecha: fechaISO }
     const data = (await TurnosDelDiaService.fetchTurnos(filters)) as unknown as Turno[]
 
     turnos.value = data.filter((turno) => {
       const turnoFechaNormalizada = turno.fecha
         ? new Date(turno.fecha).toISOString().slice(0, 10)
         : ''
-      const isToday = turnoFechaNormalizada === todayISO
+      const esFechaSeleccionada = turnoFechaNormalizada === fechaISO
       const notInactivo = turno.estado !== 'inactivo'
-      return isToday && notInactivo
+      return esFechaSeleccionada && notInactivo
     })
 
-    showSnackbar('Turnos de hoy cargados correctamente.', 'success')
+    showSnackbar('Turnos cargados correctamente.', 'success')
   } catch (error: unknown) {
     console.error('Error al cargar turnos del día:', error)
     let message = 'Error al cargar los turnos del día. Intente recargar la página.'
@@ -1211,6 +1233,8 @@ const loadTurnosHoy = async () => {
     isLoading.value = false
   }
 }
+
+watch(fechaSeleccionada, () => loadTurnosHoy())
 
 const getEtapas = (turno: Turno): Etapa[] => {
   const esSOAT = getServicioCodigo(turno).toUpperCase() === 'SOAT'
@@ -1380,11 +1404,28 @@ const chartOptions = {
 
 /* ===== Mounted ===== */
 onMounted(() => {
-  todayDate.value = new Date().toLocaleDateString('es-CO', {
+  const today = new Date()
+  const options: Intl.DateTimeFormatOptions = {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    timeZone: 'America/Bogota',
+  }
+  const formatter = new Intl.DateTimeFormat('es-CO', options)
+  const parts = formatter.formatToParts(today)
+  const year = parts.find((p) => p.type === 'year')?.value
+  const month = parts.find((p) => p.type === 'month')?.value
+  const day = parts.find((p) => p.type === 'day')?.value
+  const iso = `${year}-${month}-${day}`
+
+  todayDateISO.value = iso
+  fechaSeleccionada.value = iso
+  todayDate.value = today.toLocaleDateString('es-CO', {
     year: 'numeric',
     month: 'long',
     day: 'numeric',
   })
+
   initTipoVehiculoStats()
   loadTurnosHoy()
 })
