@@ -1842,10 +1842,29 @@ function normalizeProspecto(p: Record<string, unknown>): ProspectoConExtras {
 }
 
 async function fetchProspectos(id: number) {
-  const res = await listProspectos({
-    page: 1, perPage: 500, asesorId: id, sortBy: 'updated_at', order: 'desc',
-  })
-  return res.data.map((p) => normalizeProspecto(p as unknown as Record<string, unknown>))
+  const PAGE_SIZE = 1000
+  let page = 1
+  let all: ProspectoConExtras[] = []
+  const rango = verTodosProspectos.value
+    ? {}
+    : { desde: filtros.value.desde, hasta: filtros.value.hasta }
+
+  while (true) {
+    const res = await listProspectos({
+      page,
+      perPage: PAGE_SIZE,
+      asesorId: id,
+      sortBy: 'updated_at',
+      order: 'desc',
+      ...rango,
+    })
+    const chunk = res.data.map((p) => normalizeProspecto(p as unknown as Record<string, unknown>))
+    all = all.concat(chunk)
+    if (page >= (res.lastPage || 1) || chunk.length === 0) break
+    page++
+  }
+
+  return all
 }
 
 async function fetchConvenios(id: number) {
@@ -1859,17 +1878,39 @@ async function fetchConvenios(id: number) {
   return []
 }
 
+async function fetchDateosPorFiltro(filtro: { agenteId?: number; convenioId?: number }) {
+  const PAGE_SIZE = 1000
+  let page = 1
+  let all: DateoConExtras[] = []
+  const rango = verTodosDateos.value
+    ? {}
+    : { desde: filtros.value.desde, hasta: filtros.value.hasta }
+
+  while (true) {
+    const r = await listDateos({
+      page,
+      perPage: PAGE_SIZE,
+      canal: 'ASESOR',
+      sortBy: 'id',
+      order: 'desc',
+      ...filtro,
+      ...rango,
+    })
+    const chunk = (r.data as DateoConExtras[]) || []
+    all = all.concat(chunk)
+    if (page >= (r.lastPage || 1) || chunk.length === 0) break
+    page++
+  }
+
+  return all
+}
+
 async function fetchDateosUnionAsesorYConvenio(opts: { asesor: Asesor | null; convenios: Convenio[] }) {
   const a = opts.asesor
   if (!a) return [] as DateoConExtras[]
 
-  const fetchByAgente = () =>
-    listDateos({ page: 1, perPage: 500, canal: 'ASESOR', agenteId: a.id, sortBy: 'id', order: 'desc' })
-      .then((r) => (r.data as DateoConExtras[]) || [])
-
-  const fetchByConvenio = (convenioId: number) =>
-    listDateos({ page: 1, perPage: 500, canal: 'ASESOR', convenioId, sortBy: 'id', order: 'desc' })
-      .then((r) => (r.data as DateoConExtras[]) || [])
+  const fetchByAgente = () => fetchDateosPorFiltro({ agenteId: a.id })
+  const fetchByConvenio = (convenioId: number) => fetchDateosPorFiltro({ convenioId })
 
   const esConvenioLocal = normalizeTipoAgente(a.tipo).includes('CONVENIO')
   if (!esConvenioLocal) return await fetchByAgente()
@@ -2021,6 +2062,20 @@ watch(
     }
   },
 )
+
+watch(verTodosDateos, async () => {
+  if (asesor.value) {
+    const d = await fetchDateosUnionAsesorYConvenio({ asesor: asesor.value, convenios: convenios.value })
+    dateos.value = Array.isArray(d) ? d : []
+  }
+})
+
+watch(verTodosProspectos, async () => {
+  if (asesor.value) {
+    const p = await fetchProspectos(asesorId.value)
+    prospectos.value = Array.isArray(p) ? p : []
+  }
+})
 
 onMounted(async () => {
   if (authStore.isComercial && !route.params.id) {
@@ -2221,3 +2276,6 @@ function csvEscape(val: unknown) {
   .doc-date { font-size: 9px; }
 }
 </style>
+
+
+
