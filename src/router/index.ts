@@ -392,6 +392,39 @@ const routes: RouteRecordRaw[] = [
       roles: ['SUPER_ADMIN', 'GERENCIA', 'CONTABILIDAD'],
     },
   },
+  {
+    path: '/reportes-admin/meta-mensual',
+    name: 'ReporteMetaMensual',
+    component: () => import('@/views/reportes/ReporteMetaMensual.vue'),
+    meta: {
+      layout: 'MainLayout',
+      title: 'Meta Mensual',
+      requiresAuth: true,
+      roles: ['SUPER_ADMIN', 'GERENCIA', 'CONTABILIDAD'],
+    },
+  },
+  {
+    path: '/reportes-admin/meta-comercial',
+    name: 'ReporteMetaComercialAsesor',
+    component: () => import('@/views/reportes/ReporteMetaComercialAsesor.vue'),
+    meta: {
+      layout: 'MainLayout',
+      title: 'Meta Comercial por Asesor',
+      requiresAuth: true,
+      roles: ['SUPER_ADMIN', 'GERENCIA', 'CONTABILIDAD'],
+    },
+  },
+  {
+    path: '/reportes-admin/super-informe',
+    name: 'SuperInforme',
+    component: () => import('@/views/reportes/SuperInforme.vue'),
+    meta: {
+      layout: 'MainLayout',
+      title: 'Súper Informe',
+      requiresAuth: true,
+      roles: ['SUPER_ADMIN', 'GERENCIA', 'CONTABILIDAD'],
+    },
+  },
 ]
 
 const router = createRouter({

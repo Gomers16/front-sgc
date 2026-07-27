@@ -194,6 +194,8 @@ export interface ListParams {
   order?: 'asc' | 'desc'
   tipoVehiculo?: 'MOTO' | 'VEHICULO' | ''
   placa?: string
+  tipoAsesor?: 'ASESOR_COMERCIAL' | 'ASESOR_CONVENIO' | 'CONVENIO' | ''
+  tipoCaptacion?: 'NUEVO_DIRECTO' | 'CONVENIO' | ''
 }
 
 export interface ListResponse<T> {
@@ -662,6 +664,40 @@ export async function listComisiones(params: ListParams) {
   }
 }
 
+/* ===== Resumen agregado (tipo de captación / estado) ===== */
+
+export interface ResumenComisionesBucket {
+  cantidad: number
+  monto: number
+}
+
+export interface ResumenComisionesResponse {
+  por_tipo_captacion: {
+    nuevo_directo: ResumenComisionesBucket
+    convenio: ResumenComisionesBucket
+    total: ResumenComisionesBucket
+  }
+  por_estado: {
+    PENDIENTE: ResumenComisionesBucket
+    APROBADA: ResumenComisionesBucket
+    PAGADA: ResumenComisionesBucket
+    ANULADA: ResumenComisionesBucket
+    total: ResumenComisionesBucket
+  }
+  resumen_descuentos: {
+    total: { cantidad: number; monto: number }
+    por_tipo: { descuento_id: number; nombre: string; cantidad: number; monto: number }[]
+  }
+}
+
+export async function getResumenComisiones(
+  params: Omit<ListParams, 'page' | 'perPage' | 'sortBy' | 'order'>
+): Promise<ResumenComisionesResponse> {
+  return apiFetch<ResumenComisionesResponse>('/comisiones/resumen', {
+    query: params as Record<string, unknown>,
+  })
+}
+
 export async function getComision(id: number) {
   const raw = await apiFetch<unknown>(`/comisiones/${id}`)
   return mapComisionToDetail(raw)
@@ -703,6 +739,10 @@ export async function pagarMasivoComisiones(payload: {
   ids: number[]
   accion: 'APROBAR' | 'PAGAR'
   fecha_pago?: string
+  origen?: 'MODAL_LIQUIDAR' | 'TABLA_GENERAL' | 'PANEL_ASESOR'
+  tipo_periodo?: 'DIARIO' | 'SEMANAL' | 'QUINCENAL' | 'MENSUAL'
+  fecha_inicio?: string
+  fecha_fin?: string
 }): Promise<{ actualizadas: number; ids_actualizadas: number[]; mensaje: string }> {
   return apiFetch('/comisiones/pagar-masivo', {
     method: 'POST',
@@ -729,13 +769,33 @@ export interface ResumenAsesorResponse {
   asesores: ResumenAsesorItem[]
 }
 
-export async function getResumenPorAsesor(
-  tipo: string,
-  fechaInicio?: string,
+export interface ResumenPorAsesorParams {
+  tipo: string
+  fechaInicio?: string
   fechaFin?: string
+  estado?: string
+  tipoVehiculo?: string
+  placa?: string
+  asesorId?: number
+  convenioId?: number
+  tipoCaptacion?: string
+}
+
+export async function getResumenPorAsesor(
+  params: ResumenPorAsesorParams
 ): Promise<ResumenAsesorResponse> {
   return apiFetch('/comisiones/resumen-por-asesor', {
-    query: { tipo, fecha_inicio: fechaInicio, fecha_fin: fechaFin },
+    query: {
+      tipo: params.tipo,
+      fecha_inicio: params.fechaInicio,
+      fecha_fin: params.fechaFin,
+      estado: params.estado,
+      tipoVehiculo: params.tipoVehiculo,
+      placa: params.placa,
+      asesorId: params.asesorId,
+      convenioId: params.convenioId,
+      tipoCaptacion: params.tipoCaptacion,
+    },
   })
 }
 

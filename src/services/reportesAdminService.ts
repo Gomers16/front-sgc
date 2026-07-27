@@ -16,7 +16,7 @@ function buildQuery(params?: Record<string, unknown>) {
 
 async function apiFetch<T>(
   endpoint: string,
-  opts: { query?: Record<string, unknown> } = {}
+  opts: { query?: Record<string, unknown>; method?: 'GET' | 'POST'; body?: unknown } = {}
 ) {
   const url = `${BASE}${endpoint}${buildQuery(opts.query)}`
 
@@ -27,7 +27,11 @@ async function apiFetch<T>(
     sessionStorage.getItem('token') || localStorage.getItem('token')
   if (token) (headers as Record<string, string>).Authorization = `Bearer ${token}`
 
-  const res = await fetch(url, { method: 'GET', headers })
+  const res = await fetch(url, {
+    method: opts.method ?? 'GET',
+    headers,
+    body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined,
+  })
 
   if (!res.ok) {
     let msg = `HTTP ${res.status}`
@@ -38,6 +42,25 @@ async function apiFetch<T>(
     throw new Error(msg)
   }
   return (await res.json()) as T
+}
+
+/** Igual que apiFetch pero para respuestas binarias (ej. .xlsx generado en el backend). */
+async function apiFetchBlob(endpoint: string, query?: Record<string, unknown>): Promise<Blob> {
+  const url = `${BASE}${endpoint}${buildQuery(query)}`
+  const token = sessionStorage.getItem('token') || localStorage.getItem('token')
+  const headers: HeadersInit = {}
+  if (token) (headers as Record<string, string>).Authorization = `Bearer ${token}`
+
+  const res = await fetch(url, { method: 'GET', headers })
+  if (!res.ok) {
+    let msg = `HTTP ${res.status}`
+    try {
+      const err = await res.json()
+      msg = (err as Record<string, unknown>)?.message as string || JSON.stringify(err)
+    } catch {}
+    throw new Error(msg)
+  }
+  return await res.blob()
 }
 
 /* ============================ Tipos ============================ */
@@ -62,6 +85,10 @@ export interface ProduccionLider {
   vehiculos: number
   total_bruto: number
   total_neto: number
+  turnos_rtm: number
+  turnos_soat: number
+  turnos_prev: number
+  turnos_peri: number
 }
 export interface ProduccionLiderResponse {
   fecha_inicio: string
@@ -140,6 +167,7 @@ export interface RetencionPorCanal {
   recuperaciones: number
   total: number
   total_bruto: number
+  porcentaje: number
 }
 
 export interface RetencionPorMes {
@@ -335,6 +363,7 @@ export interface DescuentoPorCanal {
   cantidad: number
   total_descuentos: number
   tipos_usados: number
+  porcentaje: number
 }
 export interface DescuentosPorCanalResponse {
   fecha_inicio: string
@@ -523,4 +552,604 @@ export async function getDetalleComisionesPorConvenio(
   return apiFetch<DetalleComisionesResponse>('/reportes-admin/detalle-comisiones', {
     query: { fecha_inicio: fechaInicio, fecha_fin: fechaFin, convenio_id: convenioId },
   })
+}
+
+/* ======================= Liquidación RTM ======================= */
+
+export interface LiquidacionPorCanal {
+  canal: string
+  cantidad: number
+  monto: number
+  porcentaje: number
+}
+
+export interface LiquidacionComercial extends ComisionComercial {
+  comision_ids: number[]
+  comision_ids_pagables: number[]
+  monto_pagable: number
+}
+
+export interface LiquidacionAsesorConvenio extends ComisionAsesorConvenio {
+  asesor_id: number
+  comision_ids: number[]
+  comision_ids_pagables: number[]
+  monto_pagable: number
+}
+
+export interface LiquidacionConvenio extends ComisionConvenio {
+  comision_ids: number[]
+  comision_ids_pagables: number[]
+  monto_pagable: number
+}
+
+export interface LiquidacionRtmResponse {
+  fecha_inicio: string
+  fecha_fin: string
+  resumen: { total_comisiones: number; total_monto: number }
+  por_canal: LiquidacionPorCanal[]
+  comerciales: LiquidacionComercial[]
+  asesores_convenio: LiquidacionAsesorConvenio[]
+  convenios: LiquidacionConvenio[]
+}
+
+export async function getLiquidacionRtm(
+  fechaInicio: string,
+  fechaFin: string
+): Promise<LiquidacionRtmResponse> {
+  return apiFetch<LiquidacionRtmResponse>('/reportes-admin/liquidacion-rtm', {
+    query: { fecha_inicio: fechaInicio, fecha_fin: fechaFin },
+  })
+}
+
+/* ======================= Historial de Liquidaciones ======================= */
+
+export type HistorialLiquidacionOrigen = 'MODAL_LIQUIDAR' | 'TABLA_GENERAL' | 'PANEL_ASESOR'
+export type HistorialLiquidacionPeriodo = 'DIARIO' | 'SEMANAL' | 'QUINCENAL' | 'MENSUAL' | null
+
+export interface HistorialLiquidacionItem {
+  id: number
+  fecha_evento: string
+  fecha_inicio: string
+  fecha_fin: string
+  tipo_origen: HistorialLiquidacionOrigen
+  tipo_periodo: HistorialLiquidacionPeriodo
+  monto_total: number
+  cantidad_comisiones: number
+  usuario: string | null
+}
+
+export interface HistorialLiquidacionesResponse {
+  data: HistorialLiquidacionItem[]
+  total: number
+  page: number
+  perPage: number
+}
+
+export async function getHistorialLiquidaciones(params: {
+  page?: number
+  perPage?: number
+  fechaInicio?: string
+  fechaFin?: string
+}): Promise<HistorialLiquidacionesResponse> {
+  return apiFetch<HistorialLiquidacionesResponse>('/reportes-admin/historial-liquidaciones', {
+    query: {
+      page: params.page,
+      per_page: params.perPage,
+      fecha_inicio: params.fechaInicio,
+      fecha_fin: params.fechaFin,
+    },
+  })
+}
+
+export interface HistorialLiquidacionDetalleFila {
+  comision_id: number
+  tipo_vehiculo: string | null
+  fecha_calculo: string
+  estado: string
+  asesor_nombre: string | null
+  convenio_nombre: string | null
+  monto: number
+}
+
+export interface HistorialLiquidacionDetalleResponse {
+  liquidacion: HistorialLiquidacionItem
+  detalle: HistorialLiquidacionDetalleFila[]
+}
+
+export async function getHistorialLiquidacionDetalle(
+  id: number
+): Promise<HistorialLiquidacionDetalleResponse> {
+  return apiFetch<HistorialLiquidacionDetalleResponse>(`/reportes-admin/historial-liquidaciones/${id}`)
+}
+
+/* ======================= Trazabilidad RTM (histórica, PAGADA) ======================= */
+
+export interface TrazabilidadRtmResponse {
+  fecha_inicio: string
+  fecha_fin: string
+  resumen: { total_comisiones: number; total_monto: number }
+  por_canal: LiquidacionPorCanal[]
+  comerciales: ComisionComercial[]
+  asesores_convenio: ComisionAsesorConvenio[]
+  convenios: ComisionConvenio[]
+}
+
+export async function getTrazabilidadRtm(
+  fechaInicio: string,
+  fechaFin: string
+): Promise<TrazabilidadRtmResponse> {
+  return apiFetch<TrazabilidadRtmResponse>('/reportes-admin/trazabilidad-rtm', {
+    query: { fecha_inicio: fechaInicio, fecha_fin: fechaFin },
+  })
+}
+
+/* ======================= Descargas Excel (.xlsx generado en backend con exceljs) ======================= */
+
+export async function descargarLiquidacionRtmExcel(fechaInicio: string, fechaFin: string): Promise<Blob> {
+  return apiFetchBlob('/reportes-admin/liquidacion-rtm/excel', {
+    fecha_inicio: fechaInicio,
+    fecha_fin: fechaFin,
+  })
+}
+
+export async function descargarTrazabilidadRtmExcel(fechaInicio: string, fechaFin: string): Promise<Blob> {
+  return apiFetchBlob('/reportes-admin/trazabilidad-rtm/excel', {
+    fecha_inicio: fechaInicio,
+    fecha_fin: fechaFin,
+  })
+}
+
+export async function descargarHistorialLiquidacionesExcel(params?: {
+  fechaInicio?: string
+  fechaFin?: string
+}): Promise<Blob> {
+  return apiFetchBlob('/reportes-admin/historial-liquidaciones/excel', {
+    fecha_inicio: params?.fechaInicio,
+    fecha_fin: params?.fechaFin,
+  })
+}
+
+/* ======================= Súper Informe (PDF generado en backend con pdfkit) ======================= */
+
+export async function descargarSuperInformePdf(fechaInicio: string, fechaFin: string): Promise<Blob> {
+  return apiFetchBlob('/reportes-admin/super-informe/pdf', {
+    fecha_inicio: fechaInicio,
+    fecha_fin: fechaFin,
+  })
+}
+
+/* ======================= Reporte Meta Mensual ======================= */
+
+export type FuenteMetaMensual = 'real' | 'historico' | 'sin_datos'
+export type SemaforoColor = 'VERDE' | 'AMARILLO' | 'ROJO' | 'SIN_META'
+
+export interface MetaMensualConfig {
+  mes: number
+  anio: number
+  meta_livianos: number
+  meta_motos: number
+  meta_total: number
+  pct_crecimiento_referencia: number
+}
+
+export interface MetaMensualKpi {
+  meta: number
+  avance: number
+  pct_avance: number | null
+  proyeccion_cierre: number
+  pct_proyeccion: number | null
+}
+
+export interface MetaMensualResumenResponse {
+  mes: number
+  anio: number
+  fuente_datos: FuenteMetaMensual
+  dias_transcurridos: number
+  dias_del_mes: number
+  kpis: {
+    total_general: MetaMensualKpi
+    livianos: MetaMensualKpi
+    motos: MetaMensualKpi
+  }
+  semaforo: {
+    general: SemaforoColor
+    diario: SemaforoColor
+    semanal: SemaforoColor
+    meta: SemaforoColor
+    proyectado: SemaforoColor
+  }
+}
+
+export interface MetaMensualDiarioDia {
+  fecha: string
+  livianos: number
+  motos: number
+  total: number
+  acumulado_livianos: number
+  acumulado_motos: number
+  acumulado_total: number
+  pct_vs_meta: number | null
+  total_anio_anterior: number | null
+  diferencia_vs_anio_anterior: number | null
+}
+
+export interface MetaMensualDiarioResponse {
+  mes: number
+  anio: number
+  fuente_datos: FuenteMetaMensual
+  fuente_datos_anio_anterior: FuenteMetaMensual
+  meta_total: number
+  dias: MetaMensualDiarioDia[]
+}
+
+export interface MetaMensualSemana {
+  inicio: string
+  fin: string
+  livianos: number
+  motos: number
+  total: number
+  pct_livianos: number | null
+  pct_motos: number | null
+}
+
+export interface MetaMensualSemanalResponse {
+  mes: number
+  anio: number
+  fuente_datos: FuenteMetaMensual
+  meta_livianos: number
+  meta_motos: number
+  meta_total: number
+  semanas: MetaMensualSemana[]
+}
+
+export interface MetaMensualProyectadoDia {
+  fecha: string
+  acumulado_livianos: number
+  acumulado_motos: number
+  promedio_diario_livianos: number
+  promedio_diario_motos: number
+  proyeccion_cierre_livianos: number
+  proyeccion_cierre_motos: number
+  proyeccion_cierre_total: number
+}
+
+export interface MetaMensualProyectadoResponse {
+  mes: number
+  anio: number
+  fuente_datos: FuenteMetaMensual
+  dias_transcurridos: number
+  dias_del_mes: number
+  meta_livianos: number
+  meta_motos: number
+  meta_total: number
+  resumen: {
+    promedio_diario_livianos: number
+    promedio_diario_motos: number
+    proyeccion_cierre_livianos: number
+    proyeccion_cierre_motos: number
+    proyeccion_cierre_total: number
+    pct_proyeccion_total: number | null
+  } | null
+  dias: MetaMensualProyectadoDia[]
+}
+
+export interface MetaMensualRangoResponse {
+  mes: number
+  anio: number
+  fecha_inicio: string
+  fecha_fin: string
+  dias_del_rango: number
+  dias_del_rango_transcurridos: number
+  fuente_datos: FuenteMetaMensual
+  real: { livianos: number; motos: number; total: number }
+  meta_mes: { livianos: number; motos: number; total: number }
+  pct_real_sobre_meta_mes: number | null
+  proyeccion: { livianos: number; motos: number; total: number }
+  pct_proyeccion_sobre_meta_mes: number | null
+}
+
+export async function getMetaMensualConfig(
+  mes: number,
+  anio: number
+): Promise<MetaMensualConfig> {
+  return apiFetch<MetaMensualConfig>('/reportes-admin/meta-mensual/config', {
+    query: { mes, anio },
+  })
+}
+
+export async function putMetaMensualConfig(payload: {
+  mes: number
+  anio: number
+  meta_livianos: number
+  meta_motos: number
+  pct_crecimiento_referencia: number
+}): Promise<MetaMensualConfig> {
+  return apiFetch<MetaMensualConfig>('/reportes-admin/meta-mensual/config', {
+    method: 'POST',
+    body: payload,
+  })
+}
+
+export async function getMetaMensualResumen(
+  mes: number,
+  anio: number
+): Promise<MetaMensualResumenResponse> {
+  return apiFetch<MetaMensualResumenResponse>('/reportes-admin/meta-mensual/resumen', {
+    query: { mes, anio },
+  })
+}
+
+export async function getMetaMensualDiario(
+  mes: number,
+  anio: number
+): Promise<MetaMensualDiarioResponse> {
+  return apiFetch<MetaMensualDiarioResponse>('/reportes-admin/meta-mensual/diario', {
+    query: { mes, anio },
+  })
+}
+
+export async function getMetaMensualSemanal(
+  mes: number,
+  anio: number
+): Promise<MetaMensualSemanalResponse> {
+  return apiFetch<MetaMensualSemanalResponse>('/reportes-admin/meta-mensual/semanal', {
+    query: { mes, anio },
+  })
+}
+
+export async function getMetaMensualProyectado(
+  mes: number,
+  anio: number
+): Promise<MetaMensualProyectadoResponse> {
+  return apiFetch<MetaMensualProyectadoResponse>('/reportes-admin/meta-mensual/proyectado', {
+    query: { mes, anio },
+  })
+}
+
+export async function getMetaMensualRango(
+  fechaInicio: string,
+  fechaFin: string
+): Promise<MetaMensualRangoResponse> {
+  return apiFetch<MetaMensualRangoResponse>('/reportes-admin/meta-mensual/rango', {
+    query: { fecha_inicio: fechaInicio, fecha_fin: fechaFin },
+  })
+}
+
+/* ======================= Meta Comercial por Asesor ======================= */
+// Pesos ESTIMADOS con tarifa plana para meses históricos (antes de agosto/2026,
+// ver nota del backend) — no es cálculo de nómina, solo comparación vs. meta.
+
+export type FuenteMetaComercial = 'real' | 'historico'
+export type FuenteMetaComercialDiario = 'real' | 'historico_sin_detalle_diario'
+
+export interface MetaComercialAsesorResumen {
+  asesor_id: number
+  asesor_nombre: string
+  fuente: FuenteMetaComercial
+  es_estimado: boolean
+  cantidad_convenio: number | null
+  cantidad_comercial: number | null
+  pesos_convenio: number
+  pesos_comercial: number
+  pesos_total: number
+  meta_pesos: number | null
+  pct_avance: number | null
+  semaforo: SemaforoColor
+}
+
+export interface MetaComercialResumenResponse {
+  mes: number
+  anio: number
+  fuente: FuenteMetaComercial
+  es_estimado: boolean
+  nota: string | null
+  asesores: MetaComercialAsesorResumen[]
+}
+
+export interface MetaComercialDiarioDia {
+  fecha: string
+  cantidad_total: number
+  cantidad_motos: number
+  cantidad_carros: number
+  cantidad_convenio: number
+  cantidad_comercial: number
+  pesos_convenio: number
+  pesos_comercial: number
+  pesos_total: number
+  acumulado_convenio: number
+  acumulado_comercial: number
+  acumulado_total: number
+  pct_vs_meta: number | null
+}
+
+export interface MetaComercialDiarioResponse {
+  mes: number
+  anio: number
+  asesor_id: number | null
+  asesor_nombre: string | null
+  fuente: FuenteMetaComercialDiario
+  nota: string | null
+  meta_pesos: number | null
+  dias: MetaComercialDiarioDia[]
+}
+
+export interface MetaComercialSemana {
+  inicio: string
+  fin: string
+  cantidad_convenio: number | null
+  cantidad_comercial: number | null
+  cantidad_total: number | null
+  cantidad_motos: number | null
+  cantidad_carros: number | null
+  pesos_convenio: number
+  pesos_comercial: number
+  pesos_total: number
+  pct_vs_meta: number | null
+  acumulado_convenio: number
+  acumulado_comercial: number
+  acumulado_total: number
+  pct_acumulado_vs_meta: number | null
+}
+
+export interface MetaComercialSemanalResponse {
+  mes: number
+  anio: number
+  asesor_id: number | null
+  asesor_nombre: string | null
+  fuente: FuenteMetaComercial
+  es_estimado: boolean
+  cantidad_vehiculo_estimada: boolean
+  meta_pesos: number | null
+  semanas: MetaComercialSemana[]
+}
+
+export interface MetaComercialProyectadoPeriodo {
+  etiqueta: string
+  acumulado: number
+  promedio: number
+  proyeccion: number
+}
+
+export interface MetaComercialProyectadoResponse {
+  mes: number
+  anio: number
+  asesor_id: number | null
+  asesor_nombre: string | null
+  fuente: FuenteMetaComercial
+  granularidad: 'diaria' | 'semanal'
+  es_estimado?: boolean
+  nota?: string | null
+  meta_pesos: number | null
+  periodos_transcurridos: number
+  periodos_totales: number
+  resumen: {
+    promedio_por_periodo: number
+    proyeccion_cierre: number
+    pct_proyeccion: number | null
+  } | null
+  periodos: MetaComercialProyectadoPeriodo[]
+}
+
+export async function getMetaComercialResumen(
+  mes: number,
+  anio: number
+): Promise<MetaComercialResumenResponse> {
+  return apiFetch<MetaComercialResumenResponse>('/reportes-admin/meta-comercial/resumen', {
+    query: { mes, anio },
+  })
+}
+
+export async function getMetaComercialDiario(
+  mes: number,
+  anio: number,
+  asesorId?: number | null
+): Promise<MetaComercialDiarioResponse> {
+  return apiFetch<MetaComercialDiarioResponse>('/reportes-admin/meta-comercial/diario', {
+    query: { mes, anio, asesor_id: asesorId ?? undefined },
+  })
+}
+
+export async function getMetaComercialSemanal(
+  mes: number,
+  anio: number,
+  asesorId?: number | null
+): Promise<MetaComercialSemanalResponse> {
+  return apiFetch<MetaComercialSemanalResponse>('/reportes-admin/meta-comercial/semanal', {
+    query: { mes, anio, asesor_id: asesorId ?? undefined },
+  })
+}
+
+export async function getMetaComercialProyectado(
+  mes: number,
+  anio: number,
+  asesorId?: number | null
+): Promise<MetaComercialProyectadoResponse> {
+  return apiFetch<MetaComercialProyectadoResponse>('/reportes-admin/meta-comercial/proyectado', {
+    query: { mes, anio, asesor_id: asesorId ?? undefined },
+  })
+}
+
+export interface MetaComercialDetalleVehiculoCategoria {
+  categoria: string
+  cantidad: number
+  tarifa: number
+  pesos: number
+}
+
+export interface MetaComercialDetalleVehiculoResponse {
+  mes: number
+  anio: number
+  asesor_id: number
+  asesor_nombre: string
+  disponible: boolean
+  categorias: MetaComercialDetalleVehiculoCategoria[] | null
+  total: { cantidad: number; pesos: number } | null
+  meta_pesos: number | null
+}
+
+export async function getMetaComercialDetalleVehiculo(
+  mes: number,
+  anio: number,
+  asesorId: number
+): Promise<MetaComercialDetalleVehiculoResponse> {
+  return apiFetch<MetaComercialDetalleVehiculoResponse>('/reportes-admin/meta-comercial/detalle-vehiculo', {
+    query: { mes, anio, asesor_id: asesorId },
+  })
+}
+
+export interface MetaComercialIngresoRealDateoItem {
+  dateo_id: number
+  fecha: string
+  tipo_captacion: 'NUEVO_DIRECTO' | 'CONVENIO'
+  tipo_vehiculo: 'CARRO' | 'MOTO' | null
+  ingreso_real: number
+  tuvo_descuento: boolean
+  descuento_nombre: string | null
+  descuento_monto: number
+  descuento_verificado: number
+  placa: string | null
+  comision_asesor: number | null
+  comision_anulada: boolean
+}
+
+export interface MetaComercialIngresoRealDateoBucket {
+  cantidad: number
+  ingreso_real: number
+  comision_asesor_total: number
+}
+
+export interface MetaComercialResumenDescuentoPorTipo {
+  descuento_nombre: string
+  cantidad: number
+  monto_total: number
+}
+
+export interface MetaComercialResumenDescuentos {
+  por_tipo: MetaComercialResumenDescuentoPorTipo[]
+  total: { cantidad: number; monto_total: number }
+}
+
+export interface MetaComercialIngresoRealDateoResponse {
+  mes: number
+  anio: number
+  asesor_id: number
+  asesor_nombre: string
+  detalle: MetaComercialIngresoRealDateoItem[]
+  acumulado: {
+    nuevo_directo: MetaComercialIngresoRealDateoBucket
+    convenio: MetaComercialIngresoRealDateoBucket
+    total: MetaComercialIngresoRealDateoBucket
+  }
+  resumen_descuentos: MetaComercialResumenDescuentos
+}
+
+export async function getMetaComercialIngresoRealDateo(
+  mes: number,
+  anio: number,
+  asesorId: number
+): Promise<MetaComercialIngresoRealDateoResponse> {
+  return apiFetch<MetaComercialIngresoRealDateoResponse>(
+    '/reportes-admin/meta-comercial/ingreso-real-dateo',
+    { query: { mes, anio, asesor_id: asesorId } }
+  )
 }

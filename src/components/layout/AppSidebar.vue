@@ -319,6 +319,14 @@
           <v-list-item v-bind="props" title="Reportes Administrativos" />
         </template>
 
+        <v-list-item
+          prepend-icon="mdi-file-pdf-box"
+          title="Súper Informe"
+          :to="{ name: 'SuperInforme' }"
+          link
+          class="nav-item-child"
+        />
+
         <!-- Financieros -->
         <v-list-group value="reportes-financieros">
           <template #activator="{ props }">
@@ -347,6 +355,20 @@
             prepend-icon="mdi-car-wrench"
             title="Servicios"
             :to="{ name: 'ReporteServicios' }"
+            link
+            class="nav-item-child"
+          />
+          <v-list-item
+            prepend-icon="mdi-target"
+            title="Meta Mensual"
+            :to="{ name: 'ReporteMetaMensual' }"
+            link
+            class="nav-item-child"
+          />
+          <v-list-item
+            prepend-icon="mdi-account-cash"
+            title="Meta Comercial por Asesor"
+            :to="{ name: 'ReporteMetaComercialAsesor' }"
             link
             class="nav-item-child"
           />
