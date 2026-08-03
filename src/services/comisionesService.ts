@@ -238,7 +238,8 @@ export interface ComisionConfig {
  */
 export interface ComisionConfigPayload {
   asesor_id?: number | null
-  tipo_vehiculo: TipoVehiculoComision
+  // null = sin distinción de tipo (Asesor Comercial: sus campos no varían por tipo de vehículo)
+  tipo_vehiculo: TipoVehiculoComision | null
   valor_placa: number
   // incentivos específicos por tipo de vehículo (null = sin configurar, usa valor_placa)
   valor_placa_vehiculo?: number | null
@@ -859,6 +860,51 @@ export async function deleteConfigComision(id: number) {
   })
 }
 
+/* ===== Simulador de comisiones (dry-run, Fase 6) ===== */
+
+export type ActorSimulador = 'COMERCIAL' | 'CONVENIO'
+export type EscenarioSimulador = 'NUEVO' | 'RECURRENTE' | 'RECUPERACION'
+export type OrigenDescuentoSimulador = 'DATEO' | 'CAJA'
+
+export interface SimularComisionPayload {
+  actor: ActorSimulador
+  asesorId: number
+  tipoVehiculo: TipoVehiculoComision
+  conConvenio: boolean
+  escenario: EscenarioSimulador
+  tuvoContinuidad?: boolean
+  esAvance?: boolean
+  codigoDescuento?: string | null
+  origenDescuento?: OrigenDescuentoSimulador | null
+}
+
+export interface SimularComisionResultado {
+  caso: string
+  escenario: string
+  actor: string
+  asesor: { id: number; nombre: string; tipo: string }
+  continuidadUsada: boolean | null
+  reglaGanadora: { alcance: 'INDIVIDUAL' | 'GLOBAL'; asesorId: number | null; asesorNombre: string | null }
+  reglaAplicada: string
+  resultado: {
+    base: number
+    monto: number
+    montoAsesor: number
+    montoConvenio: number
+    valorNuevoDirectoFinal: number
+  }
+}
+
+/** POST /api/comisiones/simular — dry-run, no crea nada */
+export async function simularComision(
+  payload: SimularComisionPayload
+): Promise<SimularComisionResultado> {
+  return apiFetch<SimularComisionResultado>('/comisiones/simular', {
+    method: 'POST',
+    body: payload,
+  })
+}
+
 /* ===== Catálogo de agentes (asesores + convenios) ===== */
 
 export async function listAgentesCaptacion(): Promise<AgenteLight[]> {
@@ -1259,6 +1305,78 @@ export async function createComision(payload: {
   })
   return mapComisionToDetail(raw)
 }
+/* ============================ Continuidad ============================ */
+
+export type ContinuidadEstado = 'CONTINUA' | 'ROTA' | 'SIN_EVIDENCIA'
+export type ContinuidadOverrideEstado = 'AUTOMATICO' | 'FORZAR_SI' | 'FORZAR_NO'
+
+export interface ContinuidadVisita {
+  turnoId: number
+  fecha: string
+  estado: string
+  canal: string | null
+  esRecurrente: boolean
+  esRecuperacion: boolean
+  estadoContinuidad: ContinuidadEstado | null
+  dateoId: number | null
+  convenioId: number | null
+  asesorConvenioId: number | null
+  asesorConvenioNombre: string | null
+  agenteNombre: string | null
+  convenioNombre: string | null
+}
+
+export interface ContinuidadOverrideItem {
+  id: number
+  placa: string
+  asesorConvenioId: number | null
+  convenioId: number | null
+  estado: ContinuidadOverrideEstado
+  motivo: string | null
+  creadoPorId: number
+  createdAt: string
+  updatedAt: string
+  asesorConvenio?: { id: number; nombre: string } | null
+  convenio?: { id: number; nombre: string } | null
+  creadoPor?: { id: number; nombres: string; apellidos: string } | null
+}
+
+export interface ContinuidadBusqueda {
+  placa?: string
+  cliente?: { id: number; nombre: string | null }
+  placas?: string[]
+  visitas?: ContinuidadVisita[]
+  overrides?: ContinuidadOverrideItem[]
+}
+
+/**
+ * GET /api/continuidad/buscar?placa=XXX  ó  ?cedula=XXX
+ */
+export async function buscarContinuidad(params: {
+  placa?: string
+  cedula?: string
+}): Promise<ContinuidadBusqueda> {
+  return apiFetch<ContinuidadBusqueda>('/continuidad/buscar', {
+    query: params as Record<string, unknown>,
+  })
+}
+
+/**
+ * POST /api/continuidad/overrides
+ */
+export async function guardarContinuidadOverride(payload: {
+  placa: string
+  asesorConvenioId?: number | null
+  convenioId?: number | null
+  estado: ContinuidadOverrideEstado
+  motivo?: string | null
+}): Promise<ContinuidadOverrideItem> {
+  return apiFetch<ContinuidadOverrideItem>('/continuidad/overrides', {
+    method: 'POST',
+    body: payload,
+  })
+}
+
 export function formatCOP(value: number | string) {
   const n = typeof value === 'string' ? Number(value) : value
   if (Number.isNaN(n)) return '—'
