@@ -376,6 +376,8 @@
                               <tr>
                                 <th>Placa</th>
                                 <th>Vehículo</th>
+                                <th>Asesor</th>
+                                <th>Convenio</th>
                                 <th>Fecha pago</th>
                                 <th class="text-right">Monto</th>
                               </tr>
@@ -388,11 +390,15 @@
                               >
                                 <td>{{ p.placa ?? '—' }}</td>
                                 <td>{{ p.tipo_vehiculo ?? '—' }}</td>
+                                <td>{{ p.agente_comercial_nombre ?? p.asesor_convenio_nombre ?? '—' }}</td>
+                                <td>{{ p.convenio_nombre ?? '—' }}</td>
                                 <td>{{ formatDate(p.fecha_pago) }}</td>
                                 <td class="text-right">{{ formatCOP(p.monto) }}</td>
                               </tr>
                               <tr v-if="!liquidacionDetalleFilas('canal', i).length">
-                                <td colspan="4" class="text-center text-medium-emphasis">Sin placas en este período</td>
+                                <td colspan="6" class="text-center text-medium-emphasis">
+                                  Sin placas en este período
+                                </td>
                               </tr>
                             </tbody>
                           </v-table>
@@ -472,6 +478,8 @@
                               <tr>
                                 <th>Placa</th>
                                 <th>Vehículo</th>
+                                <th>Asesor</th>
+                                <th>Convenio</th>
                                 <th>Fecha</th>
                                 <th class="text-right">Monto descuento</th>
                                 <th>Comisión resultante</th>
@@ -486,6 +494,8 @@
                               >
                                 <td>{{ p.placa ?? '—' }}</td>
                                 <td>{{ p.tipo_vehiculo ?? '—' }}</td>
+                                <td>{{ p.agente_comercial_nombre ?? p.asesor_convenio_nombre ?? '—' }}</td>
+                                <td>{{ p.convenio_nombre ?? '—' }}</td>
                                 <td>{{ formatDate(p.fecha_pago) }}</td>
                                 <td class="text-right">{{ formatCOP(p.monto_descuento) }}</td>
                                 <td>
@@ -511,7 +521,7 @@
                                 </td>
                               </tr>
                               <tr v-if="!liquidacionDetalleFilas('descuentos', i).length">
-                                <td colspan="5" class="text-center text-medium-emphasis">Sin placas en este período</td>
+                                <td colspan="7" class="text-center text-medium-emphasis">Sin placas en este período</td>
                               </tr>
                             </tbody>
                           </v-table>
@@ -3558,6 +3568,7 @@ import {
   type TrazabilidadRtmResponse,
   type ExportarPlacasBody,
   type LiquidacionBuscarPlacaMatch,
+  type LiquidacionPlacaCanal,
 } from '@/services/reportesAdminService'
 import TurnosDelDiaService from '@/services/turnosdeldiaService'
 import TurnoDetalleDialog, { type Turno as TurnoDetalle } from '@/components/rtm/TurnoDetalleDialog.vue'
