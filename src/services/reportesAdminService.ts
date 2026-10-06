@@ -85,8 +85,78 @@ async function apiFetchBlobPost(endpoint: string, body: unknown): Promise<Blob> 
 
 /* ============================ Tipos ============================ */
 
-export interface IngresoCanal {
+/**
+ * Fila de un reporte "por canal" (canal = "¿Cómo se enteró de nosotros?" del
+ * turno): el backend las manda en orden fijo — Fachada, Redes Sociales, Call
+ * Center, Asesor (con Asesor comercial / Asesor convenio debajo, es_subcanal)
+ * y Google ADS — con su nombre ya resuelto. Debajo de Asesor comercial va la
+ * línea informativa "de los cuales, por convenio" (es_informativa): ya está
+ * dentro de Asesor comercial, NO suma a ningún total y no tiene % del total.
+ */
+export interface FilaCanalReporte {
   canal: string
+  nombre?: string
+  es_subcanal?: boolean
+  es_informativa?: boolean
+  /** Solo en la línea informativa: su % sobre Asesor comercial. */
+  porcentaje_sobre_asesor_comercial?: number
+}
+
+/** Aviso de fecha confiable del desglose por canal (CANAL_CONFIABLE_DESDE). */
+export interface AvisoCanal {
+  confiable_desde: string | null
+  aplica: boolean
+  mensaje: string | null
+}
+
+const NOMBRE_CANAL_REPORTE: Record<string, string> = {
+  FACHADA: 'Fachada',
+  REDES: 'Redes Sociales',
+  TELE: 'Call Center',
+  TELEMERCADEO: 'Call Center',
+  ASESOR: 'Asesor',
+  ASESOR_COMERCIAL: 'Asesor comercial',
+  ASESOR_COMERCIAL_CONVENIO: 'de los cuales, por convenio',
+  ASESOR_CONVENIO: 'Asesor convenio',
+  ASESOR_SIN_DETALLE: 'Asesor (sin detalle)',
+  GOOGLE_ADS: 'Google ADS',
+}
+
+/** Nombre de una fila por canal (el que manda el backend, o el del código). */
+export function nombreCanalReporte(fila: { canal: string; nombre?: string } | string): string {
+  if (typeof fila === 'string') return NOMBRE_CANAL_REPORTE[fila] ?? fila
+  return fila.nombre ?? NOMBRE_CANAL_REPORTE[fila.canal] ?? fila.canal
+}
+
+/** Título de un detalle por canal ("Asesor comercial — por convenio" para la línea informativa). */
+export function tituloCanalReporte(fila: FilaCanalReporte | string): string {
+  const canal = typeof fila === 'string' ? fila : fila.canal
+  if (canal === 'ASESOR_COMERCIAL_CONVENIO') return 'Asesor comercial — por convenio'
+  return nombreCanalReporte(fila)
+}
+
+/** Clases de la celda "Canal": subcanales sangrados; la línea informativa, en cursiva gris. */
+export function claseFilaCanal(fila: FilaCanalReporte): string {
+  if (fila.es_informativa) return 'pl-10 font-italic text-medium-emphasis'
+  return fila.es_subcanal ? 'pl-6 text-medium-emphasis' : ''
+}
+
+/** "(78 % de Asesor comercial)" para la línea informativa; vacío en las demás. */
+export function notaFilaCanal(fila: FilaCanalReporte): string {
+  if (!fila.es_informativa) return ''
+  const pct = new Intl.NumberFormat('es-CO', { maximumFractionDigits: 2 }).format(
+    fila.porcentaje_sobre_asesor_comercial ?? 0
+  )
+  return `(${pct} % de Asesor comercial)`
+}
+
+/** Nombre de la fila para Excel: sangría y "(informativa, no suma)" en la línea por convenio. */
+export function nombreFilaCanalExcel(fila: FilaCanalReporte): string {
+  if (fila.es_informativa) return `        ${nombreCanalReporte(fila)} (informativa, no suma)`
+  return fila.es_subcanal ? `    · ${nombreCanalReporte(fila)}` : nombreCanalReporte(fila)
+}
+
+export interface IngresoCanal extends FilaCanalReporte {
   cantidad: number
   total_bruto: number
   total_neto: number
@@ -95,6 +165,7 @@ export interface IngresoCanal {
 export interface IngresosCanalResponse {
   fecha_inicio: string
   fecha_fin: string
+  aviso_canal?: AvisoCanal
   por_canal: IngresoCanal[]
   totales: IngresoCanal
 }
@@ -169,6 +240,7 @@ export interface DetalleAsesorResponse {
 
 export interface DetalleCanalResponse {
   canal: string
+  nombre?: string
   total_vehiculos: number
   total_bruto: number
   detalle: DetalleTicket[]
@@ -180,14 +252,14 @@ export interface ResumenRetencion {
   porcentaje: number
 }
 
-export interface RetencionPorCanal {
-  canal: string
+export interface RetencionPorCanal extends FilaCanalReporte {
   nuevos: number
   recurrentes: number
   recuperaciones: number
   total: number
   total_bruto: number
-  porcentaje: number
+  /** null en la línea informativa. */
+  porcentaje: number | null
 }
 
 export interface RetencionPorMes {
@@ -202,6 +274,7 @@ export interface RetencionResponse {
   fecha_inicio: string
   fecha_fin: string
   meses_minimos: number
+  aviso_canal?: AvisoCanal
   resumen: {
     nuevos: ResumenRetencion
     recurrentes: ResumenRetencion
@@ -222,6 +295,9 @@ export interface DetalleRetencionTicket {
   fecha: string
   tipo_vehiculo: string | null
   total: number
+  /** Canal del reporte ("¿Cómo se enteró de nosotros?"); captacion_canal es el del dateo. */
+  canal?: string
+  canal_nombre?: string
   captacion_canal: string
   agente_comercial_nombre: string | null
   asesor_convenio_nombre?: string | null
@@ -420,16 +496,17 @@ export interface DescuentosPorTipoResponse {
   totales: TotalesDescuentos
 }
 
-export interface DescuentoPorCanal {
-  canal: string
+export interface DescuentoPorCanal extends FilaCanalReporte {
   cantidad: number
   total_descuentos: number
   tipos_usados: number
-  porcentaje: number
+  /** null en la línea informativa. */
+  porcentaje: number | null
 }
 export interface DescuentosPorCanalResponse {
   fecha_inicio: string
   fecha_fin: string
+  aviso_canal?: AvisoCanal
   por_canal: DescuentoPorCanal[]
   totales: TotalesDescuentos
 }
@@ -477,6 +554,8 @@ export async function getDescuentosPorAutorizador(
 export interface DetalleDescuento {
   placa: string
   fecha: string
+  canal?: string
+  canal_nombre?: string
   captacion_canal: string
   tipo_vehiculo: string | null
   total: number
@@ -618,11 +697,11 @@ export async function getDetalleComisionesPorConvenio(
 
 /* ======================= Liquidación RTM ======================= */
 
-export interface LiquidacionPorCanal {
-  canal: string
+export interface LiquidacionPorCanal extends FilaCanalReporte {
   cantidad: number
   monto: number
-  porcentaje: number
+  /** null en la línea informativa. */
+  porcentaje: number | null
 }
 
 export interface LiquidacionComercial extends ComisionComercial {
@@ -657,6 +736,7 @@ export interface LiquidacionRtmResponse {
   fecha_inicio: string
   fecha_fin: string
   resumen: { total_comisiones: number; total_monto: number }
+  aviso_canal?: AvisoCanal
   por_canal: LiquidacionPorCanal[]
   descuentos: LiquidacionDescuentoTipo[]
   comerciales: LiquidacionComercial[]
@@ -856,6 +936,7 @@ export interface TrazabilidadRtmResponse {
   fecha_inicio: string
   fecha_fin: string
   resumen: { total_comisiones: number; total_monto: number }
+  aviso_canal?: AvisoCanal
   por_canal: LiquidacionPorCanal[]
   comerciales: ComisionComercial[]
   asesores_convenio: ComisionAsesorConvenio[]
@@ -1554,4 +1635,71 @@ export async function getMetaComercialIngresoRealDateo(
     '/reportes-admin/meta-comercial/ingreso-real-dateo',
     { query: { mes, anio, asesor_id: asesorId } }
   )
+}
+
+/* ======================= Segunda vez (Entrega C2, solo conteos) ======================= */
+
+export type EstadoVentanaSegundaVez = 'ABIERTA' | 'USADA' | 'VENCIDA' | 'SUPERADA' | 'ANULADA'
+
+export interface FiltrosReporteSegundaVez {
+  fecha_inicio: string
+  fecha_fin: string
+  servicio?: 'RTM' | 'PREV' | null
+  sede_id?: number | null
+  placa?: string | null
+  estado?: EstadoVentanaSegundaVez | null
+}
+
+export interface FilaReporteSegundaVez {
+  turno_origen_id: number
+  placa: string
+  servicio: string
+  sede: string | null
+  turno_origen_codigo: string
+  turno_origen_fecha: string | null
+  rechazado_at: string | null
+  certificado_por: string | null
+  resultado_actual: 'APROBADA' | 'RECHAZADA' | null
+  rechazo_corregido: boolean
+  ventana_hasta: string | null
+  estado: EstadoVentanaSegundaVez | 'NO_APLICA'
+  segunda_vez_codigo: string | null
+  segunda_vez_resultado: 'APROBADA' | 'RECHAZADA' | 'PENDIENTE' | null
+  horas_transcurridas: number | null
+  regreso_tras_vencer_pagando: boolean
+  turno_posterior_codigo: string | null
+}
+
+export interface ReporteSegundaVezResponse {
+  fecha_inicio: string
+  fecha_fin: string
+  generado_at: string
+  aviso: string | null
+  indicadores: {
+    rechazos: number
+    abiertas: number
+    usadas: number
+    vencidas: number
+    superadas: number
+    anuladas: number
+    tasa_regreso_pct: number | null
+    segundas_veces: { aprobadas: number; rechazadas: number; pendientes: number }
+    horas_promedio_hasta_regreso: number | null
+    regresaron_tras_vencer_pagando: number
+  }
+  detalle: FilaReporteSegundaVez[]
+}
+
+export async function getReporteSegundaVez(
+  filtros: FiltrosReporteSegundaVez
+): Promise<ReporteSegundaVezResponse> {
+  return apiFetch<ReporteSegundaVezResponse>('/reportes-admin/segunda-vez', {
+    query: { ...filtros },
+  })
+}
+
+export async function descargarReporteSegundaVezExcel(
+  filtros: FiltrosReporteSegundaVez
+): Promise<Blob> {
+  return apiFetchBlob('/reportes-admin/segunda-vez/excel', { ...filtros })
 }

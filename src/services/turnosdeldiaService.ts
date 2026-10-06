@@ -1,6 +1,6 @@
 // src/services/turnosdeldiaService.ts
 import { DateTime } from 'luxon'
-import { get, post, put, patch, download } from './http'
+import { get, post, put, patch, download, HttpError } from './http'
 
 /* ================= Tipos base ================= */
 export type TipoVehiculoFrontend =
@@ -9,15 +9,16 @@ export type TipoVehiculoFrontend =
   | 'Liviano Público'
   | 'Motocicleta'
 
-export type MedioEnteroFront = 'redes_sociales' | 'call_center' | 'fachada' | 'asesor'
+export type MedioEnteroFront = 'redes_sociales' | 'call_center' | 'fachada' | 'asesor' | 'google_ads'
 
 export type MedioEnteroFinalDB =
   | 'Redes Sociales'
   | 'Call Center'
   | 'Fachada'
   | 'Asesor Comercial'
+  | 'Google ADS'
 
-export type CanalAtrib = 'FACHADA' | 'ASESOR' | 'TELE' | 'REDES'
+export type CanalAtrib = 'FACHADA' | 'ASESOR' | 'TELE' | 'REDES' | 'GOOGLE_ADS'
 export type ServicioCodigo = 'RTM' | 'PREV' | 'PERI' | 'SOAT'
 
 /* ====== Mapas ====== */
@@ -26,6 +27,7 @@ export const MEDIO_MAP: Record<MedioEnteroFront, MedioEnteroFinalDB> = {
   call_center: 'Call Center',
   fachada: 'Fachada',
   asesor: 'Asesor Comercial',
+  google_ads: 'Google ADS',
 }
 
 const MEDIO_TO_CANAL: Record<MedioEnteroFront, CanalAtrib> = {
@@ -33,6 +35,7 @@ const MEDIO_TO_CANAL: Record<MedioEnteroFront, CanalAtrib> = {
   call_center: 'TELE',
   fachada: 'FACHADA',
   asesor: 'ASESOR',
+  google_ads: 'GOOGLE_ADS',
 }
 
 /* ========== Helpers ========== */
@@ -57,7 +60,8 @@ function to24hFrom12(s?: string) {
 function normalizeCanal(input?: string | null, medio?: MedioEnteroFront | null): CanalAtrib | null {
   const v = (input || '').toString().trim().toUpperCase()
 
-  if (['FACHADA', 'ASESOR', 'TELE', 'REDES'].includes(v)) return v as CanalAtrib
+  if (['FACHADA', 'ASESOR', 'TELE', 'REDES', 'GOOGLE_ADS'].includes(v)) return v as CanalAtrib
+  if (['GOOGLE ADS', 'GOOGLEADS'].includes(v)) return 'GOOGLE_ADS'
   if (v === 'ASESOR_COMERCIAL') return 'ASESOR'
 
   if (['REDES', 'REDES_SOCIALES', 'SOCIAL', 'SOCIALES', 'RRSS'].includes(v)) return 'REDES'
@@ -164,6 +168,17 @@ export interface Turno {
 
   reasignadoDeTurnoId?: number | null
 
+  // 👇 Segunda vez: resultado de la certificación (solo RTM/PREV).
+  // NULL = sin resultado (histórico / SOAT / PERI) → cuenta como aprobado.
+  resultadoCertificacion?: 'APROBADA' | 'RECHAZADA' | null
+
+  // 👇 Segunda vez (reinspección gratuita RTM/PREV). es_segunda_vez es TINYINT:
+  // en el modelo serializado puede llegar 0/1 — usar siempre Boolean().
+  esSegundaVez?: boolean | number | null
+  turnoOrigenId?: number | null
+  // Lista de etapas que aplican (backend, turno_etapas_service): fuente de verdad.
+  etapasRequeridasLista?: Array<'puerta' | 'facturacion' | 'certificacion'>
+
   // 👇 NUEVO: semáforo de etapas, calculado en backend (turno_etapas_service)
   // única fuente de verdad — no recalcular esto en el frontend.
   etapasRequeridas?: number
@@ -233,6 +248,12 @@ export interface CreateTurnoPayload {
   conductorTelefono?: string
   conductorNombre?: string
    asesorDetectadoId?: number | null
+
+  /** 👇 Segunda vez: confirmación del operador (id del turno rechazado de origen) */
+  segundaVezOrigenId?: number | null
+  /** 👇 Excepción manual (solo SUPER_ADMIN / GERENCIA), con motivo obligatorio */
+  segundaVezExcepcion?: 'FORZADA' | 'NO_APLICADA' | null
+  segundaVezMotivo?: string | null
 }
 
 export interface UpdateTurnoPayload {
@@ -337,6 +358,14 @@ class TurnosDelDiaService {
       ...(payload.conductorTelefono ? { conductorTelefono: payload.conductorTelefono } : {}),
       ...(payload.conductorNombre ? { conductorNombre: payload.conductorNombre } : {}),
        ...(payload.asesorDetectadoId !== undefined ? { asesorDetectadoId: payload.asesorDetectadoId } : {}),
+
+      ...(payload.segundaVezOrigenId ? { segundaVezOrigenId: payload.segundaVezOrigenId } : {}),
+      ...(payload.segundaVezExcepcion
+        ? {
+            segundaVezExcepcion: payload.segundaVezExcepcion,
+            segundaVezMotivo: payload.segundaVezMotivo ?? '',
+          }
+        : {}),
     }
 
     try {
@@ -346,6 +375,9 @@ class TurnosDelDiaService {
     } catch (err: unknown) {
       const msg = TurnosDelDiaService.extractServerMessage(err)
       console.error('createTurno() falló:', msg, err)
+      // Se conservan status y body (code, ventana…) para que CrearTurno.vue
+      // pueda reaccionar a 409 SEGUNDA_VEZ_DISPONIBLE y similares.
+      if (err instanceof HttpError) throw new HttpError(err.status, msg, err.data)
       throw new Error(msg)
     }
   }
@@ -530,6 +562,7 @@ public static async exportTurnosExcelMultiple(filters: ExportFiltersMultiple) {
       'Redes Sociales': 'REDES',
       'Call Center': 'TELE',
       'Asesor Comercial': 'ASESOR',
+      'Google ADS': 'GOOGLE_ADS',
     }
     const canales = filters.mediosSeleccionados.map(m => canalMap[m])
     params.canalAtribucion = canales.join(',')
@@ -587,6 +620,7 @@ public static async exportTurnosExcelMultiple(filters: ExportFiltersMultiple) {
       'Redes Sociales': 'REDES',
       'Call Center': 'TELE',
       'Asesor Comercial': 'ASESOR',
+      'Google ADS': 'GOOGLE_ADS',
     }
 
     const params: Record<string, string> = {

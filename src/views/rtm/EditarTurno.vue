@@ -114,12 +114,12 @@
               />
             </v-col>
 
-            <!-- ¿Cómo nos conoció? -->
+            <!-- ¿Cómo se enteró de nosotros? -->
             <v-col cols="12" sm="6">
               <v-select
                 v-model="form.medioEntero"
                 :items="medioEnteroItems"
-                label="¿Cómo nos conoció?"
+                label="¿Cómo se enteró de nosotros?"
                 variant="outlined"
                 required
                 :density="$vuetify.display.xs ? 'compact' : 'comfortable'"
@@ -158,8 +158,10 @@
             <v-col cols="12" sm="4">
               <v-select
                 v-model="form.estado"
-                :items="['activo','inactivo','cancelado','finalizado']"
+                :items="estadoItems"
                 label="Estado del Turno"
+                :hint="finalizarSoloPorCertificacion ? 'RTM/PREV se finaliza desde Certificación (con resultado).' : undefined"
+                :persistent-hint="finalizarSoloPorCertificacion"
                 variant="outlined"
                 required
                 :density="$vuetify.display.xs ? 'compact' : 'comfortable'"
@@ -571,6 +573,7 @@ import { useRoute, useRouter } from 'vue-router'
 import type { VForm } from 'vuetify/components'
 import { authSetStore } from '@/stores/AuthStore'
 import TurnosDelDiaService from '@/services/turnosdeldiaService'
+import { canalToMedio, medioEnteroItems, medioToCanal, type MedioEntero } from './canalCaptacion'
 
 type TipoVehiculoFrontend =
   | 'Liviano Particular'
@@ -578,7 +581,6 @@ type TipoVehiculoFrontend =
   | 'Liviano Público'
   | 'Motocicleta'
 
-type MedioEntero = 'redes_sociales' | 'call_center' | 'fachada' | 'asesor'
 type AsesorTipo = 'ASESOR_INTERNO' | 'ASESOR_EXTERNO'
 
 interface ServicioDTO { id: number; codigo: string; nombre: string }
@@ -740,13 +742,6 @@ const tipoVehiculoItems: ReadonlyArray<TipoVehiculoFrontend> = [
   'Motocicleta',
 ] as const
 
-const medioEnteroItems: ReadonlyArray<{ title: string; value: MedioEntero }> = [
-  { title: 'Redes Sociales', value: 'redes_sociales' },
-  { title: 'Call Center', value: 'call_center' },
-  { title: 'Fachada', value: 'fachada' },
-  { title: 'Asesor', value: 'asesor' },
-] as const
-
 const serviciosItems = ref<ServicioItem[]>([])
 const serviciosLoading = ref(false)
 const serviciosMapById = ref<Record<number, ServicioDTO>>({})
@@ -804,6 +799,20 @@ const servicioCodigoActual = computed(() => {
   return id ? serviciosMapById.value[id]?.codigo : form.value.servicioCodigo || null
 })
 
+// RTM/PREV solo se finalizan desde Certificación (resultado Aprobada/Rechazada):
+// el backend responde 409 FINALIZAR_REQUIERE_CERTIFICACION si se intenta aquí.
+const finalizarSoloPorCertificacion = computed(() => {
+  const cod = String(servicioCodigoActual.value || '').toUpperCase()
+  return ['RTM', 'PREV'].includes(cod) && originalRaw.value?.estado !== 'finalizado'
+})
+const estadoItems = computed(() =>
+  ['activo', 'inactivo', 'cancelado', 'finalizado'].map((e) => ({
+    title: e,
+    value: e,
+    props: { disabled: e === 'finalizado' && finalizarSoloPorCertificacion.value },
+  }))
+)
+
 const usuarioNombre = computed(() => {
   const u = originalRaw.value?.usuario
   return u ? `${u.nombres} ${u.apellidos}` : '—'
@@ -832,6 +841,7 @@ const canalPretty = computed(() => {
   if (c === 'TELE') return 'Telemercadeo'
   if (c === 'ASESOR') return 'Asesor'
   if (c === 'REDES') return 'Redes Sociales'
+  if (c === 'GOOGLE_ADS') return 'Google ADS'
   if (c === 'FACHADA') return 'Fachada'
   return '—'
 })
@@ -894,22 +904,6 @@ function formatConvenioChip(c?: ConvenioDTO | null): string {
 function onPlacaInput(e: Event) {
   const target = e.target as HTMLInputElement | null
   if (target) form.value.placa = target.value.toUpperCase().replace(/\s|-/g, '')
-}
-
-/** Mapas medio<->canal */
-function canalToMedio(canal: string | null | undefined): MedioEntero {
-  const c = (canal || '').toUpperCase()
-  if (c === 'REDES') return 'redes_sociales'
-  if (c === 'TELE')  return 'call_center'
-  if (c === 'ASESOR')return 'asesor'
-  return 'fachada'
-}
-
-function medioToCanal(medio: MedioEntero | null): 'FACHADA'|'TELE'|'REDES'|'ASESOR' {
-  if (medio === 'redes_sociales') return 'REDES'
-  if (medio === 'call_center')    return 'TELE'
-  if (medio === 'asesor')         return 'ASESOR'
-  return 'FACHADA'
 }
 
 /** Catálogo de servicios */
@@ -1017,7 +1011,7 @@ async function save() {
   }
 
   if (!form.value.medioEntero) {
-    showSnackbar('El campo "¿Cómo nos conoció?" es requerido', 'warning')
+    showSnackbar('El campo "¿Cómo se enteró de nosotros?" es requerido', 'warning')
     return
   }
 
