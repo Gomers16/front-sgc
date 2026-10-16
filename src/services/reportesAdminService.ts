@@ -563,6 +563,8 @@ export interface DetalleDescuento {
   descuento_monto_aplicado: number
   descuento_codigo: string
   descuento_nombre: string
+  /** 🆕 Consecutivo del descuento (facturacion_tickets.consecutivo_descuento) */
+  consecutivo_descuento: string | null
   agente_comercial_nombre: string | null
   asesor_convenio_nombre: string | null
   convenio_nombre: string | null
@@ -791,6 +793,8 @@ export interface LiquidacionPlacaDescuento {
   tipo_vehiculo: string | null
   fecha_pago: string | null
   monto_descuento: number
+  /** 🆕 Consecutivo del descuento del ticket (null en tickets anteriores) */
+  consecutivo_descuento: string | null
   tiene_comision: boolean
   hubo_comision_anulada: boolean
   comision_estado: string | null
@@ -1590,6 +1594,8 @@ export interface MetaComercialIngresoRealDateoItem {
   descuento_nombre: string | null
   descuento_monto: number
   descuento_verificado: number
+  /** 🆕 Consecutivo del descuento del ticket (null en tickets anteriores) */
+  consecutivo_descuento: string | null
   placa: string | null
   comision_asesor: number | null
   comision_anulada: boolean
