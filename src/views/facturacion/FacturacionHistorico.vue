@@ -20,6 +20,158 @@
       </v-card-title>
     </v-card>
 
+    <!-- 🆕 FILTROS (en la URL: se conservan al recargar o volver) -->
+    <v-card elevation="8" class="rounded-xl mb-4" data-test="filtros-historial">
+      <v-card-text class="px-4 px-sm-6 pt-4">
+        <v-row dense>
+          <v-col cols="6" sm="4" md="2">
+            <v-text-field
+              v-model="filtros.fecha_desde"
+              type="date"
+              label="Fecha pago desde"
+              variant="outlined"
+              density="compact"
+              hide-details
+              clearable
+            />
+          </v-col>
+          <v-col cols="6" sm="4" md="2">
+            <v-text-field
+              v-model="filtros.fecha_hasta"
+              type="date"
+              label="Fecha pago hasta"
+              variant="outlined"
+              density="compact"
+              hide-details
+              clearable
+            />
+          </v-col>
+          <v-col cols="6" sm="4" md="2">
+            <v-text-field
+              v-model="placaInput"
+              label="Placa"
+              placeholder="Parte de la placa"
+              variant="outlined"
+              density="compact"
+              hide-details
+              clearable
+            />
+          </v-col>
+          <v-col cols="6" sm="6" md="3">
+            <v-text-field
+              v-model="vendedorInput"
+              label="Vendedor"
+              placeholder="Parte del nombre"
+              variant="outlined"
+              density="compact"
+              hide-details="auto"
+              clearable
+              :hint="vendedorCorto ? `Escribe al menos ${VENDEDOR_MIN} letras` : ''"
+              persistent-hint
+            />
+          </v-col>
+          <v-col cols="12" sm="6" md="3">
+            <v-select
+              v-model="filtros.descuento"
+              :items="descuentoItems"
+              label="Descuento"
+              variant="outlined"
+              density="compact"
+              hide-details
+              clearable
+            />
+          </v-col>
+          <v-col cols="12" sm="6" md="4">
+            <div class="d-flex align-center" style="gap:8px">
+              <v-text-field
+                v-model="consecutivoInput"
+                label="Consecutivo del descuento"
+                variant="outlined"
+                density="compact"
+                hide-details
+                clearable
+              />
+              <v-checkbox
+                v-model="filtros.consecutivo_exacto"
+                label="Exacto"
+                density="compact"
+                hide-details
+                class="flex-grow-0"
+              />
+            </div>
+          </v-col>
+          <v-col cols="6" sm="3" md="2">
+            <v-select
+              v-model="filtros.estado"
+              :items="estadoItems"
+              label="Estado"
+              variant="outlined"
+              density="compact"
+              hide-details
+              clearable
+            />
+          </v-col>
+          <v-col cols="6" sm="3" md="3">
+            <v-select
+              v-model="filtros.servicio_id"
+              :items="servicioItems"
+              label="Servicio"
+              variant="outlined"
+              density="compact"
+              hide-details
+              clearable
+            />
+          </v-col>
+        </v-row>
+
+        <div class="d-flex align-center flex-wrap mt-3" style="gap:8px">
+          <v-chip
+            v-for="chip in chips"
+            :key="chip.clave"
+            size="small"
+            closable
+            color="primary"
+            variant="tonal"
+            @click:close="quitar(chip.clave)"
+          >
+            {{ chip.texto }}
+          </v-chip>
+          <v-btn
+            v-if="chips.length"
+            size="small"
+            variant="text"
+            prepend-icon="mdi-filter-remove"
+            @click="limpiar"
+          >
+            Limpiar
+          </v-btn>
+          <v-spacer />
+          <v-btn
+            size="small"
+            color="success"
+            variant="tonal"
+            prepend-icon="mdi-microsoft-excel"
+            :loading="exportando"
+            @click="exportar"
+          >
+            Exportar a Excel
+          </v-btn>
+        </div>
+
+        <div
+          v-if="resumen"
+          class="d-flex align-center flex-wrap mt-3 text-body-2"
+          style="gap:6px 16px"
+          data-test="resumen-historial"
+        >
+          <span><strong>{{ resumen.cantidad.toLocaleString('es-CO') }}</strong> {{ resumen.cantidad === 1 ? 'resultado' : 'resultados' }}</span>
+          <span>Total facturado: <strong>{{ fmtCOP(resumen.total_facturado) }}</strong></span>
+          <span>Descuento aplicado: <strong class="text-orange-darken-2">{{ fmtCOP(resumen.total_descuento) }}</strong></span>
+          <span v-if="!filtros.estado" class="text-caption text-medium-emphasis">(todos los estados)</span>
+        </div>
+      </v-card-text>
+    </v-card>
+
     <!-- TABLA -->
     <v-card elevation="8" class="rounded-xl">
       <v-data-table-server
@@ -73,9 +225,23 @@
         </template>
 
         <template #item.acciones="{ item }">
-          <v-btn size="small" variant="tonal" prepend-icon="mdi-eye" @click.stop="openDetailById(item.id)">
-            Ver
-          </v-btn>
+          <div class="d-flex" style="gap:6px">
+            <v-btn size="small" variant="tonal" prepend-icon="mdi-eye" @click.stop="openDetailById(item.id)">
+              Ver
+            </v-btn>
+            <!-- 🆕 Editar el descuento de un ticket confirmado (solo SUPER_ADMIN/GERENCIA) -->
+            <v-btn
+              v-if="puedeEditarDescuento && item.estado === 'CONFIRMADA'"
+              size="small"
+              variant="tonal"
+              color="orange-darken-2"
+              prepend-icon="mdi-tag-edit"
+              data-test="editar-descuento"
+              @click.stop="abrirEdicionDescuento(item.id)"
+            >
+              Editar
+            </v-btn>
+          </div>
         </template>
 
         <template #body.append>
@@ -87,18 +253,18 @@
                 </div>
                 <div class="d-flex align-center" style="gap:10px">
                   <v-select
-                    v-model="pagination.itemsPerPage"
-                    :items="[10,20,50,100]"
+                    :model-value="pagination.itemsPerPage"
+                    :items="POR_PAGINA"
                     density="compact"
                     style="max-width:120px"
                     label="Por página"
-                    @update:model-value="refresh"
+                    @update:model-value="cambiarPorPagina"
                   />
                   <v-pagination
-                    v-model="pagination.page"
+                    :model-value="pagination.page"
                     :length="pages"
                     :total-visible="7"
-                    @update:model-value="refresh"
+                    @update:model-value="sincronizarUrl"
                   />
                 </div>
               </div>
@@ -534,16 +700,289 @@
   </v-card>
 </v-dialog>
 
-<v-snackbar v-model="snack.show" :timeout="3000">{{ snack.text }}</v-snackbar>
+<!-- 🆕 DIALOG EDITAR DESCUENTO (ticket CONFIRMADA) -->
+<v-dialog v-model="edicion.open" max-width="780" persistent scrollable>
+  <v-card data-test="dialogo-editar-descuento">
+    <v-card-title class="d-flex align-center flex-wrap" style="gap:8px">
+      <v-icon color="orange-darken-2">mdi-tag-edit</v-icon>
+      Editar descuento
+      <span v-if="edicion.ticket" class="text-body-2 text-medium-emphasis">
+        Ticket #{{ edicion.ticket.id }} — {{ edicion.ticket.placa ?? '—' }}
+      </span>
+    </v-card-title>
+    <v-divider />
+    <v-card-text>
+      <div v-if="edicion.cargando" class="d-flex justify-center py-8">
+        <v-progress-circular indeterminate color="orange-darken-2" />
+      </div>
+      <template v-else-if="edicion.ticket">
+        <v-alert type="info" variant="tonal" density="compact" class="mb-2" prepend-icon="mdi-tag-outline">
+          <strong>Descuento actual:</strong>
+          {{ nombreDescuentoInicial }}
+          <template v-if="edicion.inicial.descuentoId">
+            · {{ fmtCOP(edicion.inicial.monto) }} · consecutivo {{ edicion.inicial.consecutivo || '—' }}
+          </template>
+        </v-alert>
+
+        <DescuentoCajaEditor
+          v-model:descuento-id="edicion.form.descuentoId"
+          v-model:monto="edicion.form.monto"
+          v-model:autorizado-por-id="edicion.form.autorizadoPorId"
+          v-model:observacion="edicion.form.observacion"
+          v-model:consecutivo="edicion.form.consecutivo"
+          modo="caja"
+          etiqueta-selector="Descuento (vacío = sin descuento)"
+          :descuentos="descuentosEdicion"
+          :usuarios="autorizadoresEdicion"
+          :es-moto="edicionEsMoto"
+          :ticket-id="edicion.ticket.id"
+          :documentos-cargados="edicionDocumentosCargados"
+          :requiere-autorizador="edicionRequiereAutorizador"
+          :mostrar-efecto-comision="false"
+          mostrar-observacion
+          @update:consecutivo-bloqueado="(b: boolean) => (edicion.consecutivoBloqueado = b)"
+          @update:documentos-completos="(v: boolean) => (edicion.documentosCompletos = v)"
+          @aviso="avisoSnack"
+        >
+          <template #observacion-ayuda>Nota de por qué se aplica o cambia el descuento.</template>
+        </DescuentoCajaEditor>
+
+        <v-alert v-if="edicionMontoCero" type="warning" variant="tonal" density="compact" class="mt-2">
+          El descuento va en $0: se registrará sin reducir el precio.
+        </v-alert>
+
+        <v-row dense class="mt-3">
+          <v-col cols="12" md="6">
+            <v-card variant="outlined" class="pa-3 rounded-lg h-100" data-test="edicion-total">
+              <div class="label-desc">Total del ticket</div>
+              <div class="d-flex align-center flex-wrap" style="gap:8px">
+                <span class="text-body-1">{{ fmtCOP(edicionTotales.antes) }}</span>
+                <v-icon size="18">mdi-arrow-right</v-icon>
+                <span
+                  class="text-h6 font-weight-bold"
+                  :class="{ 'text-orange-darken-2': edicionTotales.despues !== edicionTotales.antes }"
+                >
+                  {{ fmtCOP(edicionTotales.despues) }}
+                </span>
+              </div>
+              <div class="text-caption text-medium-emphasis mt-1">
+                Antes → después. Se recalcula desde el total sin descuento.
+              </div>
+            </v-card>
+          </v-col>
+          <v-col cols="12" md="6">
+            <v-card variant="outlined" class="pa-3 rounded-lg h-100" data-test="edicion-comision">
+              <div class="label-desc">Comisión del dateo</div>
+              <div v-if="!edicionHayCambio" class="text-caption text-medium-emphasis">
+                Cambia el descuento para ver el efecto en la comisión.
+              </div>
+              <div v-else-if="edicion.previaCargando" class="text-caption text-medium-emphasis">
+                <v-progress-circular indeterminate size="14" width="2" class="mr-1" /> Calculando…
+              </div>
+              <template v-else-if="edicion.previa">
+                <div v-if="edicion.previa.comision.comisionId" class="d-flex align-center flex-wrap mb-1" style="gap:6px">
+                  <span class="text-body-2">#{{ edicion.previa.comision.comisionId }}</span>
+                  <v-chip size="x-small" variant="flat" :color="estadoComisionColor(edicion.previa.comision.estado)">
+                    {{ edicion.previa.comision.estado }}
+                  </v-chip>
+                  <v-chip
+                    v-if="edicion.previa.comision.enLiquidacion"
+                    size="x-small"
+                    variant="tonal"
+                    color="red-darken-2"
+                    prepend-icon="mdi-file-document-check-outline"
+                  >
+                    En liquidación #{{ edicion.previa.comision.liquidacionIds.join(', #') }}
+                  </v-chip>
+                </div>
+                <template v-if="comisionRecalculada">
+                  <div class="text-body-2">
+                    Asesor: {{ fmtCOP(comisionRecalculada.antes.montoAsesor) }}
+                    → <strong>{{ fmtCOP(comisionRecalculada.despues.montoAsesor) }}</strong>
+                  </div>
+                  <div
+                    v-if="comisionRecalculada.antes.montoConvenio || comisionRecalculada.despues.montoConvenio"
+                    class="text-body-2"
+                  >
+                    Convenio: {{ fmtCOP(comisionRecalculada.antes.montoConvenio) }}
+                    → <strong>{{ fmtCOP(comisionRecalculada.despues.montoConvenio) }}</strong>
+                  </div>
+                  <div class="text-body-2" data-test="edicion-diferencia">
+                    Diferencia:
+                    <strong :class="comisionRecalculada.diferencia < 0 ? 'text-red-darken-2' : comisionRecalculada.diferencia > 0 ? 'text-green-darken-2' : ''">
+                      {{ comisionRecalculada.diferencia > 0 ? '+' : comisionRecalculada.diferencia < 0 ? '−' : '' }}{{ fmtCOP(Math.abs(comisionRecalculada.diferencia)) }}
+                    </strong>
+                  </div>
+                </template>
+                <v-alert
+                  v-if="avisoComisionEdicion"
+                  :type="avisoComisionEdicion.tipo"
+                  variant="tonal"
+                  density="compact"
+                  class="mt-2 text-caption"
+                  data-test="edicion-aviso-comision"
+                >
+                  {{ avisoComisionEdicion.texto }}
+                </v-alert>
+              </template>
+              <div v-else-if="!edicion.error" class="text-caption text-medium-emphasis">
+                Digita el consecutivo del descuento para ver el efecto en la comisión.
+              </div>
+            </v-card>
+          </v-col>
+        </v-row>
+
+        <v-alert v-if="edicion.error" type="error" variant="tonal" density="compact" class="mt-3" data-test="edicion-error">
+          {{ edicion.error }}
+        </v-alert>
+        <v-alert v-else-if="!edicionHayCambio" type="info" variant="tonal" density="compact" class="mt-3">
+          El descuento no cambia: no hay nada que guardar.
+        </v-alert>
+
+        <v-textarea
+          v-model="edicion.motivo"
+          class="mt-3"
+          label="Motivo de la edición *"
+          variant="outlined"
+          density="comfortable"
+          rows="2"
+          auto-grow
+          counter
+          maxlength="255"
+          data-test="edicion-motivo"
+          :error-messages="edicionMotivoError"
+          hint="Obligatorio. Queda registrado quién, cuándo y el antes y después."
+          persistent-hint
+        />
+      </template>
+    </v-card-text>
+    <v-card-actions>
+      <v-spacer />
+      <v-btn variant="text" :disabled="edicion.guardando" @click="edicion.open = false">Cancelar</v-btn>
+      <v-btn
+        color="orange-darken-2"
+        variant="flat"
+        data-test="edicion-guardar"
+        :loading="edicion.guardando"
+        :disabled="!edicionPuedeGuardar"
+        @click="solicitarGuardarEdicion"
+      >
+        Guardar
+      </v-btn>
+    </v-card-actions>
+  </v-card>
+</v-dialog>
+
+<!-- 🆕 Aviso antes de guardar cuando cambia la comisión -->
+<v-dialog v-model="confirmarComision.open" max-width="520" persistent>
+  <v-card v-if="modalComisionEdicion" data-test="modal-comision">
+    <v-card-title class="d-flex align-center" style="gap:8px">
+      <v-icon :color="modalComisionEdicion.tipo === 'pagada' ? 'red-darken-2' : 'orange-darken-2'">
+        {{ modalComisionEdicion.tipo === 'pagada' ? 'mdi-alert-octagon' : 'mdi-cash-sync' }}
+      </v-icon>
+      {{ modalComisionEdicion.titulo }}
+    </v-card-title>
+    <v-divider />
+    <v-card-text>
+      <v-alert
+        :type="modalComisionEdicion.tipo === 'pagada' ? 'error' : 'warning'"
+        :variant="modalComisionEdicion.tipo === 'pagada' ? 'flat' : 'tonal'"
+        density="comfortable"
+        data-test="modal-comision-texto"
+      >
+        {{ modalComisionEdicion.texto }}
+      </v-alert>
+      <div v-if="comisionRecalculada" class="text-body-2 mt-3">
+        Asesor: {{ fmtCOP(comisionRecalculada.antes.montoAsesor) }} → <strong>{{ fmtCOP(comisionRecalculada.despues.montoAsesor) }}</strong>
+        <template v-if="comisionRecalculada.antes.montoConvenio || comisionRecalculada.despues.montoConvenio">
+          · Convenio: {{ fmtCOP(comisionRecalculada.antes.montoConvenio) }} → <strong>{{ fmtCOP(comisionRecalculada.despues.montoConvenio) }}</strong>
+        </template>
+      </div>
+      <v-checkbox
+        v-if="modalComisionEdicion.requiereCasilla"
+        v-model="confirmarComision.entiendo"
+        class="mt-2"
+        color="red-darken-2"
+        hide-details
+        label="Entiendo que ya se pagó"
+        data-test="modal-comision-entiendo"
+      />
+    </v-card-text>
+    <v-card-actions>
+      <v-spacer />
+      <v-btn variant="text" :disabled="edicion.guardando" @click="confirmarComision.open = false">Volver</v-btn>
+      <v-btn
+        :color="modalComisionEdicion.tipo === 'pagada' ? 'red-darken-2' : 'orange-darken-2'"
+        variant="flat"
+        data-test="modal-comision-confirmar"
+        :loading="edicion.guardando"
+        :disabled="modalComisionEdicion.requiereCasilla && !confirmarComision.entiendo"
+        @click="guardarEdicionDescuento(modalComisionEdicion.requiereCasilla)"
+      >
+        {{ modalComisionEdicion.requiereCasilla ? 'Guardar' : 'Confirmar' }}
+      </v-btn>
+    </v-card-actions>
+  </v-card>
+</v-dialog>
+
+<v-snackbar v-model="snack.show" :timeout="4000">{{ snack.text }}</v-snackbar>
   </v-container>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted, onBeforeUnmount } from 'vue'
+import { ref, reactive, computed, onMounted, onBeforeUnmount, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { FacturacionService, type FacturacionTicket, type Paginated } from '@/services/facturacion_service'
+import {
+  FacturacionService,
+  type FacturacionTicket,
+  type ResumenHistorial,
+} from '@/services/facturacion_service'
+import descuentosService from '@/services/descuentosService'
+import TurnosDelDiaService from '@/services/turnosdeldiaService'
+import { HttpError } from '@/services/http'
+import {
+  chipsFiltros,
+  ETIQUETAS_ESTADO,
+  filtrosAParams,
+  filtrosAQuery,
+  filtrosDesdeQuery,
+  filtrosVacios,
+  nombreExcel,
+  normalizarCodigo,
+  POR_PAGINA,
+  quitarFiltro,
+  VENDEDOR_MIN,
+  type ClaveChip,
+  type FiltrosHistorial,
+} from './filtrosHistorico'
 import { etiquetaConvenio } from '@/services/conveniosService'
 import { authSetStore } from '@/stores/AuthStore'
+import { obtenerUsuarios } from '@/services/UserService'
+import DescuentoCajaEditor from '@/components/facturacion/DescuentoCajaEditor.vue'
+import type { DocPoliciaKey } from '@/components/facturacion/DocumentosPoliciaCarga.vue'
+import {
+  autorizadoresDescuento,
+  mapearDescuentosActivos,
+  montoMaximo,
+  pideConfirmarMontoCero,
+  type DescuentoDetalle,
+  type DescuentoRaw,
+} from './descuentoFacturacion'
+import {
+  avisoComision,
+  bodyEdicion,
+  modalComision,
+  formInicialEdicion,
+  hayCambioEdicion,
+  motivoEdicionValido,
+  MOTIVO_EDICION_MIN,
+  requiereAutorizador,
+  ROLES_EDICION_DESCUENTO,
+  totalesEdicion,
+  type FormEdicionDescuento,
+  type TicketParaEditar,
+} from './edicionDescuento'
+import type { ResultadoEdicionDescuento } from '@/services/facturacion_service'
 
 const route = useRoute()
 const router = useRouter()
@@ -647,13 +1086,141 @@ interface ExtendedFacturacionTicket {
   } | null
 }
 
+/* ===== Filtros: la URL es la fuente de verdad (filtros y página) ===== */
+const inicial = filtrosDesdeQuery(route.query)
+const filtros = ref<FiltrosHistorial>(inicial.filtros)
+
+// Placa, vendedor y consecutivo se escriben a mano: se aplican con una pausa corta.
+const placaInput = ref(filtros.value.placa)
+const vendedorInput = ref(filtros.value.vendedor)
+const consecutivoInput = ref(filtros.value.consecutivo)
+const vendedorCorto = computed(() => {
+  const n = (vendedorInput.value ?? '').trim().length
+  return n > 0 && n < VENDEDOR_MIN
+})
+let pausa: ReturnType<typeof setTimeout> | null = null
+watch([placaInput, vendedorInput, consecutivoInput], () => {
+  if (pausa) clearTimeout(pausa)
+  pausa = setTimeout(() => {
+    filtros.value = {
+      ...filtros.value,
+      placa: normalizarCodigo(placaInput.value),
+      vendedor: (vendedorInput.value ?? '').trim(),
+      consecutivo: normalizarCodigo(consecutivoInput.value),
+    }
+  }, 400)
+})
+
+function sincronizarUrl(nuevaPagina = pagination.value.page) {
+  // Conserva ?focus (deep link al detalle) si todavía está en la URL.
+  const q: Record<string, string> = filtrosAQuery(filtros.value, nuevaPagina, pagination.value.itemsPerPage)
+  const focus = route.query?.focus
+  if (typeof focus === 'string') q.focus = focus
+  router.replace({ query: q }).catch(() => {})
+}
+function cambiarPorPagina(n: number) {
+  pagination.value.itemsPerPage = n
+  sincronizarUrl(1)
+}
+
+// Cambió un filtro → primera página.
+watch(
+  filtros,
+  () => sincronizarUrl(1),
+  { deep: true },
+)
+
+// La URL cambió (filtros, página o por página) → recargar.
+watch(
+  () => route.fullPath,
+  () => {
+    if (route.name !== 'FacturacionHistorico') return
+    const leido = filtrosDesdeQuery(route.query)
+    pagination.value.page = leido.page
+    pagination.value.itemsPerPage = leido.perPage
+    fetchList()
+  },
+)
+
+/* Catálogos de los desplegables */
+const descuentosCatalogo = ref<{ id: number; nombre: string }[]>([])
+const serviciosCatalogo = ref<{ id: number; nombre: string }[]>([])
+const descuentoItems = computed(() => [
+  { title: 'Sin descuento', value: 'ninguno' as const },
+  ...descuentosCatalogo.value.map((d) => ({ title: d.nombre, value: d.id })),
+])
+const servicioItems = computed(() => serviciosCatalogo.value.map((s) => ({ title: s.nombre, value: s.id })))
+const estadoItems = (Object.keys(ETIQUETAS_ESTADO) as Array<keyof typeof ETIQUETAS_ESTADO>).map((value) => ({
+  title: ETIQUETAS_ESTADO[value],
+  value,
+}))
+async function cargarCatalogos() {
+  const [desc, serv] = await Promise.allSettled([
+    descuentosService.getActivos(),
+    TurnosDelDiaService.obtenerServicios(),
+  ])
+  if (desc.status === 'fulfilled') {
+    const arr = Array.isArray(desc.value?.data) ? desc.value.data : []
+    descuentosCatalogo.value = arr
+      .filter((d) => typeof d.id === 'number')
+      .map((d) => ({ id: d.id as number, nombre: d.nombre }))
+    descuentosEdicion.value = mapearDescuentosActivos(
+      arr.filter((d) => typeof d.id === 'number') as DescuentoRaw[],
+    )
+  }
+  if (serv.status === 'fulfilled' && Array.isArray(serv.value)) {
+    serviciosCatalogo.value = serv.value.map((s) => ({ id: s.id, nombre: s.nombre }))
+  }
+}
+
+const chips = computed(() =>
+  chipsFiltros(filtros.value, {
+    descuento: (id) => descuentosCatalogo.value.find((d) => d.id === id)?.nombre,
+    servicio: (id) => serviciosCatalogo.value.find((s) => s.id === id)?.nombre,
+  }),
+)
+function quitar(clave: ClaveChip) {
+  filtros.value = quitarFiltro(filtros.value, clave)
+  if (clave === 'placa') placaInput.value = ''
+  if (clave === 'vendedor') vendedorInput.value = ''
+  if (clave === 'consecutivo') consecutivoInput.value = ''
+}
+function limpiar() {
+  if (pausa) clearTimeout(pausa)
+  placaInput.value = ''
+  vendedorInput.value = ''
+  consecutivoInput.value = ''
+  filtros.value = filtrosVacios()
+}
+
+/* Exportar con los filtros activos (download() lleva el Bearer) */
+const exportando = ref(false)
+async function exportar() {
+  exportando.value = true
+  try {
+    const blob = await FacturacionService.exportarExcel(filtrosAParams(filtros.value))
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = nombreExcel(filtros.value)
+    a.click()
+    URL.revokeObjectURL(url)
+  } catch (err) {
+    snack.text = err instanceof HttpError ? `❌ No se pudo exportar: ${err.message}` : '❌ No se pudo exportar'
+    snack.show = true
+  } finally {
+    exportando.value = false
+  }
+}
+
 /* ===== Tabla (server) ===== */
 const loading = ref(false)
 const rows = ref<FacturacionTicket[]>([])
 const total = ref(0)
+const resumen = ref<ResumenHistorial | null>(null)
 const pagination = ref({
-  page: 1,
-  itemsPerPage: 20,
+  page: inicial.page,
+  itemsPerPage: inicial.perPage,
   sortBy: [] as Array<{ key: string; order?: 'asc'|'desc' }>
 })
 const pages = computed(() => Math.max(1, Math.ceil(total.value / pagination.value.itemsPerPage)))
@@ -668,18 +1235,24 @@ const headers = [
   { title: 'Sede', key: 'sedeNombre', width: 200 },
   { title: 'Vendedor', key: 'vendedor_text', width: 220 },
   { title: 'Consec. descuento', key: 'consecutivo_descuento', width: 160 },
-  { title: 'Acciones', key: 'acciones', width: 120 },
+  { title: 'Acciones', key: 'acciones', width: 200 },
 ]
 
+let consulta = 0
 async function fetchList() {
+  const actual = ++consulta
   loading.value = true
   try {
     const resp = await FacturacionService.list({
       page: pagination.value.page,
       limit: pagination.value.itemsPerPage,
-    }) as unknown as Paginated<FacturacionTicket>
+      ...filtrosAParams(filtros.value),
+    })
+    // Si llegó una respuesta vieja (filtros cambiados entre medias), se descarta.
+    if (actual !== consulta) return
     rows.value = resp.data || []
     total.value = resp.meta?.total ?? rows.value.length
+    resumen.value = resp.resumen ?? null
   } catch (err) {
     console.error('Error cargando histórico:', err)
     snack.text = '❌ Error cargando histórico'
@@ -689,11 +1262,14 @@ async function fetchList() {
   }
 }
 function refresh() { fetchList() }
+// La tabla solo pagina por la URL (el watch de la ruta recarga).
 function onUpdateOptions(opts: { page?: number; itemsPerPage?: number; sortBy?: Array<{ key: string; order?: 'asc'|'desc' }>}) {
-  if (typeof opts.page === 'number') pagination.value.page = opts.page
-  if (typeof opts.itemsPerPage === 'number') pagination.value.itemsPerPage = opts.itemsPerPage
   if (opts.sortBy) pagination.value.sortBy = opts.sortBy
-  refresh()
+  if (typeof opts.itemsPerPage === 'number' && opts.itemsPerPage !== pagination.value.itemsPerPage) {
+    cambiarPorPagina(opts.itemsPerPage)
+  } else if (typeof opts.page === 'number' && opts.page !== pagination.value.page) {
+    sincronizarUrl(opts.page)
+  }
 }
 
 /* ===== Fecha pago fallback chain ===== */
@@ -1042,11 +1618,228 @@ async function saveCorregirConsecutivo() {
   }
 }
 
+/* ===== 🆕 Editar el descuento de un ticket CONFIRMADA ===== */
+// Mismo bloque del modal de confirmación (DescuentoCajaEditor). El backend
+// recalcula total y comisión (PENDIENTE) y deja registro; el diálogo muestra
+// el antes y el después con solo_previsualizar antes de guardar.
+type TicketEdicion = TicketParaEditar & {
+  placa?: string | null
+  tipoVehiculoSnapshot?: string | null
+  documentosPoliciaFaltantes?: DocPoliciaKey[]
+  descuentoAplicado?: { autorizadoPor?: { id: number; nombre: string } | null } | null
+  turno?: { tipoVehiculo?: string | null } | null
+}
+
+const puedeEditarDescuento = computed(() => authStore.hasAnyRole([...ROLES_EDICION_DESCUENTO]))
+const descuentosEdicion = ref<DescuentoDetalle[]>([])
+const autorizadoresEdicion = ref<{ id: number; nombre: string }[]>([])
+
+const formVacio = (): FormEdicionDescuento => ({
+  descuentoId: null, monto: 0, autorizadoPorId: null, observacion: '', consecutivo: '',
+})
+const edicion = reactive({
+  open: false,
+  cargando: false,
+  guardando: false,
+  ticket: null as TicketEdicion | null,
+  inicial: formVacio(),
+  form: formVacio(),
+  motivo: '',
+  consecutivoBloqueado: true,
+  documentosCompletos: false,
+  previa: null as ResultadoEdicionDescuento | null,
+  previaCargando: false,
+  error: '',
+})
+
+async function cargarAutorizadores(ticket: TicketEdicion) {
+  if (!autorizadoresEdicion.value.length) {
+    try {
+      autorizadoresEdicion.value = autorizadoresDescuento(await obtenerUsuarios())
+    } catch (err) {
+      console.error('Error cargando autorizadores:', err)
+    }
+  }
+  // El que ya autorizó el descuento aparece aunque hoy no esté en la lista.
+  const actual = ticket.descuentoAplicado?.autorizadoPor
+  if (actual && !autorizadoresEdicion.value.some((u) => u.id === actual.id)) {
+    autorizadoresEdicion.value = [...autorizadoresEdicion.value, actual]
+  }
+}
+
+async function abrirEdicionDescuento(id: number) {
+  Object.assign(edicion, {
+    open: true, cargando: true, guardando: false, ticket: null, motivo: '',
+    previa: null, previaCargando: false, error: '',
+  })
+  try {
+    const t = (await FacturacionService.getById(id)) as unknown as TicketEdicion
+    await cargarAutorizadores(t)
+    edicion.inicial = formInicialEdicion(t)
+    edicion.form = { ...edicion.inicial }
+    edicion.ticket = t
+  } catch (err) {
+    console.error('Error cargando el ticket para editar:', err)
+    snack.text = '❌ No se pudo cargar el ticket'
+    snack.show = true
+    edicion.open = false
+  } finally {
+    edicion.cargando = false
+  }
+}
+
+const nombreDescuentoInicial = computed(() => {
+  const id = edicion.inicial.descuentoId
+  if (!id) return 'sin descuento'
+  return descuentosEdicion.value.find((d) => d.id === id)?.nombre ?? `Descuento #${id}`
+})
+const edicionEsMoto = computed(() => {
+  const tipo = (edicion.ticket?.tipoVehiculoSnapshot ?? edicion.ticket?.turno?.tipoVehiculo ?? '').toUpperCase()
+  return tipo.includes('MOTO')
+})
+const edicionDocumentosCargados = computed((): DocPoliciaKey[] => {
+  const faltan = edicion.ticket?.documentosPoliciaFaltantes ?? ['carnet', 'tarjeta_propiedad', 'cedula']
+  return (['carnet', 'tarjeta_propiedad', 'cedula'] as const).filter((k) => !faltan.includes(k))
+})
+const edicionDetalle = computed(() =>
+  descuentosEdicion.value.find((d) => d.id === edicion.form.descuentoId) ?? null,
+)
+const edicionHayCambio = computed(() => hayCambioEdicion(edicion.inicial, edicion.form))
+const edicionRequiereAutorizador = computed(() => requiereAutorizador(edicion.inicial, edicion.form))
+const edicionMontoCero = computed(() =>
+  !!edicion.form.descuentoId &&
+  pideConfirmarMontoCero(
+    edicionDetalle.value?.codigo,
+    edicion.form.monto,
+    montoMaximo(edicionDetalle.value, edicionEsMoto.value),
+  ),
+)
+const edicionTotales = computed(() =>
+  edicion.ticket ? totalesEdicion(edicion.ticket, edicion.form) : { antes: 0, despues: 0 },
+)
+const edicionMotivoError = computed(() =>
+  edicion.motivo && !motivoEdicionValido(edicion.motivo)
+    ? `Mínimo ${MOTIVO_EDICION_MIN} caracteres.`
+    : '',
+)
+const avisoComisionEdicion = computed(() =>
+  edicion.previa ? avisoComision(edicion.previa.comision) : null,
+)
+const comisionRecalculada = computed(() => {
+  const c = edicion.previa?.comision
+  const recalcula = c?.accion === 'RECALCULADA' || c?.accion === 'AJUSTADA_TRAS_PAGO'
+  return recalcula && c.antes && c.despues
+    ? { antes: c.antes, despues: c.despues, diferencia: c.diferencia.total }
+    : null
+})
+const modalComisionEdicion = computed(() =>
+  edicion.previa ? modalComision(edicion.previa.comision, fmtCOP) : null,
+)
+const confirmarComision = reactive({ open: false, entiendo: false })
+function estadoComisionColor(estado: string | null) {
+  return estado === 'PAGADA' ? 'red-darken-2'
+    : estado === 'APROBADA' ? 'blue'
+    : estado === 'ANULADA' ? 'grey'
+    : 'orange-darken-2'
+}
+
+// Si la comisión cambia, primero el modal (con casilla si ya se pagó).
+function solicitarGuardarEdicion() {
+  if (!edicionPuedeGuardar.value) return
+  if (modalComisionEdicion.value) {
+    Object.assign(confirmarComision, { open: true, entiendo: false })
+    return
+  }
+  void guardarEdicionDescuento(false)
+}
+const edicionPuedeGuardar = computed(() => {
+  const f = edicion.form
+  if (edicion.guardando || edicion.cargando || !edicionHayCambio.value) return false
+  if (!motivoEdicionValido(edicion.motivo) || edicion.error || edicion.previaCargando) return false
+  // Sin la previsualización no se sabe qué le pasa a la comisión.
+  if (!edicion.previa) return false
+  if (f.descuentoId && edicion.consecutivoBloqueado) return false
+  if (edicionDetalle.value?.codigo === 'INFORMATIVO_POLICIA' && !edicion.documentosCompletos) return false
+  if (edicionRequiereAutorizador.value && !f.autorizadoPorId) return false
+  return true
+})
+
+// Antes y después (total y comisión) desde el backend, sin guardar nada.
+let previaTimer: ReturnType<typeof setTimeout> | null = null
+let previaConsulta = 0
+watch(
+  () => [edicion.open, edicion.ticket?.id, { ...edicion.form }] as const,
+  () => {
+    if (previaTimer) clearTimeout(previaTimer)
+    edicion.error = ''
+    edicion.previa = null
+    const ticket = edicion.ticket
+    // Con descuento y sin consecutivo válido el backend respondería 422: se espera.
+    const consecutivoListo = !edicion.form.descuentoId || CONSECUTIVO_DESCUENTO_RE.test(edicion.form.consecutivo)
+    if (!edicion.open || !ticket || !edicionHayCambio.value || !consecutivoListo) {
+      edicion.previaCargando = false
+      return
+    }
+    edicion.previaCargando = true
+    const consulta = ++previaConsulta
+    previaTimer = setTimeout(async () => {
+      try {
+        const r = await FacturacionService.previsualizarEdicionDescuento(
+          ticket.id, bodyEdicion(edicion.form, ''),
+        )
+        if (consulta === previaConsulta) edicion.previa = r
+      } catch (err) {
+        if (consulta === previaConsulta) {
+          edicion.error = err instanceof Error ? err.message : 'No se pudo calcular el efecto.'
+        }
+      } finally {
+        if (consulta === previaConsulta) edicion.previaCargando = false
+      }
+    }, 500)
+  },
+  { deep: true },
+)
+
+async function guardarEdicionDescuento(confirmarPagada: boolean) {
+  const ticket = edicion.ticket
+  if (!ticket || !edicionPuedeGuardar.value) return
+  edicion.guardando = true
+  edicion.error = ''
+  try {
+    const r = await FacturacionService.editarDescuentoConfirmado(
+      ticket.id, bodyEdicion(edicion.form, edicion.motivo, confirmarPagada),
+    )
+    confirmarComision.open = false
+    edicion.open = false
+    const aviso = avisoComision(r.comision)
+    snack.text = aviso.tipo === 'warning'
+      ? `✅ Descuento actualizado. ${aviso.texto}`
+      : '✅ Descuento actualizado'
+    snack.show = true
+    if (dialog.item?.id === ticket.id) {
+      dialog.item = (await FacturacionService.getById(ticket.id)) as ExtendedFacturacionTicket
+    }
+    await fetchList()
+  } catch (err) {
+    console.error('Error editando el descuento:', err)
+    confirmarComision.open = false
+    edicion.error = err instanceof Error ? err.message : 'No se pudo guardar.'
+  } finally {
+    edicion.guardando = false
+  }
+}
+
+function avisoSnack(texto: string) {
+  snack.text = texto
+  snack.show = true
+}
+
 /* ===== Snack ===== */
 const snack = reactive({ show: false, text: '' })
 
 /* ===== Lifecycle ===== */
 onMounted(async () => {
+  void cargarCatalogos()
   await fetchList()
   await openFocusIfAny()
 })

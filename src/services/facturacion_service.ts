@@ -1,5 +1,5 @@
 // src/services/facturacion_service.ts
-import { get, upload, post, patch } from './http'
+import { get, upload, post, patch, download } from './http'
 
 /* =========================== Tipos del dominio =========================== */
 
@@ -114,6 +114,9 @@ export interface FacturacionTicket {
 
   // 🆕 DTO enriquecido del descuento (viene del getById)
   descuentoAplicado?: DescuentoAplicadoDTO | null
+  /** 🆕 Documentos de INFORMATIVO_POLICIA ya subidos (getById) */
+  documentosPoliciaCompletos?: boolean
+  documentosPoliciaFaltantes?: Array<'carnet' | 'tarjeta_propiedad' | 'cedula'>
 
   // 🔹 Enriquecidos (virtuales del backend al preloadear turno/servicio)
   turnoGlobal?: number | null
@@ -136,6 +139,29 @@ export interface Paginated<T> {
     previous_page_url: string | null
   }
   data: T[]
+}
+
+/** 🆕 Historial: línea resumen con los filtros actuales (sin paginar). */
+export interface ResumenHistorial {
+  cantidad: number
+  total_facturado: number
+  total_descuento: number
+}
+
+/** 🆕 Filtros del historial (se suman a los de siempre del listado). */
+export interface FiltrosListaParams {
+  /** YYYY-MM-DD, hora de Bogotá, sobre la "Fecha pago" que muestra la tabla */
+  fecha_pago_desde?: string
+  fecha_pago_hasta?: string
+  /** Parcial, sin importar mayúsculas ni espacios */
+  placa_contiene?: string
+  /** Parcial (mín. 2 letras) */
+  vendedor?: string
+  /** Id del descuento o "ninguno" */
+  descuento_id?: number | 'ninguno'
+  consecutivo_descuento?: string
+  consecutivo_descuento_exacto?: 1
+  servicio_id?: number
 }
 
 export interface TicketUpdatePayload {
@@ -199,6 +225,70 @@ export interface VerificacionConsecutivoDescuento {
   }>
 }
 
+/** 🆕 Edición del descuento de un ticket CONFIRMADA (solo SUPER_ADMIN/GERENCIA) */
+export interface EdicionDescuentoBody {
+  /** null = quitar el descuento */
+  descuento_id: number | null
+  descuento_monto_aplicado?: number | null
+  autorizado_por_id?: number | null
+  descuento_observacion?: string | null
+  consecutivo_descuento?: string | null
+  /** Obligatorio al guardar (5 a 255 caracteres) */
+  motivo_edicion: string
+  /** Obligatorio si la comisión está PAGADA o en una liquidación (si no, 409). */
+  confirmar_comision_pagada?: boolean
+}
+
+export interface EstadoDescuentoTicket {
+  descuento: { id: number; codigo: string; nombre: string } | null
+  monto: number | null
+  total: number | null
+  totalSinDescuento: number | null
+  consecutivoDescuento: string | null
+  autorizadoPorId: number | null
+  observacion: string | null
+}
+
+export interface MontosComision {
+  monto: number
+  montoAsesor: number
+  montoConvenio: number
+}
+
+/**
+ * Qué pasa con la comisión del dateo del turno:
+ * RECALCULADA (PENDIENTE o APROBADA) · AJUSTADA_TRAS_PAGO (PAGADA o en una
+ * liquidación; exige confirmar_comision_pagada) · NO_MODIFICADA (ANULADA) ·
+ * SIN_CONTINUIDAD (falta la continuidad guardada) · SIN_COMISION.
+ */
+export type AccionComisionEdicion =
+  | 'RECALCULADA'
+  | 'AJUSTADA_TRAS_PAGO'
+  | 'NO_MODIFICADA'
+  | 'SIN_CONTINUIDAD'
+  | 'SIN_COMISION'
+
+export interface ResultadoEdicionDescuento {
+  previsualizacion?: boolean
+  message?: string
+  ticketId: number
+  antes: EstadoDescuentoTicket
+  despues: EstadoDescuentoTicket
+  comision: {
+    accion: AccionComisionEdicion
+    mensaje: string | null
+    comisionId: number | null
+    estado: string | null
+    antes: MontosComision | null
+    despues: MontosComision | null
+    /** después − antes (0 si no se recalcula) */
+    diferencia: { asesor: number; convenio: number; total: number }
+    liquidacionIds: number[]
+    enLiquidacion: boolean
+    requiereConfirmacionPago: boolean
+  }
+}
+
 /* =============================== Endpoints =============================== */
 
 const base = '/api/facturacion/tickets' // ⬅️ con slash inicial
@@ -219,14 +309,19 @@ export const FacturacionService = {
     dateo_id?: number
     page?: number
     limit?: number
-  }) {
+  } & FiltrosListaParams) {
     const p: Record<string, string | number> = {}
     if (params) {
       Object.entries(params).forEach(([k, v]) => {
         if (v !== undefined && v !== null && v !== '') p[k] = v as string | number
       })
     }
-    return get<Paginated<FacturacionTicket>>(base, { params: p })
+    return get<Paginated<FacturacionTicket> & { resumen?: ResumenHistorial }>(base, { params: p })
+  },
+
+  /** 🆕 Excel del historial con los mismos filtros (requiere Bearer: va por download()). */
+  exportarExcel(params: { estado?: FactEstado } & FiltrosListaParams = {}) {
+    return download(`${base}/exportar`, params as Record<string, string | number>)
   },
 
   /** Detalle por id (incluye preloads en backend) */
@@ -332,6 +427,16 @@ export const FacturacionService = {
    */
   update(id: number | string, body: TicketUpdatePayload) {
     return patch<FacturacionTicket>(`${base}/${id}`, body)
+  },
+
+  /** 🆕 Antes y después de editar el descuento de un ticket CONFIRMADA (no guarda nada). */
+  previsualizarEdicionDescuento(id: number | string, body: EdicionDescuentoBody) {
+    return patch<ResultadoEdicionDescuento>(`${base}/${id}`, { ...body, solo_previsualizar: true })
+  },
+
+  /** 🆕 Edita el descuento de un ticket CONFIRMADA (el backend deja registro). */
+  editarDescuentoConfirmado(id: number | string, body: EdicionDescuentoBody) {
+    return patch<ResultadoEdicionDescuento>(`${base}/${id}`, body)
   },
 
   /**

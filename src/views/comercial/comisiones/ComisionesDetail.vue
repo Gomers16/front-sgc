@@ -20,6 +20,10 @@
             <div class="text-body-2" v-if="comision?.aprobado_at"><strong>Aprobada:</strong> {{ fmt(comision.aprobado_at) }}</div>
             <div class="text-body-2" v-if="comision?.pagado_at"><strong>Pagada:</strong> {{ fmt(comision.pagado_at) }}</div>
             <div class="text-body-2" v-if="comision?.anulado_at"><strong>Anulada:</strong> {{ fmt(comision.anulado_at) }}</div>
+            <!-- 🆕 Cambió al editar el descuento de su ticket de facturación -->
+            <div v-if="comision?.ajuste_edicion_factura" class="mt-2">
+              <MarcaAjusteFactura :ajuste="comision.ajuste_edicion_factura" />
+            </div>
           </v-card-text>
           <v-card-actions class="px-4 pb-4 pt-0 d-flex flex-wrap gap-2">
             <v-btn
@@ -292,6 +296,13 @@
         </v-card-actions>
       </v-card>
     </v-dialog>
+
+    <!-- 🆕 Monto contra la decisión de un ticket "sin comisión" -->
+    <ConfirmarSinComisionDialog
+      :model-value="confirmacion.visible"
+      :conflicto="confirmacion.conflicto"
+      @responder="responderSinComision"
+    />
   </v-container>
 </template>
 
@@ -309,6 +320,9 @@ import {
   type ComisionEstado,
 } from '@/services/comisionesService'
 import { etiquetaConvenio } from '@/services/conveniosService'
+import ConfirmarSinComisionDialog from './ConfirmarSinComisionDialog.vue'
+import MarcaAjusteFactura from './MarcaAjusteFactura.vue'
+import { conConfirmacionSinComision, type ConflictoSinComision } from './ticketOrigen'
 
 interface ComisionDetailExtended extends ComisionDetail {
   es_avance?: boolean | null
@@ -394,12 +408,33 @@ async function load() {
   }
 }
 
-async function guardarValores() {
-  await patchValores(id, {
-    cantidad: Number(form.value.cantidad),
-    valor_unitario: Number(form.value.valor_unitario),
+const confirmacion = ref<{
+  visible: boolean
+  conflicto: ConflictoSinComision | null
+  resolver: ((ok: boolean) => void) | null
+}>({ visible: false, conflicto: null, resolver: null })
+function pedirConfirmacion(c: ConflictoSinComision) {
+  return new Promise<boolean>((resolve) => {
+    confirmacion.value = { visible: true, conflicto: c, resolver: resolve }
   })
-  await load()
+}
+function responderSinComision(ok: boolean) {
+  const r = confirmacion.value.resolver
+  confirmacion.value = { visible: false, conflicto: null, resolver: null }
+  r?.(ok)
+}
+
+async function guardarValores() {
+  const hecho = await conConfirmacionSinComision(
+    (confirmar) =>
+      patchValores(id, {
+        cantidad: Number(form.value.cantidad),
+        valor_unitario: Number(form.value.valor_unitario),
+        ...(confirmar ? { confirmar_excepcion: true } : {}),
+      }),
+    pedirConfirmacion,
+  )
+  if (hecho) await load()
 }
 
 function volver() {
