@@ -203,22 +203,47 @@
                   <!-- 🆕 AVANCE: desglose incentivo vehículo - avance cobrado = incentivo final -->
                   <template v-if="comision.es_avance">
                     <strong>Descuento AVANCE aplicado.</strong><br/>
-                    Incentivo vehículo: <strong>{{ formatCOP(Number(comision.base ?? 0)) }}</strong>
-                    — Avance cobrado: <strong style="color: #b71c1c;">- {{ formatCOP(Number(comision.descuento_monto_aplicado ?? 0)) }}</strong>
-                    = Incentivo final: <strong>{{ formatCOP(montoConvenioFinal) }}</strong>
+                    Avance cobrado en la factura: <strong>{{ formatCOP(Number(comision.descuento_monto_aplicado ?? 0)) }}</strong>.
+                    El avance no se resta del incentivo: la parte del convenio queda en
+                    <strong>{{ formatCOP(montoConvenioFinal) }}</strong>. {{ efectoDescuento }}
                   </template>
                   <template v-else-if="comision.descuento_origen === 'dateo'">
                     <strong>Pre-marcado por el comercial al crear el dateo.</strong>
-                    La comisión se calculó con el valor básico de recurrencia en lugar del valor nuevo directo.
+                    {{ efectoDescuento }}
                   </template>
                   <template v-else>
                     <strong>Aplicado manualmente en caja al confirmar el ticket.</strong>
-                    La comisión se calculó con el valor básico de recurrencia en lugar del valor nuevo directo.
+                    {{ efectoDescuento }}
                   </template>
                 </v-alert>
               </v-col>
             </v-row>
           </v-card-text>
+        </v-card>
+      </v-col>
+
+      <!-- 🆕 Desglose de la comisión (misma tarjeta que la edición de facturas) -->
+      <v-col cols="12" data-test="comision-calculo">
+        <v-card class="rounded-lg pa-2" elevation="4">
+          <DesgloseComisionCard
+            v-if="comision?.desglose_motor"
+            :desglose="comision.desglose_motor"
+            :estado="comision.estado"
+          />
+          <template v-else>
+            <div class="text-body-2 mb-2" data-test="comision-regla">
+              <strong>Regla guardada:</strong>
+              <span class="regla-guardada">
+                {{
+                  comision?.regla_aplicada ??
+                  'Sin regla guardada (comisión anterior a esta funcionalidad o creada por otra ruta)'
+                }}
+              </span>
+            </div>
+            <v-alert type="info" variant="tonal" density="compact">
+              {{ comision?.desglose_motivo ?? 'Sin desglose del motor para esta comisión.' }}
+            </v-alert>
+          </template>
         </v-card>
       </v-col>
 
@@ -322,6 +347,7 @@ import {
 import { etiquetaConvenio } from '@/services/conveniosService'
 import ConfirmarSinComisionDialog from './ConfirmarSinComisionDialog.vue'
 import MarcaAjusteFactura from './MarcaAjusteFactura.vue'
+import DesgloseComisionCard from '@/components/comisiones/DesgloseComisionCard.vue'
 import { conConfirmacionSinComision, type ConflictoSinComision } from './ticketOrigen'
 
 interface ComisionDetailExtended extends ComisionDetail {
@@ -338,6 +364,16 @@ const comision = ref<ComisionDetailExtended | null>(null)
 const loading = ref(true)
 
 const form = ref({ cantidad: 1, valor_unitario: 0 })
+
+// Lo que hizo el descuento, explicado por el motor (la regla no se repite aquí).
+const efectoDescuento = computed(() => {
+  const d = comision.value?.desglose_motor
+  if (d?.recalculado && !d.alertas.some((a) => a.codigo === 'DISTINTO_AL_MOTOR')) {
+    return d.explicacion
+  }
+  const regla = comision.value?.regla_aplicada
+  return regla ? `Regla: ${regla}` : ''
+})
 
 const montoConvenioFinal = computed(() => Number(comision.value?.monto_convenio ?? 0))
 
@@ -476,6 +512,7 @@ onMounted(load)
 
 <style scoped>
 .g-4 { gap: 16px; }
+.regla-guardada { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; word-break: break-word; }
 .gap-2 { gap: 8px; }
 .gap-3 { gap: 12px; }
 </style>

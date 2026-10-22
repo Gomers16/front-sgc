@@ -206,7 +206,7 @@
                   AVANCE
                 </v-chip>
                 <span class="text-medium-emphasis font-weight-medium">
-                  El incentivo del convenio se aplica como descuento variable en caja.
+                  {{ TEXTO_MARCA_AVANCE }}
                 </span>
               </div>
 
@@ -454,7 +454,7 @@
                   <!-- ++ AVANCE en modal de confirmación ++ -->
                   <div class="capt-line" v-if="turnoMeta.esAvance">
                     <v-chip size="x-small" color="warning" variant="flat" prepend-icon="mdi-cash-fast">AVANCE</v-chip>
-                    <span class="text-medium-emphasis">Descuento variable aplicado en caja</span>
+                    <span class="text-medium-emphasis">{{ TEXTO_MARCA_AVANCE }}</span>
                   </div>
                   <div v-if="!turnoCard.agenteComercialNombre && !turnoCard.asesorConvenioNombre && !turnoCard.convenioNombre && !turnoMeta.esAvance">—</div>
                 </div>
@@ -489,6 +489,8 @@
               :es-moto="esVehiculoMoto"
               :ticket-id="currentTicketId"
               :mostrar-observacion="!!turnoMeta.dateoId && !turnoMeta.descuentoId"
+              :caso-comision="casoTurno"
+              :traia-descuento="turnoMeta.descuentoId ? 'DATEO' : null"
               @update:consecutivo-bloqueado="(b: boolean) => (consecutivoDescuentoBloqueado = b)"
               @update:documentos-completos="(v: boolean) => (documentosPoliciaCompletos = v)"
               @aviso="(t: string) => { snack.text = t; snack.show = true }"
@@ -508,8 +510,7 @@
                         <strong>Pre-marcado desde el dateo:</strong> {{ descuentoDelDateoNombre }}
                         <div class="text-caption mt-1">
                           El comercial indicó este descuento al crear el dateo.
-                          Se aplicará automáticamente — la comisión bajará del valor nuevo directo
-                          al valor básico de dateo.
+                          Se aplicará automáticamente. Efecto en la comisión: {{ efectoComisionPremarcado }}
                         </div>
                       </div>
                       <v-btn
@@ -559,29 +560,6 @@
                     >
                       Volver al pre-marcado
                     </v-btn>
-                  </div>
-                </v-alert>
-              </template>
-              <template #policia>
-                <!-- Impacto en comisión cuando viene aplicado en caja sin pre-marcado -->
-                <v-alert
-                  v-if="impactoComisionPolicia"
-                  type="info"
-                  variant="tonal"
-                  density="compact"
-                  class="mt-3"
-                  prepend-icon="mdi-cash-check"
-                >
-                  <div class="font-weight-bold mb-1">Efecto en comisiones con este descuento:</div>
-                  <div v-if="impactoComisionPolicia.comercial" class="text-caption">
-                    <v-icon size="14" color="info">mdi-account-tie</v-icon>
-                    <strong>{{ impactoComisionPolicia.comercial.nombre }}</strong>
-                    → {{ impactoComisionPolicia.comercial.monto }}
-                  </div>
-                  <div v-if="impactoComisionPolicia.convenio" class="text-caption mt-1">
-                    <v-icon size="14" color="info">mdi-handshake</v-icon>
-                    <strong>{{ impactoComisionPolicia.convenio.nombre }}</strong>
-                    → {{ impactoComisionPolicia.convenio.monto }}
                   </div>
                 </v-alert>
               </template>
@@ -679,7 +657,7 @@
                 <strong>Origen:</strong> Aplicado en caja.
                 Autorizado por: <strong>{{ usuariosItems.find(u => u.id === autorizadoPorId)?.nombre ?? '—' }}</strong>.
               </template>
-              La comisión fue ajustada al valor básico de dateo.
+              Efecto en la comisión: {{ efectoComisionConfirmar }}
             </div>
           </v-alert>
 
@@ -739,6 +717,11 @@ import { useRoute, useRouter } from 'vue-router'
 import TurnosDelDiaService from '@/services/turnosdeldiaService'
 import { FacturacionService } from '@/services/facturacion_service'
 import DescuentoCajaEditor from '@/components/facturacion/DescuentoCajaEditor.vue'
+import {
+  TEXTO_EFECTO_DESCUENTO,
+  casoDelTurno,
+  textoDescuentoConvenio,
+} from '@/services/desgloseComision'
 import { etiquetaConvenio } from '@/services/conveniosService'
 // ✅ FIX 1: descuentosService es default export → sin llaves, minúscula
 import descuentosService from '@/services/descuentosService'
@@ -1354,53 +1337,37 @@ const esDescuentoAvancePropietario = computed(() => {
   return d?.codigo === 'AVANCE_PROPIETARIO'
 })
 
-// ++ NUEVO: INFORMATIVO_OBSEQUIO — usa slider normal, NO monto fijo ++
-const esDescuentoObsequio = computed(() => {
-  if (!descuentoIdEfectivo.value) return false
-  if (turnoMeta.descuentoId && !overrideDateoDescuento.value && detallePremarcado.value)
-    return detallePremarcado.value.codigo === 'INFORMATIVO_OBSEQUIO'
-  const d = descuentosActivos.value.find(x => x.id === descuentoIdEfectivo.value)
-  return d?.codigo === 'INFORMATIVO_OBSEQUIO'
-})
-
-// Solo cuando INFORMATIVO_POLICIA se aplica en caja (sin pre-marcado de dateo, o con override)
-const esInformativoPoliciaEnCaja = computed(() =>
-  esDescuentoPolicia.value && (!turnoMeta.descuentoId || overrideDateoDescuento.value)
-)
-
 // true cuando el descuento activo fue elegido en caja y requiere autorizador
 const esDescuentoEnCajaActivo = computed(() =>
   !!descuentoIdEnCaja.value && (!turnoMeta.descuentoId || overrideDateoDescuento.value)
 )
 
-// Resumen del impacto en comisión para mostrar en modal
-const impactoComisionPolicia = computed(() => {
-  if (!esInformativoPoliciaEnCaja.value || esDescuentoObsequio.value) return null
-  const tieneConvenio = !!turnoCard.convenioNombre
-  const tieneComercial = !!turnoCard.agenteComercialNombre
-  if (tieneComercial && tieneConvenio) {
-    // CASO 3: comercial datea con convenio
-    return {
-      comercial: { nombre: turnoCard.agenteComercialNombre!, monto: '$4.300 (baja de comisión estándar)' },
-      convenio:  { nombre: etiquetaConvenio({ nombre: turnoCard.convenioNombre, establecimiento: turnoCard.convenioEstablecimiento }), monto: '$0' },
-    }
-  }
-  if (tieneConvenio && !tieneComercial) {
-    // CASO 2: asesor convenio datea él mismo
-    return {
-      comercial: null,
-      convenio:  { nombre: etiquetaConvenio({ nombre: turnoCard.convenioNombre, establecimiento: turnoCard.convenioEstablecimiento }), monto: '$0' },
-    }
-  }
-  if (tieneComercial && !tieneConvenio) {
-    // CASO 1: comercial sin convenio
-    return {
-      comercial: { nombre: turnoCard.agenteComercialNombre!, monto: '$4.300 (baja de comisión estándar)' },
-      convenio:  null,
-    }
-  }
-  return null
-})
+// Caso de la comisión con lo que muestra la tarjeta del dateo (null sin dateo).
+const casoTurno = computed(() =>
+  turnoMeta.dateoId
+    ? casoDelTurno({
+        tieneComercial: !!turnoCard.agenteComercialNombre,
+        tieneConvenio: !!turnoCard.convenioNombre,
+      })
+    : null,
+)
+// Con convenio manda el descuento final de la factura (pre-marcado o de caja),
+// sea cual sea su código o monto.
+const efectoComisionPremarcado = computed(
+  () =>
+    textoDescuentoConvenio({ caso: casoTurno.value, hayDescuento: true }) ?? TEXTO_EFECTO_DESCUENTO,
+)
+const efectoComisionConfirmar = computed(
+  () =>
+    textoDescuentoConvenio({
+      caso: casoTurno.value,
+      hayDescuento: !!descuentoIdEfectivo.value,
+      traiaDescuento: turnoMeta.descuentoId ? 'DATEO' : null,
+    }) ?? TEXTO_EFECTO_DESCUENTO,
+)
+// La marca es_avance del dateo es solo informativa: cuenta el descuento de la factura.
+const TEXTO_MARCA_AVANCE =
+  'El comercial marcó Avance en el dateo (informativo: cuenta el descuento que quede en la factura).'
 
 // Los 3 documentos de INFORMATIVO_POLICIA (los sube DocumentosPoliciaCarga).
 const documentosPoliciaCompletos = ref(false)
